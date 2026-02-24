@@ -93,4 +93,29 @@ title: Test Facts
   - 再补齐 JSON Feed/RSS 输出自检（P1）。
   - 最后补齐 marks/feedback 反馈闭环（P2）。
 
+## Fact 3.4: 远端测试环境 HA 可用事实（按官方实践对齐）
+
+### 已确认高置信事实
+
+- 远端入口必须走 VPS 两跳（`ssh -J` / `ProxyJump` 方式）；官方 `ssh_config`/`ssh(1)` 都将该方式定义为“先连跳板后到目标的顺序链路”，适配可写成命令行 `-J` 或配置项 `ProxyJump`。
+- 远端需把源码路径作为本机可执行测试上下文（`MACMINI_DATAPULSE_DIR` 指向源码根，含 `pyproject.toml` 与 `datapulse/`）。
+- 远端 Python 版本必须满足项目元数据要求（`requires-python` 当前链路要求 `>=3.10`），否则入口导入阶段不应继续。
+- 两跳通道与服务可达建议用独立敏感环境变量文件承载（`.env.openclaw` / `.env.local` / `.env.secret`），脚本已支持且不会读取明文入库。
+- Runtime 健康检查建议通过 `curl` 指定 `/healthz`、`/readyz` 做层级可观测；已在远端脚本中形成前置阻断点与阻断码。
+
+### 当前阻塞事实与修复动作（高置信）
+
+- 阻塞主因：远端 Python 仍是 `3.9.6`，脚本级阻断码 `PYTHON_VERSION_TOO_LOW`。
+  - 修复动作：在远端切换到 3.10+ 解释器（示例 `python3.11`），并将 `REMOTE_PYTHON` 指向对应解释器。
+- 阻塞主因二：`ModuleNotFoundError: No module named 'datapulse'`。
+  - 修复动作：确认 `MACMINI_DATAPULSE_DIR` 指向 `pyproject.toml` 与 `datapulse/` 同级源码根；必要时执行 `REMOTE_BOOTSTRAP_INSTALL=1` 触发一次 `pip install -e .`。
+- 阻塞主因三：SSH 认证与端口参数不匹配（两跳参数变更）。
+  - 修复动作：优先改为密钥链路；如继续口令链路，确保 VPS 与跳板 `sshpass` 两段参数一致。
+
+### 官方实践映射（对齐）
+
+- Python 可执行安装：在远端先建立隔离环境（`python3 -m venv`），用该解释器执行 `python3 -m pip install -e .`（官方 Python 文档/Packaging 指南推荐）。
+- SSH 两跳隧道：`ssh -J` / `ProxyJump` 是 OpenSSH 标准链路模型；命令链路与配置链路保持一致。
+- 可见性与可恢复性：远端脚本已将 `DATAPULSE_DIR_NOT_FOUND` / `PYTHON_VERSION_TOO_LOW` / `PACKAGE_MISSING` / `IMPORT_FAILED` 等阻断码固化，便于自动归档与复测闭环。
+
 [⬆️ Back to top / 返回顶部](#top) | [🔙 返回主 README](../README.md) | [🔄 中文对照/English](../README_CN.md)
