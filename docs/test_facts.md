@@ -54,6 +54,35 @@ title: Test Facts
 - 环境与端点主事实来源：
   - `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/openclaw-bot/mac-m4环境/基础信息.md`
   - `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/openclaw-bot/mac-m4环境/模型端点配置.md`
+- 已执行快照（2026-02-24）：
+  - 本机：`PASS=10 FAIL=1`（缺口：缺少 7 个 `DATAPULSE_SMOKE_*`）
+  - 远端：`FAIL`（阻断链路定位到 `ModuleNotFoundError: No module named 'datapulse'`）
+  - 远端记录值（高敏信息不入库）：`VPS_HOST=<VPS_HOST>`，`MACMINI_HOST=<MACMINI_HOST>`，`MACMINI_DATAPULSE_DIR=<MACMINI_DATAPULSE_DIR>`
+  - 远端 Python（检测值）：`3.9.6`，低于 `requires-python >=3.10`
+- 远端高可用预检说明（已加入脚本）：
+  - 检查 `MACMINI_DATAPULSE_DIR` 目录存在性（含 `pyproject.toml` 与 `datapulse/`）
+  - 检查远端 Python 版本是否 >= 3.10
+  - 检查 `python3 -m datapulse.tools.smoke` 入口可达性前的 import 成功性
+  - 失败时输出阻断标记（如 `PYTHON_VERSION_TOO_LOW` / `PACKAGE_MISSING` / `IMPORT_FAILED`）
+
+## Fact 3.1: 远端复测关键配置锚点
+
+- 建议校准配置（不入库）：
+  - `MACMINI_DATAPULSE_DIR=<remote_workspace>/DataPulse`
+  - `REMOTE_PYTHON=python3`（目标机器需满足 3.10+）
+  - `REMOTE_BOOTSTRAP_INSTALL=1`（可选，修复 `datapulse` 模块缺失时先执行一次 `pip install -e .`）
+  - `REMOTE_HEALTH_URL=http://127.0.0.1:18801`
+  - `VPS_HOST=<VPS_HOST>`、`MACMINI_HOST=<MACMINI_HOST>`（当前两跳链路观测值）
+- 若环境不可切换，请先确认：
+  - SSH 口令/密钥方式可达
+  - Runtime `/healthz` 与 `/readyz` 连通
+
+## Fact 3.3: 远端高可用阻断码
+
+- `PYTHON_VERSION_TOO_LOW`：远端解释器低于 `3.10`，请切换到 >=3.10 解释器或使用虚拟环境。
+- `DATAPULSE_DIR_NOT_FOUND`：当前 `MACMINI_DATAPULSE_DIR` 不可达或路径错误，请先 `ls` 链接到真实仓库根。
+- `PACKAGE_MISSING`：路径存在但未包含 `pyproject.toml` 或 `datapulse/`，请修正为源码根目录。
+- `IMPORT_FAILED`：源码可见但 `datapulse` 无法导入，多半是依赖未安装或 `pip` 环境错配，请检查 `REMOTE_BOOTSTRAP_INSTALL` 与 `pip install -e .`。
 
 ## Fact 4: 来源与订阅能力增强
 

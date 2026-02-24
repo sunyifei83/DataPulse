@@ -21,12 +21,12 @@ fi
 : "${VPS_USER:=}"
 : "${VPS_HOST:=}"
 : "${VPS_PASSWORD:=}"
-: "${MACMINI_USER:=wangzai-bot}"
-: "${MACMINI_HOST:=192.168.3.196}"
+: "${MACMINI_USER:=$USER}"
+: "${MACMINI_HOST:=127.0.0.1}"
 : "${MACMINI_PASSWORD:=}"
 : "${VPS_PORT:=6069}"
 : "${MACMINI_PORT:=22}"
-: "${MACMINI_DATAPULSE_DIR:=~/DataPulse}"
+: "${MACMINI_DATAPULSE_DIR:=$HOME/.openclaw/workspace/DataPulse}"
 : "${PLATFORMS:=twitter reddit youtube bilibili telegram rss wechat xhs}"
 : "${MIN_CONFIDENCE:=0.0}"
 : "${URL_1:=}"
@@ -40,10 +40,13 @@ fi
 : "${DATAPULSE_SMOKE_WECHAT_URL:=}"
 : "${DATAPULSE_SMOKE_XHS_URL:=}"
 : "${REMOTE_PYTHON:=python3}"
+: "${REMOTE_BOOTSTRAP_INSTALL:=0}"
+: "${REMOTE_INSTALL_CMD:=$REMOTE_PYTHON -m pip install -e .}"
+: "${REMOTE_HEALTH_URL:=http://127.0.0.1:18801}"
 
 if [[ -z "$VPS_USER" || -z "$VPS_HOST" ]]; then
   echo "ERROR: 请先设置 VPS_USER 与 VPS_HOST（VPS 两跳隧道要求）。"
-  echo "示例: export VPS_USER=root && export VPS_HOST=137.220.151.57 && export VPS_PORT=6069"
+  echo "示例: export VPS_USER=<vps-user> && export VPS_HOST=<vps-host> && export VPS_PORT=6069"
   exit 2
 fi
 
@@ -60,6 +63,9 @@ echo "VPS_HOST=$VPS_HOST"
 echo "MACMINI_HOST=$MACMINI_HOST"
 echo "MACMINI_USER=$MACMINI_USER"
 echo "MACMINI_DATAPULSE_DIR=$MACMINI_DATAPULSE_DIR"
+echo "REMOTE_PYTHON=$REMOTE_PYTHON"
+echo "REMOTE_BOOTSTRAP_INSTALL=$REMOTE_BOOTSTRAP_INSTALL"
+echo "REMOTE_HEALTH_URL=$REMOTE_HEALTH_URL"
 echo "PLATFORMS=$PLATFORMS"
 
 run_remote() {
@@ -79,7 +85,7 @@ for v in \
   URL_1 URL_BATCH MIN_CONFIDENCE PLATFORMS DATAPULSE_SMOKE_TWITTER_URL DATAPULSE_SMOKE_REDDIT_URL \
   DATAPULSE_SMOKE_YOUTUBE_URL DATAPULSE_SMOKE_BILIBILI_URL DATAPULSE_SMOKE_TELEGRAM_URL \
   DATAPULSE_SMOKE_RSS_URL DATAPULSE_SMOKE_WECHAT_URL DATAPULSE_SMOKE_XHS_URL \
-  DATAPULSE_MIN_CONFIDENCE
+  REMOTE_PYTHON REMOTE_BOOTSTRAP_INSTALL REMOTE_INSTALL_CMD REMOTE_HEALTH_URL DATAPULSE_MIN_CONFIDENCE
 do
   val="${!v-}"
   if [[ -n "$val" ]]; then
@@ -87,7 +93,15 @@ do
   fi
 done
 
-run_remote "bash -lc '$REMOTE_ENV cd $MACMINI_DATAPULSE_DIR && $REMOTE_PYTHON --version && $REMOTE_PYTHON -m pip --version'"
+run_remote "bash -lc '$REMOTE_ENV if [ ! -d \"$MACMINI_DATAPULSE_DIR\" ]; then echo \"[ERR] DATAPULSE_DIR_NOT_FOUND: $MACMINI_DATAPULSE_DIR\"; exit 2; fi'"
+run_remote "bash -lc '$REMOTE_ENV if [ ! -f \"$MACMINI_DATAPULSE_DIR/pyproject.toml\" ]; then echo \"[ERR] PYPROJECT_MISSING: $MACMINI_DATAPULSE_DIR/pyproject.toml\"; exit 2; fi'"
+run_remote "bash -lc '$REMOTE_ENV if [ ! -d \"$MACMINI_DATAPULSE_DIR/datapulse\" ]; then echo \"[ERR] PACKAGE_MISSING: $MACMINI_DATAPULSE_DIR/datapulse\"; exit 2; fi'"
+run_remote "bash -lc '$REMOTE_ENV $REMOTE_PYTHON - <<\\'PY\\'\nimport sys\nif sys.version_info < (3, 10):\n    print(f\"[ERR] PYTHON_VERSION_TOO_LOW={sys.version.split()[0]}\")\n    raise SystemExit(2)\nprint(f\"[OK] PYTHON_VERSION={sys.version.split()[0]}\")\nPY'"
+run_remote "bash -lc '$REMOTE_ENV $REMOTE_PYTHON --version && $REMOTE_PYTHON -m pip --version'"
+if [[ "$REMOTE_BOOTSTRAP_INSTALL" == "1" ]]; then
+  run_remote "bash -lc '$REMOTE_ENV if [ ! -d \"$MACMINI_DATAPULSE_DIR\" ]; then echo \"[ERR] DATAPULSE_DIR_NOT_FOUND: $MACMINI_DATAPULSE_DIR\"; exit 2; fi; cd \"$MACMINI_DATAPULSE_DIR\" && echo \"[INFO] REMOTE_BOOTSTRAP_INSTALL=$REMOTE_BOOTSTRAP_INSTALL\" && $REMOTE_INSTALL_CMD'"
+fi
+run_remote "bash -lc '$REMOTE_ENV cd $MACMINI_DATAPULSE_DIR && $REMOTE_PYTHON - <<\\'PY\\'\nimport datapulse\nprint(\"[OK] IMPORT datapulse\")\nPY'"
 run_remote "bash -lc '$REMOTE_ENV cd $MACMINI_DATAPULSE_DIR && $REMOTE_PYTHON -m datapulse.tools.smoke --list'"
 run_remote "bash -lc '$REMOTE_ENV cd $MACMINI_DATAPULSE_DIR && $REMOTE_PYTHON -m datapulse.tools.smoke --platforms $PLATFORMS --require-all --min-confidence ${MIN_CONFIDENCE}'"
 run_remote "bash -lc '$REMOTE_ENV cd $MACMINI_DATAPULSE_DIR && $REMOTE_PYTHON - <<\\'PY\\'
@@ -101,7 +115,7 @@ print(f\"feed_items={len(payload.get('items', []))}\")
 PY'"
 run_remote "bash -lc '$REMOTE_ENV cd $MACMINI_DATAPULSE_DIR && $REMOTE_PYTHON -m datapulse.cli --list --limit 5 --min-confidence 0.0 || true'"
 run_remote "bash -lc '$REMOTE_ENV cd $MACMINI_DATAPULSE_DIR && $REMOTE_PYTHON - <<\\'PY\\'\nimport asyncio\nimport os\nfrom datapulse.agent import DataPulseAgent\nurls = []\nfor part in [os.getenv(\"URL_1\", \"\"), os.getenv(\"URL_BATCH\", \"\")]:\n    if part.strip():\n        urls.extend(part.split())\nmsg = \" \".join(urls)\nprint(\"agent_input_count=\" + str(len(urls)))\nif msg:\n    result = asyncio.run(DataPulseAgent().handle(msg))\n    print(result)\nelse:\n    print(\"no-url\")\nPY'"
-run_remote "bash -lc 'curl -sS http://127.0.0.1:18801/healthz && echo && curl -sS http://127.0.0.1:18801/readyz | python3 -m json.tool'"
+run_remote "bash -lc '$REMOTE_ENV curl -fsS ${REMOTE_HEALTH_URL}/healthz && echo && curl -fsS ${REMOTE_HEALTH_URL}/readyz | python3 -m json.tool'"
 
 run_remote "bash -lc '$REMOTE_ENV cd $MACMINI_DATAPULSE_DIR && $REMOTE_PYTHON - <<\\'PY\\'
 from datapulse.reader import DataPulseReader

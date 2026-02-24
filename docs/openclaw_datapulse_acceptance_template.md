@@ -71,12 +71,15 @@
   - `VPS_HOST`
   - `VPS_PASSWORD`（如走 sshpass）
   - `VPS_PORT`（默认 `6069`）
-  - `MACMINI_USER`（默认 `wangzai-bot`）
+  - `MACMINI_USER`（默认本机 `$USER`；如不同请覆盖）
   - `MACMINI_PASSWORD`（如走 sshpass）
-  - `MACMINI_HOST`（默认 `192.168.3.196`；可改 `127.0.0.1`）
+  - `MACMINI_HOST`（默认 `127.0.0.1`；如采用直连按实际内网 IP 配置）
   - `MACMINI_PORT`（默认 `22`；两跳隧道常用 `2222`）
-  - `MACMINI_DATAPULSE_DIR`（默认 `~/DataPulse`，按实际路径设置）
+  - `MACMINI_DATAPULSE_DIR`（默认 `\$HOME/.openclaw/workspace/DataPulse`，按实际路径设置）
   - `REMOTE_PYTHON`（可选，默认 `python3`）
+  - `REMOTE_BOOTSTRAP_INSTALL`（可选，`0` 关闭，`1` 在导入前执行一次 `pip install -e .`）
+  - `REMOTE_INSTALL_CMD`（可选，默认 `$REMOTE_PYTHON -m pip install -e .`）
+  - `REMOTE_HEALTH_URL`（可选，默认 `http://127.0.0.1:18801`）
 - 认证方式：
   - 口令认证（sshpass）
     - 需要安装 `sshpass`
@@ -88,15 +91,36 @@
       - `ssh-copy-id -o "ProxyJump=${VPS_USER}@${VPS_HOST}:${VPS_PORT:-6069}" -p "${MACMINI_PORT:-22}" "${MACMINI_USER}@${MACMINI_HOST}"`
 - 连通性检查（执行在本机）：
 ```bash
-ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" "$VPS_USER@$VPS_HOST" "echo ok"
-ssh -o StrictHostKeyChecking=no -J "$VPS_USER@$VPS_HOST:${VPS_PORT:-6069}" -p "${MACMINI_PORT:-22}" "$MACMINI_USER@$MACMINI_HOST" "echo ok"
-sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" "$VPS_USER@$VPS_HOST" "sshpass -p '<MacMini口令>' ssh -o StrictHostKeyChecking=no -p ${MACMINI_PORT:-2222} $MACMINI_USER@$MACMINI_HOST 'echo ok'"
+  ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" "$VPS_USER@$VPS_HOST" "echo ok"
+  ssh -o StrictHostKeyChecking=no -J "$VPS_USER@$VPS_HOST:${VPS_PORT:-6069}" -p "${MACMINI_PORT:-22}" "$MACMINI_USER@$MACMINI_HOST" "echo ok"
+  sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" "$VPS_USER@$VPS_HOST" "sshpass -p '<MacMini口令>' ssh -o StrictHostKeyChecking=no -p ${MACMINI_PORT:-2222} $MACMINI_USER@$MACMINI_HOST 'echo ok'"
 ```
+
+### 远端源码与依赖恢复（高可用）
+
+- 远端阻塞根因若为 `ModuleNotFoundError: No module named 'datapulse'`，可先执行：
+```bash
+export MACMINI_DATAPULSE_DIR="\$HOME/.openclaw/workspace/DataPulse"
+export REMOTE_BOOTSTRAP_INSTALL=1
+bash scripts/datapulse_remote_openclaw_smoke.sh
+```
+- 如需把修复动作记录为快检动作，可先验证：
+```bash
+sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" "${VPS_USER}@${VPS_HOST}" \
+  "sshpass -p '<MacMini口令>' ssh -o StrictHostKeyChecking=no -p ${MACMINI_PORT:-2222} ${MACMINI_USER}@${MACMINI_HOST} \
+  'test -d \"${MACMINI_DATAPULSE_DIR}\" && test -d \"${MACMINI_DATAPULSE_DIR}/datapulse\" && [ -f \"${MACMINI_DATAPULSE_DIR}/pyproject.toml\" ] && python3 -m pip --version && python3 -m datapulse.tools.smoke --list'"
+```
+- 远端脚本会输出阻断码（示例）：`PACKAGE_MISSING`、`PYTHON_VERSION_TOO_LOW`、`IMPORT_FAILED`。
 
 ### OpenClaw/OpenModel 端点
 - Runtime 状态检测：`curl -sS http://127.0.0.1:18801/healthz`
 - 就绪检测：`curl -sS http://127.0.0.1:18801/readyz`
 - 工具链目标：MCP `read_url/read_batch/query_inbox/detect_platform/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed/health`
+- 远端预检（建议在 `bash scripts/datapulse_remote_openclaw_smoke.sh` 前执行）：
+  - `MACMINI_DATAPULSE_DIR` 下必须有 `pyproject.toml` 和 `datapulse/`
+  - 远端 Python 版本必须 `>=3.10`
+  - `python3 -m datapulse.tools.smoke --list` 能够输出场景列表
+  - `curl -fsS ${REMOTE_HEALTH_URL}/healthz` 与 `curl -fsS ${REMOTE_HEALTH_URL}/readyz` 通透
 
 ### 来源与聚合能力核查（可选）
 - 对齐目标：建立本地化的源目录、订阅关系与 Feed 订阅输出闭环。
@@ -127,6 +151,7 @@ sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" 
 
 ## 5) 远端接入验收
 - [ ] VPS 两跳 SSH 成功
+- [ ] Runtime 18801：`curl -sS http://127.0.0.1:18801/healthz`
 - [ ] `bash scripts/datapulse_remote_openclaw_smoke.sh` 完整通过
   - 运行前先确认 `MACMINI_DATAPULSE_DIR` 指向 macmini 上可访问且含有 `datapulse` 源码目录。
 - [ ] 远端 `python3 -m datapulse.tools.smoke --list` 输出正常
@@ -146,4 +171,12 @@ sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" 
 | Agent handle | PASS/FAIL | |
 
 ## 7) 风险与遗留
-- 写明：
+- 远端测试阻塞主因目前集中在两类：
+  - `MACMINI_DATAPULSE_DIR` 未指向源码目录（含 `datapulse/`）
+  - 远端 Python 版本低于 `3.10`
+- 复测前建议锁定：
+  - SSH 通道与端口、Runtime 授权及代理路径
+  - 依赖版本与 `pip install -e .` 覆盖范围（至少核心入口）
+- 先以 `MACMINI_DATAPULSE_DIR=$HOME/.openclaw/workspace/DataPulse` 做 smoke，若仍失败再回退确认 `MACMINI_USER` 是否有权限访问该路径
+- 现有风险闭环：
+  - 已在验收脚本输出中加入阻断码，便于自动归档和链路回归定位
