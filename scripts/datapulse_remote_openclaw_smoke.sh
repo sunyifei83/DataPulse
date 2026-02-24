@@ -40,10 +40,17 @@ fi
 : "${DATAPULSE_SMOKE_WECHAT_URL:=}"
 : "${DATAPULSE_SMOKE_XHS_URL:=}"
 : "${REMOTE_PYTHON:=python3}"
+: "${REMOTE_USE_UV:=0}"
+: "${REMOTE_UV_PYTHON:=3.10}"
 : "${REMOTE_BOOTSTRAP_INSTALL:=0}"
 : "${REMOTE_INSTALL_CMD:=$REMOTE_PYTHON -m pip install -e .}"
 : "${REMOTE_HEALTH_URL:=http://127.0.0.1:18801}"
 : "${REMOTE_DIRECT_SSH:=0}"
+
+if [[ "$REMOTE_USE_UV" == "1" ]]; then
+  REMOTE_PYTHON="uv run --project ${MACMINI_DATAPULSE_DIR} --python ${REMOTE_UV_PYTHON} -- python"
+  REMOTE_INSTALL_CMD="uv run --project ${MACMINI_DATAPULSE_DIR} --python ${REMOTE_UV_PYTHON} -- python -m pip install -e ."
+fi
 
 if [[ "$REMOTE_DIRECT_SSH" != "1" && ( -z "$VPS_USER" || -z "$VPS_HOST" ) ]]; then
   echo "ERROR: 请先设置 VPS_USER 与 VPS_HOST（VPS 两跳隧道要求）。"
@@ -64,6 +71,8 @@ echo "VPS_HOST=$VPS_HOST"
 echo "MACMINI_HOST=$MACMINI_HOST"
 echo "MACMINI_USER=$MACMINI_USER"
 echo "REMOTE_DIRECT_SSH=$REMOTE_DIRECT_SSH"
+echo "REMOTE_USE_UV=$REMOTE_USE_UV"
+echo "REMOTE_UV_PYTHON=$REMOTE_UV_PYTHON"
 echo "MACMINI_DATAPULSE_DIR=$MACMINI_DATAPULSE_DIR"
 echo "REMOTE_PYTHON=$REMOTE_PYTHON"
 echo "REMOTE_BOOTSTRAP_INSTALL=$REMOTE_BOOTSTRAP_INSTALL"
@@ -106,6 +115,9 @@ done
 run_remote "bash -lc '$REMOTE_ENV if [ ! -d \"$MACMINI_DATAPULSE_DIR\" ]; then echo \"[ERR] DATAPULSE_DIR_NOT_FOUND: $MACMINI_DATAPULSE_DIR\"; exit 2; fi'"
 run_remote "bash -lc '$REMOTE_ENV if [ ! -f \"$MACMINI_DATAPULSE_DIR/pyproject.toml\" ]; then echo \"[ERR] PYPROJECT_MISSING: $MACMINI_DATAPULSE_DIR/pyproject.toml\"; exit 2; fi'"
 run_remote "bash -lc '$REMOTE_ENV if [ ! -d \"$MACMINI_DATAPULSE_DIR/datapulse\" ]; then echo \"[ERR] PACKAGE_MISSING: $MACMINI_DATAPULSE_DIR/datapulse\"; exit 2; fi'"
+if [[ "$REMOTE_USE_UV" == "1" ]]; then
+  run_remote "bash -lc '$REMOTE_ENV if ! command -v uv >/dev/null 2>&1; then echo \"[ERR] UV_NOT_FOUND\"; exit 2; fi; uv --version'"
+fi
 run_remote "bash -lc '$REMOTE_ENV $REMOTE_PYTHON - <<\\'PY\\'\nimport sys\nif sys.version_info < (3, 10):\n    print(f\"[ERR] PYTHON_VERSION_TOO_LOW={sys.version.split()[0]}\")\n    raise SystemExit(2)\nprint(f\"[OK] PYTHON_VERSION={sys.version.split()[0]}\")\nPY'"
 run_remote "bash -lc '$REMOTE_ENV $REMOTE_PYTHON --version && $REMOTE_PYTHON -m pip --version'"
 if [[ "$REMOTE_BOOTSTRAP_INSTALL" == "1" ]]; then

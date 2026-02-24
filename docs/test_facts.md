@@ -51,6 +51,7 @@ title: Test Facts
   - 统一验收手册（外部 Obsidian 文档）：
   - 主文档：`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/DataPulse_OpenClaw_接入验收手册.md`
   - 兼容镜像：`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/openclaw-bot/mac-m4环境/DataPulse_OpenClaw_接入验收手册.md`
+- 版本兼容增强：`scripts/datapulse_remote_openclaw_smoke.sh` 已支持 `REMOTE_USE_UV=1` 触发 `uv run --project ... --python ... -- python ...` 执行链路，可用于远端 3.9.x 环境的兼容尝试。
 - 环境与端点主事实来源：
   - `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/openclaw-bot/mac-m4环境/基础信息.md`
   - `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/openclaw-bot/mac-m4环境/模型端点配置.md`

@@ -80,6 +80,8 @@
   - `REMOTE_BOOTSTRAP_INSTALL`（可选，`0` 关闭，`1` 在导入前执行一次 `pip install -e .`）
   - `REMOTE_INSTALL_CMD`（可选，默认 `$REMOTE_PYTHON -m pip install -e .`）
   - `REMOTE_HEALTH_URL`（可选，默认 `http://127.0.0.1:18801`）
+  - `REMOTE_USE_UV`（可选，`1` 让脚本走 uv 解释器封装）
+  - `REMOTE_UV_PYTHON`（可选，默认 `3.10`）
   - `REMOTE_DIRECT_SSH`（可选，`0` 默认两跳，`1` 改为内网直连）
 - 两跳隧道与直连模式兼容：当 `REMOTE_DIRECT_SSH=1` 时，可不设置 `VPS_USER/VPS_HOST`，脚本仅走 `MACMINI_HOST:MACMINI_PORT`。
 - 认证方式：
@@ -126,6 +128,13 @@ sshpass -p "<MacMini口令>" ssh -o StrictHostKeyChecking=no -p "${MACMINI_PORT:
 - 远端阻塞根因若为 `ModuleNotFoundError: No module named 'datapulse'`，可先执行：
 ```bash
 export MACMINI_DATAPULSE_DIR="\$HOME/.openclaw/workspace/DataPulse"
+export REMOTE_BOOTSTRAP_INSTALL=1
+bash scripts/datapulse_remote_openclaw_smoke.sh
+```
+- 若出现“远端 python 版本 <3.10”，可改为 uv 路径执行：
+```bash
+export REMOTE_USE_UV=1
+export REMOTE_UV_PYTHON=3.10
 export REMOTE_BOOTSTRAP_INSTALL=1
 bash scripts/datapulse_remote_openclaw_smoke.sh
 ```
