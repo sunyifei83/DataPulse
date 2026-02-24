@@ -1,0 +1,149 @@
+# DataPulse + OpenClaw 远程接入验收模板（macmini M4）
+
+> 生成时间：`2026-02-24`
+
+## 1) 测试环境
+- 机器：Mac Mini M4
+- 接入路径：`VPS 两跳隧道`
+- OpenClaw Runtime：`127.0.0.1:18801`
+- 推荐本地命令入口：`python3`
+- 测试执行人：
+- 测试日期（UTC）：
+- RUN_ID：
+
+## 2) 测试素材准备
+- `URL_1`：如 `https://beewebsystems.com/`
+- `URL_BATCH`：如 `https://chatprd.ai/ https://beewebsystems.com/ https://uxpilot.ai/`
+- 平台 Smoke 变量（按需）：
+  - `DATAPULSE_SMOKE_TWITTER_URL`
+    - 可用示例：`https://x.com/everestchris6/status/2025995047729254701`
+  - `DATAPULSE_SMOKE_REDDIT_URL`
+  - `DATAPULSE_SMOKE_YOUTUBE_URL`
+  - `DATAPULSE_SMOKE_BILIBILI_URL`
+  - `DATAPULSE_SMOKE_TELEGRAM_URL`
+  - `DATAPULSE_SMOKE_RSS_URL`
+  - `DATAPULSE_SMOKE_WECHAT_URL`
+  - `DATAPULSE_SMOKE_XHS_URL`
+
+### 外部材料来源
+- Mac mini 接入环境基线与运维说明见：
+  - `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/openclaw-bot/mac-m4环境/基础信息.md`
+- 模型端点与路由映射见：
+  - `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/openclaw-bot/mac-m4环境/模型端点配置.md`
+
+## 3) 物料清单与账号登录指引
+
+### 通用
+- `python >= 3.10`、`playwright`（如需登录会话）、`sshpass`（可选）
+- 环境变量：`~/.env.openclaw`（或 `.env.local`、`.env.secret`）内填写测试入口与凭据
+- `~/.env.openclaw` 与 `.env.local/.env.secret` 已配置在 `.gitignore`，严禁提交明文账号密码、口令、端点密钥
+- 可用代理时先确认 `curl -x` 到外网可达
+- 兼容方式：未执行 `pip install -e .` 时，可直接运行
+  - `python3 -m datapulse.cli <参数>`
+  - `python3 -m datapulse.tools.smoke --list`
+- 安装成功后推荐使用：
+  - `datapulse`
+  - `datapulse-smoke`
+
+### 平台登录/凭据
+- **Telegram**
+  - 需要：`TG_API_ID`、`TG_API_HASH`
+  - 获取方式：登录 `https://my.telegram.org`，进入 `API development tools` 创建应用获取 `api_id`、`api_hash`
+  - 无法注册时可用已有账号凭据：向环境管理员确认是否已配置共享会话。
+- **X/Twitter（XHS、微信）**
+  - X/Twitter：默认走 FxTwitter / Nitter，不需要账号；可选提供 `NITTER_INSTANCES`
+  - 小红书（XHS）：先本机执行 `datapulse --login xhs`
+  - 微信公众号：先本机执行 `datapulse --login wechat`
+  - 私有源可在平台侧完成账号绑定后导出可公开的 RSS/内容 URL 后再测
+- **Reddit / YouTube / Bilibili / RSS**
+  - 公开链路无需账号即可进行冒烟测试；建议使用公开帖子或公开视频链接。
+- **微信 / 小红书会话说明**
+  - 出现二维码/验证码时，按本地浏览器提示完成登录；成功后按 `Ctrl+C` 让会话落盘（便于后续复用）
+
+### 平台登录入口与凭据来源（快速指引）
+- Telegram：`https://my.telegram.org`（API development tools）
+- WeChat / XHS：本机 `datapulse --login wechat|xhs`
+- Reddit/YouTube/Bilibili/RSS：公开内容 URL 即可
+
+### VPS 两跳隧道
+- 建议使用 `~/.env.openclaw` 统一设置：
+  - `VPS_USER`
+  - `VPS_HOST`
+  - `VPS_PASSWORD`（如走 sshpass）
+  - `VPS_PORT`（默认 `6069`）
+  - `MACMINI_USER`（默认 `wangzai-bot`）
+  - `MACMINI_PASSWORD`（如走 sshpass）
+  - `MACMINI_HOST`（默认 `192.168.3.196`；可改 `127.0.0.1`）
+  - `MACMINI_PORT`（默认 `22`；两跳隧道常用 `2222`）
+  - `MACMINI_DATAPULSE_DIR`（默认 `~/DataPulse`，按实际路径设置）
+  - `REMOTE_PYTHON`（可选，默认 `python3`）
+- 认证方式：
+  - 口令认证（sshpass）
+    - 需要安装 `sshpass`
+    - 示例见下方 `sshpass` 命令
+  - 密钥认证（推荐）
+    - 本机执行以下任一：
+      - `ssh-keygen -t ed25519 -f ~/.ssh/datapulse_test_ed25519`
+      - `ssh-copy-id -i ~/.ssh/datapulse_test_ed25519.pub -p "${VPS_PORT:-6069}" "${VPS_USER}@${VPS_HOST}"`
+      - `ssh-copy-id -o "ProxyJump=${VPS_USER}@${VPS_HOST}:${VPS_PORT:-6069}" -p "${MACMINI_PORT:-22}" "${MACMINI_USER}@${MACMINI_HOST}"`
+- 连通性检查（执行在本机）：
+```bash
+ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" "$VPS_USER@$VPS_HOST" "echo ok"
+ssh -o StrictHostKeyChecking=no -J "$VPS_USER@$VPS_HOST:${VPS_PORT:-6069}" -p "${MACMINI_PORT:-22}" "$MACMINI_USER@$MACMINI_HOST" "echo ok"
+sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" "$VPS_USER@$VPS_HOST" "sshpass -p '<MacMini口令>' ssh -o StrictHostKeyChecking=no -p ${MACMINI_PORT:-2222} $MACMINI_USER@$MACMINI_HOST 'echo ok'"
+```
+
+### OpenClaw/OpenModel 端点
+- Runtime 状态检测：`curl -sS http://127.0.0.1:18801/healthz`
+- 就绪检测：`curl -sS http://127.0.0.1:18801/readyz`
+- 工具链目标：MCP `read_url/read_batch/query_inbox/detect_platform/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed/health`
+
+### 来源与聚合能力核查（可选）
+- 对齐目标：建立本地化的源目录、订阅关系与 Feed 订阅输出闭环。
+- 参考材料：`docs/source_feed_enhancement_plan.md`
+
+#### 来源能力必测点（建议）
+- Source 解析：验证输入 URL 可自动归类为 `type/config`（例如 RSS/Feed/站点 URL）。
+- Source 管理：验证公开/私有来源、订阅关系可配置。
+- Feed 输出：验证 JSON Feed 与 RSS 风格导出路径（本地约定路径）。
+- API 安全：写入口与鉴权边界（关键操作需明确权限位）。
+
+#### 本地能力核查（DataPulse 等价）
+- `datapulse --list-sources`：支持 `public_only` / `include_inactive`。
+- `datapulse --resolve-source <url>`：返回解析类型和配置信息。
+- `datapulse --source-subscribe / --source-unsubscribe`：订阅关系可变更。
+- `datapulse --list-packs` 与 `--install-pack`：支持源组导入。
+- `datapulse --query-feed`：输出 JSON Feed。
+- `datapulse --query-rss`：输出 RSS。
+
+## 4) 本机验收
+- 执行脚本：`bash scripts/datapulse_local_smoke.sh`
+- [ ] `datapulse-smoke --list` 可执行
+- [ ] `datapulse --list --limit 5` 返回可读结果
+- [ ] `datapulse --batch` 通过
+- [ ] `datapulse-smoke --platforms ... --require-all` 通过
+- [ ] `DataPulseAgent` 返回 JSON 风格 payload（status/count/items）
+- [ ] `datapulse_skill.run()` 输出可读摘要
+
+## 5) 远端接入验收
+- [ ] VPS 两跳 SSH 成功
+- [ ] `bash scripts/datapulse_remote_openclaw_smoke.sh` 完整通过
+  - 运行前先确认 `MACMINI_DATAPULSE_DIR` 指向 macmini 上可访问且含有 `datapulse` 源码目录。
+- [ ] 远端 `python3 -m datapulse.tools.smoke --list` 输出正常
+- [ ] 18801 健康端检查通过
+- [ ] `read_url/read_batch` MCP 工具返回 JSON
+- [ ] OpenClaw 工具入口可被网关启动并返回结构化结果
+
+## 6) 结果记录
+
+| 项目 | 结果 | 备注 |
+|---|---|---|
+| 本机 smoke | PASS/FAIL | |
+| 远端 smoke | PASS/FAIL | |
+| MCP read_url | PASS/FAIL | |
+| MCP read_batch | PASS/FAIL | |
+| Skill run | PASS/FAIL | |
+| Agent handle | PASS/FAIL | |
+
+## 7) 风险与遗留
+- 写明：

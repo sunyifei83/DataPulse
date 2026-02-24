@@ -79,6 +79,9 @@ class UnifiedInbox:
         filtered = [item for item in self.items if item.confidence >= min_confidence]
         return sorted(filtered, key=lambda i: i.confidence, reverse=True)[:limit]
 
+    def all_items(self, min_confidence: float = 0.0) -> list[DataPulseItem]:
+        return [item for item in self.items if item.confidence >= min_confidence]
+
 
 def save_markdown(item: DataPulseItem, path: str | None = None) -> str | None:
     if not path:

@@ -165,14 +165,16 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 ## OpenClaw 对接说明
 
 - 工具合约模板：`docs/contracts/openclaw_datapulse_tool_contract.json`
-- 快速验证脚本：`scripts/quick_test.sh`
+- 快速验证脚本：`scripts/datapulse_local_smoke.sh`、`scripts/datapulse_remote_openclaw_smoke.sh`
 - 发布清单：`docs/release_checklist.md`
 
 ```bash
-chmod +x scripts/quick_test.sh
+chmod +x scripts/datapulse_local_smoke.sh scripts/datapulse_remote_openclaw_smoke.sh
 export URL_1="https://x.com/xxxx/status/123"
 export URL_BATCH="https://x.com/... https://www.reddit.com/..."
-./scripts/quick_test.sh
+bash scripts/datapulse_local_smoke.sh
+# 远端执行（需先配置 VPS/M4）
+bash scripts/datapulse_remote_openclaw_smoke.sh
 ```
 
 ## 发布与版本绑定

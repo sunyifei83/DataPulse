@@ -168,14 +168,16 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 ## OpenClaw 对接资产（建议）
 
 - 工具契约模板：`docs/contracts/openclaw_datapulse_tool_contract.json`
-- 快速验收脚本：`scripts/quick_test.sh`
+- 快速验收脚本：`scripts/datapulse_local_smoke.sh`、`scripts/datapulse_remote_openclaw_smoke.sh`
 - 发布清单：`docs/release_checklist.md`
 
 ```bash
-chmod +x scripts/quick_test.sh
+chmod +x scripts/datapulse_local_smoke.sh scripts/datapulse_remote_openclaw_smoke.sh
 export URL_1="https://x.com/xxxx/status/123"
 export URL_BATCH="https://x.com/... https://www.reddit.com/..."
-./scripts/quick_test.sh
+bash scripts/datapulse_local_smoke.sh
+# 远端（需先配置 VPS/M4 连接变量）
+bash scripts/datapulse_remote_openclaw_smoke.sh
 ```
 
 ## 发布与版本绑定（Release）
@@ -355,14 +357,16 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 ## OpenClaw integration assets
 
 - Tool contract: `docs/contracts/openclaw_datapulse_tool_contract.json`
-- Quick validation script: `scripts/quick_test.sh`
+- Quick validation scripts: `scripts/datapulse_local_smoke.sh`, `scripts/datapulse_remote_openclaw_smoke.sh`
 - Release checklist: `docs/release_checklist.md`
 
 ```bash
-chmod +x scripts/quick_test.sh
+chmod +x scripts/datapulse_local_smoke.sh scripts/datapulse_remote_openclaw_smoke.sh
 export URL_1="https://x.com/xxxx/status/123"
 export URL_BATCH="https://x.com/... https://www.reddit.com/..."
-./scripts/quick_test.sh
+bash scripts/datapulse_local_smoke.sh
+# remote execution requires VPS tunnel
+bash scripts/datapulse_remote_openclaw_smoke.sh
 ```
 
 ## Release and publishing

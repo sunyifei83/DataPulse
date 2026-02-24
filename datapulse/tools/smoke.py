@@ -53,6 +53,24 @@ async def _run_scenario(name: str, url: str, min_confidence: float) -> tuple[str
         return name, False, str(exc)
 
 
+async def _run_feed_probe(min_confidence: float, profile: str = "default", limit: int = 5) -> tuple[bool, str]:
+    reader = DataPulseReader()
+    try:
+        payload = reader.build_json_feed(profile=profile, limit=limit, min_confidence=min_confidence)
+        return True, f"feed_items={len(payload.get('items', []))}"
+    except Exception as exc:
+        return False, f"feed_probe_error={exc}"
+
+
+def _run_source_catalog_probe() -> tuple[bool, str]:
+    try:
+        sources = DataPulseReader().list_sources(public_only=True)
+        packs = DataPulseReader().list_packs(public_only=True)
+        return True, f"sources={len(sources)} packs={len(packs)}"
+    except Exception as exc:
+        return False, f"catalog_error={exc}"
+
+
 def _plan(selected_platforms: set[str]) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     planned = []
     missing = []
@@ -105,6 +123,19 @@ async def main_async(platforms: list[str], min_confidence: float, require_all: b
         print(f"[{status}] {platform:10s} {message}")
         if not ok:
             failed += 1
+
+    catalog_ok, catalog_msg = _run_source_catalog_probe()
+    if catalog_ok:
+        print(f"[PASS] source-catalog {catalog_msg}")
+    else:
+        print(f"[WARN] source-catalog {catalog_msg}")
+
+    feed_ok, feed_msg = await _run_feed_probe(min_confidence=min_confidence)
+    if feed_ok:
+        print(f"[PASS] feed-probe {feed_msg}")
+    else:
+        failed += 1
+        print(f"[FAIL] feed-probe {feed_msg}")
 
     return 1 if failed else 0
 

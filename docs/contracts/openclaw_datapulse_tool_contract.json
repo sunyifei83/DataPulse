@@ -61,6 +61,92 @@
         }
       },
       {
+        "name": "resolve_source",
+        "description": "Resolve URL to source type/config hints.",
+        "parameters": {
+          "url": "string (required)"
+        }
+      },
+      {
+        "name": "list_sources",
+        "description": "List configured sources from catalog.",
+        "parameters": {
+          "include_inactive": "bool (default false)",
+          "public_only": "bool (default true)"
+        }
+      },
+      {
+        "name": "list_packs",
+        "description": "List source packs.",
+        "parameters": {
+          "public_only": "bool (default true)"
+        }
+      },
+      {
+        "name": "list_subscriptions",
+        "description": "List profile subscriptions (source IDs).",
+        "parameters": {
+          "profile": "string (default default)"
+        }
+      },
+      {
+        "name": "source_subscribe",
+        "description": "Subscribe profile to source ID.",
+        "parameters": {
+          "profile": "string (required)",
+          "source_id": "string (required)"
+        }
+      },
+      {
+        "name": "source_unsubscribe",
+        "description": "Unsubscribe profile from source ID.",
+        "parameters": {
+          "profile": "string (required)",
+          "source_id": "string (required)"
+        }
+      },
+      {
+        "name": "install_pack",
+        "description": "Install source pack to profile.",
+        "parameters": {
+          "profile": "string (required)",
+          "slug": "string (required)"
+        }
+      },
+      {
+        "name": "query_feed",
+        "description": "Query feed items by subscription/source filters.",
+        "parameters": {
+          "profile": "string (default default)",
+          "source_ids": "array[string] (optional)",
+          "limit": "int (default 20)",
+          "min_confidence": "float (default 0.0)",
+          "since": "string ISO8601 (optional)"
+        }
+      },
+      {
+        "name": "build_json_feed",
+        "description": "Build JSON Feed payload.",
+        "parameters": {
+          "profile": "string (default default)",
+          "source_ids": "array[string] (optional)",
+          "limit": "int (default 20)",
+          "min_confidence": "float (default 0.0)",
+          "since": "string ISO8601 (optional)"
+        }
+      },
+      {
+        "name": "build_rss_feed",
+        "description": "Build RSS feed payload.",
+        "parameters": {
+          "profile": "string (default default)",
+          "source_ids": "array[string] (optional)",
+          "limit": "int (default 20)",
+          "min_confidence": "float (default 0.0)",
+          "since": "string ISO8601 (optional)"
+        }
+      },
+      {
         "name": "detect_platform",
         "description": "Detect target platform from URL.",
         "parameters": {

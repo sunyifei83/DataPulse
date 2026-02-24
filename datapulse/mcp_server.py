@@ -20,6 +20,80 @@ async def _run_read_batch(urls: list[str], min_confidence: float = 0.0) -> str:
     return json.dumps([item.to_dict() for item in items], ensure_ascii=False, indent=2)
 
 
+async def _run_list_sources(include_inactive: bool = False, public_only: bool = True) -> str:
+    reader = DataPulseReader()
+    return json.dumps(reader.list_sources(include_inactive=include_inactive, public_only=public_only), ensure_ascii=False, indent=2)
+
+
+async def _run_list_packs(public_only: bool = True) -> str:
+    reader = DataPulseReader()
+    return json.dumps(reader.list_packs(public_only=public_only), ensure_ascii=False, indent=2)
+
+
+async def _run_resolve_source(url: str) -> str:
+    reader = DataPulseReader()
+    return json.dumps(reader.resolve_source(url), ensure_ascii=False, indent=2)
+
+
+async def _run_list_subscriptions(profile: str = "default") -> str:
+    reader = DataPulseReader()
+    return json.dumps(reader.list_subscriptions(profile=profile), ensure_ascii=False, indent=2)
+
+
+async def _run_query_feed(profile: str = "default", source_ids: list[str] | None = None, limit: int = 20,
+                        min_confidence: float = 0.0, since: str | None = None) -> str:
+    reader = DataPulseReader()
+    items = reader.query_feed(profile=profile, source_ids=source_ids, limit=limit, min_confidence=min_confidence, since=since)
+    return json.dumps([item.to_dict() for item in items], ensure_ascii=False, indent=2)
+
+
+async def _run_build_json_feed(
+    profile: str = "default",
+    source_ids: list[str] | None = None,
+    limit: int = 20,
+    min_confidence: float = 0.0,
+    since: str | None = None,
+) -> str:
+    reader = DataPulseReader()
+    payload = reader.build_json_feed(profile=profile, source_ids=source_ids, limit=limit, min_confidence=min_confidence, since=since)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_build_rss_feed(
+    profile: str = "default",
+    source_ids: list[str] | None = None,
+    limit: int = 20,
+    min_confidence: float = 0.0,
+    since: str | None = None,
+) -> str:
+    reader = DataPulseReader()
+    return reader.build_rss_feed(
+        profile=profile,
+        source_ids=source_ids,
+        limit=limit,
+        min_confidence=min_confidence,
+        since=since,
+    )
+
+
+async def _run_subscribe_source(profile: str, source_id: str) -> str:
+    reader = DataPulseReader()
+    ok = reader.subscribe_source(source_id, profile=profile)
+    return json.dumps({"ok": ok, "source_id": source_id, "profile": profile}, ensure_ascii=False, indent=2)
+
+
+async def _run_unsubscribe_source(profile: str, source_id: str) -> str:
+    reader = DataPulseReader()
+    ok = reader.unsubscribe_source(source_id, profile=profile)
+    return json.dumps({"ok": ok, "source_id": source_id, "profile": profile}, ensure_ascii=False, indent=2)
+
+
+async def _run_install_pack(profile: str, slug: str) -> str:
+    reader = DataPulseReader()
+    added = reader.install_pack(slug=slug, profile=profile)
+    return json.dumps({"ok": added > 0, "added": added, "slug": slug, "profile": profile}, ensure_ascii=False, indent=2)
+
+
 if __name__ == "__main__":
     try:
         from mcp.server.fastmcp import FastMCP
@@ -38,6 +112,67 @@ if __name__ == "__main__":
     @app.tool()
     async def read_batch(urls: list[str], min_confidence: float = 0.0) -> str:  # noqa: ANN001
         return await _run_read_batch(urls, min_confidence=min_confidence)
+
+    @app.tool()
+    async def list_sources(include_inactive: bool = False, public_only: bool = True) -> str:  # noqa: ANN001
+        return await _run_list_sources(include_inactive=include_inactive, public_only=public_only)
+
+    @app.tool()
+    async def list_packs(public_only: bool = True) -> str:  # noqa: ANN001
+        return await _run_list_packs(public_only=public_only)
+
+    @app.tool()
+    async def resolve_source(url: str) -> str:  # noqa: ANN001
+        return await _run_resolve_source(url)
+
+    @app.tool()
+    async def list_subscriptions(profile: str = "default") -> str:  # noqa: ANN001
+        return await _run_list_subscriptions(profile=profile)
+
+    @app.tool()
+    async def source_subscribe(profile: str, source_id: str) -> str:  # noqa: ANN001
+        return await _run_subscribe_source(profile=profile, source_id=source_id)
+
+    @app.tool()
+    async def source_unsubscribe(profile: str, source_id: str) -> str:  # noqa: ANN001
+        return await _run_unsubscribe_source(profile=profile, source_id=source_id)
+
+    @app.tool()
+    async def install_pack(profile: str, slug: str) -> str:  # noqa: ANN001
+        return await _run_install_pack(profile=profile, slug=slug)
+
+    @app.tool()
+    async def query_feed(profile: str = "default", source_ids: list[str] | None = None,
+                        limit: int = 20, min_confidence: float = 0.0, since: str | None = None) -> str:  # noqa: ANN001
+        return await _run_query_feed(
+            profile=profile,
+            source_ids=source_ids,
+            limit=limit,
+            min_confidence=min_confidence,
+            since=since,
+        )
+
+    @app.tool()
+    async def build_json_feed(profile: str = "default", source_ids: list[str] | None = None,
+                             limit: int = 20, min_confidence: float = 0.0, since: str | None = None) -> str:  # noqa: ANN001
+        return await _run_build_json_feed(
+            profile=profile,
+            source_ids=source_ids,
+            limit=limit,
+            min_confidence=min_confidence,
+            since=since,
+        )
+
+    @app.tool()
+    async def build_rss_feed(profile: str = "default", source_ids: list[str] | None = None,
+                            limit: int = 20, min_confidence: float = 0.0, since: str | None = None) -> str:  # noqa: ANN001
+        return await _run_build_rss_feed(
+            profile=profile,
+            source_ids=source_ids,
+            limit=limit,
+            min_confidence=min_confidence,
+            since=since,
+        )
 
     @app.tool()
     async def query_inbox(limit: int = 20, min_confidence: float = 0.0) -> str:  # noqa: ANN001

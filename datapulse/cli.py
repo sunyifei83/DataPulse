@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 
 from datapulse.reader import DataPulseReader
 from datapulse.tools.session import login_platform, supported_platforms
@@ -21,6 +22,25 @@ def _print_list(items, limit: int = 20):
         print(f"    {item.url}")
 
 
+def _print_sources(sources, include_inactive: bool = False, public_only: bool = True):
+    for source in sources:
+        status = "active" if source.get("is_active", True) else "inactive"
+        visibility = "public" if source.get("is_public", True) else "private"
+        print(f"{source.get('id')}: {source.get('name')} | {source.get('source_type')} | {status}/{visibility}")
+
+
+def _print_packs(packs):
+    for pack in packs:
+        count = len(pack.get("source_ids", []))
+        print(f"{pack.get('slug')}: {pack.get('name')} | {count} source(s)")
+
+
+def _normalize_csv_ids(value: str | None) -> list[str] | None:
+    if not value:
+        return None
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="DataPulse Intelligence Hub")
     parser.add_argument("inputs", nargs="*", help="URLs or commands")
@@ -30,6 +50,18 @@ def main() -> None:
         choices=supported_platforms(),
         help="Capture browser login state for platform (xhs, wechat)",
     )
+    parser.add_argument("--source-profile", default="default", help="Source profile for feed/subscription ops")
+    parser.add_argument("--list-sources", action="store_true", help="List source catalog entries")
+    parser.add_argument("--list-packs", action="store_true", help="List source packs")
+    parser.add_argument("--include-inactive-sources", action="store_true", help="Include inactive sources")
+    parser.add_argument("--public-sources-only", action="store_true", help="Only list public sources")
+    parser.add_argument("--resolve-source", metavar="URL", help="Resolve source metadata for a URL")
+    parser.add_argument("--source-subscribe", metavar="SOURCE_ID", help="Subscribe profile source")
+    parser.add_argument("--source-unsubscribe", metavar="SOURCE_ID", help="Unsubscribe profile source")
+    parser.add_argument("--install-pack", metavar="PACK_SLUG", help="Install source pack to profile")
+    parser.add_argument("--source-ids", help="Comma separated source IDs for query_feed")
+    parser.add_argument("--query-feed", action="store_true", help="Print JSON feed output")
+    parser.add_argument("--query-rss", action="store_true", help="Print RSS feed output")
     parser.add_argument("--list", action="store_true", help="List inbox")
     parser.add_argument("--clear", action="store_true", help="Clear inbox")
     parser.add_argument("--min-confidence", type=float, default=0.0, help="Filter by confidence")
@@ -61,6 +93,70 @@ def main() -> None:
             print("ℹ️ Inbox already empty")
         return
 
+    if args.list_sources:
+        public_only = True
+        if args.include_inactive_sources:
+            public_only = bool(args.public_sources_only)
+        sources = reader.list_sources(
+            include_inactive=args.include_inactive_sources,
+            public_only=public_only,
+        )
+        if not sources:
+            print("No source in catalog.")
+        else:
+            print(f"📚 Sources: {len(sources)}")
+            _print_sources(sources)
+        return
+
+    if args.list_packs:
+        packs = reader.list_packs(public_only=True)
+        if not packs:
+            print("No source pack in catalog.")
+        else:
+            print(f"📦 Source packs: {len(packs)}")
+            _print_packs(packs)
+        return
+
+    if args.resolve_source:
+        print(json.dumps(reader.resolve_source(args.resolve_source), ensure_ascii=False, indent=2))
+        return
+
+    if args.source_subscribe:
+        ok = reader.subscribe_source(args.source_subscribe, profile=args.source_profile)
+        print("✅ subscribed" if ok else "⚠️ already subscribed or invalid source")
+        return
+
+    if args.source_unsubscribe:
+        ok = reader.unsubscribe_source(args.source_unsubscribe, profile=args.source_profile)
+        print("✅ unsubscribed" if ok else "⚠️ source not found in subscription")
+        return
+
+    if args.install_pack:
+        count = reader.install_pack(args.install_pack, profile=args.source_profile)
+        print(f"✅ installed {count} source(s) from pack")
+        return
+
+    if args.query_feed:
+        payload = reader.build_json_feed(
+            profile=args.source_profile,
+            source_ids=_normalize_csv_ids(args.source_ids),
+            limit=args.limit,
+            min_confidence=args.min_confidence,
+        )
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+
+    if args.query_rss:
+        print(
+            reader.build_rss_feed(
+                profile=args.source_profile,
+                source_ids=_normalize_csv_ids(args.source_ids),
+                limit=args.limit,
+                min_confidence=args.min_confidence,
+            )
+        )
+        return
+
     targets = []
     if args.batch:
         targets.extend(args.batch)
@@ -77,10 +173,11 @@ def main() -> None:
             print("⚠️ No result above confidence threshold")
             return
         for idx, item in enumerate(results, 1):
+            sample = (item.content or "")[:140].replace("\n", " ")
             print(f"\n{idx}. [{item.source_type.value}] {item.title}")
             print(f"   confidence: {item.confidence:.3f}")
             print(f"   url: {item.url}")
-            print(f"   sample: {(item.content or '')[:140].replace('\n', ' ')}")
+            print(f"   sample: {sample}")
 
     asyncio.run(run())
 

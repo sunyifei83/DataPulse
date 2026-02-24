@@ -32,3 +32,10 @@ model-endpoints.local.*
 .env.local
 .env.secret
 .env.datapulse
+.env.openclaw
+openclaw-*.env
+openclaw-*.env.local
+openclaw-*.secret
+datapulse-openclaw.env
+artifacts/
+unified_inbox.json
