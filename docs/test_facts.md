@@ -118,4 +118,16 @@ title: Test Facts
 - SSH 两跳隧道：`ssh -J` / `ProxyJump` 是 OpenSSH 标准链路模型；命令链路与配置链路保持一致。
 - 可见性与可恢复性：远端脚本已将 `DATAPULSE_DIR_NOT_FOUND` / `PYTHON_VERSION_TOO_LOW` / `PACKAGE_MISSING` / `IMPORT_FAILED` 等阻断码固化，便于自动归档与复测闭环。
 
+## Fact 3.5: 网络拓扑可恢复性补充
+
+- 在当前项目环境中，远端 Mac Mini M4 已具备“当前内网可直接 SSH 访问”能力（不依赖 VPS 两跳）。
+- 执行策略建议：
+  - 首选 `VPS 两跳隧道`，保证与远端正式入网路径一致；
+  - 遇到双跳不可达时，改用内网直连做局部验证与修复（仅用于降级排障）。
+- 内网直连时可先验证：
+  - 远端 Python 版本
+  - `curl -fsS http://127.0.0.1:18801/healthz`
+  - 远端源码目录与 `import datapulse` 可达性
+- 该补充不影响 `两跳`主链路验收顺序，仅用于提高高可用可恢复性（HA 可用率与故障修复时效）。
+
 [⬆️ Back to top / 返回顶部](#top) | [🔙 返回主 README](../README.md) | [🔄 中文对照/English](../README_CN.md)

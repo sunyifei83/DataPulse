@@ -96,6 +96,21 @@
   sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" "$VPS_USER@$VPS_HOST" "sshpass -p '<MacMini口令>' ssh -o StrictHostKeyChecking=no -p ${MACMINI_PORT:-2222} $MACMINI_USER@$MACMINI_HOST 'echo ok'"
 ```
 
+### 内网直连（补充）
+- 基于提供的基础信息，当前场景支持在内网直接 SSH 到 Mac Mini（无需两跳）进行可达性与快速修复验证。
+- 建议在 `.env.openclaw`/`.env.secret`中补充（脱敏写法）：
+  - `MACMINI_HOST=<内网IP，如 192.168.x.x>`
+  - `MACMINI_PORT=22`
+  - `MACMINI_USER=<同macmini系统用户>`
+- 直连连通性快速检查：
+```bash
+sshpass -p "<MacMini口令>" ssh -o StrictHostKeyChecking=no -p "${MACMINI_PORT:-22}" "$MACMINI_USER@$MACMINI_HOST" "pwd && python3 --version && curl -fsS http://127.0.0.1:18801/healthz"
+```
+- 注意：`scripts/datapulse_remote_openclaw_smoke.sh` 当前仍按两跳链路执行；内网直连主要用于
+  - 临时修复/验证
+  - 与脚本阻断码结论交叉比对
+  - 降低两跳不可用时的初级排障成本
+
 ### 远端源码与依赖恢复（高可用）
 
 - 远端阻塞根因若为 `ModuleNotFoundError: No module named 'datapulse'`，可先执行：
