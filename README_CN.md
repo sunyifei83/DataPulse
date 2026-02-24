@@ -166,6 +166,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 
 - 工具合约模板：`docs/contracts/openclaw_datapulse_tool_contract.json`
 - 快速验证脚本：`scripts/quick_test.sh`
+- 发布清单：`docs/release_checklist.md`
 
 ```bash
 chmod +x scripts/quick_test.sh
@@ -173,5 +174,14 @@ export URL_1="https://x.com/xxxx/status/123"
 export URL_BATCH="https://x.com/... https://www.reddit.com/..."
 ./scripts/quick_test.sh
 ```
+
+## 发布与版本绑定
+
+- 发布资产构建：
+  - `python -m build --sdist --wheel .`
+  - 生成的 `dist/*.whl` 与 `dist/*.tar.gz` 作为发布附件
+- 版本发布方式：
+  - `./scripts/release_publish.sh --tag vX.Y.Z`
+  - 推送 tag 后由 `.github/workflows/release.yml` 自动上传 GitHub Release 资产
 
 [⬆️ 回到顶部](#top) | [🔙 返回主 README](./README.md) | [🇺🇸 English version](./README_EN.md)

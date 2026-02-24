@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.1] - 2026-02-24
+
+### Added
+- 发布流程体系化：新增发布 checklist、发布脚本与 GitHub Actions 自动发布工作流。
+- README 与 Release Notes 补充 `dist/*` 资产发布与一键发布说明。
+- 新增 PR / Issue 模板，用于版本化提交与发布管理规范化。
+
+### Changed
+- 增加 `docs/release_checklist.md` 统一发布验收标准。
+- 新增 `scripts/release_publish.sh`，支持 tag 生成/推送与 Release 资产挂接。
+- 新增 `.github/workflows/release.yml`，支持 tag 推送触发自动上传构建产物。
+
 ## [0.1.0] - 2026-02-24
 
 ### Added

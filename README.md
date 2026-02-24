@@ -169,6 +169,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 
 - 工具契约模板：`docs/contracts/openclaw_datapulse_tool_contract.json`
 - 快速验收脚本：`scripts/quick_test.sh`
+- 发布清单：`docs/release_checklist.md`
 
 ```bash
 chmod +x scripts/quick_test.sh
@@ -176,6 +177,15 @@ export URL_1="https://x.com/xxxx/status/123"
 export URL_BATCH="https://x.com/... https://www.reddit.com/..."
 ./scripts/quick_test.sh
 ```
+
+## 发布与版本绑定（Release）
+
+- 发布资产：
+  - `python -m build --sdist --wheel .`
+  - 附加 `dist/*.whl` 与 `dist/*.tar.gz`
+- 自动化：
+  - `./scripts/release_publish.sh --tag vX.Y.Z`
+  - 推送 tag 后由 `.github/workflows/release.yml` 自动附加资产到 GitHub Release
 
 [🔼 回到顶部](#top) | [🇨🇳 中文详情页](./README_CN.md) | [🇺🇸 English details](./README_EN.md)
 
@@ -346,6 +356,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 
 - Tool contract: `docs/contracts/openclaw_datapulse_tool_contract.json`
 - Quick validation script: `scripts/quick_test.sh`
+- Release checklist: `docs/release_checklist.md`
 
 ```bash
 chmod +x scripts/quick_test.sh
@@ -353,6 +364,15 @@ export URL_1="https://x.com/xxxx/status/123"
 export URL_BATCH="https://x.com/... https://www.reddit.com/..."
 ./scripts/quick_test.sh
 ```
+
+## Release and publishing
+
+- Build artifacts:
+  - `python -m build --sdist --wheel .`
+  - Upload `dist/*.whl` and `dist/*.tar.gz`
+- Release automation:
+  - `./scripts/release_publish.sh --tag vX.Y.Z`
+  - GitHub Actions auto-publishes assets on tag push via `.github/workflows/release.yml`
 
 ## Notes
 

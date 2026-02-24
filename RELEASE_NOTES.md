@@ -27,3 +27,12 @@
 1. 核对 `LICENSE` 与 `pyproject.toml` 的许可证一致性。
 2. 确认三份 README 的文档入口、名称与许可证说明一致。
 3. 根据 `scripts/quick_test.sh` 执行本地冒烟验证（必要时可跳过外网依赖场景）。
+
+### 发布产物与发布方式（v0.1.0）
+- 构建资产：`python -m build --sdist --wheel .`
+- 建议附件：
+  - `dist/*.whl`
+  - `dist/*.tar.gz`
+- 发布方式：
+  - 标签发布：`./scripts/release_publish.sh --tag v0.1.0`
+  - CI 自动发布：`.github/workflows/release.yml`（推送 `v*` 标签触发）

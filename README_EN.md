@@ -168,6 +168,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 
 - Tool contract: `docs/contracts/openclaw_datapulse_tool_contract.json`
 - Quick validation script: `scripts/quick_test.sh`
+- Release checklist: `docs/release_checklist.md`
 
 ```bash
 chmod +x scripts/quick_test.sh
@@ -175,5 +176,14 @@ export URL_1="https://x.com/xxxx/status/123"
 export URL_BATCH="https://x.com/... https://www.reddit.com/..."
 ./scripts/quick_test.sh
 ```
+
+## Release & publishing
+
+- Build artifacts:
+  - `python -m build --sdist --wheel .`
+  - attach `dist/*.whl` and `dist/*.tar.gz`
+- Publishing:
+  - `./scripts/release_publish.sh --tag vX.Y.Z`
+  - On tag push, `.github/workflows/release.yml` auto uploads release assets
 
 [⬆️ Back to top](#top) | [🔙 Back to Main README](./README.md) | [🇨🇳 中文版本](./README_CN.md)
