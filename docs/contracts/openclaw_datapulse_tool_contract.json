@@ -1,0 +1,94 @@
+{
+  "contract": {
+    "project": "DataPulse",
+    "project_zh": "数据脉搏",
+    "version": "0.1.0",
+    "scope": "cross-platform URL intake + confidence scoring + memory persistence",
+    "targets": [
+      "assistant-skill",
+      "mcp",
+      "agent",
+      "bot"
+    ]
+  },
+  "skill": {
+    "entry_point": "datapulse_skill.run",
+    "trigger_pattern": "(?i)(?:read|fetch|save|summary|summarize|extract|parse|/read|/save)\\s+https?://",
+    "input": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "required": true,
+          "description": "Raw text containing one or more URLs."
+        }
+      },
+      "required": [
+        "text"
+      ]
+    },
+    "output": {
+      "type": "string",
+      "description": "Human-readable multi-line summary of processed items."
+    }
+  },
+  "mcp": {
+    "command": "python -m datapulse.mcp_server",
+    "transport": "stdio",
+    "tools": [
+      {
+        "name": "read_url",
+        "description": "Parse and score a single URL.",
+        "parameters": {
+          "url": "string (required)",
+          "min_confidence": "float (default 0.0)"
+        }
+      },
+      {
+        "name": "read_batch",
+        "description": "Parse multiple URLs in parallel.",
+        "parameters": {
+          "urls": "array[string] (required)",
+          "min_confidence": "float (default 0.0)"
+        }
+      },
+      {
+        "name": "query_inbox",
+        "description": "Get stored memory records.",
+        "parameters": {
+          "limit": "int (default 20)",
+          "min_confidence": "float (default 0.0)"
+        }
+      },
+      {
+        "name": "detect_platform",
+        "description": "Detect target platform from URL.",
+        "parameters": {
+          "url": "string (required)"
+        }
+      },
+      {
+        "name": "health",
+        "description": "Return parser list and stored count.",
+        "parameters": {}
+      }
+    ]
+  },
+  "agent": {
+    "class": "datapulse.agent.DataPulseAgent",
+    "method": "handle",
+    "default_min_confidence": 0.25,
+    "input": {
+      "message": "string"
+    },
+    "output": {
+      "type": "object",
+      "fields": [
+        "status",
+        "count",
+        "items",
+        "message"
+      ]
+    }
+  }
+}

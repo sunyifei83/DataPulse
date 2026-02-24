@@ -1,0 +1,34 @@
+# General Python ignores
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+.tox/
+.venv/
+venv/
+env/
+ENV/
+.idea/
+.vscode/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+## DataPulse local sensitive config (do not commit)
+datapulse-local-*.md
+datapulse-local-*.yml
+datapulse-local-*.yaml
+datapulse-local-*.json
+datapulse.local.*
+local-secrets.json
+local-test-context.*
+model-endpoints.local.*
+.env.local
+.env.secret
+.env.datapulse

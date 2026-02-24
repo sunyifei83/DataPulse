@@ -1,21 +1,22 @@
-MIT License
-
+DataPulse Non-Commercial License (v1.0)
 Copyright (c) 2026 vincent.sun
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+The DataPulse project (the "Software") is licensed for use under the following terms:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1) You may use, copy, and modify the Software for non-commercial purposes only,
+for research, internal workflow, evaluation, and learning.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2) Any commercial use is expressly prohibited without prior written permission.
+Commercial use includes, but is not limited to:
+   - paid services built on or incorporating this Software;
+   - paid internal tools where output is monetized;
+   - redistribution to paying customers or third parties as part of a commercial product.
+
+3) You may distribute or share this license text with the Software only in unmodified form.
+
+4) You may not sublicense, rent, sell, or lease the Software.
+
+5) This Software is provided "as is", without warranty of any kind, and the author
+is not liable for any damages arising out of its use.
+
+If your use case is commercial, contact the author for a separate license.

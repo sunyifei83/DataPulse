@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "datapulse"
+version = "0.1.0"
+description = "DataPulse Intelligence Hub — cross-platform content intake pipeline for web URLs, bot/skill/mcp usage, confidence scoring, and markdown memory"
+readme = "README.md"
+license = { text = "DataPulse Non-Commercial License v1.0" }
+requires-python = ">=3.10"
+authors = [{name = "DataPulse"}]
+keywords = [
+    "content-reader",
+    "web-scraper",
+    "rss",
+    "telegram",
+    "twitter",
+    "reddit",
+    "youtube",
+    "bilibili",
+    "mcp",
+    "agentic-workflow",
+    "assistant"
+]
+
+# Core dependencies keep the default installation light-weight.
+dependencies = [
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.1",
+    "lxml-html-clean>=0.4",
+    "python-dotenv>=1.0",
+    "tldextract>=5.1",
+    "feedparser>=6.0",
+]
+
+# Optional capability groups.
+[project.optional-dependencies]
+all = [
+    "trafilatura>=1.12",
+    "lxml>=5.1",
+    "lxml-html-clean>=0.4",
+    "youtube-transcript-api>=0.6.2",
+    "telethon>=1.34",
+    "playwright>=1.40",
+    "mcp[cli]>=1.0",
+    "notebooklm-py>=0.3.0",
+]
+trafilatura = ["trafilatura>=1.12", "beautifulsoup4>=4.12"]
+youtube = ["youtube-transcript-api>=0.6.2"]
+telegram = ["telethon>=1.34"]
+browser = ["playwright>=1.40"]
+mcp = ["mcp[cli]>=1.0"]
+notebooklm = ["notebooklm-py>=0.3.0"]
+
+[project.urls]
+Homepage = "https://github.com/sunyifei83/DataPulse"
+Repository = "https://github.com/sunyifei83/DataPulse"
+Issues = "https://github.com/sunyifei83/DataPulse/issues"
+
+[project.scripts]
+datapulse = "datapulse.cli:main"
+datapulse-smoke = "datapulse.tools.smoke:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["datapulse", "datapulse_skill"]
