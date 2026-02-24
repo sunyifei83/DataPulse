@@ -80,6 +80,8 @@
   - `REMOTE_BOOTSTRAP_INSTALL`（可选，`0` 关闭，`1` 在导入前执行一次 `pip install -e .`）
   - `REMOTE_INSTALL_CMD`（可选，默认 `$REMOTE_PYTHON -m pip install -e .`）
   - `REMOTE_HEALTH_URL`（可选，默认 `http://127.0.0.1:18801`）
+  - `REMOTE_DIRECT_SSH`（可选，`0` 默认两跳，`1` 改为内网直连）
+- 两跳隧道与直连模式兼容：当 `REMOTE_DIRECT_SSH=1` 时，可不设置 `VPS_USER/VPS_HOST`，脚本仅走 `MACMINI_HOST:MACMINI_PORT`。
 - 认证方式：
   - 口令认证（sshpass）
     - 需要安装 `sshpass`
@@ -104,9 +106,17 @@
   - `MACMINI_USER=<同macmini系统用户>`
 - 直连连通性快速检查：
 ```bash
+export REMOTE_DIRECT_SSH=1
+export MACMINI_HOST=<macmini-ip>   # 例如 192.168.x.x
+export MACMINI_PORT=22
+export MACMINI_USER=<macmini-user>
+export MACMINI_PASSWORD=<macmini-口令>   # 可选，口令访问；无口令可走密钥
+bash scripts/datapulse_remote_openclaw_smoke.sh  # 两跳不可用时启用
+```
+
 sshpass -p "<MacMini口令>" ssh -o StrictHostKeyChecking=no -p "${MACMINI_PORT:-22}" "$MACMINI_USER@$MACMINI_HOST" "pwd && python3 --version && curl -fsS http://127.0.0.1:18801/healthz"
 ```
-- 注意：`scripts/datapulse_remote_openclaw_smoke.sh` 当前仍按两跳链路执行；内网直连主要用于
+- 注意：`scripts/datapulse_remote_openclaw_smoke.sh` 同时支持两跳与直连模式；内网直连主要用于
   - 临时修复/验证
   - 与脚本阻断码结论交叉比对
   - 降低两跳不可用时的初级排障成本

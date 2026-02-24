@@ -128,6 +128,7 @@ title: Test Facts
   - 远端 Python 版本
   - `curl -fsS http://127.0.0.1:18801/healthz`
   - 远端源码目录与 `import datapulse` 可达性
+- 脚本能力补充：`scripts/datapulse_remote_openclaw_smoke.sh` 已支持 `REMOTE_DIRECT_SSH=1` 模式，无需 VPS 跳板即可直连执行同一套预检与阻断闭环。
 - 该补充不影响 `两跳`主链路验收顺序，仅用于提高高可用可恢复性（HA 可用率与故障修复时效）。
 
 [⬆️ Back to top / 返回顶部](#top) | [🔙 返回主 README](../README.md) | [🔄 中文对照/English](../README_CN.md)

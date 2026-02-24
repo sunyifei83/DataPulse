@@ -43,8 +43,9 @@ fi
 : "${REMOTE_BOOTSTRAP_INSTALL:=0}"
 : "${REMOTE_INSTALL_CMD:=$REMOTE_PYTHON -m pip install -e .}"
 : "${REMOTE_HEALTH_URL:=http://127.0.0.1:18801}"
+: "${REMOTE_DIRECT_SSH:=0}"
 
-if [[ -z "$VPS_USER" || -z "$VPS_HOST" ]]; then
+if [[ "$REMOTE_DIRECT_SSH" != "1" && ( -z "$VPS_USER" || -z "$VPS_HOST" ) ]]; then
   echo "ERROR: 请先设置 VPS_USER 与 VPS_HOST（VPS 两跳隧道要求）。"
   echo "示例: export VPS_USER=<vps-user> && export VPS_HOST=<vps-host> && export VPS_PORT=6069"
   exit 2
@@ -62,6 +63,7 @@ echo "RUN_ID=$RUN_ID"
 echo "VPS_HOST=$VPS_HOST"
 echo "MACMINI_HOST=$MACMINI_HOST"
 echo "MACMINI_USER=$MACMINI_USER"
+echo "REMOTE_DIRECT_SSH=$REMOTE_DIRECT_SSH"
 echo "MACMINI_DATAPULSE_DIR=$MACMINI_DATAPULSE_DIR"
 echo "REMOTE_PYTHON=$REMOTE_PYTHON"
 echo "REMOTE_BOOTSTRAP_INSTALL=$REMOTE_BOOTSTRAP_INSTALL"
@@ -70,6 +72,14 @@ echo "PLATFORMS=$PLATFORMS"
 
 run_remote() {
   local cmd="$1"
+  if [[ "$REMOTE_DIRECT_SSH" == "1" ]]; then
+    if [[ -n "$MACMINI_PASSWORD" ]]; then
+      sshpass -p "$MACMINI_PASSWORD" ssh -o StrictHostKeyChecking=no -p "$MACMINI_PORT" "$MACMINI_USER@$MACMINI_HOST" "$cmd"
+    else
+      ssh -o StrictHostKeyChecking=no -p "$MACMINI_PORT" "$MACMINI_USER@$MACMINI_HOST" "$cmd"
+    fi
+    return
+  fi
   if [[ -n "$VPS_PASSWORD" && -n "$MACMINI_PASSWORD" ]]; then
     printf '%s\n' "$cmd" | sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
       "sshpass -p '$MACMINI_PASSWORD' ssh -o StrictHostKeyChecking=no -p '$MACMINI_PORT' '$MACMINI_USER@$MACMINI_HOST' 'bash -s'"
