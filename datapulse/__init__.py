@@ -1,7 +1,10 @@
 """DataPulse Intelligence Hub."""
 
+from .core import DataPulseItem, MediaType, SourceType
+from .core.logging_config import configure_logging
 from .reader import DataPulseReader
-from .core import DataPulseItem, SourceType, MediaType
+
+configure_logging()
 
 __all__ = ["DataPulseReader", "DataPulseItem", "SourceType", "MediaType"]
-__version__ = "0.1.0"
+__version__ = "0.2.0"

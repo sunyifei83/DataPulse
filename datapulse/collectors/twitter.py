@@ -12,11 +12,12 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 
-from bs4 import BeautifulSoup
 import requests
+from bs4 import BeautifulSoup
 
-from datapulse.core.models import SourceType, MediaType
-from datapulse.core.utils import generate_excerpt, clean_text
+from datapulse.core.models import MediaType, SourceType
+from datapulse.core.utils import clean_text, generate_excerpt
+
 from .base import BaseCollector, ParseResult
 
 logger = logging.getLogger("datapulse.parsers.twitter")
@@ -93,7 +94,7 @@ class TwitterCollector(BaseCollector):
 
                 tweet = data.get("tweet") or {}
                 screen_name = data.get("user", {}).get("screen_name", username)
-                author = data.get("user", {}).get("name", username)
+                _display_name = data.get("user", {}).get("name", username)  # noqa: F841
                 created_at = tweet.get("created_at", "")
                 stats = tweet.get("stats") or {}
 

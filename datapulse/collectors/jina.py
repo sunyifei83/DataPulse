@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-import requests
 from urllib.parse import urlparse
 
+import requests
+
 from datapulse.core.models import SourceType
+from datapulse.core.retry import retry
 from datapulse.core.utils import clean_text
+
 from .base import BaseCollector, ParseResult
 
 
@@ -27,10 +30,7 @@ class JinaCollector(BaseCollector):
             return ParseResult.failure(url, "Invalid URL: missing scheme")
 
         try:
-            remote = f"{self.JINA_BASE}{url}"
-            resp = requests.get(remote, timeout=self.TIMEOUT)
-            resp.raise_for_status()
-            text = resp.text or ""
+            text = self._fetch(url)
             lines = [ln for ln in text.splitlines() if ln.strip()]
             title = ""
             if lines:
@@ -50,5 +50,14 @@ class JinaCollector(BaseCollector):
                 confidence_flags=["fallback", "markdown_proxy"],
                 extra={"collector": "jina"},
             )
-        except Exception as exc:  # noqa: BLE001
+        except (requests.RequestException, requests.Timeout, OSError) as exc:
             return ParseResult.failure(url, f"JinaCollector failed: {exc}")
+        except ValueError as exc:
+            return ParseResult.failure(url, f"JinaCollector parse error: {exc}")
+
+    @retry(max_attempts=2, base_delay=1.0, retryable=(requests.RequestException,))
+    def _fetch(self, url: str) -> str:
+        remote = f"{self.JINA_BASE}{url}"
+        resp = requests.get(remote, timeout=self.TIMEOUT)
+        resp.raise_for_status()
+        return resp.text or ""

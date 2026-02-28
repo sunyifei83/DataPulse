@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import re
+
 import requests
 
-from datapulse.core.models import SourceType, MediaType
+from datapulse.core.models import MediaType, SourceType
+from datapulse.core.retry import retry
 from datapulse.core.utils import clean_text
+
 from .base import BaseCollector, ParseResult
 
 
@@ -24,14 +27,10 @@ class BilibiliCollector(BaseCollector):
         if not bvid:
             return ParseResult.failure(url, "Could not detect BV/BVID.")
 
-        resp = requests.get(
-            self.api_url,
-            params={"bvid": bvid},
-            headers={"User-Agent": "Mozilla/5.0"},
-            timeout=20,
-        )
-        resp.raise_for_status()
-        payload = resp.json()
+        try:
+            payload = self._fetch_video_info(bvid)
+        except (requests.RequestException, requests.Timeout, ValueError) as exc:
+            return ParseResult.failure(url, f"Bilibili API error: {exc}")
 
         if payload.get("code") != 0:
             return ParseResult.failure(url, payload.get("message", "Bilibili API error"))
@@ -42,11 +41,20 @@ class BilibiliCollector(BaseCollector):
         owner = data.get("owner", {})
         stat = data.get("stat", {})
 
+        view = stat.get("view", 0)
+        like = stat.get("like", 0)
+        coin = stat.get("coin", 0)
+        favorite = stat.get("favorite", 0)
+        danmaku = stat.get("danmaku", 0)
+        reply = stat.get("reply", 0)
+        share = stat.get("share", 0)
+
         content = clean_text("\n\n".join([
             f"{title}",
             desc or "",
             f"Author: {owner.get('name', '')}",
-            f"Play count: {stat.get('view', 0)}",
+            f"Views: {view:,}  Likes: {like:,}  Coins: {coin:,}",
+            f"Favorites: {favorite:,}  Danmaku: {danmaku:,}  Replies: {reply:,}  Shares: {share:,}",
         ]))
 
         return ParseResult(
@@ -59,8 +67,29 @@ class BilibiliCollector(BaseCollector):
             media_type=MediaType.VIDEO.value,
             tags=["bilibili", "video"],
             confidence_flags=["api"],
-            extra={"bvid": bvid, "video_id": bvid},
+            extra={
+                "bvid": bvid,
+                "video_id": bvid,
+                "view": view,
+                "like": like,
+                "coin": coin,
+                "favorite": favorite,
+                "danmaku": danmaku,
+                "reply": reply,
+                "share": share,
+            },
         )
+
+    @retry(max_attempts=3, base_delay=1.0, retryable=(requests.RequestException,))
+    def _fetch_video_info(self, bvid: str) -> dict:
+        resp = requests.get(
+            self.api_url,
+            params={"bvid": bvid},
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        return resp.json()
 
     @staticmethod
     def _extract_bvid(url: str) -> str:
@@ -74,7 +103,6 @@ class BilibiliCollector(BaseCollector):
             m = re.search(r"BV[0-9A-Za-z]{10}", redirected)
             if m:
                 return m.group(0)
-        except Exception:
+        except (requests.RequestException, OSError):
             pass
-        # short-link handling can be improved via API follow-up; keep as-is
         return ""

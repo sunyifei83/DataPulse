@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Iterable
 
-
 BASE_RELIABILITY = {
     "twitter": 0.92,
     "reddit": 0.9,

@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-import logging
-
 from datapulse.core.models import SourceType
 from datapulse.core.utils import clean_text, generate_excerpt
+
 from .base import BaseCollector, ParseResult
 
 logger = logging.getLogger("datapulse.parsers.reddit")

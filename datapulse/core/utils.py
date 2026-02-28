@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import ipaddress
-import asyncio
 import json
 import os
 import re
-import threading
 import socket
+import threading
 import unicodedata
 from pathlib import Path
 from typing import Awaitable, TypeVar
@@ -130,8 +130,8 @@ def normalize_language(text: str) -> str:
 def generate_slug(text: str, max_length: int = 70) -> str:
     ascii_text = unicodedata.normalize("NFKD", text or "")
     ascii_text = ascii_text.encode("ascii", "ignore").decode("ascii")
-    ascii_text = re.sub(r"[^a-zA-Z0-9\s-_]", "", ascii_text).strip().lower()
-    ascii_text = re.sub(r"[\s-_]+", "-", ascii_text)
+    ascii_text = re.sub(r"[^a-zA-Z0-9\s\-_]", "", ascii_text).strip().lower()
+    ascii_text = re.sub(r"[\s\-_]+", "-", ascii_text)
     return ascii_text[:max_length] or "untitled"
 
 

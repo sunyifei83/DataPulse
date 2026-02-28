@@ -39,3 +39,4 @@ openclaw-*.secret
 datapulse-openclaw.env
 artifacts/
 unified_inbox.json
+uv.lock

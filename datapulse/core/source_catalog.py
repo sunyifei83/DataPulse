@@ -2,19 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import os
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
-import hashlib
-import json
-import os
-import re
 
 from .models import DataPulseItem, SourceType
 from .utils import generate_slug, resolve_platform_hint
-
 
 JSONSource = dict[str, Any]
 
@@ -181,6 +180,9 @@ class SourcePack:
         }
 
 
+_SUPPORTED_CATALOG_VERSIONS = {1}
+
+
 class SourceCatalog:
     def __init__(self, catalog_path: str | None = None):
         default_path = os.getenv("DATAPULSE_SOURCE_CATALOG", "").strip() or "datapulse_source_catalog.json"
@@ -196,17 +198,24 @@ class SourceCatalog:
             return
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
-        except Exception:
+        except (json.JSONDecodeError, OSError):
             return
         if not isinstance(raw, dict):
             return
 
         self.version = _safe_int(raw.get("version"), default=1)
+        if self.version not in _SUPPORTED_CATALOG_VERSIONS:
+            import logging
+            logging.getLogger("datapulse.source_catalog").warning(
+                "Source catalog version %d is not supported (supported: %s). "
+                "Some features may not work correctly.",
+                self.version, _SUPPORTED_CATALOG_VERSIONS,
+            )
         self.sources = {}
         for source_obj in raw.get("sources", []) if isinstance(raw.get("sources"), list) else []:
             try:
                 source = SourceRecord.from_dict(source_obj)
-            except Exception:
+            except (KeyError, TypeError, ValueError):
                 continue
             self.sources[source.id] = source
 
@@ -229,7 +238,7 @@ class SourceCatalog:
                 pack = SourcePack.from_dict(pack_obj)
                 key = pack.slug.lower()
                 pack.slug = key
-            except Exception:
+            except (KeyError, TypeError, ValueError):
                 continue
             self.packs[key] = pack
 

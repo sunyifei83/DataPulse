@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 from datapulse.core.models import SourceType
 from datapulse.core.utils import session_path
+
 from .base import BaseCollector, ParseResult
 from .jina import JinaCollector
 
@@ -15,7 +17,12 @@ class XiaohongshuCollector(BaseCollector):
     reliability = 0.72
 
     def can_handle(self, url: str) -> bool:
-        return any(host in url.lower() for host in ["xiaohongshu.com", "xhslink.com", "xhslink.cn", "xiao"])
+        from urllib.parse import urlparse
+        hostname = (urlparse(url).hostname or "").lower()
+        return hostname in {
+            "xiaohongshu.com", "www.xiaohongshu.com",
+            "xhslink.com", "xhslink.cn",
+        }
 
     def parse(self, url: str) -> ParseResult:
         jina = JinaCollector()

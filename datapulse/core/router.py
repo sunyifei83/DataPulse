@@ -4,21 +4,21 @@ from __future__ import annotations
 
 import logging
 
-from datapulse.core.utils import resolve_platform_hint
 from datapulse.collectors import (
     BaseCollector,
-    ParseResult,
-    TwitterCollector,
-    YouTubeCollector,
-    RedditCollector,
     BilibiliCollector,
-    TelegramCollector,
-    WeChatCollector,
-    XiaohongshuCollector,
-    RssCollector,
     GenericCollector,
     JinaCollector,
+    ParseResult,
+    RedditCollector,
+    RssCollector,
+    TelegramCollector,
+    TwitterCollector,
+    WeChatCollector,
+    XiaohongshuCollector,
+    YouTubeCollector,
 )
+from datapulse.core.utils import resolve_platform_hint
 
 logger = logging.getLogger("datapulse.router")
 

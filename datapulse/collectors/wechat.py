@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datapulse.core.models import SourceType
 from datapulse.core.utils import session_path
+
 from .base import BaseCollector, ParseResult
 from .jina import JinaCollector
 

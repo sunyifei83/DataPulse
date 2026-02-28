@@ -9,9 +9,9 @@ from typing import Any
 
 from datapulse.core.confidence import compute_confidence
 from datapulse.core.models import DataPulseItem, SourceType
-from datapulse.core.source_catalog import SourceCatalog
 from datapulse.core.router import ParsePipeline
-from datapulse.core.storage import UnifiedInbox, save_markdown, output_record_md
+from datapulse.core.source_catalog import SourceCatalog
+from datapulse.core.storage import UnifiedInbox, output_record_md, save_markdown
 from datapulse.core.utils import inbox_path_from_env, normalize_language
 
 logger = logging.getLogger("datapulse.reader")
@@ -54,7 +54,15 @@ class DataPulseReader:
         min_confidence: float = 0.0,
         return_all: bool = True,
     ) -> list[DataPulseItem]:
-        tasks = [self.read(url, min_confidence=min_confidence) for url in urls]
+        # Normalize and deduplicate URLs
+        seen: set[str] = set()
+        unique_urls: list[str] = []
+        for url in urls:
+            normalized = url.strip().rstrip("/")
+            if normalized and normalized not in seen:
+                seen.add(normalized)
+                unique_urls.append(url.strip())
+        tasks = [self.read(url, min_confidence=min_confidence) for url in unique_urls]
         outputs: list[DataPulseItem] = []
         for item in await asyncio.gather(*tasks, return_exceptions=True):
             if isinstance(item, Exception):

@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import subprocess
 import tempfile
-import os
 
 import requests
 
-from datapulse.core.models import SourceType, MediaType
+from datapulse.core.models import MediaType, SourceType
 from datapulse.core.utils import clean_text, generate_excerpt
+
 from .base import BaseCollector, ParseResult
 
 logger = logging.getLogger("datapulse.parsers.youtube")

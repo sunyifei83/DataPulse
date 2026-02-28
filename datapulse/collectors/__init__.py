@@ -1,16 +1,21 @@
 """Collector exports."""
 
 from .base import BaseCollector, ParseResult
-from .twitter import TwitterCollector
-from .reddit import RedditCollector
-from .youtube import YouTubeCollector
 from .bilibili import BilibiliCollector
-from .rss import RssCollector
-from .telegram import TelegramCollector
-from .wechat import WeChatCollector
-from .xhs import XiaohongshuCollector
 from .generic import GenericCollector
 from .jina import JinaCollector
+from .reddit import RedditCollector
+from .rss import RssCollector
+from .telegram import TelegramCollector
+from .twitter import TwitterCollector
+from .wechat import WeChatCollector
+from .xhs import XiaohongshuCollector
+from .youtube import YouTubeCollector
+
+try:
+    from .browser import BrowserCollector
+except ImportError:
+    BrowserCollector = None  # type: ignore[assignment,misc]
 
 __all__ = [
     "BaseCollector",
@@ -25,4 +30,5 @@ __all__ = [
     "XiaohongshuCollector",
     "GenericCollector",
     "JinaCollector",
+    "BrowserCollector",
 ]

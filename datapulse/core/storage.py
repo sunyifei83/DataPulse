@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from pathlib import Path
 import json
 import os
+from datetime import datetime, timedelta
+from pathlib import Path
 
 from .models import DataPulseItem
 from .utils import content_hash, get_domain_tag
@@ -28,7 +28,7 @@ class UnifiedInbox:
 
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
-        except Exception:
+        except (json.JSONDecodeError, OSError):
             self.items = []
             return
 
@@ -36,7 +36,7 @@ class UnifiedInbox:
         for row in data if isinstance(data, list) else []:
             try:
                 loaded.append(DataPulseItem.from_dict(row))
-            except Exception:
+            except (KeyError, TypeError, ValueError):
                 continue
         self.items = loaded
         self._prune()

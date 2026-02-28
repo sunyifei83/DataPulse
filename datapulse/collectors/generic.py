@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+
 import requests
 from bs4 import BeautifulSoup
 
 from datapulse.core.models import SourceType
-from datapulse.core.utils import clean_text, validate_external_url, generate_excerpt
+from datapulse.core.utils import clean_text, generate_excerpt, validate_external_url
+
 from .base import BaseCollector, ParseResult
 
 logger = logging.getLogger("datapulse.parsers.generic")

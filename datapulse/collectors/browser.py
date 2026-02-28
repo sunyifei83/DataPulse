@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from datapulse.core.models import SourceType
-from datapulse.core.utils import clean_text
-from datapulse.core.utils import run_sync
+from datapulse.core.utils import clean_text, run_sync
+
 from .base import BaseCollector, ParseResult
 
 

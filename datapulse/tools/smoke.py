@@ -5,9 +5,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 
-from datapulse.reader import DataPulseReader
 from datapulse.core.utils import resolve_env_with_local_context
-
+from datapulse.reader import DataPulseReader
 
 SMOKE_SCENARIOS = {
     "twitter": {

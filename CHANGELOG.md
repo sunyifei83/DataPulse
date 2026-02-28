@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.2.0] - 2026-02-28
+
+### Added — Test Infrastructure (Phase 1)
+- 183 unit tests across 12 test modules covering models, utils, storage, router, collectors, confidence scoring, retry, reader, and source catalog.
+- `tests/conftest.py` with shared fixtures (`sample_item`, `tmp_inbox`, `mock_response`).
+- `pytest` + `pytest-asyncio` dev dependencies in `pyproject.toml`.
+- `.github/workflows/ci.yml` — GitHub Actions CI running lint + tests on Python 3.10/3.11/3.12.
+- `.pre-commit-config.yaml` for local ruff/mypy hooks.
+
+### Added — Resilience (Phase 2)
+- `datapulse/core/retry.py` — configurable `retry_with_backoff` decorator and `CircuitBreaker` class.
+- `datapulse/core/cache.py` — in-memory TTL cache with thread-safe access.
+- Retry integration in `JinaCollector` and RSS collector with exponential backoff.
+
+### Added — Observability (Phase 4)
+- `datapulse/core/logging_config.py` — structured logging with `DATAPULSE_LOG_LEVEL` env var support.
+- Unified logging across all collectors replacing ad-hoc print statements.
+
+### Changed — Collector Enhancements (Phase 3)
+- **RSS**: multi-entry feed parsing (up to `MAX_ENTRIES=25`), returning list of `ParseResult`.
+- **Bilibili**: interaction stats (`views`, `likes`, `coins`, `favorites`, `shares`) in `extra` dict.
+- **Telegram**: configurable `DATAPULSE_TG_LIMIT` and `DATAPULSE_TG_OFFSET` env vars.
+- **Xiaohongshu**: improved title/content extraction with fallback strategies.
+- **Jina**: retry-on-failure with backoff; cache integration for repeated URLs.
+- Batch URL deduplication in `read_batch`.
+
+### Changed — Core
+- Version bumped to `0.2.0`.
+- `datapulse/core/storage.py` — improved `prune` with configurable max age; better error handling on corrupt JSON.
+- `datapulse/core/utils.py` — new helpers: `validate_external_url` (SSRF protection), `resolve_platform_hint`, `is_platform_url`, `normalize_language`, `content_hash`, `generate_slug`.
+- `datapulse/core/source_catalog.py` — `SourceCatalog` with pack-based subscription model, auto-source registration, and domain/pattern matching.
+- Import cleanup and ruff lint compliance across all modules.
+
+### Fixed
+- Ruff lint: 42 errors resolved (import sorting, unused imports, unused variables).
+
 ## [0.1.1] - 2026-02-24
 
 ### Added

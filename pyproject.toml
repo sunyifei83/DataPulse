@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "datapulse"
-version = "0.1.0"
+version = "0.2.0"
 description = "DataPulse Intelligence Hub — cross-platform content intake pipeline for web URLs, bot/skill/mcp usage, confidence scoring, and markdown memory"
 readme = "README.md"
 license = { text = "DataPulse Non-Commercial License v1.0" }
@@ -53,6 +53,7 @@ telegram = ["telethon>=1.34"]
 browser = ["playwright>=1.40"]
 mcp = ["mcp[cli]>=1.0"]
 notebooklm = ["notebooklm-py>=0.3.0"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.3", "mypy>=1.8"]
 
 [project.urls]
 Homepage = "https://github.com/sunyifei83/DataPulse"
@@ -62,6 +63,18 @@ Issues = "https://github.com/sunyifei83/DataPulse/issues"
 [project.scripts]
 datapulse = "datapulse.cli:main"
 datapulse-smoke = "datapulse.tools.smoke:main"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.hatch.build.targets.wheel]
 packages = ["datapulse", "datapulse_skill"]

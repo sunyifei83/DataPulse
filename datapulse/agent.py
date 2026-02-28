@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from datapulse.core.utils import extract_urls
+
 from .reader import DataPulseReader
 
 logger = logging.getLogger("datapulse.agent")

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 
 from datapulse.reader import DataPulseReader
@@ -187,10 +186,18 @@ if __name__ == "__main__":
 
     @app.tool()
     async def health() -> str:
+        import sys
+        import time
+
+        import datapulse
+
         reader = DataPulseReader()
         return json.dumps(
             {
                 "ok": True,
+                "version": datapulse.__version__,
+                "python_version": sys.version.split()[0],
+                "uptime_seconds": round(time.monotonic(), 1),
                 "parsers": reader.router.available_parsers,
                 "stored": len(reader.inbox.items),
             },
