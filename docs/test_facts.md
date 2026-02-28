@@ -57,9 +57,12 @@ title: Test Facts
   - `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/openclaw-bot/mac-m4环境/模型端点配置.md`
 - 已执行快照（2026-02-24）：
   - 本机：`PASS=10 FAIL=1`（缺口：缺少 7 个 `DATAPULSE_SMOKE_*`）
-  - 远端：`FAIL`（阻断链路定位到 `ModuleNotFoundError: No module named 'datapulse'`）
+- 历史快照（修复前）：`FAIL`（阻断链路定位到 `ModuleNotFoundError: No module named 'datapulse'`）
+- 历史快照（修复前）：`FAIL`（当前卡点定位到 `pip install -e .` 构建依赖下载失败：`hatchling` 拉取阶段走代理失败，返回 `ProxyError: Cannot connect to proxy`）
   - 远端记录值（高敏信息不入库）：`VPS_HOST=<VPS_HOST>`，`MACMINI_HOST=<MACMINI_HOST>`，`MACMINI_DATAPULSE_DIR=<MACMINI_DATAPULSE_DIR>`
-  - 远端 Python（检测值）：`3.9.6`，低于 `requires-python >=3.10`
+  - 远端 Python（检测值）：已发现 `python3.10` 可用，示例 `/opt/homebrew/bin/python3.10`，但安装链路仍需修复构建依赖代理配置。
+- 远端：`PASS`（两跳链路 + 脚本内命令级代理隔离后；`remote_test` 能到达 MCP/Agent/skill 与 OpenClaw 健康检查）
+- 远端最近一轮执行残留卡点：`telegram` 平台未装 `Telethon`、`xhs` 在当前会话下无回退会话、`bilibili` 依赖数据不足导致个别内容抓取退化；属于平台能力/依赖与网络策略类非链路阻塞。
 - 远端高可用预检说明（已加入脚本）：
   - 检查 `MACMINI_DATAPULSE_DIR` 目录存在性（含 `pyproject.toml` 与 `datapulse/`）
   - 检查远端 Python 版本是否 >= 3.10
@@ -72,8 +75,12 @@ title: Test Facts
   - `MACMINI_DATAPULSE_DIR=<remote_workspace>/DataPulse`
   - `REMOTE_PYTHON=python3`（目标机器需满足 3.10+）
   - `REMOTE_BOOTSTRAP_INSTALL=1`（可选，修复 `datapulse` 模块缺失时先执行一次 `pip install -e .`）
+  - `REMOTE_PIP_EXTRAS=telegram,youtube`（按需补齐平台可选依赖）
   - `REMOTE_HEALTH_URL=http://127.0.0.1:18801`
   - `VPS_HOST=<VPS_HOST>`、`MACMINI_HOST=<MACMINI_HOST>`（当前两跳链路观测值）
+- 远端脚本补齐策略（新增）：
+  - 当 `REMOTE_PIP_EXTRAS` 为空时，脚本按 `PLATFORMS` 自动推导：`telegram` -> `telegram`、`youtube` -> `youtube`、`wechat/xhs` -> `browser`。
+  - 由脚本输出：`REMOTE_PIP_EXTRAS_AUTO=<自动列表>`，可直接复用当前运行链路而无需手工维护。
 - 若环境不可切换，请先确认：
   - SSH 口令/密钥方式可达
   - Runtime `/healthz` 与 `/readyz` 连通
@@ -84,6 +91,10 @@ title: Test Facts
 - `DATAPULSE_DIR_NOT_FOUND`：当前 `MACMINI_DATAPULSE_DIR` 不可达或路径错误，请先 `ls` 链接到真实仓库根。
 - `PACKAGE_MISSING`：路径存在但未包含 `pyproject.toml` 或 `datapulse/`，请修正为源码根目录。
 - `IMPORT_FAILED`：源码可见但 `datapulse` 无法导入，多半是依赖未安装或 `pip` 环境错配，请检查 `REMOTE_BOOTSTRAP_INSTALL` 与 `pip install -e .`。
+- `REMOTE_PLATFORM_DEPENDENCY_MISSING`（日志提示类）：`datapulse` 某平台 collector 缺少依赖（如 `Telethon`、`youtube-transcript-api`）；建议设置 `REMOTE_PIP_EXTRAS=telegram,youtube` 后复测。
+- `BUILD_DEPENDENCY_PROXY_FAIL`：`pip install -e .` 阶段构建依赖（例如 `hatchling`）通过代理访问 `pypi` 失败。  
+  修复动作：在远端执行命令前显式清理 `HTTP(S)_PROXY` 与 `ALL_PROXY`，或确认 `127.0.0.1:7897` 端口可用。
+- `REMOTE_COMMAND_PROXY_ISOLATED`：代理修复采用“仅注入到远端命令执行上下文”的模式（`NO_PROXY="*"` + 清空 `HTTPS_PROXY/HTTP_PROXY/ALL_PROXY/...`）；不修改 macmini 长期系统代理配置，不影响系统其他进程。
 
 ## Fact 4: 来源与订阅能力增强
 
@@ -106,9 +117,9 @@ title: Test Facts
 
 ### 当前阻塞事实与修复动作（高置信）
 
-- 阻塞主因：远端 Python 仍是 `3.9.6`，脚本级阻断码 `PYTHON_VERSION_TOO_LOW`。
-  - 修复动作：在远端切换到 3.10+ 解释器（示例 `python3.11`），并将 `REMOTE_PYTHON` 指向对应解释器。
-- 阻塞主因二：`ModuleNotFoundError: No module named 'datapulse'`。
+- 阻塞主因一：`pip install -e .` 构建依赖下载阶段走代理失败（`ProxyError: Cannot connect to proxy`），显示 `hatchling` 无可用版本。
+  - 修复动作：在远端执行前确认代理端口与配置，或在远端脚本上下文里临时移除 `HTTP(S)_PROXY/ALL_PROXY`。
+- 阻塞主因二：`ModuleNotFoundError: No module named 'datapulse'`（在代理问题修复前常见伴随表现）。
   - 修复动作：确认 `MACMINI_DATAPULSE_DIR` 指向 `pyproject.toml` 与 `datapulse/` 同级源码根；必要时执行 `REMOTE_BOOTSTRAP_INSTALL=1` 触发一次 `pip install -e .`。
 - 阻塞主因三：SSH 认证与端口参数不匹配（两跳参数变更）。
   - 修复动作：优先改为密钥链路；如继续口令链路，确保 VPS 与跳板 `sshpass` 两段参数一致。
@@ -121,7 +132,7 @@ title: Test Facts
 
 ## Fact 3.5: 网络拓扑可恢复性补充
 
-- 在当前项目环境中，远端 Mac Mini M4 已具备“当前内网可直接 SSH 访问”能力（不依赖 VPS 两跳）。
+- 在当前项目环境中，若本机与内网网段一致时可尝试直连；当前观测链路下 `192.168.3.196` ICMP 为丢包，故优先使用两跳。
 - 执行策略建议：
   - 首选 `VPS 两跳隧道`，保证与远端正式入网路径一致；
   - 遇到双跳不可达时，改用内网直连做局部验证与修复（仅用于降级排障）。
@@ -131,5 +142,11 @@ title: Test Facts
   - 远端源码目录与 `import datapulse` 可达性
 - 脚本能力补充：`scripts/datapulse_remote_openclaw_smoke.sh` 已支持 `REMOTE_DIRECT_SSH=1` 模式，无需 VPS 跳板即可直连执行同一套预检与阻断闭环。
 - 该补充不影响 `两跳`主链路验收顺序，仅用于提高高可用可恢复性（HA 可用率与故障修复时效）。
+- 当前可复现连通事实：两跳链路可用；`MACMINI_HOST=<内网IP>` 需结合当前网段确认，`MACMINI_PORT=22`。
+- 远端 uv 闭环增强事实：`REMOTE_UV_BOOTSTRAP=1` 时优先同步本机 `uv` 到 `REMOTE_UV_INSTALL_ROOT`，再 fallback 到远端 `python3 -m pip install --user uv`。
+- 当本机 `uv` 与远端平台三元组不一致时（`uname -s`/`uname -m`），会按降级路径执行 pip 安装。
+- 新增高可用修复能力：
+  - `REMOTE_AUTOPICK_PYTHON=1` 时，会先探测远端可用 Python 并自动选定满足 `REMOTE_PYTHON_MIN_VERSION` 的解释器，优先 `python3.{10,11,12}` 与可执行别名。
+  - `MACMINI_DATAPULSE_DIR` 校验时，会尝试候选 `.../DataPulse` 与 `$HOME/.openclaw/workspace/DataPulse`，提升路径偏移场景自愈率。
 
 [⬆️ Back to top / 返回顶部](#top) | [🔙 返回主 README](../README.md) | [🔄 中文对照/English](../README_CN.md)

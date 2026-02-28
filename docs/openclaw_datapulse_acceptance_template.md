@@ -4,7 +4,7 @@
 
 ## 1) 测试环境
 - 机器：Mac Mini M4
-- 接入路径：`VPS 两跳隧道`
+- 接入路径：`VPS 两跳隧道`（带宽受限时可降级为 `MACMINI_HOST` 内网直连）
 - OpenClaw Runtime：`127.0.0.1:18801`
 - 推荐本地命令入口：`python3`
 - 测试执行人：
@@ -81,7 +81,18 @@
   - `REMOTE_INSTALL_CMD`（可选，默认 `$REMOTE_PYTHON -m pip install -e .`）
   - `REMOTE_HEALTH_URL`（可选，默认 `http://127.0.0.1:18801`）
   - `REMOTE_USE_UV`（可选，`1` 让脚本走 uv 解释器封装）
+  - `REMOTE_AUTOPICK_PYTHON`（可选，默认 `1`，自动选远端可用且满足版本的 python）
   - `REMOTE_UV_PYTHON`（可选，默认 `3.10`）
+  - `REMOTE_UV_BOOTSTRAP`（可选，`1` 在缺失时尝试直连 macmini 同步本机 uv 并启用兜底）
+  - `REMOTE_UV_LOCAL_BINARY`（可选，直连同步时优先使用的本机 uv 路径，默认自动探测）
+  - `REMOTE_UV_INSTALL_ROOT`（可选，直连同步目标目录，默认 `\$HOME/.local/bin`）
+  - `REMOTE_PIP_EXTRAS`（可选，补齐平台依赖；如 `telegram,youtube,browser,all`）
+  - 若未显式设置，脚本会按 `PLATFORMS` 自动推导：
+    - `telegram` -> `telegram`
+    - `youtube` -> `youtube`
+    - `wechat/xhs` -> `browser`
+  - 对应输出：`REMOTE_PIP_EXTRAS_AUTO=telegram,youtube,browser`
+  - `REMOTE_PIP_NO_PROXY`（可选，默认 `*`；仅在远端执行命令时注入 `NO_PROXY`/`PIP_NO_PROXY`，不修改系统全局）
   - `REMOTE_DIRECT_SSH`（可选，`0` 默认两跳，`1` 改为内网直连）
 - 两跳隧道与直连模式兼容：当 `REMOTE_DIRECT_SSH=1` 时，可不设置 `VPS_USER/VPS_HOST`，脚本仅走 `MACMINI_HOST:MACMINI_PORT`。
 - 认证方式：
@@ -101,27 +112,46 @@
 ```
 
 ### 内网直连（补充）
-- 基于提供的基础信息，当前场景支持在内网直接 SSH 到 Mac Mini（无需两跳）进行可达性与快速修复验证。
+- 如网络条件满足（同网段）可在内网直接 SSH 到 Mac Mini（无需两跳）进行可达性与快速修复验证；当前环境建议先以两跳为主。
 - 建议在 `.env.openclaw`/`.env.secret`中补充（脱敏写法）：
-  - `MACMINI_HOST=<内网IP，如 192.168.x.x>`
+- `MACMINI_HOST=<内网IP>`
   - `MACMINI_PORT=22`
   - `MACMINI_USER=<同macmini系统用户>`
 - 直连连通性快速检查：
 ```bash
 export REMOTE_DIRECT_SSH=1
-export MACMINI_HOST=<macmini-ip>   # 例如 192.168.x.x
+export MACMINI_HOST=<内网IP>
 export MACMINI_PORT=22
 export MACMINI_USER=<macmini-user>
 export MACMINI_PASSWORD=<macmini-口令>   # 可选，口令访问；无口令可走密钥
 bash scripts/datapulse_remote_openclaw_smoke.sh  # 两跳不可用时启用
 ```
 
+```bash
 sshpass -p "<MacMini口令>" ssh -o StrictHostKeyChecking=no -p "${MACMINI_PORT:-22}" "$MACMINI_USER@$MACMINI_HOST" "pwd && python3 --version && curl -fsS http://127.0.0.1:18801/healthz"
 ```
-- 注意：`scripts/datapulse_remote_openclaw_smoke.sh` 同时支持两跳与直连模式；内网直连主要用于
+
+- 直连验证可直接启用 `REMOTE_UV_BOOTSTRAP=1`，脚本会优先尝试将本机 `uv` 二进制同步到远端，再回退到远端 `python -m pip install --user uv`：
+```bash
+export REMOTE_DIRECT_SSH=1
+export REMOTE_UV_BOOTSTRAP=1
+export MACMINI_USER=<macmini-user>
+export MACMINI_HOST=<内网IP>
+export MACMINI_PASSWORD=<macmini-口令或密钥免密访问>
+export REMOTE_PYTHON=python3
+export REMOTE_UV_INSTALL_ROOT=~/.local/bin
+export REMOTE_UV_LOCAL_BINARY=$(command -v uv)
+bash scripts/datapulse_remote_openclaw_smoke.sh
+```
+- 说明：若 `LOCAL uv` 平台与目标主机不一致（如 x86_64 vs arm64），脚本会自动降级到 `python3 -m pip install --user uv`，保持验证闭环。
+
+- `scripts/datapulse_remote_openclaw_smoke.sh` 的代理修复是“命令级注入”：在每次 `run_remote` 发送的远端命令前临时设置 `HTTPS_PROXY/HTTP_PROXY/ALL_PROXY=空` 且 `NO_PROXY='*'`，不会影响 macmini 上其它长期进程。
+
+- 注意：脚本同时支持两跳与直连模式；当前优先用两跳（直连受制于本机网段）。内网直连主要用于
   - 临时修复/验证
   - 与脚本阻断码结论交叉比对
   - 降低两跳不可用时的初级排障成本
+- 脚本还会尝试远端 python 自适应与 `MACMINI_DATAPULSE_DIR` 兜底定位（含 `DataPulse` 子目录），以减少手工设置偏差。
 
 ### 远端源码与依赖恢复（高可用）
 
@@ -135,6 +165,19 @@ bash scripts/datapulse_remote_openclaw_smoke.sh
 ```bash
 export REMOTE_USE_UV=1
 export REMOTE_UV_PYTHON=3.10
+export REMOTE_BOOTSTRAP_INSTALL=1
+bash scripts/datapulse_remote_openclaw_smoke.sh
+```
+- 与 `PLATFORMS` 自动推导能力配套，典型一键补齐动作：
+```bash
+export PLATFORMS="twitter reddit bilibili telegram wechat xhs youtube"
+unset REMOTE_PIP_EXTRAS
+export REMOTE_BOOTSTRAP_INSTALL=1
+bash scripts/datapulse_remote_openclaw_smoke.sh
+```
+- 若出现 `Telethon not installed` / `youtube-transcript-api` 相关可在安装阶段补齐依赖后复测：
+```bash
+export REMOTE_PIP_EXTRAS=telegram,youtube
 export REMOTE_BOOTSTRAP_INSTALL=1
 bash scripts/datapulse_remote_openclaw_smoke.sh
 ```
