@@ -1,5 +1,51 @@
 # Release Notes
 
+## Release: DataPulse v0.2.0
+
+发布日期：2026-02-28
+构建目标：测试基建 + 韧性增强 + 采集器强化 + 可观测性
+
+### 主要变更
+
+**Phase 1 — 测试基建**
+- 新增 183 单元测试，覆盖 models / utils / storage / router / collectors / confidence / retry / reader / source catalog 共 12 个测试文件。
+- 新增 `tests/conftest.py`，提供 7 个可复用 fixture。
+- GitHub Actions CI：Python 3.10/3.11/3.12 矩阵执行 ruff lint + pytest。
+- pre-commit 配置（ruff + mypy hook）。
+
+**Phase 2 — 韧性增强**
+- `datapulse/core/retry.py`：`retry_with_backoff` 装饰器 + `CircuitBreaker` 熔断器。
+- `datapulse/core/cache.py`：线程安全 TTL 缓存，零外部依赖。
+- Bilibili / Jina / RSS 采集器集成重试（2~3 次指数退避）。
+- 异常窄化：全局替换 `except Exception` 为精确异常类型。
+- Telegram / RSS 新增显式超时（30s / 20s）。
+
+**Phase 3 — 采集器增强**
+- RSS：多条目解析（最多 5 条），markdown 分隔输出。
+- Bilibili：交互数据（播放/点赞/投币/收藏/弹幕/评论/转发）写入 extra dict。
+- Telegram：`DATAPULSE_TG_MAX_MESSAGES` / `DATAPULSE_TG_MAX_CHARS` / `DATAPULSE_TG_CUTOFF_HOURS` 环境变量可配置。
+- 小红书：改进标题/内容提取策略，增加 fallback。
+- Jina：集成重试 + TTL 缓存。
+- `read_batch`：自动 URL 归一化与去重。
+
+**Phase 4 — 可观测性**
+- `datapulse/core/logging_config.py`：结构化日志，`DATAPULSE_LOG_LEVEL` 环境变量控制级别。
+- 所有采集器统一使用 logger 替代 print。
+
+### 版本一致性
+- `pyproject.toml` → 0.2.0
+- `datapulse/__init__.py` → 0.2.0
+- `datapulse_skill/manifest.json` → 0.2.0
+- `docs/contracts/openclaw_datapulse_tool_contract.json` → 0.2.0
+
+### 验收建议
+1. `uv run --python 3.11 -- ruff check datapulse/` — 0 errors
+2. `uv run --python 3.11 -- python -m pytest tests/ -v` — 183 passed
+3. `git tag -l v0.2.0` — tag 存在
+4. 所有 15 个 v0.2.0 GitHub Issues 已关闭
+
+---
+
 ## Release: DataPulse v0.1.0 (Initial)
 
 发布日期：2026-02-24  

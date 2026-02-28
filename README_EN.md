@@ -16,10 +16,10 @@ for MCP, Skill, Agent, and bot workflows.
   - Twitter: FxTwitter primary + Nitter fallback
   - Reddit: public `.json` API
   - YouTube: transcript first, optional Whisper fallback (`GROQ_API_KEY`)
-  - Bilibili: official API
-  - Telegram: Telethon (`TG_API_ID` / `TG_API_HASH`)
-  - WeChat / Xiaohongshu: Jina fallback, optional Playwright session fallback
-  - RSS: read latest feed entry
+  - Bilibili: official API + interaction stats (views/likes/coins/favorites/danmaku/shares)
+  - Telegram: Telethon (`TG_API_ID`/`TG_API_HASH`), configurable via `DATAPULSE_TG_*` env vars
+  - WeChat / Xiaohongshu: Jina fallback with retry, optional Playwright session fallback
+  - RSS: multi-entry feed parsing (up to 5 entries), auto feed type detection
   - Generic web: Trafilatura / BeautifulSoup, optional Firecrawl fallback (`FIRECRAWL_API_KEY`)
 - Outputs:
   - structured JSON (`DataPulseItem`)
@@ -28,9 +28,16 @@ for MCP, Skill, Agent, and bot workflows.
   - parser reliability + title/content/source/author/feature flags
   - score bounded to [0.01, 0.99]
 - Reliability:
-  - centralized parse error handling
-  - concurrent batch reads
+  - centralized parse error handling with narrowed exceptions
+  - `retry_with_backoff` decorator + `CircuitBreaker` for fault tolerance
+  - in-memory TTL cache (thread-safe, zero external deps)
+  - concurrent batch reads with auto URL dedup
   - dedupe and prune by max items / retention days
+- Observability:
+  - structured logging (`DATAPULSE_LOG_LEVEL` env var)
+- Testing:
+  - 183 unit tests across 12 modules
+  - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
 
@@ -144,6 +151,10 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `FXTWITTER_API_URL`
 - `FIRECRAWL_API_KEY`
 - `GROQ_API_KEY`
+- `DATAPULSE_LOG_LEVEL` (default WARNING)
+- `DATAPULSE_TG_MAX_MESSAGES` (default 20)
+- `DATAPULSE_TG_MAX_CHARS` (default 800)
+- `DATAPULSE_TG_CUTOFF_HOURS` (default 24)
 - `DATAPULSE_SMOKE_*`
 - `DATAPULSE_MIN_CONFIDENCE`
 

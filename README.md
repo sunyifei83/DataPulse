@@ -20,19 +20,26 @@
   - Twitter：FxTwitter + Nitter 兜底
   - Reddit：公开 JSON API
   - YouTube：字幕优先，缺失时可回退到音频转写（`GROQ_API_KEY`）
-  - Bilibili：官方 API
-  - Telegram：Telethon（需要 `TG_API_ID` / `TG_API_HASH`）
-  - WeChat / Xiaohongshu：Jina 兜底，支持 Playwright Session 回退
-  - RSS：取 feed 最新条目
+  - Bilibili：官方 API + 交互数据（播放/点赞/投币/收藏/弹幕/转发）
+  - Telegram：Telethon（`TG_API_ID`/`TG_API_HASH`），支持 `DATAPULSE_TG_*` 可配置限制
+  - WeChat / Xiaohongshu：Jina 兜底 + 重试，支持 Playwright Session 回退
+  - RSS：多条目 Feed 解析（最多 5 条），自动识别 feed 类型
   - 通用网页：Trafilatura/BeautifulSoup，失败时可回退 Firecrawl（`FIRECRAWL_API_KEY`）
 - 双层输出：
   - 结构化 JSON（统一 `DataPulseItem`）
   - 可选 Markdown 记忆写入（`datapulse-inbox.md` / 自定义路径）
 - 分数与置信：基于解析器可靠性、标题/正文长度/来源/作者/标签与特征，最终返回 0.01~0.99 区间
 - 稳健性：
-  - 统一错误处理
-  - 并发批量执行（`read_batch`）
+  - 统一错误处理，异常窄化（精确捕获 `RequestException`/`TimeoutError` 等）
+  - `retry_with_backoff` 重试装饰器 + `CircuitBreaker` 熔断器
+  - 内存级 TTL 缓存（线程安全，无外部依赖）
+  - 并发批量执行（`read_batch`），自动 URL 去重
   - 去重与过期裁剪（默认最多 500 条、30 天）
+- 可观测性：
+  - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
+- 测试基建：
+  - 183 单元测试，覆盖 12 模块
+  - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
 
@@ -145,6 +152,10 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `FXTWITTER_API_URL`
 - `FIRECRAWL_API_KEY`
 - `GROQ_API_KEY`
+- `DATAPULSE_LOG_LEVEL`（默认 WARNING）
+- `DATAPULSE_TG_MAX_MESSAGES`（默认 20）
+- `DATAPULSE_TG_MAX_CHARS`（默认 800）
+- `DATAPULSE_TG_CUTOFF_HOURS`（默认 24）
 - `DATAPULSE_SMOKE_*`
 - `DATAPULSE_MIN_CONFIDENCE`
 
@@ -212,10 +223,10 @@ with structured results that can feed MCP, Assistant Skill, Agent, or Bot workfl
   - Twitter: FxTwitter primary + Nitter fallback
   - Reddit: public JSON API
   - YouTube: transcript first, optional audio transcription fallback (`GROQ_API_KEY`)
-  - Bilibili: official API
-  - Telegram: Telethon (`TG_API_ID` / `TG_API_HASH`)
-  - WeChat / Xiaohongshu: Jina fallback, optional Playwright session fallback
-  - RSS: latest feed item
+  - Bilibili: official API + interaction stats (views/likes/coins/favorites/danmaku/shares)
+  - Telegram: Telethon (`TG_API_ID`/`TG_API_HASH`), configurable via `DATAPULSE_TG_*` env vars
+  - WeChat / Xiaohongshu: Jina fallback with retry, optional Playwright session fallback
+  - RSS: multi-entry feed parsing (up to 5 entries), auto feed type detection
   - Generic web: Trafilatura / BeautifulSoup, optional Firecrawl fallback (`FIRECRAWL_API_KEY`)
 - Output:
   - Structured JSON (`DataPulseItem`)
@@ -223,9 +234,16 @@ with structured results that can feed MCP, Assistant Skill, Agent, or Bot workfl
 - Scoring:
   - parser reliability + content/title/metadata features, bounded to [0.01, 0.99]
 - Resilience:
-  - unified parse result handling
-  - concurrent batch read (`read_batch`)
+  - unified parse result handling with narrowed exceptions
+  - `retry_with_backoff` decorator + `CircuitBreaker` for fault tolerance
+  - in-memory TTL cache (thread-safe, zero external deps)
+  - concurrent batch read (`read_batch`) with auto URL dedup
   - dedupe and prune by max items / retention days
+- Observability:
+  - structured logging (`DATAPULSE_LOG_LEVEL` env var)
+- Testing:
+  - 183 unit tests across 12 modules
+  - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
 
@@ -339,6 +357,10 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `FXTWITTER_API_URL`
 - `FIRECRAWL_API_KEY`
 - `GROQ_API_KEY`
+- `DATAPULSE_LOG_LEVEL` (default WARNING)
+- `DATAPULSE_TG_MAX_MESSAGES` (default 20)
+- `DATAPULSE_TG_MAX_CHARS` (default 800)
+- `DATAPULSE_TG_CUTOFF_HOURS` (default 24)
 - `DATAPULSE_SMOKE_*`
 - `DATAPULSE_MIN_CONFIDENCE`
 

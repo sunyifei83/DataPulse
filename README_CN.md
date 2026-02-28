@@ -15,10 +15,10 @@
   - Twitter：FxTwitter 主链路 + Nitter 兜底
   - Reddit：公开 `.json` API
   - YouTube：优先字幕，其次可选 Whisper（`GROQ_API_KEY`）
-  - Bilibili：官方 API
-  - Telegram：Telethon（需 `TG_API_ID` / `TG_API_HASH`）
-  - WeChat / 小红书：Jina 兜底，支持 Playwright 会话回退
-  - RSS：读取最新条目
+  - Bilibili：官方 API + 交互数据（播放/点赞/投币/收藏/弹幕/转发）
+  - Telegram：Telethon（`TG_API_ID`/`TG_API_HASH`），支持 `DATAPULSE_TG_*` 可配置限制
+  - WeChat / 小红书：Jina 兜底 + 重试，支持 Playwright 会话回退
+  - RSS：多条目 Feed 解析（最多 5 条），自动识别 feed 类型
   - 通用网页：Trafilatura / BeautifulSoup，失败再尝试 Firecrawl（`FIRECRAWL_API_KEY`）
 - 产出：
   - 结构化 JSON（`DataPulseItem`）
@@ -27,9 +27,16 @@
   - parser 可靠性 + 标题/正文长度/来源/作者/特征因子
   - 分数区间：0.01 ~ 0.99
 - 稳定性：
-  - 统一失败处理
-  - 批量并发解析
+  - 统一失败处理，异常窄化（精确捕获 `RequestException`/`TimeoutError` 等）
+  - `retry_with_backoff` 重试装饰器 + `CircuitBreaker` 熔断器
+  - 内存级 TTL 缓存（线程安全，无外部依赖）
+  - 批量并发解析，自动 URL 去重
   - 去重 + 时效裁剪（默认 500 条 / 30 天）
+- 可观测性：
+  - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
+- 测试基建：
+  - 183 单元测试，覆盖 12 模块
+  - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
 
@@ -142,6 +149,10 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `FXTWITTER_API_URL`
 - `FIRECRAWL_API_KEY`
 - `GROQ_API_KEY`
+- `DATAPULSE_LOG_LEVEL`（默认 WARNING）
+- `DATAPULSE_TG_MAX_MESSAGES`（默认 20）
+- `DATAPULSE_TG_MAX_CHARS`（默认 800）
+- `DATAPULSE_TG_CUTOFF_HOURS`（默认 24）
 - `DATAPULSE_SMOKE_*`
 - `DATAPULSE_MIN_CONFIDENCE`
 
