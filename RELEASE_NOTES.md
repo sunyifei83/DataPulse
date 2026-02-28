@@ -1,5 +1,77 @@
 # Release Notes
 
+## Release: DataPulse v0.4.0
+
+发布日期：2026-02-28
+构建目标：多维评分 + 来源权威 + 跨源互证 + Digest 构建器 + Atom feed + arXiv/HN 采集器
+
+### 主要变更
+
+**Phase 1 — 基础扩展**
+- **Source Authority Tiers**: `SourceRecord` 新增 `tier`（1=顶级 2=标准 3=小众）和 `authority_weight`（0.0-1.0），`SourceCatalog.build_authority_map()` 构建权威映射。Catalog 版本支持 `{1, 2}`。
+- **arXiv Collector**: 解析 `arxiv.org/abs/`、`arxiv.org/pdf/`、`arxiv:XXXX.XXXXX`，通过 Atom API 获取结构化元数据（标题/作者/摘要/分类/PDF链接）。`BASE_RELIABILITY["arxiv"] = 0.88`。
+- **HackerNews Collector**: 解析 `news.ycombinator.com` 条目，通过 Firebase API 获取数据。动态 confidence flags：`hn_score>=100` → `high_engagement`、`descendants>=50` → `comments`。`BASE_RELIABILITY["hackernews"] = 0.82`。
+- **Atom 1.0 Feed**: `build_atom_feed()` 输出标准 Atom 1.0 XML。CLI `--query-atom`、MCP `build_atom_feed` 工具。
+
+**Phase 2 — 多维评分引擎**
+- `datapulse/core/scoring.py`：四维度加权评分（confidence 0.25 / authority 0.30 / corroboration 0.25 / recency 0.20）。
+- `content_fingerprint()` 通过 n-gram shingling 实现同主题检测。
+- `rank_items()` 统一入口：评分 → 排序 → 设置 `score`（0-100）、`quality_rank`、`extra["score_breakdown"]`。
+- 时效性衰减：指数衰减 `2^(-age_h / half_life)`，`DATAPULSE_RECENCY_HALF_LIFE` 环境变量（默认 24h）。
+
+**Phase 3 — Digest 构建器**
+- `build_digest()` 产出包含 primary/secondary 故事的摘要信封。
+- 指纹去重（同指纹保留最高分）+ 贪心多样性选择（惩罚同源聚集）。
+- 输出 stats、provenance 元数据。CLI `--digest --top-n --secondary-n`、MCP `build_digest` 工具。
+
+### 测试
+- 新增 ~77 个测试，涵盖 arXiv/HN 采集器、评分引擎、Digest 构建器、Atom feed、source authority。
+
+### 版本一致性
+- `pyproject.toml` → 0.4.0
+- `datapulse/__init__.py` → 0.4.0
+- `datapulse_skill/manifest.json` → 0.4.0
+- `docs/contracts/openclaw_datapulse_tool_contract.json` → 0.4.0
+
+---
+
+## Release: DataPulse v0.3.0
+
+发布日期：2026-02-28
+构建目标：代码质量门禁 + 功能增强 + 集成测试
+
+### 主要变更
+
+**Phase 1 — 代码质量门禁**
+- mypy CI 集成：`pyproject.toml` 添加 `[tool.mypy]` 配置，CI 新增 `typecheck` job。
+- 添加 `types-requests`、`types-beautifulsoup4` 到 dev 依赖。
+- 修复 6 处 mypy 类型错误（BeautifulSoup `.get()` 返回类型、`NITTER_INSTANCES` 解析、CLI 变量遮蔽等）。
+- 三份 README 新增「开发环境」小节（pre-commit 安装说明）。
+
+**Phase 2 — 功能增强**
+- `read_batch` 批量限速：`DATAPULSE_BATCH_CONCURRENCY` 环境变量控制并发上限（默认 5），使用 `asyncio.Semaphore`。
+- JSON Feed v1.1 合规：`author` 字段替换为 `authors` 数组（修复 `getattr(item, "author")` 潜在 bug）。
+- YouTube 章节解析：`_parse_chapters()` 从视频描述中提取 `MM:SS` / `H:MM:SS` 时间戳，写入 `extra["chapters"]`。
+- Processed 状态管理：`UnifiedInbox.mark_processed()` / `query_unprocessed()` + `DataPulseReader` 透传 + 2 个 MCP 工具。
+
+**Phase 3 — 基建演进**
+- `tests/test_integration.py`：mock HTTP 层端到端集成测试。
+- 新增 15 个测试用例，总计 198 个。
+
+### 版本一致性
+- `pyproject.toml` → 0.3.0
+- `datapulse/__init__.py` → 0.3.0
+- `datapulse_skill/manifest.json` → 0.3.0
+- `docs/contracts/openclaw_datapulse_tool_contract.json` → 0.3.0
+
+### 验收建议
+1. `uv run --python 3.11 -- mypy datapulse/` — 0 errors
+2. `uv run --python 3.11 -- ruff check datapulse/` — 0 errors
+3. `uv run --python 3.11 -- python -m pytest tests/ -v` — 198 passed
+4. `git tag -l v0.3.0` — tag 存在
+
+---
+
 ## Release: DataPulse v0.2.0
 
 发布日期：2026-02-28

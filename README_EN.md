@@ -36,7 +36,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 183 unit tests across 12 modules
+  - 198 tests across 13 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -49,6 +49,13 @@ pip install -e ".[all]"   # enable all optional capabilities
 Optional groups:
 
 - `.[trafilatura]`, `.[youtube]`, `.[telegram]`, `.[browser]`, `.[mcp]`, `.[notebooklm]`
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pip install pre-commit && pre-commit install
+```
 
 ## License
 

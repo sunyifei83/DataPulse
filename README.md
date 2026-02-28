@@ -52,6 +52,13 @@ pip install -e ".[all]"   # 启用全部可选能力
 
 - `.[trafilatura]`、`.[youtube]`、`.[telegram]`、`.[browser]`、`.[mcp]`、`.[notebooklm]`
 
+## 开发环境
+
+```bash
+pip install -e ".[dev]"
+pip install pre-commit && pre-commit install
+```
+
 ## 许可证
 
 本项目采用「DataPulse Non-Commercial License v1.0」。
@@ -118,6 +125,8 @@ python -m datapulse.mcp_server
 - `read_url(url, min_confidence=0.0)`
 - `read_batch(urls, min_confidence=0.0)`
 - `query_inbox(limit=20, min_confidence=0.0)`
+- `mark_processed(item_id, processed=True)`
+- `query_unprocessed(limit=20, min_confidence=0.0)`
 - `detect_platform(url)`
 - `health()`
 
@@ -157,6 +166,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_TG_MAX_CHARS`（默认 800）
 - `DATAPULSE_TG_CUTOFF_HOURS`（默认 24）
 - `DATAPULSE_SMOKE_*`
+- `DATAPULSE_BATCH_CONCURRENCY`（默认 5 / default 5）
 - `DATAPULSE_MIN_CONFIDENCE`
 
 ## 使用建议（openclaw-bot 场景）
@@ -242,7 +252,7 @@ with structured results that can feed MCP, Assistant Skill, Agent, or Bot workfl
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 183 unit tests across 12 modules
+  - 198 tests across 12 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -255,6 +265,13 @@ pip install -e ".[all]"   # enable all optional capabilities
 Optional groups:
 
 - `.[trafilatura]`, `.[youtube]`, `.[telegram]`, `.[browser]`, `.[mcp]`, `.[notebooklm]`
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pip install pre-commit && pre-commit install
+```
 
 ## License
 
@@ -323,6 +340,8 @@ Exposed tools:
 - `read_url(url, min_confidence=0.0)`
 - `read_batch(urls, min_confidence=0.0)`
 - `query_inbox(limit=20, min_confidence=0.0)`
+- `mark_processed(item_id, processed=True)`
+- `query_unprocessed(limit=20, min_confidence=0.0)`
 - `detect_platform(url)`
 - `health()`
 
@@ -362,6 +381,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_TG_MAX_CHARS` (default 800)
 - `DATAPULSE_TG_CUTOFF_HOURS` (default 24)
 - `DATAPULSE_SMOKE_*`
+- `DATAPULSE_BATCH_CONCURRENCY`（默认 5 / default 5）
 - `DATAPULSE_MIN_CONFIDENCE`
 
 ## Recommended usage for bot/agent stacks

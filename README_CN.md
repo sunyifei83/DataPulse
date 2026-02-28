@@ -35,7 +35,7 @@
 - 可观测性：
   - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
 - 测试基建：
-  - 183 单元测试，覆盖 12 模块
+  - 198 个测试，覆盖 12 模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -48,6 +48,13 @@ pip install -e ".[all]"   # 启用全部可选能力
 可选安装组：
 
 - `.[trafilatura]`、`.[youtube]`、`.[telegram]`、`.[browser]`、`.[mcp]`、`.[notebooklm]`
+
+## 开发环境
+
+```bash
+pip install -e ".[dev]"
+pip install pre-commit && pre-commit install
+```
 
 ## 许可证
 

@@ -1,5 +1,61 @@
 # Changelog
 
+## [0.4.0] - 2026-02-28
+
+### Added — Features
+- **Source Authority Tiers**: `SourceRecord` gains `tier` (1=top, 2=standard, 3=niche) and `authority_weight` (0.0-1.0) fields. `SourceCatalog.build_authority_map()` builds name/domain → weight mapping.
+- **arXiv Collector**: `ArxivCollector` parses `arxiv.org/abs/`, `arxiv.org/pdf/`, `arxiv:XXXX.XXXXX` via Atom API. Extracts title, authors, abstract, categories, PDF link.
+- **HackerNews Collector**: `HackerNewsCollector` parses `news.ycombinator.com` items via Firebase API. Dynamic confidence flags for engagement (`hn_score>=100`, `descendants>=50`).
+- **Atom 1.0 Feed**: `build_atom_feed()` outputs Atom 1.0 XML with `<feed xmlns="http://www.w3.org/2005/Atom">`. CLI `--query-atom`, MCP `build_atom_feed` tool.
+- **Multi-dimensional Scoring Engine**: `datapulse/core/scoring.py` with 4 dimensions (confidence 0.25, authority 0.30, corroboration 0.25, recency 0.20). `rank_items()` scores, sorts, and annotates items with `score` (0-100), `quality_rank`, and `extra["score_breakdown"]`.
+- **Content Fingerprinting**: `content_fingerprint()` for same-topic detection via n-gram shingling.
+- **Digest Builder**: `build_digest()` produces curated digests with primary/secondary stories, fingerprint dedup, diverse source selection, provenance metadata. CLI `--digest --top-n --secondary-n`, MCP `build_digest` tool.
+- `SourceType.ARXIV` and `SourceType.HACKERNEWS` enum values.
+- `is_arxiv_url()`, `is_hackernews_url()` platform detectors.
+- `BASE_RELIABILITY["arxiv"] = 0.88`, `BASE_RELIABILITY["hackernews"] = 0.82`.
+- Catalog version support expanded to `{1, 2}`.
+
+### Added — Testing
+- `tests/test_arxiv_collector.py` — 13 tests for ArxivCollector (can_handle, extract_id, parse_atom_response, author truncation, categories, extra fields).
+- `tests/test_hackernews_collector.py` — 11 tests for HackerNewsCollector (can_handle, extract_id, build_result, engagement flags, dead/deleted items).
+- `tests/test_scoring.py` — 17 tests for scoring engine (recency, authority, corroboration, composite, rank_items).
+- `tests/test_digest.py` — 12 tests for digest builder (structure, counts, diversity, dedup, empty inbox, since/confidence filters).
+- Updated `test_source_catalog.py` — 10 new tests for tier/weight fields, build_authority_map, v1 compat, clamping.
+- Updated `test_reader.py` — 7 new tests for Atom feed (well-formed XML, namespace, entries, escaping, limit, URN IDs).
+- Updated `test_utils.py` — 7 new tests for is_arxiv_url, is_hackernews_url, content_fingerprint, platform hints.
+- Updated `test_models.py` — SourceType enum values updated.
+
+### Changed
+- Version bumped to `0.4.0` across `pyproject.toml`, `__init__.py`, `manifest.json`, tool contract.
+- `ParsePipeline` includes ArxivCollector and HackerNewsCollector (before RssCollector).
+
+## [0.3.0] - 2026-02-28
+
+### Added — Code Quality
+- mypy type-checking CI job in `.github/workflows/ci.yml`.
+- mypy configuration in `pyproject.toml` (permissive mode, `ignore_missing_imports=true`).
+- `types-requests` and `types-beautifulsoup4` added to dev dependencies.
+- Pre-commit development setup instructions in `README.md`, `README_CN.md`, `README_EN.md`.
+
+### Added — Features
+- `DATAPULSE_BATCH_CONCURRENCY` env var for rate-limiting `read_batch` via `asyncio.Semaphore` (default 5).
+- YouTube chapter parsing: `_parse_chapters()` extracts `MM:SS` / `H:MM:SS` timestamps from video descriptions into `extra["chapters"]`.
+- Processed state management: `mark_processed()` and `query_unprocessed()` on `UnifiedInbox`, `DataPulseReader`, and as MCP tools.
+
+### Fixed
+- JSON Feed `author` field replaced with `authors` array per JSON Feed v1.1 spec (fixes `getattr(item, "author")` bug).
+- BeautifulSoup `.get()` return type narrowed with `str()` casts to satisfy mypy.
+- Twitter collector `NITTER_INSTANCES` env var parsing fixed to avoid `Optional[str].split()` type error.
+- CLI `path` variable renamed to `inbox_path` to avoid type shadow from `login_platform` return.
+
+### Added — Testing
+- 15 new tests: batch concurrency, YouTube chapters (5 cases), JSON Feed v1.1 authors, processed state (5 cases), integration pipeline (3 cases).
+- `tests/test_integration.py` — end-to-end mock HTTP pipeline test skeleton.
+- Total test count: 198.
+
+### Changed
+- Version bumped to `0.3.0` across `pyproject.toml`, `__init__.py`, `manifest.json`, tool contract.
+
 ## [0.2.0] - 2026-02-28
 
 ### Added — Test Infrastructure (Phase 1)
