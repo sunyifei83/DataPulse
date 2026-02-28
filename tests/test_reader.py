@@ -75,6 +75,17 @@ class TestBuildJsonFeed:
             assert "content_text" in item
             assert "url" in item
 
+    def test_json_feed_authors_v11_format(self, reader_with_items):
+        """JSON Feed v1.1: authors must be list[dict], not string."""
+        feed = reader_with_items.build_json_feed()
+        for item in feed["items"]:
+            assert "author" not in item, "'author' key should not exist in JSON Feed v1.1"
+            assert "authors" in item
+            assert isinstance(item["authors"], list)
+            for author in item["authors"]:
+                assert isinstance(author, dict)
+                assert "name" in author
+
     def test_json_feed_limit(self, reader_with_items):
         feed = reader_with_items.build_json_feed(limit=1)
         assert len(feed["items"]) <= 1
@@ -138,3 +149,93 @@ class TestBuildRssFeed:
         item = channel.find("item")
         title = item.find("title").text
         assert "&" in title or "<" not in title  # properly escaped
+
+
+class TestBuildAtomFeed:
+    @pytest.fixture()
+    def reader_with_items(self, tmp_path):
+        inbox_path = str(tmp_path / "inbox.json")
+        catalog_path = str(tmp_path / "catalog.json")
+        import json, os
+        from pathlib import Path
+
+        Path(catalog_path).write_text(json.dumps({
+            "version": 1, "sources": [], "subscriptions": {}, "packs": [],
+        }), encoding="utf-8")
+
+        items = [
+            DataPulseItem(
+                source_type=SourceType.TWITTER,
+                source_name="@atomuser",
+                title="Atom Test <Item> & More",
+                content="Content with <html> & \"quotes\"",
+                url="https://x.com/atomuser/status/1",
+                confidence=0.85,
+            ),
+            DataPulseItem(
+                source_type=SourceType.GENERIC,
+                source_name="example",
+                title="Second Entry",
+                content="More content here",
+                url="https://example.com/page2",
+                confidence=0.70,
+            ),
+        ]
+        _populate_inbox(inbox_path, items)
+
+        os.environ["DATAPULSE_SOURCE_CATALOG"] = catalog_path
+        reader = DataPulseReader(inbox_path=inbox_path)
+        yield reader
+        os.environ.pop("DATAPULSE_SOURCE_CATALOG", None)
+
+    def test_atom_well_formed_xml(self, reader_with_items):
+        xml_str = reader_with_items.build_atom_feed()
+        root = ET.fromstring(xml_str)
+        assert root.tag == "{http://www.w3.org/2005/Atom}feed"
+
+    def test_atom_namespace(self, reader_with_items):
+        xml_str = reader_with_items.build_atom_feed()
+        assert 'xmlns="http://www.w3.org/2005/Atom"' in xml_str
+
+    def test_atom_entries_present(self, reader_with_items):
+        xml_str = reader_with_items.build_atom_feed()
+        root = ET.fromstring(xml_str)
+        ns = {"atom": "http://www.w3.org/2005/Atom"}
+        entries = root.findall("atom:entry", ns)
+        assert len(entries) >= 1
+
+    def test_atom_xml_escaping(self, reader_with_items):
+        xml_str = reader_with_items.build_atom_feed()
+        # Should parse without error (valid XML)
+        root = ET.fromstring(xml_str)
+        ns = {"atom": "http://www.w3.org/2005/Atom"}
+        entry = root.find("atom:entry", ns)
+        title = entry.find("atom:title", ns).text
+        assert "<" not in title  # properly escaped
+
+    def test_atom_limit(self, reader_with_items):
+        xml_str = reader_with_items.build_atom_feed(limit=1)
+        root = ET.fromstring(xml_str)
+        ns = {"atom": "http://www.w3.org/2005/Atom"}
+        entries = root.findall("atom:entry", ns)
+        assert len(entries) <= 1
+
+    def test_atom_entry_has_required_fields(self, reader_with_items):
+        xml_str = reader_with_items.build_atom_feed()
+        root = ET.fromstring(xml_str)
+        ns = {"atom": "http://www.w3.org/2005/Atom"}
+        entry = root.find("atom:entry", ns)
+        assert entry.find("atom:title", ns) is not None
+        assert entry.find("atom:link", ns) is not None
+        assert entry.find("atom:id", ns) is not None
+        assert entry.find("atom:updated", ns) is not None
+        assert entry.find("atom:summary", ns) is not None
+        assert entry.find("atom:author/atom:name", ns) is not None
+
+    def test_atom_id_uses_urn(self, reader_with_items):
+        xml_str = reader_with_items.build_atom_feed()
+        root = ET.fromstring(xml_str)
+        ns = {"atom": "http://www.w3.org/2005/Atom"}
+        entry = root.find("atom:entry", ns)
+        entry_id = entry.find("atom:id", ns).text
+        assert entry_id.startswith("urn:datapulse:")

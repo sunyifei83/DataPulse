@@ -1,7 +1,7 @@
 {
   "name": "DataPulse",
   "description": "Cross-platform information intake and confidence-normalized memory sink for assistant and agent workflows.",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "author": "DataPulse",
   "entry_point": "datapulse_skill",
   "args": {

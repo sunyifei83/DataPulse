@@ -18,6 +18,8 @@ class SourceType(str, Enum):
     WECHAT = "wechat"
     XHS = "xhs"
     RSS = "rss"
+    ARXIV = "arxiv"
+    HACKERNEWS = "hackernews"
     GENERIC = "generic"
     MANUAL = "manual"
 

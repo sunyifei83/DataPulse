@@ -13,6 +13,8 @@ BASE_RELIABILITY = {
     "wechat": 0.8,
     "xhs": 0.72,
     "rss": 0.74,
+    "arxiv": 0.88,
+    "hackernews": 0.82,
     "generic": 0.68,
     "jina": 0.64,
     "manual": 1.0,

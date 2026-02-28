@@ -30,9 +30,8 @@ _DEFAULT_NITTER = [
     "https://nitter.1d4.us",
     "https://nitter.kavin.rocks",
 ]
-NITTER_INSTANCES = (
-    os.getenv("NITTER_INSTANCES").split(",") if os.getenv("NITTER_INSTANCES") else _DEFAULT_NITTER
-)
+_nitter_env = os.getenv("NITTER_INSTANCES")
+NITTER_INSTANCES = _nitter_env.split(",") if _nitter_env else _DEFAULT_NITTER
 
 
 class TwitterCollector(BaseCollector):

@@ -81,7 +81,7 @@ class BilibiliCollector(BaseCollector):
         )
 
     @retry(max_attempts=3, base_delay=1.0, retryable=(requests.RequestException,))
-    def _fetch_video_info(self, bvid: str) -> dict:
+    def _fetch_video_info(self, bvid: str) -> dict:  # type: ignore[type-arg]
         resp = requests.get(
             self.api_url,
             params={"bvid": bvid},
@@ -89,7 +89,7 @@ class BilibiliCollector(BaseCollector):
             timeout=20,
         )
         resp.raise_for_status()
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     @staticmethod
     def _extract_bvid(url: str) -> str:

@@ -15,11 +15,14 @@ from datapulse.core.utils import (
     is_bilibili_url,
     is_telegram_url,
     is_wechat_url,
+    is_arxiv_url,
+    is_hackernews_url,
     is_rss_feed,
     clean_text,
     generate_excerpt,
     normalize_language,
     content_hash,
+    content_fingerprint,
     get_domain,
     generate_slug,
 )
@@ -102,6 +105,8 @@ class TestResolvePlatformHint:
         ("https://t.me/channel", "telegram"),
         ("https://mp.weixin.qq.com/s/abc", "wechat"),
         ("https://www.xiaohongshu.com/explore/123", "xhs"),
+        ("https://arxiv.org/abs/2301.00001", "arxiv"),
+        ("https://news.ycombinator.com/item?id=12345", "hackernews"),
         ("https://example.com/feed.xml", "rss"),
         ("https://example.com/rss", "rss"),
         ("https://example.com/page", "generic"),
@@ -222,3 +227,58 @@ class TestGenerateSlug:
 
     def test_empty(self):
         assert generate_slug("") == "untitled"
+
+
+class TestIsArxivUrl:
+    def test_abs(self):
+        assert is_arxiv_url("https://arxiv.org/abs/2301.00001") is True
+
+    def test_pdf(self):
+        assert is_arxiv_url("https://arxiv.org/pdf/2301.00001") is True
+
+    def test_export(self):
+        assert is_arxiv_url("https://export.arxiv.org/api/query?id=2301.00001") is True
+
+    def test_negative(self):
+        assert is_arxiv_url("https://example.com") is False
+
+
+class TestIsHackernewsUrl:
+    def test_item(self):
+        assert is_hackernews_url("https://news.ycombinator.com/item?id=12345") is True
+
+    def test_negative(self):
+        assert is_hackernews_url("https://example.com") is False
+
+
+class TestContentFingerprint:
+    def test_same_content_same_fingerprint(self):
+        fp1 = content_fingerprint("The quick brown fox jumps over the lazy dog")
+        fp2 = content_fingerprint("The quick brown fox jumps over the lazy dog")
+        assert fp1 == fp2
+
+    def test_different_content_different_fingerprint(self):
+        fp1 = content_fingerprint("The quick brown fox jumps over the lazy dog")
+        fp2 = content_fingerprint("A completely different article about quantum computing")
+        assert fp1 != fp2
+
+    def test_similar_content_case_insensitive(self):
+        fp1 = content_fingerprint("Hello World Test Content Here Now")
+        fp2 = content_fingerprint("hello world test content here now")
+        assert fp1 == fp2
+
+    def test_empty_content(self):
+        fp = content_fingerprint("")
+        assert isinstance(fp, str)
+        assert len(fp) > 0
+
+    def test_empty_content_unique(self):
+        """Empty content items should NOT share fingerprints (no false corroboration)."""
+        fp1 = content_fingerprint("")
+        fp2 = content_fingerprint("")
+        assert fp1 != fp2
+
+    def test_whitespace_normalized(self):
+        fp1 = content_fingerprint("hello   world   test   content   here")
+        fp2 = content_fingerprint("hello world test content here")
+        assert fp1 == fp2

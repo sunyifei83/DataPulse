@@ -127,12 +127,12 @@ class GenericCollector(BaseCollector):
         if title_tag:
             title = title_tag.get_text(strip=True)
         og_title = soup.find("meta", property="og:title")
-        if og_title and og_title.get("content"):
-            title = og_title.get("content")
+        if og_title and og_title.get("content"):  # type: ignore[union-attr]
+            title = str(og_title.get("content"))  # type: ignore[union-attr]
         author = ""
         meta_author = soup.find("meta", attrs={"name": "author"})
         if meta_author:
-            author = meta_author.get("content", "")
+            author = str(meta_author.get("content", ""))  # type: ignore[union-attr]
         return title, author
 
     @staticmethod

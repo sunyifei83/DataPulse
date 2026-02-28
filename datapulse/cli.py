@@ -62,6 +62,10 @@ def main() -> None:
     parser.add_argument("--source-ids", help="Comma separated source IDs for query_feed")
     parser.add_argument("--query-feed", action="store_true", help="Print JSON feed output")
     parser.add_argument("--query-rss", action="store_true", help="Print RSS feed output")
+    parser.add_argument("--query-atom", action="store_true", help="Print Atom 1.0 feed output")
+    parser.add_argument("--digest", action="store_true", help="Build curated digest")
+    parser.add_argument("--top-n", type=int, default=3, help="Number of primary stories in digest")
+    parser.add_argument("--secondary-n", type=int, default=7, help="Number of secondary stories in digest")
     parser.add_argument("--list", action="store_true", help="List inbox")
     parser.add_argument("--clear", action="store_true", help="Clear inbox")
     parser.add_argument("--min-confidence", type=float, default=0.0, help="Filter by confidence")
@@ -85,10 +89,10 @@ def main() -> None:
         return
 
     if args.clear:
-        path = reader.inbox.path
-        if path.exists():
-            path.write_text("[]", encoding="utf-8")
-            print(f"✅ Cleared inbox: {path}")
+        inbox_path = reader.inbox.path
+        if inbox_path.exists():
+            inbox_path.write_text("[]", encoding="utf-8")
+            print(f"✅ Cleared inbox: {inbox_path}")
         else:
             print("ℹ️ Inbox already empty")
         return
@@ -155,6 +159,28 @@ def main() -> None:
                 min_confidence=args.min_confidence,
             )
         )
+        return
+
+    if args.query_atom:
+        print(
+            reader.build_atom_feed(
+                profile=args.source_profile,
+                source_ids=_normalize_csv_ids(args.source_ids),
+                limit=args.limit,
+                min_confidence=args.min_confidence,
+            )
+        )
+        return
+
+    if args.digest:
+        payload = reader.build_digest(
+            profile=args.source_profile,
+            source_ids=_normalize_csv_ids(args.source_ids),
+            top_n=args.top_n,
+            secondary_n=args.secondary_n,
+            min_confidence=args.min_confidence,
+        )
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
 
     targets = []

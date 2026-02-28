@@ -106,6 +106,49 @@ class TestSourceRecord:
         )
         assert rec.matches(item) is False
 
+    def test_default_tier_and_weight(self):
+        rec = SourceRecord.from_dict({"name": "X", "source_type": "generic"})
+        assert rec.tier == 2
+        assert rec.authority_weight == 0.5
+
+    def test_from_dict_with_tier(self):
+        raw = {
+            "name": "Top Tier", "source_type": "twitter",
+            "tier": 1, "authority_weight": 0.9,
+        }
+        rec = SourceRecord.from_dict(raw)
+        assert rec.tier == 1
+        assert rec.authority_weight == 0.9
+
+    def test_round_trip_with_tier(self):
+        raw = {
+            "id": "rt_tier", "name": "Tiered", "source_type": "rss",
+            "tier": 3, "authority_weight": 0.2,
+        }
+        rec = SourceRecord.from_dict(raw)
+        restored = rec.to_dict()
+        assert restored["tier"] == 3
+        assert restored["authority_weight"] == 0.2
+
+    def test_v1_compat_missing_tier(self):
+        """Old v1 JSON without tier/weight should use defaults."""
+        raw = {"id": "v1src", "name": "Old", "source_type": "generic"}
+        rec = SourceRecord.from_dict(raw)
+        assert rec.tier == 2
+        assert rec.authority_weight == 0.5
+
+    def test_tier_clamped(self):
+        rec = SourceRecord.from_dict({"name": "X", "source_type": "generic", "tier": 99})
+        assert rec.tier == 3
+        rec2 = SourceRecord.from_dict({"name": "X", "source_type": "generic", "tier": -1})
+        assert rec2.tier == 1
+
+    def test_authority_weight_clamped(self):
+        rec = SourceRecord.from_dict({"name": "X", "source_type": "generic", "authority_weight": 5.0})
+        assert rec.authority_weight == 1.0
+        rec2 = SourceRecord.from_dict({"name": "X", "source_type": "generic", "authority_weight": -0.5})
+        assert rec2.authority_weight == 0.0
+
 
 class TestSourcePack:
     def test_from_dict(self):
@@ -225,6 +268,41 @@ class TestSourceCatalog:
         filtered = catalog.filter_by_subscription(items, profile="default")
         # Twitter item should match, generic may or may not depending on catalog
         assert len(filtered) >= 1
+
+    def test_build_authority_map(self, tmp_catalog: Path):
+        catalog = SourceCatalog(str(tmp_catalog))
+        amap = catalog.build_authority_map()
+        # Should contain active sources by name (lowered)
+        assert "twitter tech" in amap
+        assert "reddit python" in amap
+        # Values are default 0.5
+        assert amap["twitter tech"] == 0.5
+
+    def test_build_authority_map_excludes_inactive(self, tmp_catalog: Path):
+        catalog = SourceCatalog(str(tmp_catalog))
+        amap = catalog.build_authority_map()
+        assert "inactive source" not in amap
+
+    def test_build_authority_map_with_domain(self, tmp_path: Path):
+        catalog_path = tmp_path / "auth_catalog.json"
+        catalog_data = {
+            "version": 2,
+            "sources": [
+                {
+                    "id": "s1", "name": "HiTier", "source_type": "rss",
+                    "is_active": True, "tier": 1, "authority_weight": 0.95,
+                    "match": {"domain": "nature.com"},
+                    "config": {"url": "https://nature.com/rss"},
+                },
+            ],
+            "subscriptions": {},
+            "packs": [],
+        }
+        catalog_path.write_text(json.dumps(catalog_data), encoding="utf-8")
+        catalog = SourceCatalog(str(catalog_path))
+        amap = catalog.build_authority_map()
+        assert amap.get("nature.com") == 0.95
+        assert amap.get("hitier") == 0.95
 
     def test_empty_catalog(self, tmp_path: Path):
         catalog = SourceCatalog(str(tmp_path / "empty.json"))

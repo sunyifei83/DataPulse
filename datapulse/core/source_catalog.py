@@ -51,6 +51,8 @@ class SourceRecord:
     created_at: str = ""
     updated_at: str = ""
     id: str = ""
+    tier: int = 2
+    authority_weight: float = 0.5
 
     @classmethod
     def from_dict(cls, raw: JSONSource) -> "SourceRecord":
@@ -67,6 +69,15 @@ class SourceRecord:
         match = raw.get("match", {})
         if not isinstance(match, dict):
             match = {}
+        tier = _safe_int(raw.get("tier"), default=2)
+        tier = max(1, min(3, tier))
+        authority_weight = raw.get("authority_weight", 0.5)
+        try:
+            authority_weight = float(authority_weight)
+        except (TypeError, ValueError):
+            authority_weight = 0.5
+        authority_weight = max(0.0, min(1.0, authority_weight))
+
         return cls(
             id=source_id,
             name=name,
@@ -78,6 +89,8 @@ class SourceRecord:
             match={str(k): str(v) for k, v in match.items() if str(k) and str(v)},
             created_at=str(raw.get("created_at", "")),
             updated_at=str(raw.get("updated_at", "")),
+            tier=tier,
+            authority_weight=authority_weight,
         )
 
     def to_dict(self) -> JSONSource:
@@ -92,6 +105,8 @@ class SourceRecord:
             "match": self.match,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "tier": self.tier,
+            "authority_weight": self.authority_weight,
         }
         return payload
 
@@ -180,7 +195,7 @@ class SourcePack:
         }
 
 
-_SUPPORTED_CATALOG_VERSIONS = {1}
+_SUPPORTED_CATALOG_VERSIONS = {1, 2}
 
 
 class SourceCatalog:
@@ -268,6 +283,25 @@ class SourceCatalog:
         if public_only:
             items = [s for s in items if s.is_public]
         return sorted(items, key=lambda s: s.name.lower())
+
+    def build_authority_map(self) -> dict[str, float]:
+        """Build a name/domain → authority_weight mapping from active sources."""
+        authority: dict[str, float] = {}
+        for source in self.sources.values():
+            if not source.is_active:
+                continue
+            weight = source.authority_weight
+            authority[source.name.lower()] = weight
+            # Also map by domain if available
+            domain = source.match.get("domain", "").lower().strip()
+            if domain:
+                authority[domain] = weight
+            source_url = str(source.config.get("url", "")).strip()
+            if source_url:
+                source_host = (urlparse(source_url).hostname or "").lower()
+                if source_host and source_host not in authority:
+                    authority[source_host] = weight
+        return authority
 
     def list_packs(self, *, public_only: bool = False) -> list[SourcePack]:
         items = list(self.packs.values())

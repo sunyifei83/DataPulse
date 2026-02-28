@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from datetime import datetime
 from typing import Any
 
 from datapulse.core.confidence import compute_confidence
 from datapulse.core.models import DataPulseItem, SourceType
 from datapulse.core.router import ParsePipeline
+from datapulse.core.scoring import rank_items
 from datapulse.core.source_catalog import SourceCatalog
 from datapulse.core.storage import UnifiedInbox, output_record_md, save_markdown
-from datapulse.core.utils import inbox_path_from_env, normalize_language
+from datapulse.core.utils import content_fingerprint, inbox_path_from_env, normalize_language
 
 logger = logging.getLogger("datapulse.reader")
 
@@ -62,15 +64,22 @@ class DataPulseReader:
             if normalized and normalized not in seen:
                 seen.add(normalized)
                 unique_urls.append(url.strip())
-        tasks = [self.read(url, min_confidence=min_confidence) for url in unique_urls]
+        max_concurrency = int(os.getenv("DATAPULSE_BATCH_CONCURRENCY", "5"))
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def _bounded_read(url: str) -> DataPulseItem:
+            async with semaphore:
+                return await self.read(url, min_confidence=min_confidence)
+
+        tasks = [_bounded_read(url) for url in unique_urls]
         outputs: list[DataPulseItem] = []
         for item in await asyncio.gather(*tasks, return_exceptions=True):
-            if isinstance(item, Exception):
+            if isinstance(item, BaseException):
                 logger.warning("Batch entry failed: %s", item)
                 if return_all:
                     continue
                 raise item
-            outputs.append(item)
+            outputs.append(item)  # type: ignore[arg-type]
 
         # Highest confidence first
         outputs.sort(key=lambda it: it.confidence, reverse=True)
@@ -115,6 +124,15 @@ class DataPulseReader:
             },
             score=0,
         )
+
+    def mark_processed(self, item_id: str, processed: bool = True) -> bool:
+        ok = self.inbox.mark_processed(item_id, processed=processed)
+        if ok:
+            self.inbox.save()
+        return ok
+
+    def query_unprocessed(self, limit: int = 20, min_confidence: float = 0.0) -> list[DataPulseItem]:
+        return self.inbox.query_unprocessed(limit=limit, min_confidence=min_confidence)
 
     def detect_platform(self, url: str) -> str:
         result, parser = self.router.route(url)
@@ -214,7 +232,7 @@ class DataPulseReader:
                     "url": item.url,
                     "source_type": item.source_type.value,
                     "source_name": item.source_name,
-                    "author": getattr(item, "author", None),
+                    "authors": [{"name": item.source_name}] if item.source_name else [],
                 }
                 for item in items
             ],
@@ -265,6 +283,167 @@ class DataPulseReader:
             "<link>https://datapulse.local</link>"
             + "".join(rows)
             + "</channel></rss>"
+        )
+        return payload
+
+
+    def build_digest(
+        self,
+        *,
+        profile: str = "default",
+        source_ids: list[str] | None = None,
+        top_n: int = 3,
+        secondary_n: int = 7,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+        max_per_source: int = 2,
+    ) -> dict[str, Any]:
+        """Build a curated digest with primary and secondary stories."""
+        # 1. Get candidates
+        candidates = self.query_feed(
+            profile=profile,
+            source_ids=source_ids,
+            limit=500,  # grab a large pool
+            min_confidence=min_confidence,
+            since=since,
+        )
+        candidates_total = len(candidates)
+
+        if not candidates:
+            today = datetime.utcnow().strftime("%Y-%m-%d")
+            return {
+                "version": "1.0",
+                "generated_at": datetime.utcnow().isoformat() + "Z",
+                "digest_date": today,
+                "stats": {
+                    "candidates_total": 0,
+                    "candidates_after_dedup": 0,
+                    "sources_seen": 0,
+                    "selected_primary": 0,
+                    "selected_secondary": 0,
+                },
+                "primary": [],
+                "secondary": [],
+                "provenance": "No items available",
+            }
+
+        # 2. Score and rank
+        authority_map = self.catalog.build_authority_map()
+        ranked = rank_items(candidates, authority_map=authority_map)
+
+        # 3. Fingerprint dedup (keep first = highest scored per fingerprint)
+        seen_fps: set[str] = set()
+        deduped: list[DataPulseItem] = []
+        for item in ranked:
+            fp = content_fingerprint(item.content)
+            if fp not in seen_fps:
+                seen_fps.add(fp)
+                deduped.append(item)
+
+        sources_seen = len({item.source_name for item in deduped})
+
+        # 4. Diverse selection
+        total_needed = top_n + secondary_n
+        selected = self._select_diverse(
+            deduped, total_needed, max_per_source=max_per_source,
+        )
+
+        primary = selected[:top_n]
+        secondary = selected[top_n:top_n + secondary_n]
+
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        for item in primary + secondary:
+            item.digest_date = today
+
+        return {
+            "version": "1.0",
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "digest_date": today,
+            "stats": {
+                "candidates_total": candidates_total,
+                "candidates_after_dedup": len(deduped),
+                "sources_seen": sources_seen,
+                "selected_primary": len(primary),
+                "selected_secondary": len(secondary),
+            },
+            "primary": [item.to_dict() for item in primary],
+            "secondary": [item.to_dict() for item in secondary],
+            "provenance": f"Curated from {candidates_total} items across {sources_seen} sources",
+        }
+
+    @staticmethod
+    def _select_diverse(
+        items: list[DataPulseItem],
+        n: int,
+        *,
+        max_per_source: int = 2,
+    ) -> list[DataPulseItem]:
+        """Greedy diverse selection: limits same-source items to max_per_source."""
+        if not items:
+            return []
+        selected: list[DataPulseItem] = []
+        source_counts: dict[str, int] = {}
+
+        for item in items:
+            if len(selected) >= n:
+                break
+            source = item.source_name
+            count = source_counts.get(source, 0)
+            if count >= max_per_source:
+                continue
+            source_counts[source] = count + 1
+            selected.append(item)
+
+        return selected
+
+    def build_atom_feed(
+        self,
+        *,
+        profile: str = "default",
+        source_ids: list[str] | None = None,
+        limit: int = 20,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+    ) -> str:
+        items = self.query_feed(
+            profile=profile,
+            source_ids=source_ids,
+            limit=limit,
+            min_confidence=min_confidence,
+            since=since,
+        )
+
+        def _xml_escape(value: str) -> str:
+            return (value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;"))
+
+        now = datetime.utcnow().isoformat() + "Z"
+        base = "https://datapulse.local"
+
+        entries = []
+        for item in items:
+            updated = item.fetched_at
+            if not updated.endswith("Z"):
+                updated += "Z"
+            entries.append(
+                "<entry>"
+                f"<title>{_xml_escape(item.title)}</title>"
+                f'<link href="{_xml_escape(item.url)}" rel="alternate"/>'
+                f"<id>urn:datapulse:{_xml_escape(item.id)}</id>"
+                f"<updated>{_xml_escape(updated)}</updated>"
+                f"<summary>{_xml_escape(item.content[:1800])}</summary>"
+                f"<author><name>{_xml_escape(item.source_name)}</name></author>"
+                "</entry>"
+            )
+
+        payload = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<feed xmlns="http://www.w3.org/2005/Atom">'
+            f"<title>DataPulse Feed ({_xml_escape(profile)})</title>"
+            f'<link href="{base}/feed/{profile}.atom" rel="self"/>'
+            f"<id>urn:datapulse:feed:{_xml_escape(profile)}</id>"
+            f"<updated>{now}</updated>"
+            + "".join(entries)
+            + "</feed>"
         )
         return payload
 

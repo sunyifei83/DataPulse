@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 
 from datapulse.collectors import (
+    ArxivCollector,
     BaseCollector,
     BilibiliCollector,
     GenericCollector,
+    HackerNewsCollector,
     JinaCollector,
     ParseResult,
     RedditCollector,
@@ -36,6 +38,8 @@ class ParsePipeline:
             TelegramCollector(),
             WeChatCollector(),
             XiaohongshuCollector(),
+            ArxivCollector(),
+            HackerNewsCollector(),
             RssCollector(),
             GenericCollector(),
             JinaCollector(),

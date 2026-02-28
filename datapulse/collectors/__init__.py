@@ -1,8 +1,10 @@
 """Collector exports."""
 
+from .arxiv import ArxivCollector
 from .base import BaseCollector, ParseResult
 from .bilibili import BilibiliCollector
 from .generic import GenericCollector
+from .hackernews import HackerNewsCollector
 from .jina import JinaCollector
 from .reddit import RedditCollector
 from .rss import RssCollector
@@ -20,6 +22,7 @@ except ImportError:
 __all__ = [
     "BaseCollector",
     "ParseResult",
+    "ArxivCollector",
     "TwitterCollector",
     "RedditCollector",
     "YouTubeCollector",
@@ -28,6 +31,7 @@ __all__ = [
     "TelegramCollector",
     "WeChatCollector",
     "XiaohongshuCollector",
+    "HackerNewsCollector",
     "GenericCollector",
     "JinaCollector",
     "BrowserCollector",

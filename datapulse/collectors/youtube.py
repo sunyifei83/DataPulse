@@ -54,6 +54,12 @@ class YouTubeCollector(BaseCollector):
         if not content:
             return ParseResult.failure(url, "No YouTube content extracted")
 
+        extra: dict[str, object] = {"video_id": video_id, "lang": transcript_lang if transcript else "", "has_transcript": bool(transcript)}
+        if description:
+            chapters = self._parse_chapters(description)
+            if chapters:
+                extra["chapters"] = chapters
+
         return ParseResult(
             url=url,
             title=title or f"YouTube Video ({video_id})",
@@ -64,8 +70,30 @@ class YouTubeCollector(BaseCollector):
             media_type=MediaType.VIDEO.value,
             tags=["youtube", "video", "transcript" if "transcript" in flags else "metadata"],
             confidence_flags=flags,
-            extra={"video_id": video_id, "lang": transcript_lang if transcript else "", "has_transcript": bool(transcript)},
+            extra=extra,
         )
+
+    @staticmethod
+    def _parse_chapters(description: str) -> list[dict[str, object]]:
+        """Parse YouTube chapters from video description.
+
+        Matches patterns like:
+        - 0:00 Intro
+        - 1:23 - Main Topic
+        - 1:02:30 Deep Dive
+        """
+        pattern = re.compile(r"^(\d{1,2}:\d{2}(?::\d{2})?)\s*[-–—]?\s*(.+)$", re.MULTILINE)
+        chapters: list[dict[str, object]] = []
+        for m in pattern.finditer(description):
+            timestamp = m.group(1)
+            title = m.group(2).strip()
+            parts = timestamp.split(":")
+            if len(parts) == 3:
+                seconds = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+            else:
+                seconds = int(parts[0]) * 60 + int(parts[1])
+            chapters.append({"timestamp": timestamp, "seconds": seconds, "title": title})
+        return chapters
 
     def _extract_video_id(self, url: str) -> str:
         if "youtu.be" in url:
@@ -106,20 +134,20 @@ class YouTubeCollector(BaseCollector):
             title = ""
             og_title = soup.find("meta", property="og:title")
             if og_title:
-                title = og_title.get("content", "").strip()
+                title = str(og_title.get("content", "")).strip()  # type: ignore[union-attr]
             if not title:
                 title = soup.title.get_text(strip=True) if soup.title else ""
             author = ""
             og_author = soup.find("link", attrs={"itemprop": "name"})
             if og_author:
-                author = og_author.get("content", "").strip()
+                author = str(og_author.get("content", "")).strip()  # type: ignore[union-attr]
             if not author:
                 og_chan = soup.find("meta", property="og:video:tag")
-                author = og_chan.get("content", "") if og_chan else ""
+                author = str(og_chan.get("content", "")) if og_chan else ""  # type: ignore[union-attr]
             desc = ""
             og_desc = soup.find("meta", property="og:description")
             if og_desc:
-                desc = og_desc.get("content", "").strip()
+                desc = str(og_desc.get("content", "")).strip()  # type: ignore[union-attr]
             return title, author, desc
         except Exception:
             return "", "", ""

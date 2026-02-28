@@ -2,7 +2,7 @@
   "contract": {
     "project": "DataPulse",
     "project_zh": "数据脉搏",
-    "version": "0.2.0",
+    "version": "0.4.0",
     "scope": "cross-platform URL intake + confidence scoring + memory persistence",
     "targets": [
       "assistant-skill",
@@ -144,6 +144,45 @@
           "limit": "int (default 20)",
           "min_confidence": "float (default 0.0)",
           "since": "string ISO8601 (optional)"
+        }
+      },
+      {
+        "name": "build_atom_feed",
+        "description": "Build Atom 1.0 feed payload.",
+        "parameters": {
+          "profile": "string (default default)",
+          "source_ids": "array[string] (optional)",
+          "limit": "int (default 20)",
+          "min_confidence": "float (default 0.0)",
+          "since": "string ISO8601 (optional)"
+        }
+      },
+      {
+        "name": "build_digest",
+        "description": "Build curated digest with primary and secondary stories, multi-dimensional scoring, and diversity selection.",
+        "parameters": {
+          "profile": "string (default default)",
+          "source_ids": "array[string] (optional)",
+          "top_n": "int (default 3)",
+          "secondary_n": "int (default 7)",
+          "min_confidence": "float (default 0.0)",
+          "since": "string ISO8601 (optional)"
+        }
+      },
+      {
+        "name": "mark_processed",
+        "description": "Mark item as processed or unprocessed.",
+        "parameters": {
+          "item_id": "string (required)",
+          "processed": "bool (default true)"
+        }
+      },
+      {
+        "name": "query_unprocessed",
+        "description": "Query unprocessed items from inbox.",
+        "parameters": {
+          "limit": "int (default 20)",
+          "min_confidence": "float (default 0.0)"
         }
       },
       {

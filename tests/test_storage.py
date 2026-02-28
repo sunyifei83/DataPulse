@@ -103,3 +103,60 @@ class TestUnifiedInbox:
             inbox.add(self._make_item(url=f"https://e.com/{i}", title=f"I{i}", fetched_at=ts))
         # Most recent first
         assert inbox.items[0].title == "I0"
+
+
+class TestProcessedState:
+    def _make_item(self, url: str = "https://example.com", title: str = "T",
+                   content: str = "C", confidence: float = 0.8) -> DataPulseItem:
+        return DataPulseItem(
+            source_type=SourceType.GENERIC,
+            source_name="test",
+            title=title,
+            content=content,
+            url=url,
+            confidence=confidence,
+        )
+
+    def test_mark_processed_success(self, tmp_path):
+        inbox = UnifiedInbox(str(tmp_path / "inbox.json"))
+        item = self._make_item()
+        inbox.add(item)
+        assert inbox.mark_processed(item.id) is True
+        assert item.processed is True
+
+    def test_mark_processed_not_found(self, tmp_path):
+        inbox = UnifiedInbox(str(tmp_path / "inbox.json"))
+        assert inbox.mark_processed("nonexistent") is False
+
+    def test_query_unprocessed_filters_processed(self, tmp_path):
+        inbox = UnifiedInbox(str(tmp_path / "inbox.json"))
+        item1 = self._make_item(url="https://a.com", title="A")
+        item2 = self._make_item(url="https://b.com", title="B")
+        inbox.add(item1)
+        inbox.add(item2)
+        inbox.mark_processed(item1.id)
+        unprocessed = inbox.query_unprocessed()
+        assert len(unprocessed) == 1
+        assert unprocessed[0].id == item2.id
+
+    def test_query_unprocessed_confidence_filter(self, tmp_path):
+        inbox = UnifiedInbox(str(tmp_path / "inbox.json"))
+        item_low = self._make_item(url="https://low.com", title="Low", confidence=0.3)
+        item_high = self._make_item(url="https://high.com", title="High", confidence=0.9)
+        inbox.add(item_low)
+        inbox.add(item_high)
+        results = inbox.query_unprocessed(min_confidence=0.5)
+        assert len(results) == 1
+        assert results[0].id == item_high.id
+
+    def test_processed_persists(self, tmp_path):
+        path = str(tmp_path / "inbox.json")
+        inbox = UnifiedInbox(path)
+        item = self._make_item()
+        inbox.add(item)
+        inbox.mark_processed(item.id)
+        inbox.save()
+
+        inbox2 = UnifiedInbox(path)
+        assert inbox2.items[0].processed is True
+        assert len(inbox2.query_unprocessed()) == 0

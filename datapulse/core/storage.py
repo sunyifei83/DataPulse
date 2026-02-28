@@ -15,7 +15,7 @@ class UnifiedInbox:
     """Append-only JSON memory with bounded size and deduplication."""
 
     def __init__(self, path: str):
-        self.path = Path(path)
+        self.path: Path = Path(path)
         self.items: list[DataPulseItem] = []
         self.max_items = int(os.getenv("DATAPULSE_MAX_INBOX", "500"))
         self.max_days = int(os.getenv("DATAPULSE_KEEP_DAYS", "30"))
@@ -81,6 +81,20 @@ class UnifiedInbox:
 
     def all_items(self, min_confidence: float = 0.0) -> list[DataPulseItem]:
         return [item for item in self.items if item.confidence >= min_confidence]
+
+    def mark_processed(self, item_id: str, processed: bool = True) -> bool:
+        for item in self.items:
+            if item.id == item_id:
+                item.processed = processed
+                return True
+        return False
+
+    def query_unprocessed(self, limit: int = 20, min_confidence: float = 0.0) -> list[DataPulseItem]:
+        filtered = [
+            item for item in self.items
+            if not item.processed and item.confidence >= min_confidence
+        ]
+        return sorted(filtered, key=lambda i: i.confidence, reverse=True)[:limit]
 
 
 def save_markdown(item: DataPulseItem, path: str | None = None) -> str | None:

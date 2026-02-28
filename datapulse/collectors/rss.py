@@ -79,4 +79,4 @@ class RssCollector(BaseCollector):
     def _fetch_feed(self, url: str) -> str:
         resp = requests.get(url, timeout=20, headers={"User-Agent": "DataPulse/0.2"})
         resp.raise_for_status()
-        return resp.text
+        return str(resp.text)

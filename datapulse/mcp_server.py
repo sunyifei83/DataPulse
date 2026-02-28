@@ -75,6 +75,43 @@ async def _run_build_rss_feed(
     )
 
 
+async def _run_build_digest(
+    profile: str = "default",
+    source_ids: list[str] | None = None,
+    top_n: int = 3,
+    secondary_n: int = 7,
+    min_confidence: float = 0.0,
+    since: str | None = None,
+) -> str:
+    reader = DataPulseReader()
+    payload = reader.build_digest(
+        profile=profile,
+        source_ids=source_ids,
+        top_n=top_n,
+        secondary_n=secondary_n,
+        min_confidence=min_confidence,
+        since=since,
+    )
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_build_atom_feed(
+    profile: str = "default",
+    source_ids: list[str] | None = None,
+    limit: int = 20,
+    min_confidence: float = 0.0,
+    since: str | None = None,
+) -> str:
+    reader = DataPulseReader()
+    return reader.build_atom_feed(
+        profile=profile,
+        source_ids=source_ids,
+        limit=limit,
+        min_confidence=min_confidence,
+        since=since,
+    )
+
+
 async def _run_subscribe_source(profile: str, source_id: str) -> str:
     reader = DataPulseReader()
     ok = reader.subscribe_source(source_id, profile=profile)
@@ -85,6 +122,18 @@ async def _run_unsubscribe_source(profile: str, source_id: str) -> str:
     reader = DataPulseReader()
     ok = reader.unsubscribe_source(source_id, profile=profile)
     return json.dumps({"ok": ok, "source_id": source_id, "profile": profile}, ensure_ascii=False, indent=2)
+
+
+async def _run_mark_processed(item_id: str, processed: bool = True) -> str:
+    reader = DataPulseReader()
+    ok = reader.mark_processed(item_id, processed=processed)
+    return json.dumps({"ok": ok}, ensure_ascii=False, indent=2)
+
+
+async def _run_query_unprocessed(limit: int = 20, min_confidence: float = 0.0) -> str:
+    reader = DataPulseReader()
+    items = reader.query_unprocessed(limit=limit, min_confidence=min_confidence)
+    return json.dumps([item.to_dict() for item in items], ensure_ascii=False, indent=2)
 
 
 async def _run_install_pack(profile: str, slug: str) -> str:
@@ -172,6 +221,38 @@ if __name__ == "__main__":
             min_confidence=min_confidence,
             since=since,
         )
+
+    @app.tool()
+    async def build_atom_feed(profile: str = "default", source_ids: list[str] | None = None,
+                              limit: int = 20, min_confidence: float = 0.0, since: str | None = None) -> str:  # noqa: ANN001
+        return await _run_build_atom_feed(
+            profile=profile,
+            source_ids=source_ids,
+            limit=limit,
+            min_confidence=min_confidence,
+            since=since,
+        )
+
+    @app.tool()
+    async def build_digest(profile: str = "default", source_ids: list[str] | None = None,
+                           top_n: int = 3, secondary_n: int = 7, min_confidence: float = 0.0,
+                           since: str | None = None) -> str:  # noqa: ANN001
+        return await _run_build_digest(
+            profile=profile,
+            source_ids=source_ids,
+            top_n=top_n,
+            secondary_n=secondary_n,
+            min_confidence=min_confidence,
+            since=since,
+        )
+
+    @app.tool()
+    async def mark_processed(item_id: str, processed: bool = True) -> str:  # noqa: ANN001
+        return await _run_mark_processed(item_id, processed=processed)
+
+    @app.tool()
+    async def query_unprocessed(limit: int = 20, min_confidence: float = 0.0) -> str:  # noqa: ANN001
+        return await _run_query_unprocessed(limit=limit, min_confidence=min_confidence)
 
     @app.tool()
     async def query_inbox(limit: int = 20, min_confidence: float = 0.0) -> str:  # noqa: ANN001

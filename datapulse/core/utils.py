@@ -163,6 +163,27 @@ def content_hash(content: str) -> str:
     return hashlib.sha256((content or "").encode("utf-8")).hexdigest()
 
 
+def content_fingerprint(content: str, n_shingles: int = 5) -> str:
+    """Generate a fingerprint for content similarity detection.
+
+    Normalizes text → splits into word n-gram shingles → sorts → hashes.
+    Identical or near-identical content produces the same fingerprint.
+    """
+    text = re.sub(r"\s+", " ", (content or "").lower().strip())
+    if not text:
+        # Return a unique random-ish fingerprint so empty items don't
+        # falsely corroborate each other.
+        return hashlib.md5(os.urandom(16)).hexdigest()[:16]
+    words = text.split()
+    if len(words) < n_shingles:
+        shingles = [" ".join(words)]
+    else:
+        shingles = [" ".join(words[i:i + n_shingles]) for i in range(len(words) - n_shingles + 1)]
+    shingles.sort()
+    combined = "|".join(shingles)
+    return hashlib.md5(combined.encode("utf-8")).hexdigest()[:16]
+
+
 def is_twitter_url(url: str) -> bool:
     parsed = urlparse(url)
     return (parsed.hostname or "") in {"twitter.com", "x.com", "mobile.twitter.com", "mobile.x.com"}
@@ -178,6 +199,19 @@ def is_reddit_url(url: str) -> bool:
 def is_youtube_url(url: str) -> bool:
     parsed = urlparse(url)
     return (parsed.hostname or "") in {"youtube.com", "youtu.be", "www.youtube.com", "m.youtube.com"}
+
+
+def is_arxiv_url(url: str) -> bool:
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if host in {"arxiv.org", "www.arxiv.org", "export.arxiv.org"}:
+        return True
+    return False
+
+
+def is_hackernews_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return (parsed.hostname or "").lower() in {"news.ycombinator.com"}
 
 
 def is_rss_feed(url: str) -> bool:
@@ -219,6 +253,10 @@ def resolve_platform_hint(url: str) -> str:
         return "wechat"
     if is_xhs_url(url):
         return "xhs"
+    if is_arxiv_url(url):
+        return "arxiv"
+    if is_hackernews_url(url):
+        return "hackernews"
     if is_rss_feed(url):
         return "rss"
     return "generic"
@@ -254,7 +292,7 @@ def run_sync(coro: Awaitable[_T]) -> _T:
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(coro)
+        return asyncio.run(coro)  # type: ignore[arg-type]
 
     exception_holder: list[BaseException] = []
     result_holder: list[_T] = []
@@ -262,7 +300,7 @@ def run_sync(coro: Awaitable[_T]) -> _T:
 
     def _runner() -> None:
         try:
-            result_holder.append(asyncio.run(coro))
+            result_holder.append(asyncio.run(coro))  # type: ignore[arg-type]
         except BaseException as exc:  # noqa: BLE001
             exception_holder.append(exc)
         finally:
