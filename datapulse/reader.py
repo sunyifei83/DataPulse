@@ -19,6 +19,15 @@ from datapulse.core.utils import content_fingerprint, inbox_path_from_env, norma
 
 logger = logging.getLogger("datapulse.reader")
 
+PLATFORM_SEARCH_SITES: dict[str, list[str]] = {
+    "xhs": ["xiaohongshu.com", "xhslink.com"],
+    "twitter": ["x.com", "twitter.com"],
+    "reddit": ["reddit.com"],
+    "hackernews": ["news.ycombinator.com"],
+    "arxiv": ["arxiv.org"],
+    "bilibili": ["bilibili.com"],
+}
+
 
 class DataPulseReader:
     """End-to-end URL reader used by CLI/MCP/Skill/Agent."""
@@ -92,12 +101,18 @@ class DataPulseReader:
         query: str,
         *,
         sites: list[str] | None = None,
+        platform: str | None = None,
         limit: int = 5,
         fetch_content: bool = True,
         min_confidence: float = 0.0,
     ) -> list[DataPulseItem]:
         """Search the web via Jina and return scored DataPulseItems."""
-        opts = JinaSearchOptions(sites=sites or [], limit=limit)
+        merged_sites = list(sites or [])
+        if platform and platform in PLATFORM_SEARCH_SITES:
+            for domain in PLATFORM_SEARCH_SITES[platform]:
+                if domain not in merged_sites:
+                    merged_sites.append(domain)
+        opts = JinaSearchOptions(sites=merged_sites, limit=limit)
         search_results = self._jina_client.search(query, options=opts)
 
         if not search_results:
@@ -127,8 +142,12 @@ class DataPulseReader:
                     has_author=False,
                     extra_flags=["search_result"],
                 )
+                snippet_source_type = SourceType.XHS if platform == "xhs" else SourceType.GENERIC
+                snippet_tags = ["jina_search", snippet_source_type.value]
+                if platform == "xhs":
+                    snippet_tags.append("xhs_search")
                 item = DataPulseItem(
-                    source_type=SourceType.GENERIC,
+                    source_type=snippet_source_type,
                     source_name="jina_search",
                     title=(sr.title or "Untitled").strip()[:300],
                     content=content,
@@ -137,7 +156,7 @@ class DataPulseReader:
                     confidence=confidence,
                     confidence_factors=reasons,
                     language=lang,
-                    tags=["jina_search", "generic"],
+                    tags=snippet_tags,
                     extra={"search_query": query, "search_description": sr.description},
                     score=0,
                 )

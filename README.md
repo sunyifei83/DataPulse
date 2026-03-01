@@ -22,13 +22,13 @@
   - YouTube：字幕优先，缺失时可回退到音频转写（`GROQ_API_KEY`）
   - Bilibili：官方 API + 交互数据（播放/点赞/投币/收藏/弹幕/转发）
   - Telegram：Telethon（`TG_API_ID`/`TG_API_HASH`），支持 `DATAPULSE_TG_*` 可配置限制
-  - WeChat / Xiaohongshu：Jina 兜底 + 重试，支持 Playwright Session 回退
+  - WeChat / Xiaohongshu：Jina 兜底 + 重试，支持 Playwright Session 回退，XHS 自动提取互动指标（赞/评论/收藏/分享），Session TTL 缓存
   - RSS：多条目 Feed 解析（最多 5 条），自动识别 feed 类型
   - arXiv：Atom API 解析论文元数据（标题/作者/摘要/分类/PDF 链接）
   - Hacker News：Firebase API 动态抓取，engagement 自动标记
   - 通用网页：Trafilatura/BeautifulSoup，失败时可回退 Firecrawl（`FIRECRAWL_API_KEY`）或 Jina Reader
   - Jina 增强读取：CSS 选择器定向抓取、等待元素加载、Cookie 透传、代理、AI 图片描述、缓存控制
-  - Web 搜索：通过 Jina Search API (`s.jina.ai`) 搜索全网，自动提取并评分
+  - Web 搜索：通过 Jina Search API (`s.jina.ai`) 搜索全网，自动提取并评分，支持平台限定搜索（`--platform`）
 - 双层输出：
   - 结构化 JSON（统一 `DataPulseItem`）
   - 可选 Markdown 记忆写入（`datapulse-inbox.md` / 自定义路径）
@@ -43,7 +43,7 @@
 - 可观测性：
   - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
 - 测试基建：
-  - 351+ 单元测试，覆盖 20 个测试模块
+  - 373+ 单元测试，覆盖 23 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -97,6 +97,9 @@ datapulse --search "LLM inference optimization"
 datapulse --search "Python 3.13" --site python.org --site peps.python.org
 datapulse --search "RAG best practices" --search-limit 10 --min-confidence 0.7
 
+# 平台限定搜索
+datapulse --search "护肤" --platform xhs --search-limit 3
+
 # 定向抓取
 datapulse https://example.com --target-selector ".article-body" --no-cache
 ```
@@ -137,7 +140,7 @@ python -m datapulse.mcp_server
 
 - `read_url(url, min_confidence=0.0)`
 - `read_batch(urls, min_confidence=0.0)`
-- `search_web(query, sites=None, limit=5, fetch_content=True, min_confidence=0.0)`
+- `search_web(query, sites=None, platform=None, limit=5, fetch_content=True, min_confidence=0.0)`
 - `read_url_advanced(url, target_selector="", wait_for_selector="", no_cache=False, with_alt=False)`
 - `query_inbox(limit=20, min_confidence=0.0)`
 - `mark_processed(item_id, processed=True)`
@@ -183,6 +186,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_SMOKE_*`
 - `DATAPULSE_BATCH_CONCURRENCY`（默认 5 / default 5）
 - `DATAPULSE_MIN_CONFIDENCE`
+- `DATAPULSE_SESSION_TTL_HOURS`（默认 12 / default 12 — session cache TTL）
 - `JINA_API_KEY`（Jina API Key for enhanced reading and web search）
 
 ## 使用建议（openclaw-bot 场景）
@@ -251,13 +255,13 @@ with structured results that can feed MCP, Assistant Skill, Agent, or Bot workfl
   - YouTube: transcript first, optional audio transcription fallback (`GROQ_API_KEY`)
   - Bilibili: official API + interaction stats (views/likes/coins/favorites/danmaku/shares)
   - Telegram: Telethon (`TG_API_ID`/`TG_API_HASH`), configurable via `DATAPULSE_TG_*` env vars
-  - WeChat / Xiaohongshu: Jina fallback with retry, optional Playwright session fallback
+  - WeChat / Xiaohongshu: Jina fallback with retry, optional Playwright session fallback, XHS auto-extracts engagement metrics (likes/comments/favorites/shares), session TTL cache
   - RSS: multi-entry feed parsing (up to 5 entries), auto feed type detection
   - arXiv: Atom API parsing for paper metadata (title/authors/abstract/categories/PDF link)
   - Hacker News: Firebase API with dynamic engagement flags
   - Generic web: Trafilatura / BeautifulSoup, optional Firecrawl fallback (`FIRECRAWL_API_KEY`) or Jina Reader
   - Jina enhanced reading: CSS selector targeting, wait-for-element, cookie passthrough, proxy, AI image descriptions, cache control
-  - Web search: search the web via Jina Search API (`s.jina.ai`), auto-extract and score results
+  - Web search: search the web via Jina Search API (`s.jina.ai`), auto-extract and score results, platform-scoped search (`--platform`)
 - Output:
   - Structured JSON (`DataPulseItem`)
   - Optional Markdown output (`datapulse-inbox.md` / custom path)
@@ -272,7 +276,7 @@ with structured results that can feed MCP, Assistant Skill, Agent, or Bot workfl
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 351+ tests across 20 test modules
+  - 373+ tests across 23 test modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -366,7 +370,7 @@ Exposed tools:
 
 - `read_url(url, min_confidence=0.0)`
 - `read_batch(urls, min_confidence=0.0)`
-- `search_web(query, sites=None, limit=5, fetch_content=True, min_confidence=0.0)`
+- `search_web(query, sites=None, platform=None, limit=5, fetch_content=True, min_confidence=0.0)`
 - `read_url_advanced(url, target_selector="", wait_for_selector="", no_cache=False, with_alt=False)`
 - `query_inbox(limit=20, min_confidence=0.0)`
 - `mark_processed(item_id, processed=True)`
@@ -412,6 +416,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_SMOKE_*`
 - `DATAPULSE_BATCH_CONCURRENCY`（默认 5 / default 5）
 - `DATAPULSE_MIN_CONFIDENCE`
+- `DATAPULSE_SESSION_TTL_HOURS`（默认 12 / default 12 — session cache TTL）
 - `JINA_API_KEY`（Jina API Key for enhanced reading and web search）
 
 ## Recommended usage for bot/agent stacks

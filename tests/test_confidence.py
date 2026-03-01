@@ -152,6 +152,38 @@ class TestComputeConfidence:
         )
         assert len(reasons) == len(set(reasons))
 
+    def test_engagement_metrics_flag_boost(self):
+        with_flag, reasons = compute_confidence(
+            "xhs", has_title=True, content_length=1000,
+            has_source=True, has_author=False,
+            extra_flags=["engagement_metrics"],
+        )
+        without_flag, _ = compute_confidence(
+            "xhs", has_title=True, content_length=1000,
+            has_source=True, has_author=False,
+        )
+        assert with_flag > without_flag
+        assert "engagement_metrics" in reasons
+
+    def test_engagement_metrics_absent_no_effect(self):
+        score_no_flag, reasons = compute_confidence(
+            "xhs", has_title=True, content_length=1000,
+            has_source=True, has_author=False,
+        )
+        assert "engagement_metrics" not in reasons
+
+    def test_engagement_metrics_exact_delta(self):
+        with_flag, _ = compute_confidence(
+            "xhs", has_title=True, content_length=1000,
+            has_source=True, has_author=False,
+            extra_flags=["engagement_metrics"],
+        )
+        without_flag, _ = compute_confidence(
+            "xhs", has_title=True, content_length=1000,
+            has_source=True, has_author=False,
+        )
+        assert abs((with_flag - without_flag) - 0.03) < 1e-4
+
     def test_reasons_include_expected(self):
         _, reasons = compute_confidence(
             "twitter", has_title=True, content_length=1000,

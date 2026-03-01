@@ -2,13 +2,39 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+import re
 
 from datapulse.core.models import SourceType
-from datapulse.core.utils import session_path
+from datapulse.core.utils import session_path, session_valid
 
 from .base import BaseCollector, ParseResult
 from .jina import JinaCollector
+
+# Patterns for engagement metrics (Chinese + English)
+_ENGAGEMENT_PATTERNS: dict[str, re.Pattern[str]] = {
+    "like_count": re.compile(r"(\d[\d,]*)\s*(?:likes?|赞|点赞)", re.IGNORECASE),
+    "comment_count": re.compile(r"(\d[\d,]*)\s*(?:comments?|评论|留言)", re.IGNORECASE),
+    "fav_count": re.compile(r"(\d[\d,]*)\s*(?:favou?rites?|收藏|已收藏)", re.IGNORECASE),
+    "share_count": re.compile(r"(\d[\d,]*)\s*(?:shares?|分享|转发)", re.IGNORECASE),
+}
+
+
+def _parse_number(s: str) -> int:
+    """Parse a number string with optional commas: '12,345' → 12345."""
+    return int(s.replace(",", ""))
+
+
+def _extract_engagement(content: str) -> dict[str, int]:
+    """Extract engagement metrics from content text via regex."""
+    metrics: dict[str, int] = {}
+    for field_name, pattern in _ENGAGEMENT_PATTERNS.items():
+        match = pattern.search(content)
+        if match:
+            try:
+                metrics[field_name] = _parse_number(match.group(1))
+            except (ValueError, IndexError):
+                continue
+    return metrics
 
 
 class XiaohongshuCollector(BaseCollector):
@@ -28,6 +54,14 @@ class XiaohongshuCollector(BaseCollector):
         jina = JinaCollector()
         result = jina.parse(url)
         if result.success:
+            extra = dict(result.extra) if result.extra else {}
+            confidence_flags = ["xiaohongshu", "jina"]
+
+            engagement = _extract_engagement(result.content or "")
+            if engagement:
+                extra["engagement"] = engagement
+                confidence_flags.append("engagement_metrics")
+
             return ParseResult(
                 url=url,
                 title=result.title,
@@ -36,17 +70,16 @@ class XiaohongshuCollector(BaseCollector):
                 excerpt=result.excerpt,
                 source_type=self.source_type,
                 tags=["xhs", "jina-fallback"],
-                confidence_flags=["xiaohongshu", "jina"],
-                extra=result.extra,
+                confidence_flags=confidence_flags,
+                extra=extra,
             )
 
         # optional session-based browser retry
         try:
             from .browser import BrowserCollector
-            session = Path(session_path("xhs"))
-            if session.exists():
+            if session_valid("xhs"):
                 browser = BrowserCollector()
-                return browser.parse(url, storage_state=str(session))
+                return browser.parse(url, storage_state=session_path("xhs"))
         except Exception:
             pass
 

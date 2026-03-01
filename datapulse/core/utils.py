@@ -380,3 +380,28 @@ def session_path(platform: str) -> str:
     """Return platform session file path for Playwright login state."""
     safe = re.sub(r"[^a-zA-Z0-9._-]", "", platform.lower())
     return str(session_dir() / f"{safe}.json")
+
+
+# --- Session TTL cache (positive-only, 12h default) ---
+
+from datapulse.core.cache import TTLCache
+
+_SESSION_TTL_SECONDS = float(os.getenv("DATAPULSE_SESSION_TTL_HOURS", "12")) * 3600
+_session_ttl_cache = TTLCache(maxsize=16, ttl=_SESSION_TTL_SECONDS)
+
+
+def session_valid(platform: str) -> bool:
+    """TTL-cached session file existence check. Only caches positive results."""
+    cached = _session_ttl_cache.get(platform)
+    if cached is True:
+        return True
+    # Not cached (or expired) — check filesystem
+    exists = Path(session_path(platform)).exists()
+    if exists:
+        _session_ttl_cache.set(platform, True)
+    return exists
+
+
+def invalidate_session_cache(platform: str) -> None:
+    """Manual cache invalidation (logout/re-login)."""
+    _session_ttl_cache.delete(platform)

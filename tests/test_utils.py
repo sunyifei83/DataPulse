@@ -25,6 +25,9 @@ from datapulse.core.utils import (
     content_fingerprint,
     get_domain,
     generate_slug,
+    session_valid,
+    invalidate_session_cache,
+    _session_ttl_cache,
 )
 
 
@@ -282,3 +285,42 @@ class TestContentFingerprint:
         fp1 = content_fingerprint("hello   world   test   content   here")
         fp2 = content_fingerprint("hello world test content here")
         assert fp1 == fp2
+
+
+class TestSessionValid:
+    def setup_method(self):
+        _session_ttl_cache.clear()
+
+    def test_no_session_file(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DATAPULSE_SESSION_DIR", str(tmp_path))
+        assert session_valid("xhs") is False
+
+    def test_session_file_exists(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DATAPULSE_SESSION_DIR", str(tmp_path))
+        (tmp_path / "xhs.json").write_text("{}")
+        assert session_valid("xhs") is True
+
+    def test_cache_hit(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DATAPULSE_SESSION_DIR", str(tmp_path))
+        (tmp_path / "xhs.json").write_text("{}")
+        session_valid("xhs")  # populate cache
+        (tmp_path / "xhs.json").unlink()  # remove file
+        # Should still return True from cache
+        assert session_valid("xhs") is True
+
+    def test_invalidate_cache(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DATAPULSE_SESSION_DIR", str(tmp_path))
+        (tmp_path / "xhs.json").write_text("{}")
+        session_valid("xhs")  # populate cache
+        (tmp_path / "xhs.json").unlink()  # remove file
+        invalidate_session_cache("xhs")
+        # After invalidation, should check filesystem again
+        assert session_valid("xhs") is False
+
+    def test_negative_not_cached(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DATAPULSE_SESSION_DIR", str(tmp_path))
+        assert session_valid("xhs") is False
+        # Create file after a negative check
+        (tmp_path / "xhs.json").write_text("{}")
+        # Should now find it (negative was NOT cached)
+        assert session_valid("xhs") is True

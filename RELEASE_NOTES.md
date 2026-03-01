@@ -1,5 +1,45 @@
 # Release Notes
 
+## Release: DataPulse v0.5.1
+
+发布日期：2026-03-01
+构建目标：XiaohongshuSkills 蒸馏 → XHS 能力补强（5 项增强）
+
+### 主要变更
+
+**T3 — engagement_metrics 置信度标志**
+- 新增 `engagement_metrics` confidence flag (+0.03)，抵消 Jina proxy 惩罚 (-0.03)，XHS 恢复 baseline 0.72。
+
+**T1 — 平台感知搜索**
+- `DataPulseReader.search()` 新增 `platform` 参数，自动注入平台域名到搜索范围。
+- `PLATFORM_SEARCH_SITES` 映射：xhs/twitter/reddit/hackernews/arxiv/bilibili。
+- `platform="xhs"` 时 snippet 条目使用 `SourceType.XHS` + `"xhs_search"` tag。
+- CLI `--platform`、MCP `search_web` 工具同步更新。
+
+**T5 — XHS 媒体 Referer 注入**
+- 新建 `datapulse/core/media.py`：检测 xhscdn.com / ci.xiaohongshu.com 等域名，自动注入 Referer header。
+- `download_media()` 带流式下载 + 大小限制（默认 10MB）。
+
+**T4 — Session TTL 缓存**
+- `session_valid()` / `invalidate_session_cache()`：12h 正向 TTL 缓存，避免频繁文件系统检查。
+- `DATAPULSE_SESSION_TTL_HOURS` 环境变量可配置。
+- XHS browser fallback 路径改用 `session_valid("xhs")`。
+
+**T2 — XHS Engagement 指标提取**
+- `_extract_engagement()` 正则匹配中英文互动指标：赞/likes、评论/comments、收藏/favourites、分享/shares。
+- 逗号数字自动处理（`12,345` → `12345`）。
+- Jina 成功后自动提取，写入 `extra["engagement"]` + 触发 `engagement_metrics` flag。
+
+### 测试
+- 新增 22 个测试（3 + 5 + 8 + 5 + 8 = 29 用例，部分合并），总计 373 passed。
+- 零新依赖，零 breaking change。
+
+### 验收建议
+1. `python3 -m pytest tests/ -q --ignore=tests/test_collector_enhancements.py` — 373 passed
+2. `python3 -m py_compile datapulse/core/confidence.py datapulse/reader.py datapulse/collectors/xhs.py datapulse/core/media.py datapulse/core/utils.py` — 全部编译通过
+
+---
+
 ## Release: DataPulse v0.5.0
 
 发布日期：2026-03-01

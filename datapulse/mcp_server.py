@@ -139,6 +139,7 @@ async def _run_query_unprocessed(limit: int = 20, min_confidence: float = 0.0) -
 async def _run_search_web(
     query: str,
     sites: list[str] | None = None,
+    platform: str | None = None,
     limit: int = 5,
     fetch_content: bool = True,
     min_confidence: float = 0.0,
@@ -147,6 +148,7 @@ async def _run_search_web(
     items = await reader.search(
         query,
         sites=sites,
+        platform=platform,
         limit=limit,
         fetch_content=fetch_content,
         min_confidence=min_confidence,
@@ -308,6 +310,7 @@ if __name__ == "__main__":
     async def search_web(
         query: str,
         sites: list[str] | None = None,
+        platform: str | None = None,
         limit: int = 5,
         fetch_content: bool = True,
         min_confidence: float = 0.0,
@@ -316,6 +319,7 @@ if __name__ == "__main__":
         return await _run_search_web(
             query=query,
             sites=sites,
+            platform=platform,
             limit=limit,
             fetch_content=fetch_content,
             min_confidence=min_confidence,

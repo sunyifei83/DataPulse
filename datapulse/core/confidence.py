@@ -93,6 +93,9 @@ def compute_confidence(
         elif flag == "search_result":
             score += 0.04
             reasons.append("search_result")
+        elif flag == "engagement_metrics":
+            score += 0.03
+            reasons.append("engagement_metrics")
 
     score = max(0.01, min(0.99, score))
     return round(score, 4), list(dict.fromkeys(reasons))

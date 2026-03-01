@@ -75,6 +75,11 @@ def main() -> None:
     parser.add_argument("--site", action="append", metavar="DOMAIN", help="Restrict search to domain (repeatable)")
     parser.add_argument("--search-limit", type=int, default=5, help="Max search results (default 5)")
     parser.add_argument("--no-fetch", action="store_true", help="Skip full content fetch for search results")
+    parser.add_argument(
+        "--platform",
+        choices=["xhs", "twitter", "reddit", "hackernews", "arxiv", "bilibili"],
+        help="Restrict search to a specific platform",
+    )
     # Jina reader options
     parser.add_argument("--target-selector", metavar="CSS", help="CSS selector for targeted extraction")
     parser.add_argument("--no-cache", action="store_true", help="Bypass Jina cache")
@@ -197,6 +202,7 @@ def main() -> None:
             results = await reader.search(
                 args.search,
                 sites=args.site or None,
+                platform=args.platform,
                 limit=args.search_limit,
                 fetch_content=not args.no_fetch,
                 min_confidence=args.min_confidence,

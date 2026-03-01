@@ -106,6 +106,16 @@ title: Test Facts
 - **新增 56 个测试**（`test_jina_client.py` 29 + `test_jina_collector_enhanced.py` 17 + `test_jina_search.py` 10），总计 351+。
 - **零新依赖**：全部使用 `requests`（已有）+ 标准库。
 
+## Fact 3.7: v0.5.1 XHS 蒸馏能力增量
+
+- **XHS Engagement 提取**：`_extract_engagement()` 正则匹配中英文互动指标（赞/评论/收藏/分享），写入 `extra["engagement"]`。
+- **平台感知搜索**：`search()` 新增 `platform` 参数（xhs/twitter/reddit/hackernews/arxiv/bilibili），自动注入域名限定。CLI `--platform`、MCP `search_web` 工具同步更新。
+- **XHS 媒体 Referer 注入**：新建 `datapulse/core/media.py`，检测 xhscdn.com 等域名自动注入 Referer header + 流式下载。
+- **Session TTL 缓存**：`session_valid()` 12h 正向缓存，避免频繁文件系统检查。`DATAPULSE_SESSION_TTL_HOURS` 可配置。
+- **engagement_metrics 置信度标志**：新增 confidence flag (+0.03)，抵消 Jina proxy 惩罚，XHS 恢复 baseline 0.72。
+- **新增 22 个测试**（`test_xhs_engagement.py` 8 + `test_media.py` 8 + confidence 3 + search 5 + utils 5 = 29 用例），总计 373+。
+- **零新依赖**：全部使用已有 `requests` + 标准库。
+
 ## Fact 4: 来源与订阅能力增强
 
 - 已形成统一落地清单：`docs/source_feed_enhancement_plan.md`。

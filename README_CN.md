@@ -17,13 +17,13 @@
   - YouTube：优先字幕，其次可选 Whisper（`GROQ_API_KEY`）
   - Bilibili：官方 API + 交互数据（播放/点赞/投币/收藏/弹幕/转发）
   - Telegram：Telethon（`TG_API_ID`/`TG_API_HASH`），支持 `DATAPULSE_TG_*` 可配置限制
-  - WeChat / 小红书：Jina 兜底 + 重试，支持 Playwright 会话回退
+  - WeChat / 小红书：Jina 兜底 + 重试，支持 Playwright 会话回退，XHS 自动提取互动指标（赞/评论/收藏/分享），Session TTL 缓存
   - RSS：多条目 Feed 解析（最多 5 条），自动识别 feed 类型
   - arXiv：Atom API 解析论文元数据（标题/作者/摘要/分类/PDF 链接）
   - Hacker News：Firebase API 动态抓取，engagement 自动标记
   - 通用网页：Trafilatura / BeautifulSoup，失败再尝试 Firecrawl（`FIRECRAWL_API_KEY`）或 Jina Reader
   - Jina 增强读取：CSS 选择器定向抓取、等待元素加载、Cookie 透传、代理、AI 图片描述、缓存控制
-  - Web 搜索：通过 Jina Search API (`s.jina.ai`) 搜索全网，自动提取并评分
+  - Web 搜索：通过 Jina Search API (`s.jina.ai`) 搜索全网，自动提取并评分，支持平台限定搜索（`--platform`）
 - 产出：
   - 结构化 JSON（`DataPulseItem`）
   - 可选 Markdown 记忆输出（`datapulse-inbox.md` 或自定义路径）
@@ -38,7 +38,7 @@
 - 可观测性：
   - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
 - 测试基建：
-  - 351+ 个测试，覆盖 20 个测试模块
+  - 373+ 个测试，覆盖 23 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -92,6 +92,9 @@ datapulse --search "LLM inference optimization"
 datapulse --search "Python 3.13" --site python.org --site peps.python.org
 datapulse --search "RAG best practices" --search-limit 10 --min-confidence 0.7
 
+# 平台限定搜索
+datapulse --search "护肤" --platform xhs --search-limit 3
+
 # 定向抓取
 datapulse https://example.com --target-selector ".article-body" --no-cache
 ```
@@ -132,7 +135,7 @@ python -m datapulse.mcp_server
 
 - `read_url(url, min_confidence=0.0)`
 - `read_batch(urls, min_confidence=0.0)`
-- `search_web(query, sites=None, limit=5, fetch_content=True, min_confidence=0.0)`
+- `search_web(query, sites=None, platform=None, limit=5, fetch_content=True, min_confidence=0.0)`
 - `read_url_advanced(url, target_selector="", wait_for_selector="", no_cache=False, with_alt=False)`
 - `query_inbox(limit=20, min_confidence=0.0)`
 - `detect_platform(url)`
@@ -175,6 +178,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_TG_CUTOFF_HOURS`（默认 24）
 - `DATAPULSE_SMOKE_*`
 - `DATAPULSE_MIN_CONFIDENCE`
+- `DATAPULSE_SESSION_TTL_HOURS`（默认 12 — session 缓存 TTL 小时数）
 - `JINA_API_KEY`（Jina 增强读取 + Web 搜索 API Key）
 
 ## 测试与功能使用建议

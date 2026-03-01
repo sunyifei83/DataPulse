@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.5.1] - 2026-03-01
+
+### Added — Features
+- **XHS Engagement Extraction**: `_extract_engagement()` in `datapulse/collectors/xhs.py` — regex-based extraction of like/comment/favorite/share counts from XHS content (Chinese + English patterns). Results stored in `extra["engagement"]`.
+- **Platform-aware Search**: `DataPulseReader.search()` gains `platform` parameter. `PLATFORM_SEARCH_SITES` maps platform names (xhs/twitter/reddit/hackernews/arxiv/bilibili) to domain lists, auto-injected into Jina search. CLI `--platform`, MCP `search_web` tool updated.
+- **XHS Media Referer Injection**: New `datapulse/core/media.py` — `needs_referer()`, `build_referer()`, `build_media_headers()`, `download_media()` for XHS CDN domains requiring Referer headers.
+- **Session TTL Cache**: `session_valid()` and `invalidate_session_cache()` in `datapulse/core/utils.py` — 12-hour positive-only TTL cache for session file existence checks, using existing `TTLCache`. Configurable via `DATAPULSE_SESSION_TTL_HOURS`.
+- New confidence flag: `engagement_metrics` (+0.03) — offsets Jina proxy penalty for XHS, restoring baseline 0.72.
+- CLI: `--platform` argument (choices: xhs, twitter, reddit, hackernews, arxiv, bilibili).
+
+### Added — Testing
+- `tests/test_xhs_engagement.py` — 8 tests for engagement extraction (Chinese/English/mixed/comma numbers/parse integration).
+- `tests/test_media.py` — 8 tests for media Referer injection (domain matching/headers/download mock).
+- Updated `tests/test_confidence.py` — +3 tests for `engagement_metrics` flag.
+- Updated `tests/test_jina_search.py` — +5 tests for platform-aware search.
+- Updated `tests/test_utils.py` — +5 tests for session TTL cache.
+
+### Changed
+- `datapulse/collectors/xhs.py` rewritten: engagement extraction on Jina success path, `session_valid()` replaces raw `Path.exists()`.
+
 ## [0.5.0] - 2026-03-01
 
 ### Added — Features

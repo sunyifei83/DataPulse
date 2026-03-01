@@ -18,13 +18,13 @@ for MCP, Skill, Agent, and bot workflows.
   - YouTube: transcript first, optional Whisper fallback (`GROQ_API_KEY`)
   - Bilibili: official API + interaction stats (views/likes/coins/favorites/danmaku/shares)
   - Telegram: Telethon (`TG_API_ID`/`TG_API_HASH`), configurable via `DATAPULSE_TG_*` env vars
-  - WeChat / Xiaohongshu: Jina fallback with retry, optional Playwright session fallback
+  - WeChat / Xiaohongshu: Jina fallback with retry, optional Playwright session fallback, XHS auto-extracts engagement metrics (likes/comments/favorites/shares), session TTL cache
   - RSS: multi-entry feed parsing (up to 5 entries), auto feed type detection
   - arXiv: Atom API for structured paper metadata (title/authors/abstract/categories/PDF link)
   - Hacker News: Firebase API with dynamic engagement flags
   - Generic web: Trafilatura / BeautifulSoup, optional Firecrawl fallback (`FIRECRAWL_API_KEY`) or Jina Reader
   - Jina enhanced reading: CSS selector targeting, wait-for-element, cookie passthrough, proxy, AI image descriptions, cache control
-  - Web search: search the web via Jina Search API (`s.jina.ai`), auto-extract and score results
+  - Web search: search the web via Jina Search API (`s.jina.ai`), auto-extract and score results, platform-scoped search (`--platform`)
 - Outputs:
   - structured JSON (`DataPulseItem`)
   - optional Markdown inbox output (`datapulse-inbox.md` / custom path)
@@ -39,7 +39,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 351+ tests across 20 modules
+  - 373+ tests across 23 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -93,6 +93,9 @@ datapulse --clear
 datapulse --search "LLM inference optimization"
 datapulse --search "Python 3.13" --site python.org --site peps.python.org
 
+# platform-scoped search
+datapulse --search "skincare" --platform xhs --search-limit 3
+
 # targeted extraction
 datapulse https://example.com --target-selector ".article-body" --no-cache
 ```
@@ -133,7 +136,7 @@ Tools:
 
 - `read_url(url, min_confidence=0.0)`
 - `read_batch(urls, min_confidence=0.0)`
-- `search_web(query, sites=None, limit=5, fetch_content=True, min_confidence=0.0)`
+- `search_web(query, sites=None, platform=None, limit=5, fetch_content=True, min_confidence=0.0)`
 - `read_url_advanced(url, target_selector="", wait_for_selector="", no_cache=False, with_alt=False)`
 - `query_inbox(limit=20, min_confidence=0.0)`
 - `detect_platform(url)`
@@ -176,6 +179,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_TG_CUTOFF_HOURS` (default 24)
 - `DATAPULSE_SMOKE_*`
 - `DATAPULSE_MIN_CONFIDENCE`
+- `DATAPULSE_SESSION_TTL_HOURS` (default 12 — session cache TTL in hours)
 - `JINA_API_KEY` (Jina API Key for enhanced reading and web search)
 
 ## Functional validation guide

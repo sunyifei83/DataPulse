@@ -144,6 +144,62 @@ class TestReaderSearch:
             for item in items:
                 assert item.confidence > 0
 
+    def test_platform_injects_sites(self, reader):
+        """platform='xhs' should auto-inject xiaohongshu.com domains."""
+        mock_results = _make_search_results(1)
+        with patch.object(reader, "_jina_client") as mock_client:
+            mock_client.search.return_value = mock_results
+            _run(reader.search("护肤", platform="xhs", fetch_content=False))
+            call_kwargs = mock_client.search.call_args[1]
+            opts = call_kwargs["options"]
+            assert "xiaohongshu.com" in opts.sites
+            assert "xhslink.com" in opts.sites
+
+    def test_platform_merges_with_sites(self, reader):
+        """platform domains merge with explicit sites, no duplicates."""
+        mock_results = _make_search_results(1)
+        with patch.object(reader, "_jina_client") as mock_client:
+            mock_client.search.return_value = mock_results
+            _run(reader.search(
+                "test",
+                sites=["xiaohongshu.com", "custom.com"],
+                platform="xhs",
+                fetch_content=False,
+            ))
+            call_kwargs = mock_client.search.call_args[1]
+            sites = call_kwargs["options"].sites
+            assert sites.count("xiaohongshu.com") == 1
+            assert "custom.com" in sites
+            assert "xhslink.com" in sites
+
+    def test_unknown_platform_ignored(self, reader):
+        """Unknown platform value should not add any sites."""
+        mock_results = _make_search_results(1)
+        with patch.object(reader, "_jina_client") as mock_client:
+            mock_client.search.return_value = mock_results
+            _run(reader.search("test", platform="unknown_platform", fetch_content=False))
+            call_kwargs = mock_client.search.call_args[1]
+            assert call_kwargs["options"].sites == []
+
+    def test_xhs_platform_sets_source_type(self, reader):
+        """Snippet items from xhs platform search should have SourceType.XHS."""
+        mock_results = _make_search_results(1)
+        with patch.object(reader, "_jina_client") as mock_client:
+            mock_client.search.return_value = mock_results
+            items = _run(reader.search("护肤", platform="xhs", fetch_content=False))
+            assert len(items) == 1
+            assert items[0].source_type == SourceType.XHS
+            assert "xhs_search" in items[0].tags
+
+    def test_no_platform_uses_generic_source_type(self, reader):
+        """Without platform, snippet items should be SourceType.GENERIC."""
+        mock_results = _make_search_results(1)
+        with patch.object(reader, "_jina_client") as mock_client:
+            mock_client.search.return_value = mock_results
+            items = _run(reader.search("test", fetch_content=False))
+            assert len(items) == 1
+            assert items[0].source_type == SourceType.GENERIC
+
     def test_search_min_confidence_filter(self, reader):
         mock_results = _make_search_results(3)
         with patch.object(reader, "_jina_client") as mock_client:
