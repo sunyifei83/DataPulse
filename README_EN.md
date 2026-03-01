@@ -20,7 +20,9 @@ for MCP, Skill, Agent, and bot workflows.
   - Telegram: Telethon (`TG_API_ID`/`TG_API_HASH`), configurable via `DATAPULSE_TG_*` env vars
   - WeChat / Xiaohongshu: Jina fallback with retry, optional Playwright session fallback
   - RSS: multi-entry feed parsing (up to 5 entries), auto feed type detection
-  - Generic web: Trafilatura / BeautifulSoup, optional Firecrawl fallback (`FIRECRAWL_API_KEY`)
+  - Generic web: Trafilatura / BeautifulSoup, optional Firecrawl fallback (`FIRECRAWL_API_KEY`) or Jina Reader
+  - Jina enhanced reading: CSS selector targeting, wait-for-element, cookie passthrough, proxy, AI image descriptions, cache control
+  - Web search: search the web via Jina Search API (`s.jina.ai`), auto-extract and score results
 - Outputs:
   - structured JSON (`DataPulseItem`)
   - optional Markdown inbox output (`datapulse-inbox.md` / custom path)
@@ -85,6 +87,13 @@ datapulse --login wechat
 
 # clear memory
 datapulse --clear
+
+# web search
+datapulse --search "LLM inference optimization"
+datapulse --search "Python 3.13" --site python.org --site peps.python.org
+
+# targeted extraction
+datapulse https://example.com --target-selector ".article-body" --no-cache
 ```
 
 ### 2) Smoke checks
@@ -123,6 +132,8 @@ Tools:
 
 - `read_url(url, min_confidence=0.0)`
 - `read_batch(urls, min_confidence=0.0)`
+- `search_web(query, sites=None, limit=5, fetch_content=True, min_confidence=0.0)`
+- `read_url_advanced(url, target_selector="", wait_for_selector="", no_cache=False, with_alt=False)`
 - `query_inbox(limit=20, min_confidence=0.0)`
 - `detect_platform(url)`
 - `health()`
@@ -164,6 +175,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_TG_CUTOFF_HOURS` (default 24)
 - `DATAPULSE_SMOKE_*`
 - `DATAPULSE_MIN_CONFIDENCE`
+- `JINA_API_KEY` (Jina API Key for enhanced reading and web search)
 
 ## Functional validation guide
 

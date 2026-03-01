@@ -1,5 +1,65 @@
 # Release Notes
 
+## Release: DataPulse v0.5.0
+
+发布日期：2026-03-01
+构建目标：Jina 增强读取 + Web 搜索能力集成
+
+### 主要变更
+
+**Phase 1 — Jina API 客户端层**
+- 新建 `datapulse/core/jina_client.py`：统一封装 Jina Reader (`r.jina.ai`) 和 Search (`s.jina.ai`) API。
+- `JinaReadOptions`：CSS 选择器定向抓取、等待元素加载、Cookie 透传、代理、AI 图片描述、缓存控制、POST 模式（SPA hash 路由）。
+- `JinaSearchOptions`：限定搜索域名、最大结果数。
+- 独立 `CircuitBreaker` 实例（read 故障不影响 search），read 使用 `@retry(max_attempts=2)`。
+- API Key 优先级：构造函数参数 > `JINA_API_KEY` 环境变量 > 无 key（免费层）。
+
+**Phase 2 — JinaCollector 升级**
+- `JinaCollector` 重写为使用 `JinaAPIClient`，支持 `target_selector`、`wait_for_selector`、`no_cache`、`with_alt`、`cookie`、`proxy_url`。
+- 可靠性从 0.64 提升至 0.72。
+- 新增 confidence flags：`css_targeted` (+0.03)、`image_captioned` (+0.01)、`search_result` (+0.04)。
+- `BASE_RELIABILITY["jina_search"] = 0.72`（新增搜索解析器基线）。
+
+**Phase 3 — Web 搜索能力**
+- `DataPulseReader.search()` 异步方法：通过 Jina Search API 搜索全网，返回经评分排序的 `DataPulseItem` 列表。
+- `fetch_content=True` 模式：对每个搜索结果 URL 通过完整 `ParsePipeline` 抓取以获取更高质量内容。
+- `fetch_content=False` 模式：直接使用搜索结果的 snippet 构建 item。
+- 批量 inbox 持久化（单次 `save()`），通过 `rank_items()` 统一评分。
+
+**Phase 4 — CLI 集成**
+- `--search QUERY`：搜索关键词。
+- `--site DOMAIN`：限定搜索域（可重复）。
+- `--search-limit N`：最大结果数（默认 5）。
+- `--no-fetch`：跳过对搜索结果的全量抓取。
+- `--target-selector CSS`：CSS 选择器定向抓取。
+- `--no-cache`：绕过 Jina 缓存。
+- `--with-alt`：启用 AI 图片描述。
+
+**Phase 5 — MCP 集成**
+- `search_web` 工具：搜索全网并返回经评分的 LLM 友好结果。
+- `read_url_advanced` 工具：CSS 选择器定向读取 + 高级选项。
+
+**Phase 6 — Generic Collector 增强回退**
+- 在 GenericCollector 回退链尾部加入 Jina Reader：Trafilatura → BS4 → Firecrawl → Jina Reader → fail。
+- 仅接受 >= 200 字符的结果。
+
+### 测试
+- 新增 56 个测试（29 + 17 + 10），全部通过。
+- 零新依赖，全部使用 `requests`（已有）+ 标准库。
+
+### 版本一致性
+- `pyproject.toml` → 0.5.0
+- `datapulse/__init__.py` → 0.5.0
+- `datapulse_skill/manifest.json` → 0.5.0
+- `docs/contracts/openclaw_datapulse_tool_contract.json` → 0.5.0
+
+### 验收建议
+1. `python3 -m pytest tests/test_jina_client.py tests/test_jina_collector_enhanced.py tests/test_jina_search.py -v` — 56 passed
+2. `python3 -m pytest tests/ -v` — 351 passed（2 个预存 async 测试基础设施问题，非本次变更引入）
+3. `git tag -l v0.5.0` — tag 存在
+
+---
+
 ## Release: DataPulse v0.4.0
 
 发布日期：2026-02-28

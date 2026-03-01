@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.5.0] - 2026-03-01
+
+### Added — Features
+- **Jina API Client**: `datapulse/core/jina_client.py` — unified client for Jina Reader (`r.jina.ai`) and Search (`s.jina.ai`) APIs. `JinaReadOptions` supports CSS selector targeting (`X-Target-Selector`), wait-for-element (`X-Wait-For-Selector`), cache bypass, VLM image descriptions, cookie passthrough, proxy, and POST mode for SPA hash routes. `JinaSearchOptions` supports domain restriction and result limits. Independent `CircuitBreaker` instances for read vs search. API key priority: constructor param > `JINA_API_KEY` env var > no key (free tier).
+- **Web Search**: `DataPulseReader.search()` — search the web via Jina Search API and return scored `DataPulseItem` list. Supports `fetch_content=True` for full-page pipeline fetch per result, or `False` for snippet-only mode. Batch inbox persistence (single `save()`). Results integrate into existing 4-dimensional scoring (confidence/authority/corroboration/recency). CLI `--search`, MCP `search_web` tool.
+- **Advanced URL Reading**: `read_url_advanced` MCP tool and CLI `--target-selector`, `--no-cache`, `--with-alt` flags for CSS-targeted extraction, cache bypass, and AI image descriptions.
+- **Generic Collector Jina Fallback**: `_extract_with_jina()` added as final fallback in `GenericCollector` chain: Trafilatura → BS4 → Firecrawl → Jina Reader → fail. Accepts results >= 200 characters.
+- `BASE_RELIABILITY["jina_search"] = 0.72` — new search parser baseline.
+- New confidence flags: `css_targeted` (+0.03), `image_captioned` (+0.01), `search_result` (+0.04).
+- CLI args: `--search QUERY`, `--site DOMAIN` (repeatable), `--search-limit N`, `--no-fetch`, `--target-selector CSS`, `--no-cache`, `--with-alt`.
+- MCP tools: `search_web`, `read_url_advanced`.
+
+### Added — Testing
+- `tests/test_jina_client.py` — 29 tests for Jina API client (headers, URL construction, search parsing, circuit breakers, API key priority).
+- `tests/test_jina_collector_enhanced.py` — 17 tests for enhanced JinaCollector (option passthrough, confidence flags, circuit breaker degradation).
+- `tests/test_jina_search.py` — 10 tests for search flow (fetch_content paths, batch save, sites, limit, min_confidence filter).
+
+### Changed
+- `JinaCollector` rewritten to use `JinaAPIClient` with full options support. Reliability bumped 0.64 → 0.72.
+- `BASE_RELIABILITY["jina"]` bumped from 0.64 to 0.72.
+- Version bumped to `0.5.0` across `pyproject.toml`, `__init__.py`, `manifest.json`, tool contract.
+
 ## [0.4.0] - 2026-02-28
 
 ### Added — Features
