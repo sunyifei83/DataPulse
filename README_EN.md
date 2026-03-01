@@ -40,7 +40,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 420+ tests across 24 modules
+  - 420+ tests across 21 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -139,16 +139,39 @@ Smoke env vars:
 python -m datapulse.mcp_server
 ```
 
-Tools:
+23 tools available:
 
-- `read_url(url, min_confidence=0.0)`
-- `read_batch(urls, min_confidence=0.0)`
-- `search_web(query, sites=None, platform=None, limit=5, fetch_content=True, min_confidence=0.0)`
-- `read_url_advanced(url, target_selector="", wait_for_selector="", no_cache=False, with_alt=False)`
-- `trending(location="", top_n=20, store=False)` — get X/Twitter trending topics
-- `query_inbox(limit=20, min_confidence=0.0)`
-- `detect_platform(url)`
-- `health()`
+**Intake & reading:**
+- `read_url(url, min_confidence)` — parse a single URL
+- `read_batch(urls, min_confidence)` — batch parse URLs
+- `read_url_advanced(url, target_selector, wait_for_selector, no_cache, with_alt, min_confidence)` — CSS-targeted extraction
+- `search_web(query, sites, platform, limit, fetch_content, min_confidence)` — web search
+- `trending(location, top_n, store)` — X/Twitter trending topics
+
+**Memory & state:**
+- `query_inbox(limit, min_confidence)` — query inbox
+- `mark_processed(item_id, processed)` — mark as processed
+- `query_unprocessed(limit, min_confidence)` — query unprocessed items
+
+**Source management:**
+- `list_sources(include_inactive, public_only)` — list source catalog
+- `list_packs(public_only)` — list source packs
+- `resolve_source(url)` — resolve URL to source
+- `list_subscriptions(profile)` — list subscriptions
+- `source_subscribe(profile, source_id)` — subscribe to source
+- `source_unsubscribe(profile, source_id)` — unsubscribe
+- `install_pack(profile, slug)` — install source pack
+
+**Feed & digest:**
+- `query_feed(profile, source_ids, limit, min_confidence, since)` — query feed
+- `build_json_feed(profile, source_ids, limit, min_confidence, since)` — JSON Feed
+- `build_rss_feed(profile, source_ids, limit, min_confidence, since)` — RSS Feed
+- `build_atom_feed(profile, source_ids, limit, min_confidence, since)` — Atom 1.0 Feed
+- `build_digest(profile, source_ids, top_n, secondary_n, min_confidence, since)` — curated digest
+
+**Utilities:**
+- `detect_platform(url)` — platform detection
+- `health()` — health check
 
 - Skill entry:
 

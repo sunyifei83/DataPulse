@@ -39,7 +39,7 @@
 - 可观测性：
   - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
 - 测试基建：
-  - 420+ 个测试，覆盖 24 个测试模块
+  - 420+ 个测试，覆盖 21 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -138,16 +138,39 @@ datapulse-smoke --min-confidence 0.45
 python -m datapulse.mcp_server
 ```
 
-可用工具：
+23 个可用工具：
 
-- `read_url(url, min_confidence=0.0)`
-- `read_batch(urls, min_confidence=0.0)`
-- `search_web(query, sites=None, platform=None, limit=5, fetch_content=True, min_confidence=0.0)`
-- `read_url_advanced(url, target_selector="", wait_for_selector="", no_cache=False, with_alt=False)`
-- `trending(location="", top_n=20, store=False)` — 获取 X/Twitter 热搜趋势
-- `query_inbox(limit=20, min_confidence=0.0)`
-- `detect_platform(url)`
-- `health()`
+**采集与读取：**
+- `read_url(url, min_confidence)` — 解析单条 URL
+- `read_batch(urls, min_confidence)` — 批量解析 URL
+- `read_url_advanced(url, target_selector, wait_for_selector, no_cache, with_alt, min_confidence)` — CSS 定向抓取
+- `search_web(query, sites, platform, limit, fetch_content, min_confidence)` — Web 搜索
+- `trending(location, top_n, store)` — X/Twitter 热搜趋势
+
+**内存与状态：**
+- `query_inbox(limit, min_confidence)` — 查询收件箱
+- `mark_processed(item_id, processed)` — 标记已处理
+- `query_unprocessed(limit, min_confidence)` — 查询未处理条目
+
+**信源管理：**
+- `list_sources(include_inactive, public_only)` — 列出信源目录
+- `list_packs(public_only)` — 列出信源包
+- `resolve_source(url)` — URL 信源识别
+- `list_subscriptions(profile)` — 列出订阅
+- `source_subscribe(profile, source_id)` — 订阅信源
+- `source_unsubscribe(profile, source_id)` — 取消订阅
+- `install_pack(profile, slug)` — 安装信源包
+
+**Feed 与 Digest：**
+- `query_feed(profile, source_ids, limit, min_confidence, since)` — 查询 Feed
+- `build_json_feed(profile, source_ids, limit, min_confidence, since)` — JSON Feed
+- `build_rss_feed(profile, source_ids, limit, min_confidence, since)` — RSS Feed
+- `build_atom_feed(profile, source_ids, limit, min_confidence, since)` — Atom 1.0 Feed
+- `build_digest(profile, source_ids, top_n, secondary_n, min_confidence, since)` — 精选摘要
+
+**工具：**
+- `detect_platform(url)` — 平台检测
+- `health()` — 健康检查
 
 - Skill 接口（适配 OpenClaw 等）：
 

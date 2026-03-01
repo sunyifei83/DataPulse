@@ -44,7 +44,7 @@
 - 可观测性：
   - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
 - 测试基建：
-  - 420+ 单元测试，覆盖 24 个测试模块
+  - 420+ 单元测试，覆盖 21 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -143,18 +143,39 @@ datapulse-smoke --min-confidence 0.45
 python -m datapulse.mcp_server
 ```
 
-暴露工具：
+暴露 23 个工具：
 
-- `read_url(url, min_confidence=0.0)`
-- `read_batch(urls, min_confidence=0.0)`
-- `search_web(query, sites=None, platform=None, limit=5, fetch_content=True, min_confidence=0.0)`
-- `read_url_advanced(url, target_selector="", wait_for_selector="", no_cache=False, with_alt=False)`
-- `trending(location="", top_n=20, store=False)` — 获取 X/Twitter 热搜趋势
-- `query_inbox(limit=20, min_confidence=0.0)`
-- `mark_processed(item_id, processed=True)`
-- `query_unprocessed(limit=20, min_confidence=0.0)`
-- `detect_platform(url)`
-- `health()`
+**采集与读取：**
+- `read_url(url, min_confidence=0.0)` — 解析单条 URL
+- `read_batch(urls, min_confidence=0.0)` — 批量解析 URL
+- `read_url_advanced(url, target_selector, wait_for_selector, no_cache, with_alt, min_confidence)` — CSS 定向抓取
+- `search_web(query, sites, platform, limit, fetch_content, min_confidence)` — Web 搜索
+- `trending(location, top_n, store)` — X/Twitter 热搜趋势
+
+**内存与状态：**
+- `query_inbox(limit, min_confidence)` — 查询收件箱
+- `mark_processed(item_id, processed)` — 标记已处理
+- `query_unprocessed(limit, min_confidence)` — 查询未处理条目
+
+**信源管理：**
+- `list_sources(include_inactive, public_only)` — 列出信源目录
+- `list_packs(public_only)` — 列出信源包
+- `resolve_source(url)` — URL 信源识别
+- `list_subscriptions(profile)` — 列出订阅
+- `source_subscribe(profile, source_id)` — 订阅信源
+- `source_unsubscribe(profile, source_id)` — 取消订阅
+- `install_pack(profile, slug)` — 安装信源包
+
+**Feed 与 Digest：**
+- `query_feed(profile, source_ids, limit, min_confidence, since)` — 查询 Feed
+- `build_json_feed(profile, source_ids, limit, min_confidence, since)` — JSON Feed
+- `build_rss_feed(profile, source_ids, limit, min_confidence, since)` — RSS Feed
+- `build_atom_feed(profile, source_ids, limit, min_confidence, since)` — Atom 1.0 Feed
+- `build_digest(profile, source_ids, top_n, secondary_n, min_confidence, since)` — 精选摘要
+
+**工具：**
+- `detect_platform(url)` — 平台检测
+- `health()` — 健康检查
 
 - Skill 入口（可供 OpenClaw Skill 接入）：
 
@@ -192,10 +213,10 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_TG_MAX_CHARS`（默认 800）
 - `DATAPULSE_TG_CUTOFF_HOURS`（默认 24）
 - `DATAPULSE_SMOKE_*`
-- `DATAPULSE_BATCH_CONCURRENCY`（默认 5 / default 5）
+- `DATAPULSE_BATCH_CONCURRENCY`（默认 5）
 - `DATAPULSE_MIN_CONFIDENCE`
-- `DATAPULSE_SESSION_TTL_HOURS`（默认 12 / default 12 — session cache TTL）
-- `JINA_API_KEY`（Jina API Key for enhanced reading and web search）
+- `DATAPULSE_SESSION_TTL_HOURS`（默认 12，Session 缓存 TTL 小时数）
+- `JINA_API_KEY`（Jina 增强读取 + Web 搜索 API Key）
 
 ## 使用建议（openclaw-bot 场景）
 
@@ -285,7 +306,7 @@ with structured results that can feed MCP, Assistant Skill, Agent, or Bot workfl
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 420+ tests across 24 test modules
+  - 420+ tests across 21 test modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -381,18 +402,39 @@ Smoke env vars:
 python -m datapulse.mcp_server
 ```
 
-Exposed tools:
+23 exposed tools:
 
-- `read_url(url, min_confidence=0.0)`
-- `read_batch(urls, min_confidence=0.0)`
-- `search_web(query, sites=None, platform=None, limit=5, fetch_content=True, min_confidence=0.0)`
-- `read_url_advanced(url, target_selector="", wait_for_selector="", no_cache=False, with_alt=False)`
-- `trending(location="", top_n=20, store=False)` — get X/Twitter trending topics
-- `query_inbox(limit=20, min_confidence=0.0)`
-- `mark_processed(item_id, processed=True)`
-- `query_unprocessed(limit=20, min_confidence=0.0)`
-- `detect_platform(url)`
-- `health()`
+**Intake & reading:**
+- `read_url(url, min_confidence)` — parse a single URL
+- `read_batch(urls, min_confidence)` — batch parse URLs
+- `read_url_advanced(url, target_selector, wait_for_selector, no_cache, with_alt, min_confidence)` — CSS-targeted extraction
+- `search_web(query, sites, platform, limit, fetch_content, min_confidence)` — web search
+- `trending(location, top_n, store)` — X/Twitter trending topics
+
+**Memory & state:**
+- `query_inbox(limit, min_confidence)` — query inbox
+- `mark_processed(item_id, processed)` — mark as processed
+- `query_unprocessed(limit, min_confidence)` — query unprocessed items
+
+**Source management:**
+- `list_sources(include_inactive, public_only)` — list source catalog
+- `list_packs(public_only)` — list source packs
+- `resolve_source(url)` — resolve URL to source
+- `list_subscriptions(profile)` — list subscriptions
+- `source_subscribe(profile, source_id)` — subscribe to source
+- `source_unsubscribe(profile, source_id)` — unsubscribe
+- `install_pack(profile, slug)` — install source pack
+
+**Feed & digest:**
+- `query_feed(profile, source_ids, limit, min_confidence, since)` — query feed
+- `build_json_feed(profile, source_ids, limit, min_confidence, since)` — JSON Feed
+- `build_rss_feed(profile, source_ids, limit, min_confidence, since)` — RSS Feed
+- `build_atom_feed(profile, source_ids, limit, min_confidence, since)` — Atom 1.0 Feed
+- `build_digest(profile, source_ids, top_n, secondary_n, min_confidence, since)` — curated digest
+
+**Utilities:**
+- `detect_platform(url)` — platform detection
+- `health()` — health check
 
 - Skill entry (for OpenClaw/assistant adapters):
 
@@ -430,10 +472,10 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_TG_MAX_CHARS` (default 800)
 - `DATAPULSE_TG_CUTOFF_HOURS` (default 24)
 - `DATAPULSE_SMOKE_*`
-- `DATAPULSE_BATCH_CONCURRENCY`（默认 5 / default 5）
+- `DATAPULSE_BATCH_CONCURRENCY` (default 5)
 - `DATAPULSE_MIN_CONFIDENCE`
-- `DATAPULSE_SESSION_TTL_HOURS`（默认 12 / default 12 — session cache TTL）
-- `JINA_API_KEY`（Jina API Key for enhanced reading and web search）
+- `DATAPULSE_SESSION_TTL_HOURS` (default 12 — session cache TTL in hours)
+- `JINA_API_KEY` (Jina API key for enhanced reading and web search)
 
 ## Recommended usage for bot/agent stacks
 

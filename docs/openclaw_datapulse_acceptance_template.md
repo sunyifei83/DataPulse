@@ -192,7 +192,7 @@ sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" 
 ### OpenClaw/OpenModel 端点
 - Runtime 状态检测：`curl -sS http://127.0.0.1:18801/healthz`
 - 就绪检测：`curl -sS http://127.0.0.1:18801/readyz`
-- 工具链目标：MCP `read_url/read_batch/search_web/read_url_advanced/trending/query_inbox/detect_platform/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed/build_atom_feed/build_digest/health`
+- 工具链目标（23 个 MCP 工具）：`read_url` / `read_batch` / `read_url_advanced` / `search_web` / `trending` / `query_inbox` / `mark_processed` / `query_unprocessed` / `list_sources` / `list_packs` / `resolve_source` / `list_subscriptions` / `source_subscribe` / `source_unsubscribe` / `install_pack` / `query_feed` / `build_json_feed` / `build_rss_feed` / `build_atom_feed` / `build_digest` / `detect_platform` / `health`
 - 远端预检（建议在 `bash scripts/datapulse_remote_openclaw_smoke.sh` 前执行）：
   - `MACMINI_DATAPULSE_DIR` 下必须有 `pyproject.toml` 和 `datapulse/`
   - 远端 Python 版本必须 `>=3.10`
@@ -236,10 +236,14 @@ sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" 
   - 运行前先确认 `MACMINI_DATAPULSE_DIR` 指向 macmini 上可访问且含有 `datapulse` 源码目录。
 - [ ] 远端 `python3 -m datapulse.tools.smoke --list` 输出正常
 - [ ] 18801 健康端检查通过
-- [ ] `read_url/read_batch` MCP 工具返回 JSON
+- [ ] `read_url` / `read_batch` MCP 工具返回 JSON
 - [ ] `search_web` MCP 工具返回搜索结果 JSON
 - [ ] `read_url_advanced` MCP 工具定向抓取返回 JSON
 - [ ] `trending` MCP 工具返回热搜趋势 JSON
+- [ ] `query_feed` / `build_json_feed` / `build_rss_feed` / `build_atom_feed` Feed 输出正常
+- [ ] `build_digest` 精选摘要返回 JSON
+- [ ] `list_sources` / `resolve_source` / `list_subscriptions` 信源管理正常
+- [ ] `mark_processed` / `query_unprocessed` 状态管理正常
 - [ ] OpenClaw 工具入口可被网关启动并返回结构化结果
 
 ## 6) 结果记录
@@ -253,6 +257,10 @@ sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" 
 | MCP search_web | PASS/FAIL | |
 | MCP read_url_advanced | PASS/FAIL | |
 | MCP trending | PASS/FAIL | |
+| MCP Feed 输出 (json/rss/atom) | PASS/FAIL | |
+| MCP build_digest | PASS/FAIL | |
+| MCP 信源管理 (sources/subs) | PASS/FAIL | |
+| MCP 状态管理 (processed) | PASS/FAIL | |
 | Skill run | PASS/FAIL | |
 | Agent handle | PASS/FAIL | |
 
