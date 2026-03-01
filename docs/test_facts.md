@@ -106,7 +106,7 @@ title: Test Facts
 - **新增 56 个测试**（`test_jina_client.py` 29 + `test_jina_collector_enhanced.py` 17 + `test_jina_search.py` 10），总计 351+。
 - **零新依赖**：全部使用 `requests`（已有）+ 标准库。
 
-## Fact 3.7: v0.5.1 XHS 蒸馏能力增量
+## Fact 3.7: v0.5.1 XHS 采集能力增量
 
 - **XHS Engagement 提取**：`_extract_engagement()` 正则匹配中英文互动指标（赞/评论/收藏/分享），写入 `extra["engagement"]`。
 - **平台感知搜索**：`search()` 新增 `platform` 参数（xhs/twitter/reddit/hackernews/arxiv/bilibili），自动注入域名限定。CLI `--platform`、MCP `search_web` 工具同步更新。
@@ -129,7 +129,7 @@ title: Test Facts
 - **新增 36 个测试**（`test_trending_collector.py` 8 类），总计 420+。
 - **零新依赖**：全部使用已有 `requests`、`beautifulsoup4`、`lxml`。
 
-## Fact 3.9: v0.6.1 Agent-Reach 蒸馏能力增量
+## Fact 3.9: v0.6.1 可靠性与诊断能力增量
 
 - **采集器健康自检（doctor）**：`BaseCollector` 新增 `tier`（0/1/2）、`setup_hint`、`check()` 方法。13 个采集器全部实现自检，按 tier 0（零配置：rss/arxiv/hackernews）、tier 1（网络/免费：twitter/reddit/bilibili/trending/generic/jina）、tier 2（需配置：youtube/xhs/wechat/telegram）三级分类。
 - **Doctor 聚合**：`ParsePipeline.doctor()` 按 tier 分组返回所有采集器健康状态。`DataPulseReader.doctor()` 透传。

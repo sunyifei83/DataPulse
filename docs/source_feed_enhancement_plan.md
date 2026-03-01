@@ -34,7 +34,7 @@
 - Web 搜索能力（`s.jina.ai`）：`DataPulseReader.search()` + CLI `--search` + MCP `search_web`。
 - Generic Collector Jina 兜底回退链。
 
-### P5：Agent-Reach 蒸馏 ✅ (v0.6.1 完成)
+### P5：可靠性与诊断增强 ✅ (v0.6.1 完成)
 - 采集器健康自检（doctor）：`BaseCollector.check()` + tier/setup_hint，`ParsePipeline.doctor()` 聚合，CLI `--doctor`，MCP `doctor()` 工具。
 - 可操作路由错误：`route()` 失败时附带 `setup_hint` 修复指引。
 - 429 感知退避：`RateLimitError(retry_after=N)` + `CircuitBreaker.rate_limit_weight=2`。
