@@ -80,6 +80,11 @@ def main() -> None:
         choices=["xhs", "twitter", "reddit", "hackernews", "arxiv", "bilibili"],
         help="Restrict search to a specific platform",
     )
+    # Trending options
+    parser.add_argument("--trending", nargs="?", const="", metavar="LOCATION",
+                        help="Show trending topics (default: worldwide). Locations: us, uk, jp, etc.")
+    parser.add_argument("--trending-limit", type=int, default=20, help="Max trending topics (default 20)")
+    parser.add_argument("--trending-store", action="store_true", help="Save trending snapshot to inbox")
     # Jina reader options
     parser.add_argument("--target-selector", metavar="CSS", help="CSS selector for targeted extraction")
     parser.add_argument("--no-cache", action="store_true", help="Bypass Jina cache")
@@ -195,6 +200,28 @@ def main() -> None:
             min_confidence=args.min_confidence,
         )
         print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+
+    if args.trending is not None:
+        async def run_trending() -> None:
+            result = await reader.trending(
+                location=args.trending,
+                top_n=args.trending_limit,
+                store=args.trending_store,
+            )
+            if not result["trends"]:
+                print("No trending data found")
+                return
+            loc = result["location"]
+            print(f"Trending Topics on X ({loc}) — {result['snapshot_time']}\n")
+            for t in result["trends"]:
+                vol = f" ({t['volume']})" if t.get("volume") else ""
+                print(f"  {t['rank']:2d}. {t['name']}{vol}")
+            print(f"\nTotal: {result['trend_count']} topic(s)")
+            if result.get("stored_item_id"):
+                print(f"Stored as: {result['stored_item_id']}")
+
+        asyncio.run(run_trending())
         return
 
     if args.search:

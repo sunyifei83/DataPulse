@@ -126,7 +126,7 @@ class TestDataPulseItem:
 
     def test_source_type_values(self):
         expected = {"twitter", "reddit", "youtube", "bilibili", "telegram",
-                    "wechat", "xhs", "rss", "arxiv", "hackernews", "generic", "manual"}
+                    "wechat", "xhs", "rss", "arxiv", "hackernews", "trending", "generic", "manual"}
         actual = {st.value for st in SourceType}
         assert actual == expected
 

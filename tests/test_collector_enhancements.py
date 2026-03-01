@@ -62,10 +62,8 @@ class TestTelegramConfigurable:
 
 
 class TestBatchUrlDedup:
-    @pytest.mark.asyncio
-    async def test_dedup_urls_in_batch(self):
+    def test_dedup_urls_in_batch(self):
         """read_batch should deduplicate URLs before processing."""
-        from unittest.mock import AsyncMock, patch
         from datapulse.reader import DataPulseReader
         from datapulse.core.models import DataPulseItem, SourceType
 
@@ -92,15 +90,14 @@ class TestBatchUrlDedup:
             "https://example.com/page/",  # trailing slash dup
             "https://other.com/page",
         ]
-        results = await reader.read_batch(urls)
+        results = asyncio.run(reader.read_batch(urls))
         # Should only process 2 unique URLs (after normalization)
         assert call_count == 2
         assert len(results) == 2
 
 
 class TestBatchConcurrencyLimit:
-    @pytest.mark.asyncio
-    async def test_concurrency_bounded(self, monkeypatch):
+    def test_concurrency_bounded(self, monkeypatch):
         """read_batch should respect DATAPULSE_BATCH_CONCURRENCY."""
         monkeypatch.setenv("DATAPULSE_BATCH_CONCURRENCY", "2")
         from datapulse.reader import DataPulseReader
@@ -109,17 +106,14 @@ class TestBatchConcurrencyLimit:
         reader = DataPulseReader.__new__(DataPulseReader)
         peak = 0
         current = 0
-        lock = asyncio.Lock()
 
         async def mock_read(url, *, min_confidence=0.0):
             nonlocal peak, current
-            async with lock:
-                current += 1
-                if current > peak:
-                    peak = current
+            current += 1
+            if current > peak:
+                peak = current
             await asyncio.sleep(0.05)
-            async with lock:
-                current -= 1
+            current -= 1
             return DataPulseItem(
                 source_type=SourceType.GENERIC,
                 source_name="test",
@@ -132,7 +126,7 @@ class TestBatchConcurrencyLimit:
         reader.read = mock_read
 
         urls = [f"https://example.com/{i}" for i in range(6)]
-        results = await reader.read_batch(urls)
+        results = asyncio.run(reader.read_batch(urls))
         assert len(results) == 6
         assert peak <= 2
 

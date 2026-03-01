@@ -8,6 +8,7 @@ import os
 from datetime import datetime
 from typing import Any
 
+from datapulse.collectors.trending import TrendingCollector, build_trending_url
 from datapulse.core.confidence import compute_confidence
 from datapulse.core.jina_client import JinaAPIClient, JinaSearchOptions
 from datapulse.core.models import DataPulseItem, SourceType
@@ -183,6 +184,61 @@ class DataPulseReader:
         authority_map = self.catalog.build_authority_map()
         ranked = rank_items(items, authority_map=authority_map)
         return ranked
+
+    async def trending(
+        self,
+        location: str = "",
+        top_n: int = 20,
+        store: bool = False,
+    ) -> dict[str, Any]:
+        """Fetch trending topics from trends24.in.
+
+        Returns structured data with the latest snapshot.
+        store=True saves the snapshot as a DataPulseItem to inbox (opt-in).
+        """
+        collector = TrendingCollector()
+        snapshots = await asyncio.to_thread(
+            collector.fetch_snapshots, location, top_n
+        )
+        if not snapshots:
+            return {
+                "location": location or "worldwide",
+                "snapshot_time": "",
+                "trend_count": 0,
+                "trends": [],
+            }
+
+        latest = snapshots[0]
+        loc_slug = location.strip().lower() if location else "worldwide"
+        from urllib.parse import quote
+        trends_out = [
+            {
+                "rank": t.rank,
+                "name": t.name,
+                "volume": t.volume,
+                "volume_raw": t.volume_raw,
+                "twitter_search_url": f"https://x.com/search?q={quote(t.name)}",
+            }
+            for t in latest.trends
+        ]
+
+        result: dict[str, Any] = {
+            "location": loc_slug,
+            "snapshot_time": latest.timestamp_utc or latest.timestamp,
+            "trend_count": len(latest.trends),
+            "trends": trends_out,
+        }
+
+        if store:
+            url = build_trending_url(location)
+            parse_result = collector.parse(url)
+            if parse_result.success:
+                item = self._to_item(parse_result, collector.name)
+                if self.inbox.add(item):
+                    self.inbox.save()
+                result["stored_item_id"] = item.id
+
+        return result
 
     def _to_item(self, parse_result, parser_name: str) -> DataPulseItem:
         source_type = parse_result.source_type or SourceType.GENERIC

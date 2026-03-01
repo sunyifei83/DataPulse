@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.6.0] - 2026-03-01
+
+### Added — Features
+- **Trending Topics Collector**: `TrendingCollector` in `datapulse/collectors/trending.py` — scrapes trends24.in for X/Twitter trending topics across 400+ global locations. Server-side rendered (requests + BeautifulSoup), no Jina dependency (HTTP 451 blocked).
+- **HTML Parsing**: `.trend-card` primary strategy with `h3` + `ol/ul` structural fallback. Extracts rank, name, URL, tweet volume per trend.
+- **Volume Parsing**: `parse_volume()` handles K/M suffixes, comma-separated numbers (`125K` → 125000, `1.2M` → 1200000).
+- **Location Aliases**: 30+ shortcuts mapping to trends24.in URL slugs (us→united-states, uk→united-kingdom, jp→japan, etc.).
+- **`TrendItem` / `TrendSnapshot` dataclasses**: Structured representation of individual trends and hourly snapshots.
+- **Reader API**: `DataPulseReader.trending(location, top_n, store)` — async method returning structured `{location, snapshot_time, trend_count, trends[]}`. `store=True` persists snapshot to inbox (opt-in).
+- **CLI**: `--trending [LOCATION]` (default: worldwide), `--trending-limit N` (default: 20), `--trending-store` (opt-in inbox storage).
+- **MCP Tool**: `trending(location, top_n, store)` — get X/Twitter trending topics for any location.
+- `SourceType.TRENDING` enum value.
+- `is_trending_url()` URL detector + `resolve_platform_hint()` chain integration.
+- `BASE_RELIABILITY["trending"] = 0.78` — between hackernews (0.82) and rss (0.74).
+- New confidence flags: `trending_snapshot` (+0.02), `rich_data` (+0.02).
+
+### Added — Testing
+- `tests/test_trending_collector.py` — 36 offline tests across 8 test classes (TestCanHandle, TestParseVolume, TestNormalizeLocation, TestBuildUrl, TestParse, TestFetchSnapshots, TestFallbackParsing, TestFormatContent).
+- Updated `tests/test_models.py` — SourceType enum values updated for `trending`.
+- Total test count: 420+.
+
+### Changed
+- `ParsePipeline` includes `TrendingCollector()` after HackerNewsCollector, before RssCollector.
+- Version bumped to `0.6.0` across `pyproject.toml`, `__init__.py`, `manifest.json`, tool contract.
+
 ## [0.5.1] - 2026-03-01
 
 ### Added — Features

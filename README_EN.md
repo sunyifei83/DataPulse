@@ -11,7 +11,7 @@ for MCP, Skill, Agent, and bot workflows.
 
 ## Implemented features
 
-- Parser routing: `twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `arxiv`, `hackernews`, `generic web`, `jina`
+- Parser routing: `twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `arxiv`, `hackernews`, `trending`, `generic web`, `jina`
 - Platform strategies:
   - Twitter: FxTwitter primary + Nitter fallback
   - Reddit: public `.json` API
@@ -22,6 +22,7 @@ for MCP, Skill, Agent, and bot workflows.
   - RSS: multi-entry feed parsing (up to 5 entries), auto feed type detection
   - arXiv: Atom API for structured paper metadata (title/authors/abstract/categories/PDF link)
   - Hacker News: Firebase API with dynamic engagement flags
+  - Trending: trends24.in scraper for X/Twitter trending topics across 400+ global locations, 30+ location aliases (us/uk/jp etc.), hourly snapshots, tweet volume parsing
   - Generic web: Trafilatura / BeautifulSoup, optional Firecrawl fallback (`FIRECRAWL_API_KEY`) or Jina Reader
   - Jina enhanced reading: CSS selector targeting, wait-for-element, cookie passthrough, proxy, AI image descriptions, cache control
   - Web search: search the web via Jina Search API (`s.jina.ai`), auto-extract and score results, platform-scoped search (`--platform`)
@@ -39,7 +40,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 373+ tests across 23 modules
+  - 420+ tests across 24 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -96,6 +97,12 @@ datapulse --search "Python 3.13" --site python.org --site peps.python.org
 # platform-scoped search
 datapulse --search "skincare" --platform xhs --search-limit 3
 
+# trending topics
+datapulse --trending              # worldwide
+datapulse --trending us           # United States
+datapulse --trending jp --trending-limit 10  # Japan top 10
+datapulse --trending uk --trending-store     # UK, save to inbox
+
 # targeted extraction
 datapulse https://example.com --target-selector ".article-body" --no-cache
 ```
@@ -138,6 +145,7 @@ Tools:
 - `read_batch(urls, min_confidence=0.0)`
 - `search_web(query, sites=None, platform=None, limit=5, fetch_content=True, min_confidence=0.0)`
 - `read_url_advanced(url, target_selector="", wait_for_selector="", no_cache=False, with_alt=False)`
+- `trending(location="", top_n=20, store=False)` — get X/Twitter trending topics
 - `query_inbox(limit=20, min_confidence=0.0)`
 - `detect_platform(url)`
 - `health()`

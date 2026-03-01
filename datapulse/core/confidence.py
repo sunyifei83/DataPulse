@@ -15,6 +15,7 @@ BASE_RELIABILITY = {
     "rss": 0.74,
     "arxiv": 0.88,
     "hackernews": 0.82,
+    "trending": 0.78,
     "generic": 0.68,
     "jina": 0.72,
     "jina_search": 0.72,
@@ -96,6 +97,12 @@ def compute_confidence(
         elif flag == "engagement_metrics":
             score += 0.03
             reasons.append("engagement_metrics")
+        elif flag == "trending_snapshot":
+            score += 0.02
+            reasons.append("trending_snapshot")
+        elif flag == "rich_data":
+            score += 0.02
+            reasons.append("rich_data")
 
     score = max(0.01, min(0.99, score))
     return round(score, 4), list(dict.fromkeys(reasons))

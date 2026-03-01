@@ -238,6 +238,11 @@ def is_wechat_url(url: str) -> bool:
     return "mp.weixin.qq.com" in (url or "").lower()
 
 
+def is_trending_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return (parsed.hostname or "").lower() in {"trends24.in", "www.trends24.in"}
+
+
 def resolve_platform_hint(url: str) -> str:
     if is_twitter_url(url):
         return "twitter"
@@ -257,6 +262,8 @@ def resolve_platform_hint(url: str) -> str:
         return "arxiv"
     if is_hackernews_url(url):
         return "hackernews"
+    if is_trending_url(url):
+        return "trending"
     if is_rss_feed(url):
         return "rss"
     return "generic"

@@ -9,6 +9,7 @@ from .jina import JinaCollector
 from .reddit import RedditCollector
 from .rss import RssCollector
 from .telegram import TelegramCollector
+from .trending import TrendingCollector
 from .twitter import TwitterCollector
 from .wechat import WeChatCollector
 from .xhs import XiaohongshuCollector
@@ -32,6 +33,7 @@ __all__ = [
     "WeChatCollector",
     "XiaohongshuCollector",
     "HackerNewsCollector",
+    "TrendingCollector",
     "GenericCollector",
     "JinaCollector",
     "BrowserCollector",

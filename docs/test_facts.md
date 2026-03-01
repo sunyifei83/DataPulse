@@ -116,6 +116,19 @@ title: Test Facts
 - **新增 22 个测试**（`test_xhs_engagement.py` 8 + `test_media.py` 8 + confidence 3 + search 5 + utils 5 = 29 用例），总计 373+。
 - **零新依赖**：全部使用已有 `requests` + 标准库。
 
+## Fact 3.8: v0.6.0 Trending Topics 能力增量
+
+- **Trending 采集器**：`TrendingCollector`（`datapulse/collectors/trending.py`）基于 requests + BeautifulSoup 采集 trends24.in 全球 X/Twitter 热搜趋势（Jina Reader HTTP 451 不可用）。
+- **HTML 解析**：`.trend-card` 主策略 + `h3`/`ol/ul` 结构化回退，提取 rank/name/url/volume。
+- **Volume 解析**：`parse_volume()` 处理 K/M 后缀和逗号分隔（`125K`→125000, `1.2M`→1200000）。
+- **30+ 地区别名**：us→united-states, uk→united-kingdom, jp→japan 等，支持 400+ 全球地区。
+- **Reader API**：`DataPulseReader.trending(location, top_n, store)` 异步方法，`store=True` 可选持久化。
+- **新增 CLI 参数**：`--trending [LOCATION]`、`--trending-limit N`、`--trending-store`。
+- **新增 MCP 工具**：`trending(location, top_n, store)`。
+- **Confidence**：`BASE_RELIABILITY["trending"] = 0.78`，flags：`trending_snapshot` (+0.02)、`rich_data` (+0.02)。
+- **新增 36 个测试**（`test_trending_collector.py` 8 类），总计 420+。
+- **零新依赖**：全部使用已有 `requests`、`beautifulsoup4`、`lxml`。
+
 ## Fact 4: 来源与订阅能力增强
 
 - 已形成统一落地清单：`docs/source_feed_enhancement_plan.md`。

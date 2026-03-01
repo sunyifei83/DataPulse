@@ -20,6 +20,7 @@ class SourceType(str, Enum):
     RSS = "rss"
     ARXIV = "arxiv"
     HACKERNEWS = "hackernews"
+    TRENDING = "trending"
     GENERIC = "generic"
     MANUAL = "manual"
 

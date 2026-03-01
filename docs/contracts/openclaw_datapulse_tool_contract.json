@@ -2,7 +2,7 @@
   "contract": {
     "project": "DataPulse",
     "project_zh": "数据脉搏",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "scope": "cross-platform URL intake + confidence scoring + memory persistence",
     "targets": [
       "assistant-skill",
@@ -206,6 +206,15 @@
           "no_cache": "bool (default false)",
           "with_alt": "bool (default false)",
           "min_confidence": "float (default 0.0)"
+        }
+      },
+      {
+        "name": "trending",
+        "description": "Get X/Twitter trending topics for a location (powered by trends24.in).",
+        "parameters": {
+          "location": "string (default empty = worldwide, supports aliases: us, uk, jp, etc.)",
+          "top_n": "int (default 20)",
+          "store": "bool (default false, opt-in inbox persistence)"
         }
       },
       {

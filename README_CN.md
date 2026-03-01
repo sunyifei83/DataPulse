@@ -10,7 +10,7 @@
 
 ## 真实实现能力
 
-- 路由与采集器：`twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `arxiv`, `hackernews`, `generic web`, `jina`
+- 路由与采集器：`twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `arxiv`, `hackernews`, `trending`, `generic web`, `jina`
 - 平台采集策略：
   - Twitter：FxTwitter 主链路 + Nitter 兜底
   - Reddit：公开 `.json` API
@@ -21,6 +21,7 @@
   - RSS：多条目 Feed 解析（最多 5 条），自动识别 feed 类型
   - arXiv：Atom API 解析论文元数据（标题/作者/摘要/分类/PDF 链接）
   - Hacker News：Firebase API 动态抓取，engagement 自动标记
+  - Trending：trends24.in 全球 400+ 地区 X/Twitter 热搜趋势抓取，30+ 地区别名（us/uk/jp 等），小时级快照，Tweet 量级解析
   - 通用网页：Trafilatura / BeautifulSoup，失败再尝试 Firecrawl（`FIRECRAWL_API_KEY`）或 Jina Reader
   - Jina 增强读取：CSS 选择器定向抓取、等待元素加载、Cookie 透传、代理、AI 图片描述、缓存控制
   - Web 搜索：通过 Jina Search API (`s.jina.ai`) 搜索全网，自动提取并评分，支持平台限定搜索（`--platform`）
@@ -38,7 +39,7 @@
 - 可观测性：
   - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
 - 测试基建：
-  - 373+ 个测试，覆盖 23 个测试模块
+  - 420+ 个测试，覆盖 24 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -95,6 +96,12 @@ datapulse --search "RAG best practices" --search-limit 10 --min-confidence 0.7
 # 平台限定搜索
 datapulse --search "护肤" --platform xhs --search-limit 3
 
+# 热搜趋势
+datapulse --trending              # 全球热搜
+datapulse --trending us           # 美国热搜
+datapulse --trending jp --trending-limit 10  # 日本 Top 10
+datapulse --trending uk --trending-store     # 英国热搜，存入 inbox
+
 # 定向抓取
 datapulse https://example.com --target-selector ".article-body" --no-cache
 ```
@@ -137,6 +144,7 @@ python -m datapulse.mcp_server
 - `read_batch(urls, min_confidence=0.0)`
 - `search_web(query, sites=None, platform=None, limit=5, fetch_content=True, min_confidence=0.0)`
 - `read_url_advanced(url, target_selector="", wait_for_selector="", no_cache=False, with_alt=False)`
+- `trending(location="", top_n=20, store=False)` — 获取 X/Twitter 热搜趋势
 - `query_inbox(limit=20, min_confidence=0.0)`
 - `detect_platform(url)`
 - `health()`

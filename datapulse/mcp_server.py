@@ -156,6 +156,16 @@ async def _run_search_web(
     return json.dumps([item.to_dict() for item in items], ensure_ascii=False, indent=2)
 
 
+async def _run_trending(
+    location: str = "",
+    top_n: int = 20,
+    store: bool = False,
+) -> str:
+    reader = DataPulseReader()
+    result = await reader.trending(location=location, top_n=top_n, store=store)
+    return json.dumps(result, ensure_ascii=False, indent=2)
+
+
 async def _run_read_url_advanced(
     url: str,
     target_selector: str = "",
@@ -343,6 +353,15 @@ if __name__ == "__main__":
             with_alt=with_alt,
             min_confidence=min_confidence,
         )
+
+    @app.tool()
+    async def trending(
+        location: str = "",
+        top_n: int = 20,
+        store: bool = False,
+    ) -> str:  # noqa: ANN001
+        """Get trending topics on X/Twitter for a location (powered by trends24.in)."""
+        return await _run_trending(location=location, top_n=top_n, store=store)
 
     @app.tool()
     async def detect_platform(url: str) -> str:  # noqa: ANN001

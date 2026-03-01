@@ -1,5 +1,58 @@
 # Release Notes
 
+## Release: DataPulse v0.6.0
+
+发布日期：2026-03-01
+构建目标：Trending Topics 能力（trends24.in 全球热搜趋势采集）
+
+### 主要变更
+
+**Phase 1 — TrendingCollector 核心采集器**
+- 新建 `datapulse/collectors/trending.py`：基于 requests + BeautifulSoup 的 trends24.in 采集器（Jina Reader 返回 HTTP 451，不可用）。
+- HTML 解析：`.trend-card` 主策略 + `h3`/`ol/ul` 结构化回退。
+- `TrendItem` / `TrendSnapshot` 数据类：rank、name、url、volume、volume_raw。
+- `parse_volume()`：处理 K/M 后缀和逗号分隔数字（`125K` → 125000, `1.2M` → 1200000）。
+- 30+ 地区别名（us→united-states, uk→united-kingdom, jp→japan 等），支持 400+ 全球地区。
+- `@retry(max_attempts=2)` HTTP 韧性。
+
+**Phase 2 — 模型与评分集成**
+- `SourceType.TRENDING` 枚举值。
+- `is_trending_url()` URL 检测器 + `resolve_platform_hint()` 链路集成。
+- `BASE_RELIABILITY["trending"] = 0.78`（介于 hackernews 0.82 和 rss 0.74 之间）。
+- 新增 confidence flags：`trending_snapshot` (+0.02)、`rich_data` (+0.02)。
+
+**Phase 3 — Reader API**
+- `DataPulseReader.trending(location, top_n, store)` 异步方法，返回结构化 `{location, snapshot_time, trend_count, trends[]}`。
+- `store=True` 将快照作为 DataPulseItem 持久化到 inbox（非默认行为，趋势数据具时效性）。
+
+**Phase 4 — CLI 集成**
+- `--trending [LOCATION]`：获取热搜趋势（默认全球）。
+- `--trending-limit N`：限制返回条数（默认 20）。
+- `--trending-store`：可选存入 inbox。
+
+**Phase 5 — MCP 集成**
+- `trending(location, top_n, store)` 工具：获取 X/Twitter 热搜趋势。
+
+### 测试
+- 新增 36 个测试（`test_trending_collector.py`），覆盖 8 个测试类。
+- 更新 `test_models.py` SourceType 枚举值。
+- 总计 420+ passed。
+- 零新依赖：全部使用已有 `requests`、`beautifulsoup4`、`lxml`。
+
+### 版本一致性
+- `pyproject.toml` → 0.6.0
+- `datapulse/__init__.py` → 0.6.0
+- `datapulse_skill/manifest.json` → 0.6.0
+- `docs/contracts/openclaw_datapulse_tool_contract.json` → 0.6.0
+
+### 验收建议
+1. `python3 -c "from datapulse.collectors.trending import TrendingCollector"` — 导入成功
+2. `python3 -m pytest tests/test_trending_collector.py -v` — 36 passed
+3. `python3 -m pytest tests/ -v` — 420 passed（2 个预存 async 基础设施问题，非本次变更引入）
+4. `datapulse --trending us --trending-limit 10` — 实时 smoke 测试
+
+---
+
 ## Release: DataPulse v0.5.1
 
 发布日期：2026-03-01
