@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from datapulse.core.confidence import compute_confidence
+from datapulse.core.jina_client import JinaAPIClient, JinaSearchOptions
 from datapulse.core.models import DataPulseItem, SourceType
 from datapulse.core.router import ParsePipeline
 from datapulse.core.scoring import rank_items
@@ -26,6 +27,7 @@ class DataPulseReader:
         self.router = ParsePipeline()
         self.inbox = UnifiedInbox(inbox_path or inbox_path_from_env())
         self.catalog = SourceCatalog()
+        self._jina_client = JinaAPIClient()
 
     async def read(self, url: str, *, min_confidence: float = 0.0) -> DataPulseItem:
         return await asyncio.to_thread(self._read_sync, url, min_confidence)
@@ -84,6 +86,84 @@ class DataPulseReader:
         # Highest confidence first
         outputs.sort(key=lambda it: it.confidence, reverse=True)
         return outputs
+
+    async def search(
+        self,
+        query: str,
+        *,
+        sites: list[str] | None = None,
+        limit: int = 5,
+        fetch_content: bool = True,
+        min_confidence: float = 0.0,
+    ) -> list[DataPulseItem]:
+        """Search the web via Jina and return scored DataPulseItems."""
+        opts = JinaSearchOptions(sites=sites or [], limit=limit)
+        search_results = self._jina_client.search(query, options=opts)
+
+        if not search_results:
+            return []
+
+        items: list[DataPulseItem] = []
+        for sr in search_results:
+            item: DataPulseItem | None = None
+
+            if fetch_content and sr.url:
+                try:
+                    result, parser = self.router.route(sr.url)
+                    if result.success:
+                        item = self._to_item(result, parser.name)
+                except Exception:
+                    logger.info("Full fetch failed for search result %s, using snippet", sr.url)
+
+            if item is None:
+                # Build item directly from search snippet
+                content = sr.content or sr.description
+                lang = normalize_language(f"{sr.title} {content}")
+                confidence, reasons = compute_confidence(
+                    "jina_search",
+                    has_title=bool(sr.title),
+                    content_length=len(content),
+                    has_source=True,
+                    has_author=False,
+                    extra_flags=["search_result"],
+                )
+                item = DataPulseItem(
+                    source_type=SourceType.GENERIC,
+                    source_name="jina_search",
+                    title=(sr.title or "Untitled").strip()[:300],
+                    content=content,
+                    url=sr.url,
+                    parser="jina_search",
+                    confidence=confidence,
+                    confidence_factors=reasons,
+                    language=lang,
+                    tags=["jina_search", "generic"],
+                    extra={"search_query": query, "search_description": sr.description},
+                    score=0,
+                )
+
+            # Ensure search metadata is present
+            item.extra["search_query"] = query
+            if "jina_search" not in item.tags:
+                item.tags.append("jina_search")
+
+            if min_confidence and item.confidence < min_confidence:
+                continue
+
+            items.append(item)
+
+        # Batch add to inbox + single save
+        added_any = False
+        for item in items:
+            if self.inbox.add(item):
+                added_any = True
+        if added_any:
+            self.inbox.save()
+
+        # Score and rank
+        authority_map = self.catalog.build_authority_map()
+        ranked = rank_items(items, authority_map=authority_map)
+        return ranked
 
     def _to_item(self, parse_result, parser_name: str) -> DataPulseItem:
         source_type = parse_result.source_type or SourceType.GENERIC

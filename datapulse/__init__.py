@@ -7,4 +7,4 @@ from .reader import DataPulseReader
 configure_logging()
 
 __all__ = ["DataPulseReader", "DataPulseItem", "SourceType", "MediaType"]
-__version__ = "0.4.0"
+__version__ = "0.5.0"

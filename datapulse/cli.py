@@ -70,6 +70,15 @@ def main() -> None:
     parser.add_argument("--clear", action="store_true", help="Clear inbox")
     parser.add_argument("--min-confidence", type=float, default=0.0, help="Filter by confidence")
     parser.add_argument("--limit", type=int, default=20, help="List limit")
+    # Jina search options
+    parser.add_argument("--search", metavar="QUERY", help="Search the web via Jina")
+    parser.add_argument("--site", action="append", metavar="DOMAIN", help="Restrict search to domain (repeatable)")
+    parser.add_argument("--search-limit", type=int, default=5, help="Max search results (default 5)")
+    parser.add_argument("--no-fetch", action="store_true", help="Skip full content fetch for search results")
+    # Jina reader options
+    parser.add_argument("--target-selector", metavar="CSS", help="CSS selector for targeted extraction")
+    parser.add_argument("--no-cache", action="store_true", help="Bypass Jina cache")
+    parser.add_argument("--with-alt", action="store_true", help="Enable AI image descriptions via Jina")
     args = parser.parse_args()
 
     reader = DataPulseReader()
@@ -183,6 +192,47 @@ def main() -> None:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
 
+    if args.search:
+        async def run_search() -> None:
+            results = await reader.search(
+                args.search,
+                sites=args.site or None,
+                limit=args.search_limit,
+                fetch_content=not args.no_fetch,
+                min_confidence=args.min_confidence,
+            )
+            if not results:
+                print("No search results above confidence threshold")
+                return
+            print(f"Found {len(results)} result(s) for: {args.search}\n")
+            for idx, item in enumerate(results, 1):
+                sample = (item.content or "")[:140].replace("\n", " ")
+                print(f"{idx}. {item.title}")
+                print(f"   confidence: {item.confidence:.3f}  score: {item.score}")
+                print(f"   url: {item.url}")
+                print(f"   sample: {sample}\n")
+
+        asyncio.run(run_search())
+        return
+
+    # Apply Jina reader options if provided
+    if args.target_selector or args.no_cache or args.with_alt:
+        from datapulse.collectors.jina import JinaCollector
+
+        jina_opts = {}
+        if args.target_selector:
+            jina_opts["target_selector"] = args.target_selector
+        if args.no_cache:
+            jina_opts["no_cache"] = True
+        if args.with_alt:
+            jina_opts["with_alt"] = True
+        # Replace the Jina collector in the pipeline with the enhanced one
+        enhanced_jina = JinaCollector(**jina_opts)
+        for i, p in enumerate(reader.router.parsers):
+            if getattr(p, "name", "") == "jina":
+                reader.router.parsers[i] = enhanced_jina
+                break
+
     targets = []
     if args.batch:
         targets.extend(args.batch)
@@ -190,13 +240,13 @@ def main() -> None:
         targets.extend([x for x in args.inputs if "://" in x or x.startswith("www.")])
 
     if not targets:
-        print("Usage:\n  datapulse <url> [urls...]\n  datapulse --batch <url1> <url2>\n  datapulse --list\n")
+        print("Usage:\n  datapulse <url> [urls...]\n  datapulse --batch <url1> <url2>\n  datapulse --list\n  datapulse --search QUERY\n")
         return
 
     async def run() -> None:
         results = await reader.read_batch(targets, min_confidence=args.min_confidence)
         if not results:
-            print("⚠️ No result above confidence threshold")
+            print("No result above confidence threshold")
             return
         for idx, item in enumerate(results, 1):
             sample = (item.content or "")[:140].replace("\n", " ")

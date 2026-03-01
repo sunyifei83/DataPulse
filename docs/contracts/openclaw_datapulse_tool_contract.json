@@ -2,7 +2,7 @@
   "contract": {
     "project": "DataPulse",
     "project_zh": "数据脉搏",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "scope": "cross-platform URL intake + confidence scoring + memory persistence",
     "targets": [
       "assistant-skill",
@@ -182,6 +182,29 @@
         "description": "Query unprocessed items from inbox.",
         "parameters": {
           "limit": "int (default 20)",
+          "min_confidence": "float (default 0.0)"
+        }
+      },
+      {
+        "name": "search_web",
+        "description": "Search the web via Jina and return scored, LLM-friendly results.",
+        "parameters": {
+          "query": "string (required)",
+          "sites": "array[string] (optional, restrict to domains)",
+          "limit": "int (default 5)",
+          "fetch_content": "bool (default true)",
+          "min_confidence": "float (default 0.0)"
+        }
+      },
+      {
+        "name": "read_url_advanced",
+        "description": "Read a URL with CSS selector targeting and advanced Jina options.",
+        "parameters": {
+          "url": "string (required)",
+          "target_selector": "string (CSS selector, optional)",
+          "wait_for_selector": "string (CSS selector, optional)",
+          "no_cache": "bool (default false)",
+          "with_alt": "bool (default false)",
           "min_confidence": "float (default 0.0)"
         }
       },

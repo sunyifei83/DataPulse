@@ -87,6 +87,11 @@ class GenericCollector(BaseCollector):
         if fc_result:
             return fc_result
 
+        # Jina Reader fallback (last resort)
+        jina_result = self._extract_with_jina(url)
+        if jina_result:
+            return jina_result
+
         return ParseResult.failure(url, last_error or "Generic parse failed")
 
     def _fetch_html(self, url: str) -> str:
@@ -182,6 +187,35 @@ class GenericCollector(BaseCollector):
                 tags=["generic", "firecrawl"],
                 confidence_flags=["firecrawl"],
                 extra={"collector": "generic", "firecrawl": True},
+            )
+        except Exception:
+            return None
+
+    def _extract_with_jina(self, url: str) -> ParseResult | None:
+        try:
+            from datapulse.core.jina_client import JinaAPIClient
+
+            client = JinaAPIClient()
+            result = client.read(url)
+            content = clean_text(result.content or "")
+            if len(content) < 200:
+                return None
+            lines = [ln for ln in content.splitlines() if ln.strip()]
+            title = ""
+            if lines:
+                title = lines[0].lstrip("#").strip()[:200]
+                body = "\n".join(lines[1:]).strip()
+            else:
+                body = content
+            return ParseResult(
+                url=url,
+                title=title,
+                content=body,
+                excerpt=generate_excerpt(body),
+                source_type=self.source_type,
+                tags=["generic", "jina_fallback"],
+                confidence_flags=["jina"],
+                extra={"collector": "generic", "jina_fallback": True},
             )
         except Exception:
             return None

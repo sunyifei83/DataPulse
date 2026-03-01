@@ -136,6 +136,50 @@ async def _run_query_unprocessed(limit: int = 20, min_confidence: float = 0.0) -
     return json.dumps([item.to_dict() for item in items], ensure_ascii=False, indent=2)
 
 
+async def _run_search_web(
+    query: str,
+    sites: list[str] | None = None,
+    limit: int = 5,
+    fetch_content: bool = True,
+    min_confidence: float = 0.0,
+) -> str:
+    reader = DataPulseReader()
+    items = await reader.search(
+        query,
+        sites=sites,
+        limit=limit,
+        fetch_content=fetch_content,
+        min_confidence=min_confidence,
+    )
+    return json.dumps([item.to_dict() for item in items], ensure_ascii=False, indent=2)
+
+
+async def _run_read_url_advanced(
+    url: str,
+    target_selector: str = "",
+    wait_for_selector: str = "",
+    no_cache: bool = False,
+    with_alt: bool = False,
+    min_confidence: float = 0.0,
+) -> str:
+    from datapulse.collectors.jina import JinaCollector
+
+    reader = DataPulseReader()
+    # Replace the default Jina collector with an enhanced one
+    enhanced = JinaCollector(
+        target_selector=target_selector,
+        wait_for_selector=wait_for_selector,
+        no_cache=no_cache,
+        with_alt=with_alt,
+    )
+    for i, p in enumerate(reader.router.parsers):
+        if getattr(p, "name", "") == "jina":
+            reader.router.parsers[i] = enhanced
+            break
+    item = await reader.read(url, min_confidence=min_confidence)
+    return json.dumps(item.to_dict(), ensure_ascii=False, indent=2)
+
+
 async def _run_install_pack(profile: str, slug: str) -> str:
     reader = DataPulseReader()
     added = reader.install_pack(slug=slug, profile=profile)
@@ -259,6 +303,42 @@ if __name__ == "__main__":
         reader = DataPulseReader()
         items = reader.list_memory(limit=limit, min_confidence=min_confidence)
         return json.dumps([item.to_dict() for item in items], ensure_ascii=False, indent=2)
+
+    @app.tool()
+    async def search_web(
+        query: str,
+        sites: list[str] | None = None,
+        limit: int = 5,
+        fetch_content: bool = True,
+        min_confidence: float = 0.0,
+    ) -> str:  # noqa: ANN001
+        """Search the web and return scored, LLM-friendly results."""
+        return await _run_search_web(
+            query=query,
+            sites=sites,
+            limit=limit,
+            fetch_content=fetch_content,
+            min_confidence=min_confidence,
+        )
+
+    @app.tool()
+    async def read_url_advanced(
+        url: str,
+        target_selector: str = "",
+        wait_for_selector: str = "",
+        no_cache: bool = False,
+        with_alt: bool = False,
+        min_confidence: float = 0.0,
+    ) -> str:  # noqa: ANN001
+        """Read a URL with CSS selector targeting and advanced options."""
+        return await _run_read_url_advanced(
+            url=url,
+            target_selector=target_selector,
+            wait_for_selector=wait_for_selector,
+            no_cache=no_cache,
+            with_alt=with_alt,
+            min_confidence=min_confidence,
+        )
 
     @app.tool()
     async def detect_platform(url: str) -> str:  # noqa: ANN001

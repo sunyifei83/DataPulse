@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "datapulse"
-version = "0.4.0"
+version = "0.5.0"
 description = "DataPulse Intelligence Hub — cross-platform content intake pipeline for web URLs, bot/skill/mcp usage, confidence scoring, and markdown memory"
 readme = "README.md"
 license = { text = "DataPulse Non-Commercial License v1.0" }

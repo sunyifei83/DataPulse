@@ -16,7 +16,8 @@ BASE_RELIABILITY = {
     "arxiv": 0.88,
     "hackernews": 0.82,
     "generic": 0.68,
-    "jina": 0.64,
+    "jina": 0.72,
+    "jina_search": 0.72,
     "manual": 1.0,
 }
 
@@ -83,6 +84,15 @@ def compute_confidence(
         elif flag == "wechat" or flag == "xiaohongshu":
             score += 0.0
             reasons.append(flag)
+        elif flag == "css_targeted":
+            score += 0.03
+            reasons.append("css_targeted")
+        elif flag == "image_captioned":
+            score += 0.01
+            reasons.append("image_captioned")
+        elif flag == "search_result":
+            score += 0.04
+            reasons.append("search_result")
 
     score = max(0.01, min(0.99, score))
     return round(score, 4), list(dict.fromkeys(reasons))
