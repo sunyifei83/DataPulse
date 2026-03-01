@@ -38,9 +38,20 @@ class TwitterCollector(BaseCollector):
     name = "twitter"
     source_type = SourceType.TWITTER
     reliability = 0.92
+    tier = 1
+    setup_hint = "Ensure network can reach api.fxtwitter.com"
 
     max_nitter_retries = 3
     max_nitter_response_bytes = 3_000_000
+
+    def check(self) -> dict[str, str | bool]:
+        try:
+            req = urllib.request.Request("https://api.fxtwitter.com/", method="HEAD",
+                                         headers={"User-Agent": "Mozilla/5.0"})
+            urllib.request.urlopen(req, timeout=5)
+            return {"status": "ok", "message": "FxTwitter API reachable", "available": True}
+        except Exception as exc:
+            return {"status": "warn", "message": f"FxTwitter unreachable: {exc}", "available": False}
     _nitter_allowed_content_types = ("text/html", "application/xhtml+xml")
     _profile_reserved_paths = {"home", "explore", "search", "messages", "notifications", "settings", "i"}
 

@@ -18,6 +18,11 @@ class RssCollector(BaseCollector):
     name = "rss"
     source_type = SourceType.RSS
     reliability = 0.74
+    tier = 0
+    setup_hint = ""
+
+    def check(self) -> dict[str, str | bool]:
+        return {"status": "ok", "message": "feedparser available", "available": True}
 
     def can_handle(self, url: str) -> bool:
         lower = url.lower()

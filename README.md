@@ -38,13 +38,19 @@
 - 稳健性：
   - 统一错误处理，异常窄化（精确捕获 `RequestException`/`TimeoutError` 等）
   - `retry_with_backoff` 重试装饰器 + `CircuitBreaker` 熔断器
+  - 429 感知退避：`RateLimitError` 自动遵循 Retry-After 头部，`CircuitBreaker` 对限速加权触发
   - 内存级 TTL 缓存（线程安全，无外部依赖）
   - 并发批量执行（`read_batch`），自动 URL 去重
   - 去重与过期裁剪（默认最多 500 条、30 天）
+  - 入库指纹去重：相似内容（≥50 字符）自动去重，避免重复入库
+- 自诊断：
+  - `datapulse --doctor`：采集器分级健康检查（tier 0/1/2），展示状态、可用性与设置提示
+  - 三级采集器分级：tier 0（零配置）、tier 1（网络/免费）、tier 2（需配置）
+  - 路由失败时自动附带 setup_hint，指导用户修复
 - 可观测性：
   - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
 - 测试基建：
-  - 420+ 单元测试，覆盖 21 个测试模块
+  - 481 单元测试，覆盖 25 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -107,6 +113,9 @@ datapulse --trending us           # 美国热搜
 datapulse --trending jp --trending-limit 10  # 日本 Top 10
 datapulse --trending uk --trending-store     # 英国热搜，存入 inbox
 
+# 采集器健康自检
+datapulse --doctor
+
 # 定向抓取
 datapulse https://example.com --target-selector ".article-body" --no-cache
 ```
@@ -143,7 +152,7 @@ datapulse-smoke --min-confidence 0.45
 python -m datapulse.mcp_server
 ```
 
-暴露 23 个工具：
+暴露 24 个工具：
 
 **采集与读取：**
 - `read_url(url, min_confidence=0.0)` — 解析单条 URL
@@ -173,7 +182,8 @@ python -m datapulse.mcp_server
 - `build_atom_feed(profile, source_ids, limit, min_confidence, since)` — Atom 1.0 Feed
 - `build_digest(profile, source_ids, top_n, secondary_n, min_confidence, since)` — 精选摘要
 
-**工具：**
+**诊断与工具：**
+- `doctor()` — 采集器分级健康自检
 - `detect_platform(url)` — 平台检测
 - `health()` — 健康检查
 
@@ -300,13 +310,19 @@ with structured results that can feed MCP, Assistant Skill, Agent, or Bot workfl
 - Resilience:
   - unified parse result handling with narrowed exceptions
   - `retry_with_backoff` decorator + `CircuitBreaker` for fault tolerance
+  - 429-aware backoff: `RateLimitError` respects Retry-After header, `CircuitBreaker` applies weighted rate-limit detection
   - in-memory TTL cache (thread-safe, zero external deps)
   - concurrent batch read (`read_batch`) with auto URL dedup
   - dedupe and prune by max items / retention days
+  - ingestion fingerprint dedup: similar content (≥50 chars) auto-deduplicated at inbox level
+- Self-diagnostics:
+  - `datapulse --doctor`: tiered health check (tier 0/1/2) for all collectors with status icons and setup hints
+  - Three-tier collector classification: tier 0 (zero-config), tier 1 (network/free), tier 2 (needs setup)
+  - Actionable error messages in route failures with setup hints
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 420+ tests across 21 test modules
+  - 481 tests across 25 test modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -366,6 +382,9 @@ datapulse --trending us           # United States
 datapulse --trending jp --trending-limit 10  # Japan top 10
 datapulse --trending uk --trending-store     # UK, save to inbox
 
+# collector health check
+datapulse --doctor
+
 # targeted extraction
 datapulse https://example.com --target-selector ".article-body" --no-cache
 ```
@@ -402,7 +421,7 @@ Smoke env vars:
 python -m datapulse.mcp_server
 ```
 
-23 exposed tools:
+24 exposed tools:
 
 **Intake & reading:**
 - `read_url(url, min_confidence)` — parse a single URL
@@ -432,7 +451,8 @@ python -m datapulse.mcp_server
 - `build_atom_feed(profile, source_ids, limit, min_confidence, since)` — Atom 1.0 Feed
 - `build_digest(profile, source_ids, top_n, secondary_n, min_confidence, since)` — curated digest
 
-**Utilities:**
+**Diagnostics & utilities:**
+- `doctor()` — tiered collector health check
 - `detect_platform(url)` — platform detection
 - `health()` — health check
 

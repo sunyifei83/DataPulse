@@ -119,6 +119,11 @@ class TrendingCollector(BaseCollector):
     name = "trending"
     source_type = SourceType.TRENDING
     reliability = 0.78
+    tier = 1
+    setup_hint = ""
+
+    def check(self) -> dict[str, str | bool]:
+        return {"status": "ok", "message": "bs4 available", "available": True}
 
     def can_handle(self, url: str) -> bool:
         parsed = urlparse(url)

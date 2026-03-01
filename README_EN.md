@@ -34,13 +34,19 @@ for MCP, Skill, Agent, and bot workflows.
 - Reliability:
   - centralized parse error handling with narrowed exceptions
   - `retry_with_backoff` decorator + `CircuitBreaker` for fault tolerance
+  - 429-aware backoff: `RateLimitError` respects Retry-After header, `CircuitBreaker` applies weighted rate-limit detection
   - in-memory TTL cache (thread-safe, zero external deps)
   - concurrent batch reads with auto URL dedup
   - dedupe and prune by max items / retention days
+  - ingestion fingerprint dedup: similar content (≥50 chars) auto-deduplicated at inbox level
+- Self-diagnostics:
+  - `datapulse --doctor`: tiered health check (tier 0/1/2) for all collectors with status icons and setup hints
+  - Three-tier collector classification: tier 0 (zero-config), tier 1 (network/free), tier 2 (needs setup)
+  - Actionable error messages in route failures with setup hints
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 420+ tests across 21 modules
+  - 481 tests across 25 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -103,6 +109,9 @@ datapulse --trending us           # United States
 datapulse --trending jp --trending-limit 10  # Japan top 10
 datapulse --trending uk --trending-store     # UK, save to inbox
 
+# collector health check
+datapulse --doctor
+
 # targeted extraction
 datapulse https://example.com --target-selector ".article-body" --no-cache
 ```
@@ -139,7 +148,7 @@ Smoke env vars:
 python -m datapulse.mcp_server
 ```
 
-23 tools available:
+24 tools available:
 
 **Intake & reading:**
 - `read_url(url, min_confidence)` — parse a single URL
@@ -169,7 +178,8 @@ python -m datapulse.mcp_server
 - `build_atom_feed(profile, source_ids, limit, min_confidence, since)` — Atom 1.0 Feed
 - `build_digest(profile, source_ids, top_n, secondary_n, min_confidence, since)` — curated digest
 
-**Utilities:**
+**Diagnostics & utilities:**
+- `doctor()` — tiered collector health check
 - `detect_platform(url)` — platform detection
 - `health()` — health check
 

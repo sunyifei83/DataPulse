@@ -16,6 +16,14 @@ class JinaCollector(BaseCollector):
     name = "jina"
     source_type = SourceType.GENERIC
     reliability = 0.72
+    tier = 1
+    setup_hint = "Set JINA_API_KEY for higher rate limits"
+
+    def check(self) -> dict[str, str | bool]:
+        import os
+        if os.getenv("JINA_API_KEY", "").strip():
+            return {"status": "ok", "message": "JINA_API_KEY set", "available": True}
+        return {"status": "warn", "message": "JINA_API_KEY not set (anonymous rate limits apply)", "available": True}
 
     def __init__(
         self,

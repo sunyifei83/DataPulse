@@ -160,3 +160,70 @@ class TestProcessedState:
         inbox2 = UnifiedInbox(path)
         assert inbox2.items[0].processed is True
         assert len(inbox2.query_unprocessed()) == 0
+
+
+class TestFingerprintDedup:
+    def _make_item(self, url: str = "https://example.com", title: str = "T",
+                   content: str = "C" * 60, confidence: float = 0.8) -> DataPulseItem:
+        return DataPulseItem(
+            source_type=SourceType.GENERIC,
+            source_name="test",
+            title=title,
+            content=content,
+            url=url,
+            confidence=confidence,
+        )
+
+    def test_rejects_duplicate_fingerprint(self, tmp_path):
+        """Different URLs but same content should be rejected."""
+        inbox = UnifiedInbox(str(tmp_path / "inbox.json"))
+        content = "This is a sufficiently long content string for fingerprinting " * 3
+        item1 = self._make_item(url="https://a.com/1", content=content)
+        item2 = self._make_item(url="https://b.com/2", content=content)
+        assert inbox.add(item1) is True
+        assert inbox.add(item2) is False
+
+    def test_allows_different_content(self, tmp_path):
+        inbox = UnifiedInbox(str(tmp_path / "inbox.json"))
+        item1 = self._make_item(url="https://a.com/1", content="First unique content " * 5)
+        item2 = self._make_item(url="https://b.com/2", content="Second unique content " * 5)
+        assert inbox.add(item1) is True
+        assert inbox.add(item2) is True
+        assert len(inbox.items) == 2
+
+    def test_short_content_bypasses_fingerprint(self, tmp_path):
+        """Content < 50 chars should not be fingerprint-checked."""
+        inbox = UnifiedInbox(str(tmp_path / "inbox.json"))
+        item1 = self._make_item(url="https://a.com/1", content="short")
+        item2 = self._make_item(url="https://b.com/2", content="short")
+        assert inbox.add(item1) is True
+        assert inbox.add(item2) is True  # Same short content, different IDs → both accepted
+
+    def test_fingerprint_dedup_false_opt_out(self, tmp_path):
+        inbox = UnifiedInbox(str(tmp_path / "inbox.json"))
+        content = "Identical long content for testing dedup bypass " * 3
+        item1 = self._make_item(url="https://a.com/1", content=content)
+        item2 = self._make_item(url="https://b.com/2", content=content)
+        assert inbox.add(item1) is True
+        assert inbox.add(item2, fingerprint_dedup=False) is True
+        assert len(inbox.items) == 2
+
+    def test_fingerprints_survive_save_reload(self, tmp_path):
+        path = str(tmp_path / "inbox.json")
+        content = "Persistent content for fingerprint survival testing " * 3
+        inbox = UnifiedInbox(path)
+        inbox.add(self._make_item(url="https://a.com/1", content=content))
+        inbox.save()
+
+        inbox2 = UnifiedInbox(path)
+        dup = self._make_item(url="https://b.com/2", content=content)
+        assert inbox2.add(dup) is False
+
+    def test_id_dedup_takes_priority(self, tmp_path):
+        """ID dedup should reject before fingerprint check."""
+        inbox = UnifiedInbox(str(tmp_path / "inbox.json"))
+        item1 = self._make_item(url="https://a.com/same", content="Long content for ID dedup test " * 3)
+        item2 = self._make_item(url="https://a.com/same", content="Long content for ID dedup test " * 3)
+        assert item1.id == item2.id
+        assert inbox.add(item1) is True
+        assert inbox.add(item2) is False

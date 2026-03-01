@@ -35,6 +35,11 @@ class ArxivCollector(BaseCollector):
     name = "arxiv"
     source_type = SourceType.ARXIV
     reliability = 0.88
+    tier = 0
+    setup_hint = ""
+
+    def check(self) -> dict[str, str | bool]:
+        return {"status": "ok", "message": "requests available", "available": True}
 
     def can_handle(self, url: str) -> bool:
         lower = url.lower()

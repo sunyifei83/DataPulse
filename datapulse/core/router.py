@@ -67,10 +67,13 @@ class ParsePipeline:
             else:
                 fallback.append(parser)
 
+        best_match: BaseCollector | None = None
         for parser in prioritized + fallback:
             try:
                 if not parser.can_handle(url):
                     continue
+                if best_match is None:
+                    best_match = parser
                 logger.info("Routing with %s for %s", parser.name, url)
                 result = parser.parse(url)
                 if result.success:
@@ -81,4 +84,31 @@ class ParsePipeline:
                 logger.warning("%s raised for %s: %s", parser.name, url, exc)
                 result = ParseResult.failure(url, str(exc))
 
-        return ParseResult.failure(url, f"No parser produced successful result for {url}"), self.parsers[-1]
+        # Build actionable error with setup hint from best match
+        chosen = best_match or self.parsers[-1]
+        error_msg = f"No parser produced successful result for {url}"
+        if chosen.setup_hint:
+            error_msg += f"\nHint ({chosen.name}): {chosen.setup_hint}"
+        return ParseResult.failure(url, error_msg), chosen
+
+    def doctor(self) -> dict[str, list[dict[str, str | bool]]]:
+        """Run health checks on all registered parsers, grouped by tier."""
+        report: dict[str, list[dict[str, str | bool]]] = {
+            "tier_0": [],
+            "tier_1": [],
+            "tier_2": [],
+        }
+        for parser in self.parsers:
+            check = parser.check()
+            entry: dict[str, str | bool] = {
+                "name": parser.name,
+                "status": check.get("status", "ok"),
+                "message": check.get("message", ""),
+                "available": check.get("available", True),
+                "setup_hint": parser.setup_hint,
+            }
+            tier_key = f"tier_{parser.tier}"
+            if tier_key not in report:
+                tier_key = "tier_2"
+            report[tier_key].append(entry)
+        return report

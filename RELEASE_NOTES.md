@@ -1,5 +1,53 @@
 # Release Notes
 
+## Release: DataPulse v0.6.1
+
+发布日期：2026-03-01
+构建目标：Agent-Reach 蒸馏 — 5 项高价值能力增强（健康自检、429 感知退避、指纹去重、分级诊断、可操作错误）
+
+### 主要变更
+
+**能力 1 — 采集器健康自检（doctor）**
+- `BaseCollector` 新增 `tier`（0/1/2）、`setup_hint`、`check()` 方法。
+- 13 个采集器全部实现 `check()`，按三级分类：
+  - Tier 0（零配置）：rss、arxiv、hackernews
+  - Tier 1（网络/免费）：twitter、reddit、bilibili、trending、generic、jina
+  - Tier 2（需配置）：youtube、xhs、wechat、telegram
+- `ParsePipeline.doctor()` 聚合所有采集器健康状态，按 tier 分组返回。
+- CLI `--doctor`：分级表格展示 `[OK]`/`[WARN]`/`[ERR]` 状态与设置提示。
+- MCP `doctor()` 工具：返回 JSON 健康报告。
+
+**能力 2 — 可操作错误消息**
+- `ParsePipeline.route()` 追踪 `best_match` 采集器，路由失败时自动附带 `setup_hint`。
+- 错误消息包含修复指引（如 `"Run: datapulse --login xhs"`）。
+
+**能力 3 — 429 感知退避**
+- 新增 `RateLimitError` 异常：包含 `retry_after` 字段。
+- `retry()` 装饰器自动遵循 Retry-After 头部，上限为 `max_delay`。
+- `respect_retry_after=False` 可选禁用。
+- `CircuitBreaker` 新增 `rate_limit_weight`（默认 2）：限速故障加权计数，加速熔断触发。
+
+**能力 4 — 入库指纹去重**
+- `UnifiedInbox.add()` 对 ≥50 字符的内容计算指纹，拒绝近似重复入库。
+- `fingerprint_dedup=False` 逃生口。
+- 指纹集在 save/reload 后持久化。
+
+**能力 5 — 平台分级体系**
+- 采集器三级分类（tier 0/1/2）已内嵌到所有 13 个采集器，用于 doctor 展示、用户引导、未来分级路由优化。
+
+### 测试
+- 新增 42 个测试（`test_doctor.py` 25 + `test_retry.py` 10 + `test_storage.py` 7），总计 481 passed，覆盖 25 个测试模块。
+- 零新依赖，零 breaking change。
+
+### 验收建议
+1. `python3 -m pytest tests/test_doctor.py -v` — 25 passed
+2. `python3 -m pytest tests/test_retry.py -v -k "rate_limit or RateLimit"` — 10 passed
+3. `python3 -m pytest tests/test_storage.py -v -k "fingerprint"` — 7 passed
+4. `python3 -m pytest tests/ -v` — 481 passed
+5. `datapulse --doctor` — CLI smoke 测试
+
+---
+
 ## Release: DataPulse v0.6.0
 
 发布日期：2026-03-01

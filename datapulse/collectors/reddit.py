@@ -22,7 +22,12 @@ class RedditCollector(BaseCollector):
     name = "reddit"
     source_type = SourceType.REDDIT
     reliability = 0.9
+    tier = 1
+    setup_hint = ""
     max_comments = 15
+
+    def check(self) -> dict[str, str | bool]:
+        return {"status": "ok", "message": "public JSON API (no auth)", "available": True}
     max_reply_depth = 3
     reddit_user_agent = "DataPulse/0.1 (+https://github.com/sunyifei83/DataPulse)"
 

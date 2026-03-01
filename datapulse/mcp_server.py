@@ -166,6 +166,12 @@ async def _run_trending(
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
+async def _run_doctor() -> str:
+    reader = DataPulseReader()
+    report = reader.doctor()
+    return json.dumps(report, ensure_ascii=False, indent=2)
+
+
 async def _run_read_url_advanced(
     url: str,
     target_selector: str = "",
@@ -362,6 +368,11 @@ if __name__ == "__main__":
     ) -> str:  # noqa: ANN001
         """Get trending topics on X/Twitter for a location (powered by trends24.in)."""
         return await _run_trending(location=location, top_n=top_n, store=store)
+
+    @app.tool()
+    async def doctor() -> str:  # noqa: ANN001
+        """Run health checks on all collectors, grouped by tier."""
+        return await _run_doctor()
 
     @app.tool()
     async def detect_platform(url: str) -> str:  # noqa: ANN001

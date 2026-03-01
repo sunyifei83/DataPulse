@@ -27,6 +27,11 @@ class HackerNewsCollector(BaseCollector):
     name = "hackernews"
     source_type = SourceType.HACKERNEWS
     reliability = 0.82
+    tier = 0
+    setup_hint = ""
+
+    def check(self) -> dict[str, str | bool]:
+        return {"status": "ok", "message": "requests available", "available": True}
 
     def can_handle(self, url: str) -> bool:
         return "news.ycombinator.com" in url.lower()

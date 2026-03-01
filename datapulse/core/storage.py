@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from .models import DataPulseItem
-from .utils import content_hash, get_domain_tag
+from .utils import content_fingerprint, content_hash, get_domain_tag
 
 
 class UnifiedInbox:
@@ -17,6 +17,7 @@ class UnifiedInbox:
     def __init__(self, path: str):
         self.path: Path = Path(path)
         self.items: list[DataPulseItem] = []
+        self._fingerprints: set[str] = set()
         self.max_items = int(os.getenv("DATAPULSE_MAX_INBOX", "500"))
         self.max_days = int(os.getenv("DATAPULSE_KEEP_DAYS", "30"))
         self._load()
@@ -40,6 +41,7 @@ class UnifiedInbox:
                 continue
         self.items = loaded
         self._prune()
+        self._rebuild_fingerprints()
 
     def _prune(self) -> None:
         cutoff = datetime.utcnow() - timedelta(days=max(0, self.max_days))
@@ -60,10 +62,25 @@ class UnifiedInbox:
 
         ordered = sorted(dedup.values(), key=lambda i: i.fetched_at, reverse=True)
         self.items = ordered[: self.max_items]
+        self._rebuild_fingerprints()
 
-    def add(self, item: DataPulseItem) -> bool:
+    def _rebuild_fingerprints(self) -> None:
+        """Rebuild fingerprint set from current items."""
+        self._fingerprints = set()
+        for item in self.items:
+            if len(item.content) >= 50:
+                self._fingerprints.add(content_fingerprint(item.content))
+
+    def add(self, item: DataPulseItem, *, fingerprint_dedup: bool = True) -> bool:
+        # ID dedup (existing behaviour)
         if any(existing.id == item.id for existing in self.items):
             return False
+        # Fingerprint dedup for content >= 50 chars
+        if fingerprint_dedup and len(item.content) >= 50:
+            fp = content_fingerprint(item.content)
+            if fp in self._fingerprints:
+                return False
+            self._fingerprints.add(fp)
         self.items.append(item)
         self.items.sort(key=lambda i: i.fetched_at, reverse=True)
         self.items = self.items[: self.max_items]

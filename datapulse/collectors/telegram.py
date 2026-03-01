@@ -16,6 +16,21 @@ class TelegramCollector(BaseCollector):
     name = "telegram"
     source_type = SourceType.TELEGRAM
     reliability = 0.78
+    tier = 2
+    setup_hint = "Set TG_API_ID and TG_API_HASH env vars; pip install telethon"
+
+    def check(self) -> dict[str, str | bool]:
+        try:
+            import telethon  # noqa: F401
+            has_telethon = True
+        except ImportError:
+            has_telethon = False
+        has_creds = bool(os.getenv("TG_API_ID", "").strip() and os.getenv("TG_API_HASH", "").strip())
+        if not has_telethon:
+            return {"status": "warn", "message": "telethon not installed", "available": False}
+        if not has_creds:
+            return {"status": "warn", "message": "TG_API_ID/TG_API_HASH not set", "available": False}
+        return {"status": "ok", "message": "telethon + credentials ready", "available": True}
 
     def can_handle(self, url: str) -> bool:
         return "t.me" in url.lower()

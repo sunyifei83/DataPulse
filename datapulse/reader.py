@@ -280,6 +280,10 @@ class DataPulseReader:
             score=0,
         )
 
+    def doctor(self) -> dict[str, list[dict[str, str | bool]]]:
+        """Run health checks on all collectors, grouped by tier."""
+        return self.router.doctor()
+
     def mark_processed(self, item_id: str, processed: bool = True) -> bool:
         ok = self.inbox.mark_processed(item_id, processed=processed)
         if ok:

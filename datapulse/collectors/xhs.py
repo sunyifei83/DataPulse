@@ -41,6 +41,13 @@ class XiaohongshuCollector(BaseCollector):
     name = "xhs"
     source_type = SourceType.XHS
     reliability = 0.72
+    tier = 2
+    setup_hint = "Run: datapulse --login xhs"
+
+    def check(self) -> dict[str, str | bool]:
+        if session_valid("xhs"):
+            return {"status": "ok", "message": "XHS session valid (Jina + browser)", "available": True}
+        return {"status": "warn", "message": "No XHS session (Jina-only mode)", "available": True}
 
     def can_handle(self, url: str) -> bool:
         from urllib.parse import urlparse

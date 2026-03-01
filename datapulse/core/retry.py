@@ -19,6 +19,7 @@ def retry(
     max_delay: float = 30.0,
     backoff_factor: float = 2.0,
     retryable: tuple[type[Exception], ...] = (Exception,),
+    respect_retry_after: bool = True,
 ) -> Callable[[_F], _F]:
     """Retry decorator with exponential backoff.
 
@@ -28,6 +29,7 @@ def retry(
         max_delay: Maximum delay cap.
         backoff_factor: Multiplier applied to delay after each retry.
         retryable: Exception types that trigger a retry.
+        respect_retry_after: When True, honour RateLimitError.retry_after.
     """
 
     def decorator(func: _F) -> _F:
@@ -46,11 +48,20 @@ def retry(
                             func.__qualname__, max_attempts, exc,
                         )
                         raise
+                    # 429-aware: use Retry-After when available
+                    if (
+                        respect_retry_after
+                        and isinstance(exc, RateLimitError)
+                        and exc.retry_after > 0
+                    ):
+                        wait = min(exc.retry_after, max_delay)
+                    else:
+                        wait = delay
                     logger.info(
                         "%s attempt %d/%d failed (%s), retrying in %.1fs",
-                        func.__qualname__, attempt, max_attempts, exc, delay,
+                        func.__qualname__, attempt, max_attempts, exc, wait,
                     )
-                    time.sleep(delay)
+                    time.sleep(wait)
                     delay = min(delay * backoff_factor, max_delay)
             raise last_exc  # type: ignore[misc]  # unreachable but makes mypy happy
 
@@ -79,10 +90,12 @@ class CircuitBreaker:
         failure_threshold: int = 5,
         recovery_timeout: float = 60.0,
         name: str = "",
+        rate_limit_weight: int = 2,
     ):
         self.failure_threshold = failure_threshold
         self.recovery_timeout = recovery_timeout
         self.name = name or "circuit"
+        self.rate_limit_weight = rate_limit_weight
         self._state = self.CLOSED
         self._failure_count = 0
         self._last_failure_time: float = 0.0
@@ -105,16 +118,17 @@ class CircuitBreaker:
 
         try:
             result = func(*args, **kwargs)
-        except Exception:
-            self._record_failure()
+        except Exception as exc:
+            self._record_failure(is_rate_limit=isinstance(exc, RateLimitError))
             raise
         else:
             self._record_success()
             return result
 
-    def _record_failure(self) -> None:
+    def _record_failure(self, is_rate_limit: bool = False) -> None:
         with self._lock:
-            self._failure_count += 1
+            increment = self.rate_limit_weight if is_rate_limit else 1
+            self._failure_count += increment
             self._last_failure_time = time.monotonic()
             if self._failure_count >= self.failure_threshold:
                 self._state = self.OPEN
@@ -137,3 +151,11 @@ class CircuitBreaker:
 
 class CircuitBreakerOpen(RuntimeError):
     """Raised when calling through an open circuit breaker."""
+
+
+class RateLimitError(Exception):
+    """Raised when a 429 / rate-limit response is received."""
+
+    def __init__(self, message: str = "", retry_after: float = 0.0):
+        super().__init__(message)
+        self.retry_after = retry_after

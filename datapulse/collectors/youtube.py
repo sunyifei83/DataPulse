@@ -22,8 +22,26 @@ class YouTubeCollector(BaseCollector):
     name = "youtube"
     source_type = SourceType.YOUTUBE
     reliability = 0.9
+    tier = 2
+    setup_hint = "pip install youtube-transcript-api; set GROQ_API_KEY for Whisper fallback"
     preferred_languages = ["en", "zh-Hans", "zh", "ja", "ko", "de", "fr", "es"]
     max_metadata_bytes = 2_000_000
+
+    def check(self) -> dict[str, str | bool]:
+        try:
+            import youtube_transcript_api  # noqa: F401
+            has_transcript = True
+        except ImportError:
+            has_transcript = False
+        has_groq = bool(os.getenv("GROQ_API_KEY", "").strip())
+        if not has_transcript and not has_groq:
+            return {"status": "warn", "message": "youtube-transcript-api missing and no GROQ_API_KEY", "available": False}
+        parts = []
+        if has_transcript:
+            parts.append("transcript-api")
+        if has_groq:
+            parts.append("groq-whisper")
+        return {"status": "ok", "message": f"backends: {', '.join(parts)}", "available": True}
 
     def can_handle(self, url: str) -> bool:
         return "youtube.com" in (url.lower()) or "youtu.be" in url.lower()

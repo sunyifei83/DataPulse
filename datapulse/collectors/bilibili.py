@@ -17,7 +17,12 @@ class BilibiliCollector(BaseCollector):
     name = "bilibili"
     source_type = SourceType.BILIBILI
     reliability = 0.84
+    tier = 1
+    setup_hint = ""
     api_url = "https://api.bilibili.com/x/web-interface/view"
+
+    def check(self) -> dict[str, str | bool]:
+        return {"status": "ok", "message": "public API (no auth)", "available": True}
 
     def can_handle(self, url: str) -> bool:
         return "bilibili.com" in url.lower() or "b23.tv" in url.lower()

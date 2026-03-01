@@ -85,6 +85,8 @@ def main() -> None:
                         help="Show trending topics (default: worldwide). Locations: us, uk, jp, etc.")
     parser.add_argument("--trending-limit", type=int, default=20, help="Max trending topics (default 20)")
     parser.add_argument("--trending-store", action="store_true", help="Save trending snapshot to inbox")
+    # Doctor
+    parser.add_argument("--doctor", action="store_true", help="Run health checks on all collectors")
     # Jina reader options
     parser.add_argument("--target-selector", metavar="CSS", help="CSS selector for targeted extraction")
     parser.add_argument("--no-cache", action="store_true", help="Bypass Jina cache")
@@ -105,6 +107,27 @@ def main() -> None:
             print("⚠️ Login cancelled.")
         except Exception as exc:
             print(f"❌ Login failed: {exc}")
+        return
+
+    if args.doctor:
+        report = reader.doctor()
+        tier_labels = {"tier_0": "Zero-config", "tier_1": "Network / Free", "tier_2": "Needs Setup"}
+        for tier_key in ("tier_0", "tier_1", "tier_2"):
+            entries = report.get(tier_key, [])
+            if not entries:
+                continue
+            print(f"\n  {tier_labels[tier_key]} (tier {tier_key[-1]})")
+            print(f"  {'─' * 50}")
+            for e in entries:
+                status = e.get("status", "ok")
+                icon = "[OK]" if status == "ok" else "[WARN]" if status == "warn" else "[ERR]"
+                name = e.get("name", "?")
+                msg = e.get("message", "")
+                hint = e.get("setup_hint", "")
+                print(f"  {icon:6s} {name:<14s} {msg}")
+                if hint and status != "ok":
+                    print(f"         Hint: {hint}")
+        print()
         return
 
     if args.clear:

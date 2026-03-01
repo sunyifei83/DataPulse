@@ -19,8 +19,24 @@ class GenericCollector(BaseCollector):
     name = "generic"
     source_type = SourceType.GENERIC
     reliability = 0.72
+    tier = 1
+    setup_hint = "pip install trafilatura for best results"
     allowed_content_types = ("text/html", "application/xhtml+xml", "text/plain", "application/xml")
     max_response_bytes = 5_000_000
+
+    def check(self) -> dict[str, str | bool]:
+        backends = ["beautifulsoup"]
+        try:
+            import trafilatura  # noqa: F401
+            backends.append("trafilatura")
+        except ImportError:
+            pass
+        if __import__("os").getenv("FIRECRAWL_API_KEY", "").strip():
+            backends.append("firecrawl")
+        msg = f"backends: {', '.join(backends)}"
+        if "trafilatura" not in backends:
+            return {"status": "warn", "message": f"trafilatura missing; {msg}", "available": True}
+        return {"status": "ok", "message": msg, "available": True}
 
     def can_handle(self, url: str) -> bool:
         return True

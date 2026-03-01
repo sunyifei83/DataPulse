@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.6.1] - 2026-03-01
+
+### Added — Features
+- **Collector Health Self-Check (doctor)**: `BaseCollector` gains `tier`, `setup_hint`, and `check()` method. All 13 collectors implement health self-checks grouped into three tiers: tier 0 (zero-config: rss, arxiv, hackernews), tier 1 (network/free: twitter, reddit, bilibili, trending, generic, jina), tier 2 (needs setup: youtube, xhs, wechat, telegram).
+- **Doctor Aggregation**: `ParsePipeline.doctor()` iterates all parsers, calls `check()`, groups results by tier. `DataPulseReader.doctor()` pass-through.
+- **CLI `--doctor`**: Tiered health check display with `[OK]`/`[WARN]`/`[ERR]` status icons and actionable setup hints.
+- **MCP `doctor()` tool**: Returns JSON health report for all collectors.
+- **429-Aware Backoff**: New `RateLimitError` exception with `retry_after` field. `retry()` decorator respects Retry-After header (capped at `max_delay`). `respect_retry_after=False` opt-out.
+- **CircuitBreaker Rate-Limit Weighting**: `rate_limit_weight` parameter (default 2) causes rate-limit failures to increment the failure counter faster, opening the circuit sooner under sustained 429s.
+- **Ingestion Fingerprint Dedup**: `UnifiedInbox.add()` checks content fingerprint (for content ≥50 chars) to reject near-duplicate items at ingestion. `fingerprint_dedup=False` escape hatch. Fingerprints survive save/reload.
+- **Actionable Route Errors**: `ParsePipeline.route()` tracks `best_match` collector and includes `setup_hint` in failure messages.
+
+### Added — Testing
+- `tests/test_doctor.py` — 25 new tests for tier assignment, check() shape, doctor() aggregation, setup hints.
+- `tests/test_retry.py` — 10 new tests for RateLimitError, 429-aware retry, CircuitBreaker rate-limit weighting.
+- `tests/test_storage.py` — 7 new tests for fingerprint dedup (reject/allow/short bypass/opt-out/persist/priority).
+- Total test count: 481 across 25 modules.
+
+### Changed
+- `BaseCollector` gains `tier: int = 2`, `setup_hint: str = ""` class attributes.
+- MCP tool count: 23 → 24 (added `doctor()`).
+
 ## [0.6.0] - 2026-03-01
 
 ### Added — Features
@@ -19,7 +41,7 @@
 ### Added — Testing
 - `tests/test_trending_collector.py` — 36 offline tests across 8 test classes (TestCanHandle, TestParseVolume, TestNormalizeLocation, TestBuildUrl, TestParse, TestFetchSnapshots, TestFallbackParsing, TestFormatContent).
 - Updated `tests/test_models.py` — SourceType enum values updated for `trending`.
-- Total test count: 420+.
+- Total test count: 420+ (raised to 481 in v0.6.1).
 
 ### Changed
 - `ParsePipeline` includes `TrendingCollector()` after HackerNewsCollector, before RssCollector.

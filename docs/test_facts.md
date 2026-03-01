@@ -129,6 +129,19 @@ title: Test Facts
 - **新增 36 个测试**（`test_trending_collector.py` 8 类），总计 420+。
 - **零新依赖**：全部使用已有 `requests`、`beautifulsoup4`、`lxml`。
 
+## Fact 3.9: v0.6.1 Agent-Reach 蒸馏能力增量
+
+- **采集器健康自检（doctor）**：`BaseCollector` 新增 `tier`（0/1/2）、`setup_hint`、`check()` 方法。13 个采集器全部实现自检，按 tier 0（零配置：rss/arxiv/hackernews）、tier 1（网络/免费：twitter/reddit/bilibili/trending/generic/jina）、tier 2（需配置：youtube/xhs/wechat/telegram）三级分类。
+- **Doctor 聚合**：`ParsePipeline.doctor()` 按 tier 分组返回所有采集器健康状态。`DataPulseReader.doctor()` 透传。
+- **CLI `--doctor`**：分级表格展示 `[OK]`/`[WARN]`/`[ERR]` 状态图标与 setup_hint。
+- **MCP `doctor()` 工具**：返回 JSON 健康报告，MCP 工具总数 23 → 24。
+- **429 感知退避**：新增 `RateLimitError`（含 `retry_after` 字段），`retry()` 自动遵循 Retry-After 头部（上限 `max_delay`），`respect_retry_after=False` 可选禁用。
+- **CircuitBreaker 限速加权**：`rate_limit_weight`（默认 2）使 429 错误以双倍速度填充熔断计数器。
+- **入库指纹去重**：`UnifiedInbox.add()` 对 ≥50 字符内容计算指纹，拒绝近似重复。`fingerprint_dedup=False` 逃生口。指纹集 save/reload 持久化。
+- **可操作路由错误**：`ParsePipeline.route()` 追踪 `best_match` 采集器，路由失败时附带 `setup_hint` 修复指引。
+- **新增 42 个测试**（`test_doctor.py` 25 + `test_retry.py` 10 + `test_storage.py` 7），总计 481 passed，覆盖 25 个测试模块。
+- **零新依赖**，零 breaking change。
+
 ## Fact 4: 来源与订阅能力增强
 
 - 已形成统一落地清单：`docs/source_feed_enhancement_plan.md`。

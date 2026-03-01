@@ -13,6 +13,14 @@ class WeChatCollector(BaseCollector):
     name = "wechat"
     source_type = SourceType.WECHAT
     reliability = 0.8
+    tier = 2
+    setup_hint = "Run: datapulse --login wechat"
+
+    def check(self) -> dict[str, str | bool]:
+        from datapulse.core.utils import session_valid
+        if session_valid("wechat"):
+            return {"status": "ok", "message": "WeChat session valid", "available": True}
+        return {"status": "warn", "message": "No WeChat session (Jina-only mode)", "available": True}
 
     def can_handle(self, url: str) -> bool:
         return "mp.weixin.qq.com" in url.lower()

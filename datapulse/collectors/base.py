@@ -34,6 +34,8 @@ class BaseCollector(ABC):
     source_type = SourceType.GENERIC
     reliability = 0.62
     timeout = 30
+    tier: int = 2  # 0=zero-config, 1=network/free, 2=needs setup
+    setup_hint: str = ""
 
     @abstractmethod
     def can_handle(self, url: str) -> bool:
@@ -42,6 +44,10 @@ class BaseCollector(ABC):
     @abstractmethod
     def parse(self, url: str) -> ParseResult:
         raise NotImplementedError
+
+    def check(self) -> dict[str, str | bool]:
+        """Health self-check. Subclasses override for real checks."""
+        return {"status": "ok", "message": "no check implemented", "available": True}
 
     def _safe_excerpt(self, text: str) -> str:
         return generate_excerpt(text)
