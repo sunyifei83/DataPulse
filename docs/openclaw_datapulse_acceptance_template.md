@@ -192,7 +192,7 @@ sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" 
 ### OpenClaw/OpenModel 端点
 - Runtime 状态检测：`curl -sS http://127.0.0.1:18801/healthz`
 - 就绪检测：`curl -sS http://127.0.0.1:18801/readyz`
-- 工具链目标：MCP `read_url/read_batch/query_inbox/detect_platform/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed/health`
+- 工具链目标：MCP `read_url/read_batch/search_web/read_url_advanced/query_inbox/detect_platform/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed/build_atom_feed/build_digest/health`
 - 远端预检（建议在 `bash scripts/datapulse_remote_openclaw_smoke.sh` 前执行）：
   - `MACMINI_DATAPULSE_DIR` 下必须有 `pyproject.toml` 和 `datapulse/`
   - 远端 Python 版本必须 `>=3.10`
@@ -223,6 +223,8 @@ sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" 
 - [ ] `datapulse --list --limit 5` 返回可读结果
 - [ ] `datapulse --batch` 通过
 - [ ] `datapulse-smoke --platforms ... --require-all` 通过
+- [ ] `datapulse --search "test query" --search-limit 3` 返回搜索结果（需 `JINA_API_KEY`）
+- [ ] `datapulse <url> --target-selector "main"` 定向抓取通过
 - [ ] `DataPulseAgent` 返回 JSON 风格 payload（status/count/items）
 - [ ] `datapulse_skill.run()` 输出可读摘要
 
@@ -234,6 +236,8 @@ sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" 
 - [ ] 远端 `python3 -m datapulse.tools.smoke --list` 输出正常
 - [ ] 18801 健康端检查通过
 - [ ] `read_url/read_batch` MCP 工具返回 JSON
+- [ ] `search_web` MCP 工具返回搜索结果 JSON
+- [ ] `read_url_advanced` MCP 工具定向抓取返回 JSON
 - [ ] OpenClaw 工具入口可被网关启动并返回结构化结果
 
 ## 6) 结果记录
@@ -244,6 +248,8 @@ sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" 
 | 远端 smoke | PASS/FAIL | |
 | MCP read_url | PASS/FAIL | |
 | MCP read_batch | PASS/FAIL | |
+| MCP search_web | PASS/FAIL | |
+| MCP read_url_advanced | PASS/FAIL | |
 | Skill run | PASS/FAIL | |
 | Agent handle | PASS/FAIL | |
 

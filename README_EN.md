@@ -11,7 +11,7 @@ for MCP, Skill, Agent, and bot workflows.
 
 ## Implemented features
 
-- Parser routing: `twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `generic web`
+- Parser routing: `twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `arxiv`, `hackernews`, `generic web`, `jina`
 - Platform strategies:
   - Twitter: FxTwitter primary + Nitter fallback
   - Reddit: public `.json` API
@@ -20,15 +20,16 @@ for MCP, Skill, Agent, and bot workflows.
   - Telegram: Telethon (`TG_API_ID`/`TG_API_HASH`), configurable via `DATAPULSE_TG_*` env vars
   - WeChat / Xiaohongshu: Jina fallback with retry, optional Playwright session fallback
   - RSS: multi-entry feed parsing (up to 5 entries), auto feed type detection
+  - arXiv: Atom API for structured paper metadata (title/authors/abstract/categories/PDF link)
+  - Hacker News: Firebase API with dynamic engagement flags
   - Generic web: Trafilatura / BeautifulSoup, optional Firecrawl fallback (`FIRECRAWL_API_KEY`) or Jina Reader
   - Jina enhanced reading: CSS selector targeting, wait-for-element, cookie passthrough, proxy, AI image descriptions, cache control
   - Web search: search the web via Jina Search API (`s.jina.ai`), auto-extract and score results
 - Outputs:
   - structured JSON (`DataPulseItem`)
   - optional Markdown inbox output (`datapulse-inbox.md` / custom path)
-- Confidence pipeline:
-  - parser reliability + title/content/source/author/feature flags
-  - score bounded to [0.01, 0.99]
+- Multi-dimensional scoring: 4 dimensions weighted (confidence 0.25 / authority 0.30 / corroboration 0.25 / recency 0.20), outputs 0-100 composite score + 0.01~0.99 confidence score
+- Digest builder: auto-generates digest envelopes with primary/secondary stories, fingerprint dedup, diverse source selection
 - Reliability:
   - centralized parse error handling with narrowed exceptions
   - `retry_with_backoff` decorator + `CircuitBreaker` for fault tolerance
@@ -38,7 +39,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 198 tests across 13 modules
+  - 351+ tests across 20 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install

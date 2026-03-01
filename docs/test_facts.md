@@ -96,6 +96,16 @@ title: Test Facts
   修复动作：在远端执行命令前显式清理 `HTTP(S)_PROXY` 与 `ALL_PROXY`，或确认 `127.0.0.1:7897` 端口可用。
 - `REMOTE_COMMAND_PROXY_ISOLATED`：代理修复采用“仅注入到远端命令执行上下文”的模式（`NO_PROXY="*"` + 清空 `HTTPS_PROXY/HTTP_PROXY/ALL_PROXY/...`）；不修改 macmini 长期系统代理配置，不影响系统其他进程。
 
+## Fact 3.6: v0.5.0 能力增量
+
+- **Jina 增强读取**：`JinaAPIClient`（`datapulse/core/jina_client.py`）封装 Reader + Search API，支持 CSS 选择器定向（`X-Target-Selector`）、等待元素（`X-Wait-For-Selector`）、缓存控制（`X-No-Cache`）、AI 图片描述（`X-With-Generated-Alt`）、Cookie 透传、代理。
+- **Web 搜索**：`DataPulseReader.search()` 通过 Jina Search API（`s.jina.ai`）搜索全网，返回经评分排序的 `DataPulseItem` 列表。CLI `--search` / MCP `search_web`。
+- **GenericCollector 回退链增强**：Trafilatura → BS4 → Firecrawl → Jina Reader → fail。
+- **新增 MCP 工具**：`search_web`、`read_url_advanced`。
+- **新增 CLI 参数**：`--search`、`--site`、`--search-limit`、`--no-fetch`、`--target-selector`、`--no-cache`、`--with-alt`。
+- **新增 56 个测试**（`test_jina_client.py` 29 + `test_jina_collector_enhanced.py` 17 + `test_jina_search.py` 10），总计 351+。
+- **零新依赖**：全部使用 `requests`（已有）+ 标准库。
+
 ## Fact 4: 来源与订阅能力增强
 
 - 已形成统一落地清单：`docs/source_feed_enhancement_plan.md`。

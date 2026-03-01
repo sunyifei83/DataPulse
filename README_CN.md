@@ -10,7 +10,7 @@
 
 ## 真实实现能力
 
-- 路由与采集器：`twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `generic web`
+- 路由与采集器：`twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `arxiv`, `hackernews`, `generic web`, `jina`
 - 平台采集策略：
   - Twitter：FxTwitter 主链路 + Nitter 兜底
   - Reddit：公开 `.json` API
@@ -19,15 +19,16 @@
   - Telegram：Telethon（`TG_API_ID`/`TG_API_HASH`），支持 `DATAPULSE_TG_*` 可配置限制
   - WeChat / 小红书：Jina 兜底 + 重试，支持 Playwright 会话回退
   - RSS：多条目 Feed 解析（最多 5 条），自动识别 feed 类型
+  - arXiv：Atom API 解析论文元数据（标题/作者/摘要/分类/PDF 链接）
+  - Hacker News：Firebase API 动态抓取，engagement 自动标记
   - 通用网页：Trafilatura / BeautifulSoup，失败再尝试 Firecrawl（`FIRECRAWL_API_KEY`）或 Jina Reader
   - Jina 增强读取：CSS 选择器定向抓取、等待元素加载、Cookie 透传、代理、AI 图片描述、缓存控制
   - Web 搜索：通过 Jina Search API (`s.jina.ai`) 搜索全网，自动提取并评分
 - 产出：
   - 结构化 JSON（`DataPulseItem`）
   - 可选 Markdown 记忆输出（`datapulse-inbox.md` 或自定义路径）
-- 置信能力：
-  - parser 可靠性 + 标题/正文长度/来源/作者/特征因子
-  - 分数区间：0.01 ~ 0.99
+- 多维评分：四维度加权（置信度/来源权威/跨源互证/时效性），输出 0-100 综合分 + 0.01~0.99 置信分
+- Digest 构建：自动生成包含 primary/secondary 故事的摘要信封，支持指纹去重与多样性选择
 - 稳定性：
   - 统一失败处理，异常窄化（精确捕获 `RequestException`/`TimeoutError` 等）
   - `retry_with_backoff` 重试装饰器 + `CircuitBreaker` 熔断器
@@ -37,7 +38,7 @@
 - 可观测性：
   - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
 - 测试基建：
-  - 198 个测试，覆盖 12 模块
+  - 351+ 个测试，覆盖 20 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装

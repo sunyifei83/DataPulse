@@ -4,7 +4,7 @@
 用于 vX.Y.Z 发版前后的固定操作，减少手工漏项。
 
 ## A. 预发检查
-- [ ] 版本号确认（`pyproject.toml`）
+- [ ] 版本号确认（`pyproject.toml`、`datapulse/__init__.py`、`datapulse_skill/manifest.json`、`docs/contracts/openclaw_datapulse_tool_contract.json`）
 - [ ] `CHANGELOG.md` 更新
 - [ ] `RELEASE_NOTES.md` 更新
 - [ ] 许可证、项目名称、文档链接一致（`README*` 与 `LICENSE`）

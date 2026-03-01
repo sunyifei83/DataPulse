@@ -15,7 +15,7 @@
 
 ## 当前实现能力（按代码实际）
 
-- 路由与采集器：`twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `generic web`
+- 路由与采集器：`twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `arxiv`, `hackernews`, `generic web`, `jina`
 - 采集策略：
   - Twitter：FxTwitter + Nitter 兜底
   - Reddit：公开 JSON API
@@ -24,13 +24,16 @@
   - Telegram：Telethon（`TG_API_ID`/`TG_API_HASH`），支持 `DATAPULSE_TG_*` 可配置限制
   - WeChat / Xiaohongshu：Jina 兜底 + 重试，支持 Playwright Session 回退
   - RSS：多条目 Feed 解析（最多 5 条），自动识别 feed 类型
+  - arXiv：Atom API 解析论文元数据（标题/作者/摘要/分类/PDF 链接）
+  - Hacker News：Firebase API 动态抓取，engagement 自动标记
   - 通用网页：Trafilatura/BeautifulSoup，失败时可回退 Firecrawl（`FIRECRAWL_API_KEY`）或 Jina Reader
   - Jina 增强读取：CSS 选择器定向抓取、等待元素加载、Cookie 透传、代理、AI 图片描述、缓存控制
   - Web 搜索：通过 Jina Search API (`s.jina.ai`) 搜索全网，自动提取并评分
 - 双层输出：
   - 结构化 JSON（统一 `DataPulseItem`）
   - 可选 Markdown 记忆写入（`datapulse-inbox.md` / 自定义路径）
-- 分数与置信：基于解析器可靠性、标题/正文长度/来源/作者/标签与特征，最终返回 0.01~0.99 区间
+- 多维评分：四维度加权（置信度/来源权威/跨源互证/时效性），输出 0-100 综合分 + 0.01~0.99 置信分
+- Digest 构建：自动生成包含 primary/secondary 故事的摘要信封，支持指纹去重与多样性选择
 - 稳健性：
   - 统一错误处理，异常窄化（精确捕获 `RequestException`/`TimeoutError` 等）
   - `retry_with_backoff` 重试装饰器 + `CircuitBreaker` 熔断器
@@ -40,7 +43,7 @@
 - 可观测性：
   - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
 - 测试基建：
-  - 183 单元测试，覆盖 12 模块
+  - 351+ 单元测试，覆盖 20 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -241,7 +244,7 @@ with structured results that can feed MCP, Assistant Skill, Agent, or Bot workfl
 
 ## Implemented capabilities
 
-- Router and collectors: `twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `generic web`
+- Router and collectors: `twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `arxiv`, `hackernews`, `generic web`, `jina`
 - Collector strategy:
   - Twitter: FxTwitter primary + Nitter fallback
   - Reddit: public JSON API
@@ -250,14 +253,16 @@ with structured results that can feed MCP, Assistant Skill, Agent, or Bot workfl
   - Telegram: Telethon (`TG_API_ID`/`TG_API_HASH`), configurable via `DATAPULSE_TG_*` env vars
   - WeChat / Xiaohongshu: Jina fallback with retry, optional Playwright session fallback
   - RSS: multi-entry feed parsing (up to 5 entries), auto feed type detection
+  - arXiv: Atom API parsing for paper metadata (title/authors/abstract/categories/PDF link)
+  - Hacker News: Firebase API with dynamic engagement flags
   - Generic web: Trafilatura / BeautifulSoup, optional Firecrawl fallback (`FIRECRAWL_API_KEY`) or Jina Reader
   - Jina enhanced reading: CSS selector targeting, wait-for-element, cookie passthrough, proxy, AI image descriptions, cache control
   - Web search: search the web via Jina Search API (`s.jina.ai`), auto-extract and score results
 - Output:
   - Structured JSON (`DataPulseItem`)
   - Optional Markdown output (`datapulse-inbox.md` / custom path)
-- Scoring:
-  - parser reliability + content/title/metadata features, bounded to [0.01, 0.99]
+- Multi-dimensional scoring: 4-axis weighted (confidence/authority/corroboration/recency), 0-100 composite + [0.01, 0.99] confidence
+- Digest builder: curated primary/secondary stories with fingerprint dedup and diversity selection
 - Resilience:
   - unified parse result handling with narrowed exceptions
   - `retry_with_backoff` decorator + `CircuitBreaker` for fault tolerance
@@ -267,7 +272,7 @@ with structured results that can feed MCP, Assistant Skill, Agent, or Bot workfl
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 198 tests across 12 modules
+  - 351+ tests across 20 test modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
