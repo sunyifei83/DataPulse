@@ -2,7 +2,7 @@
   "contract": {
     "project": "DataPulse",
     "project_zh": "数据脉搏",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "scope": "cross-platform URL intake + confidence scoring + memory persistence",
     "targets": [
       "assistant-skill",
