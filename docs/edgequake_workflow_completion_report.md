@@ -1,6 +1,6 @@
 # EdgeQuake 交付闭环报告（本轮）
 
-生成时间：2026-03-03T16:18:09Z
+生成时间：2026-03-03T16:15:08Z
 主机：sunyifeideMacBook-Pro.local
 
 ## 1) 功能迭代
@@ -24,15 +24,20 @@
 
 ## 3) HA 本机交付
 
-- 完成度：进行中（闭环清晰，阻塞项为平台环境配置）
+- 完成度：进行中（闭环清晰，阻塞项转为能力/依赖边界）
 - 命令与结果：
   - `bash scripts/quick_test.sh`
     - 执行结果：脚本完成，主链路通过；未配置 URL 自动跳过，仅留配置提示
   - `uv run scripts/datapulse_local_smoke.sh`
-    - RUN_ID：`20260304_000302`
-    - 结果：`PASS=8 FAIL=1`
-    - 失败说明：`No smoke URLs configured`（缺少 `DATAPULSE_SMOKE_*_URL`，属于配置缺失）
-    - 报告文件：`/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260304_000302/local_report.md`
+    - 历史复核（配置缺失）：RUN_ID `20260304_000302`，结果 `PASS=8 FAIL=1`，原因 `No smoke URLs configured`
+    - 重跑复核（补齐环境变量）：RUN_ID `20260304_001443`，结果 `PASS=10 FAIL=1`
+    - 失败说明：平台回归失败项为能力/依赖边界（非必填配置缺失）
+      - `wechat`：DNS/解析失败（`weixin.qq.com` 不可达）
+      - `rss`：示例源 `https://www.reddit.com/.rss` 返回 `403`/`422`
+    - 说明：`telegram`、`youtube`、`bilibili`、`reddit`、`xhs`、`twitter` 已 PASS；`feed-probe` 与主链路 PASS
+    - 执行命令（本地复测）：
+      `URL_1=https://beewebsystems.com/ URL_BATCH='https://chatprd.ai/ https://beewebsystems.com/ https://uxpilot.ai/' DATAPULSE_SMOKE_TWITTER_URL='https://x.com/everestchris6/status/2025995047729254701' DATAPULSE_SMOKE_REDDIT_URL='https://www.reddit.com/r/python/comments/1f6m2v9/why_i_use_python/' DATAPULSE_SMOKE_YOUTUBE_URL='https://www.youtube.com/watch?v=dQw4w9WgXcQ' DATAPULSE_SMOKE_BILIBILI_URL='https://www.bilibili.com/video/BV1Xx411c7mD' DATAPULSE_SMOKE_TELEGRAM_URL='https://t.me/s/telegram' DATAPULSE_SMOKE_RSS_URL='https://www.reddit.com/.rss' DATAPULSE_SMOKE_WECHAT_URL='https://www.weixin.qq.com/' DATAPULSE_SMOKE_XHS_URL='https://www.xiaohongshu.com/explore' MIN_CONFIDENCE=0.0 uv run scripts/datapulse_local_smoke.sh`
+    - 报告文件：`/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260304_001443/local_report.md`
 
 ## 4) 提交变更入库
 
@@ -48,6 +53,7 @@
   - `239f3f8`（记录 CI run）
   - `283bac5`（刷新闭环报告与最终 run）
   - `9cae9e5`（补齐最终闭环状态）
+  - `415e71b`（记录补齐 URL 重跑与失败归因）
 - 产出状态：本轮变更已全部入主干；如需可补充 PR 编号与联测结果链接。
 
 ## 5) 推送触发 CI
@@ -56,7 +62,7 @@
 - 执行命令：`git push origin main`
 - 提交：`1357974`
 - 推送后远端 HEAD 对齐：
-  - `git ls-remote --heads origin main` 指向 `1357974b2838573595c100ff1eee91b9ecc8761c`
+  - `git ls-remote --heads origin main` 指向 `415e71bf73175b1ac00446c7f28fa1d06c9b95f7`
 - 预期门禁：
   - `.github/workflows/ci.yml`：`ruff`（3.12）、`mypy`（3.12）、`pytest`（3.10/3.11/3.12）
 
@@ -72,7 +78,7 @@
 - `22631572723`（提交 `0a8ad93...`）：completed / success
 - 触发事件：`push` 到 `main`
 - `ruff`/`mypy`/`pytest` 三层门禁均绿（见对应执行记录）
-- 风险点：无代码回归阻断；仅平台 smoke 配置项缺失导致本机平台回归阶段 FAIL（可通过配置平台 URL 后重跑消除）
+- 风险点：本机平台回归的阻断项为能力依赖边界（`telegram` 仅日志提示依赖；`wechat`/`rss` 目标链路需切换可达示例；`xhs`/`reddit` 对部分公开内容存在网络退化/反爬波动）
 
 ## 7) 捕获问题
 
@@ -81,4 +87,4 @@
   - 依赖缺失导致 `mypy` 初始报错（`types-requests`）→ 使用 `uv run mypy`/CI `types` 安装路径验证确认
   - 脚本入口不一致导致快速验收误报（`python` 命令差异）→ 已修复 `quick_test.sh`
 - 仍待闭环：
-  - `datapulse_local_smoke.sh` 平台回归阶段需补齐 `DATAPULSE_SMOKE_*_URL` 测试数据后复测。
+  - `datapulse_local_smoke.sh` 平台回归阶段已补齐 URL 重跑；仍需单独补齐：`wechat/rss` 的稳定公共地址与 `xhs/telegram` 的可复现实验路径。
