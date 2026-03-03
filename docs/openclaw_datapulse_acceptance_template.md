@@ -220,6 +220,7 @@ sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" 
 ## 4) 本机验收
 - 执行脚本：`bash scripts/datapulse_local_smoke.sh`
 - [ ] `datapulse-smoke --list` 可执行
+- [ ] `bash scripts/run_xhs_quality_report.sh` 生成 `artifacts/xhs_quality_<RUN_ID>/*` 与高可读复核输出
 - [ ] `datapulse --list --limit 5` 返回可读结果
 - [ ] `datapulse --batch` 通过
 - [ ] `datapulse-smoke --platforms ... --require-all` 通过

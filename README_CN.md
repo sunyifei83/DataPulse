@@ -160,6 +160,44 @@ XHS/通用 Browser 回退时的低噪行为可选配置：
 1) `uv run python3 -m datapulse.cli --login xhs`
 2) `DATAPULSE_BROWSER_HUMAN_LIKE=1 uv run python3 -m datapulse.tools.smoke --platforms xhs --min-confidence 0.0`
 
+### 2.1 XHS 复核评分（高可读 + 机读）——B 方案优先
+
+新增自动化复核脚本：`scripts/run_xhs_quality_report.sh`
+
+- 默认执行 `provider=multi` + `mode=multi`（Tavily + Jina 的多源融合路径）
+- 默认输出目标：`query=openclaw`
+- 输出文件：`artifacts/xhs_quality_<RUN_ID>/xhs_quality_report.json` 与 `xhs_quality_report.md`
+
+快速执行：
+
+```bash
+chmod +x scripts/run_xhs_quality_report.sh
+bash scripts/run_xhs_quality_report.sh
+```
+
+自定义执行（按你的场景）：
+
+```bash
+export DATAPULSE_XHS_QUERY="openclaw 记忆"
+export DATAPULSE_XHS_LIMIT=10
+export DATAPULSE_XHS_MIN_CONFIDENCE=0.0
+export DATAPULSE_XHS_PREFER_ENGAGEMENT=1
+export JINA_API_KEY=<your-jina-key>
+export TAVILY_API_KEY=<your-tavily-key>
+bash scripts/run_xhs_quality_report.sh
+```
+
+机读/人读并存：
+- JSON：`xhs_quality_report.json`（推荐 CI 与自动化回传）
+- Markdown：`xhs_quality_report.md`（人类审阅）
+
+分层规则（脚本内置）：
+- 高置信：`confidence >= 0.80 且 score >= 70`
+- 中置信：`confidence >= 0.65 且 score >= 50`
+- 低置信：其余
+
+阈值可通过环境变量调参与追溯。
+
 ## MCP / Skill / Agent
 
 - MCP 服务端（`.[mcp]` 可选）：
@@ -245,6 +283,17 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_SESSION_TTL_HOURS`（默认 12 — session 缓存 TTL 小时数）
 - `JINA_API_KEY`（Jina 增强读取 + Web 搜索 API Key）
 - `TAVILY_API_KEY`（Tavily 搜索 API Key）
+- `DATAPULSE_XHS_QUERY`（默认 `openclaw`）
+- `DATAPULSE_XHS_LIMIT`（默认 `8`）
+- `DATAPULSE_XHS_MIN_CONFIDENCE`（默认 `0.0`）
+- `DATAPULSE_XHS_SELECT`（默认 `1`）
+- `DATAPULSE_XHS_PREFER_ENGAGEMENT`（默认 `1`）
+- `DATAPULSE_XHS_NO_CONTENT_PRINT`（默认 `1`）
+- `DATAPULSE_XHS_TIMEOUT_SECONDS`（默认 `120`）
+- `DATAPULSE_XHS_HIGH_CONFIDENCE`（默认 `0.80`）
+- `DATAPULSE_XHS_MEDIUM_CONFIDENCE`（默认 `0.65`）
+- `DATAPULSE_XHS_HIGH_SCORE`（默认 `70`）
+- `DATAPULSE_XHS_MEDIUM_SCORE`（默认 `50`）
 
 ## 测试与功能使用建议
 

@@ -43,3 +43,8 @@ artifacts/
 unified_inbox.json
 uv.lock
 .claude/
+.datapulse/
+.datapulse/sessions/
+session_state.json
+*.token
+*.secret

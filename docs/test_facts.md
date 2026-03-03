@@ -151,6 +151,19 @@ title: Test Facts
   - 再补齐 JSON Feed/RSS 输出自检（P1）。
   - 最后补齐 marks/feedback 反馈闭环（P2）。
 
+## Fact 4.1: XHS 复核交付能力（脚本化）
+
+- 已新增 `scripts/xhs_quality_report.py`（一键执行 xhs 候选检索 + 置信/评分输出）。
+- 已新增 `scripts/run_xhs_quality_report.sh`（封装输出目录落盘、JSON+Markdown 交付、退出码保留与诊断输出）。
+- 脚本执行采用 `provider=multi` + `mode=multi`，输出字段含：
+  - `confidence`、`score`、`confidence_factors`、`score_breakdown`
+  - `search_sources`、`search_audit`、`search_cross_validation`
+  - 可机读报告（JSON）与可审阅报告（Markdown）
+- 置信分层规则写死默认值（可环境变量覆盖）：
+  - 高置信：`confidence >= 0.80` 且 `score >= 70`
+  - 中置信：`confidence >= 0.65` 且 `score >= 50`
+  - 低置信：其余
+
 ## Fact 3.4: 远端测试环境 HA 可用事实（按官方实践对齐）
 
 ### 已确认高置信事实
