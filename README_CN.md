@@ -140,6 +140,26 @@ datapulse-smoke --min-confidence 0.45
 - `DATAPULSE_SMOKE_WECHAT_URL`
 - `DATAPULSE_SMOKE_XHS_URL`
 
+XHS/通用 Browser 回退时的低噪行为可选配置：
+
+- `DATAPULSE_BROWSER_HUMAN_LIKE=1`（开启拟人化抓取行为；默认 0）
+- `DATAPULSE_BROWSER_MIN_INTERVAL_SECONDS`（全局最小请求间隔，默认 2.2）
+- `DATAPULSE_BROWSER_INTERVAL_JITTER_SECONDS`（请求抖动，默认 1.5）
+- `DATAPULSE_BROWSER_PRE_NAV_WAIT_MS_MIN` / `DATAPULSE_BROWSER_PRE_NAV_WAIT_MS_MAX`（导航前随机停顿）
+- `DATAPULSE_BROWSER_POST_NAV_WAIT_MS_MIN` / `DATAPULSE_BROWSER_POST_NAV_WAIT_MS_MAX`（导航后沉降等待）
+- `DATAPULSE_BROWSER_SCROLL_STEPS_MIN` / `DATAPULSE_BROWSER_SCROLL_STEPS_MAX`（拟人滚动步数）
+- `DATAPULSE_BROWSER_SCROLL_WAIT_MS_MIN` / `DATAPULSE_BROWSER_SCROLL_WAIT_MS_MAX`（滚动间隔）
+- `DATAPULSE_BROWSER_RANDOMIZE_VIEWPORT=1`（随机 viewport，默认 1）
+- `DATAPULSE_BROWSER_USER_AGENT`（自定义 UA）
+- `DATAPULSE_BROWSER_LOCALE`（默认 `zh-CN`）
+- `DATAPULSE_BROWSER_TIMEZONE`（默认 `Asia/Shanghai`）
+- `DATAPULSE_BROWSER_DISABLE_WEBDRIVER=1`（开启 `navigator.webdriver=false` 注入）
+
+建议 XHS 执行顺序：
+
+1) `uv run python3 -m datapulse.cli --login xhs`
+2) `DATAPULSE_BROWSER_HUMAN_LIKE=1 uv run python3 -m datapulse.tools.smoke --platforms xhs --min-confidence 0.0`
+
 ## MCP / Skill / Agent
 
 - MCP 服务端（`.[mcp]` 可选）：

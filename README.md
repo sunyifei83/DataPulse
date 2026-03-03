@@ -417,6 +417,26 @@ Smoke env vars:
 - `DATAPULSE_SMOKE_WECHAT_URL`
 - `DATAPULSE_SMOKE_XHS_URL`
 
+Optional human-like browser fallback controls (used by session-based fallback, especially XHS):
+
+- `DATAPULSE_BROWSER_HUMAN_LIKE=1` (enable human-like timing/scroll/mouse jitter; default 0)
+- `DATAPULSE_BROWSER_MIN_INTERVAL_SECONDS` (global minimum spacing between browser requests, default 2.2)
+- `DATAPULSE_BROWSER_INTERVAL_JITTER_SECONDS` (random jitter, default 1.5)
+- `DATAPULSE_BROWSER_PRE_NAV_WAIT_MS_MIN` / `DATAPULSE_BROWSER_PRE_NAV_WAIT_MS_MAX` (pre-navigation wait range)
+- `DATAPULSE_BROWSER_POST_NAV_WAIT_MS_MIN` / `DATAPULSE_BROWSER_POST_NAV_WAIT_MS_MAX` (post-navigation settle wait range)
+- `DATAPULSE_BROWSER_SCROLL_STEPS_MIN` / `DATAPULSE_BROWSER_SCROLL_STEPS_MAX` (human-like scrolling steps)
+- `DATAPULSE_BROWSER_SCROLL_WAIT_MS_MIN` / `DATAPULSE_BROWSER_SCROLL_WAIT_MS_MAX` (delay between scroll steps)
+- `DATAPULSE_BROWSER_RANDOMIZE_VIEWPORT=1` (random viewport, default 1)
+- `DATAPULSE_BROWSER_USER_AGENT` (custom UA)
+- `DATAPULSE_BROWSER_LOCALE` (default `zh-CN`)
+- `DATAPULSE_BROWSER_TIMEZONE` (default `Asia/Shanghai`)
+- `DATAPULSE_BROWSER_DISABLE_WEBDRIVER=1` (inject `navigator.webdriver=false`, default 1)
+
+Suggested XHS order:
+
+1) `uv run python3 -m datapulse.cli --login xhs`
+2) `DATAPULSE_BROWSER_HUMAN_LIKE=1 uv run python3 -m datapulse.tools.smoke --platforms xhs --min-confidence 0.0`
+
 ## MCP / Skill / Agent
 
 - MCP server (`.[mcp]` optional, fallback to built-in stdio when missing):

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 import time
+from pathlib import Path
 from typing import Dict
 
 from datapulse.core.utils import run_sync, session_path
@@ -61,18 +61,49 @@ async def _is_login_complete(page, platform: str) -> bool:
     except Exception:
         current_url = ""
 
-    try:
-        cookies = await page.context.cookies()
-        auth_like_cookie = any(
-            any(token in (cookie.get("name", "").lower() or "") for token in ("token", "session", "auth", "access", "userid", "uid"))
-            for cookie in cookies
-        )
-        if auth_like_cookie:
-            return True
-    except Exception:
-        pass
-
     if platform == "xhs":
+        # XHS 的公开页通常也会带一些通用 session cookie，不能仅凭 cookie 判定。
+        # 以 /user/me 为最终信号，guest:false 才算真实账号态。
+        try:
+            me_ok = await page.evaluate(
+                """async () => {
+                try {
+                    const response = await fetch(
+                        'https://edith.xiaohongshu.com/api/sns/web/v2/user/me',
+                        {credentials: 'include', headers: {'Accept': 'application/json'}, cache: 'no-store'}
+                    );
+                    if (!response || !response.ok) {
+                        return false;
+                    }
+                    const payload = await response.json();
+                    return !!(
+                        payload &&
+                        payload.success === true &&
+                        payload.data &&
+                        payload.data.guest === false
+                    );
+                } catch {
+                    return false;
+                }
+            }"""
+            )
+            if me_ok:
+                return True
+        except Exception:
+            pass
+
+    if platform != "xhs":
+        try:
+            cookies = await page.context.cookies()
+            auth_like_cookie = any(
+                any(token in (cookie.get("name", "").lower() or "") for token in ("token", "session", "auth", "access", "userid", "uid"))
+                for cookie in cookies
+            )
+            if auth_like_cookie:
+                return True
+        except Exception:
+            pass
+
         try:
             keys = await page.evaluate(
                 "() => {\n                try {\n                    const storage = window.localStorage || {};\n                    return Object.keys(storage).filter((k) => /(token|access|auth|session|uid|userid|user|login|passport)/i.test(k));\n                } catch {\n                    return [];\n                }\n            }"

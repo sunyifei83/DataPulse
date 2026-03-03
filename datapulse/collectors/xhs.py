@@ -86,7 +86,14 @@ class XiaohongshuCollector(BaseCollector):
             from .browser import BrowserCollector
             if session_valid("xhs"):
                 browser = BrowserCollector()
-                return browser.parse(url, storage_state=session_path("xhs"))
+                result = browser.parse(url, storage_state=session_path("xhs"), human_like=True, traffic_profile="xhs")
+                if result.success:
+                    result.source_type = self.source_type
+                    if "xhs" not in result.tags:
+                        result.tags.append("xhs")
+                    if "browser-fallback" not in result.confidence_flags:
+                        result.confidence_flags = list(result.confidence_flags) + ["browser-fallback", "xhs-browser"]
+                return result
         except Exception:
             pass
 
