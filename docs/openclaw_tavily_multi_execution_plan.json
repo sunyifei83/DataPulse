@@ -545,6 +545,25 @@
           "notes": "xhs 过滤后形成发布基线；bilibili/reddit/telegram 为降级成功路径，整体链路通过"
         }
       ]
+    },
+    {
+      "run_id": "run-2026-03-03T19:52:55Z",
+      "commands": [
+        {
+          "id": "x6",
+          "command": "python3 -m datapulse.cli --login xhs",
+          "status": "degraded",
+          "stdout_summary": "命令启动了登录流程并提示在浏览器内完成登录，按 Ctrl+C 后返回 Browser.close 错误",
+          "notes": "会话文件 /Users/sunyifei/.datapulse/sessions/xhs.json 已生成；当前执行环境不能完成交互登录，需人工打开浏览器完成后重试 x6"
+        },
+        {
+          "id": "x7",
+          "command": "DATAPULSE_SMOKE_XHS_URL=<injected> python3 -m datapulse.tools.smoke --platforms xhs --min-confidence 0.0",
+          "status": "failed",
+          "stdout_summary": "xhs 平台仍 fail：No parser produced successful result",
+          "notes": "提示仍需 datapulse --login xhs，当前会话未成功兜底"
+        }
+      ]
     }
   ]
 }
