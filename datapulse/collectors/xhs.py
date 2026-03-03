@@ -90,4 +90,9 @@ class XiaohongshuCollector(BaseCollector):
         except Exception:
             pass
 
+        if "blocked by policy" in (result.error or "").lower():
+            return ParseResult.failure(
+                url,
+                "XHS blocked by Jina policy (e.g., HTTP 451); complete --login xhs session for browser fallback.",
+            )
         return ParseResult.failure(url, "XHS blocked and no fallback session available")

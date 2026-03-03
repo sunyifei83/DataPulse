@@ -54,6 +54,24 @@ class JinaSearchResult:
     content: str
 
 
+class JinaBlockedByPolicyError(RuntimeError):
+    """Raised when Jina returns policy/legal blocking statuses (e.g., 451)."""
+
+    def __init__(self, message: str, status_code: int, response: requests.Response):
+        super().__init__(message)
+        self.status_code = status_code
+        self.response = response
+
+
+def _extract_jina_error_hint(response: requests.Response) -> str:
+    text = (response.text or "").strip()
+    if text:
+        return text[:512]
+    if body := response.headers.get("Link"):
+        return body[:512]
+    return f"HTTP {response.status_code} {response.reason}"
+
+
 class JinaAPIClient:
     """Unified client for Jina Reader and Search APIs."""
 
@@ -95,6 +113,7 @@ class JinaAPIClient:
                 timeout=self.timeout,
             )
 
+        self._raise_for_status_if_blocked(resp, "read")
         resp.raise_for_status()
         return JinaReadResult(
             url=url,
@@ -146,8 +165,20 @@ class JinaAPIClient:
             headers=headers,
             timeout=self.timeout,
         )
+
+        self._raise_for_status_if_blocked(resp, "search")
         resp.raise_for_status()
         return self._parse_search_results(resp.text, limit=opts.limit)
+
+    @staticmethod
+    def _raise_for_status_if_blocked(response: requests.Response, context: str) -> None:
+        if response.status_code in {403, 451}:
+            hint = _extract_jina_error_hint(response)
+            message = (
+                f"Jina {context} blocked by policy ({response.status_code}): {hint}"
+            )
+            logger.info(message)
+            raise JinaBlockedByPolicyError(message, response.status_code, response)
 
     @staticmethod
     def _parse_search_results(text: str, limit: int = 5) -> list[JinaSearchResult]:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from urllib.parse import urlparse
 
-from datapulse.core.jina_client import JinaAPIClient, JinaReadOptions
+from datapulse.core.jina_client import JinaAPIClient, JinaBlockedByPolicyError, JinaReadOptions
 from datapulse.core.models import SourceType
 from datapulse.core.retry import CircuitBreakerOpen
 from datapulse.core.security import has_secret
@@ -85,6 +85,8 @@ class JinaCollector(BaseCollector):
             )
         except CircuitBreakerOpen as exc:
             return ParseResult.failure(url, f"Jina circuit open: {exc}")
+        except JinaBlockedByPolicyError as exc:
+            return ParseResult.failure(url, str(exc))
         except Exception as exc:
             return ParseResult.failure(url, f"JinaCollector failed: {exc}")
 
