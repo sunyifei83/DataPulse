@@ -45,13 +45,18 @@
 
 ## 5) 推送触发 CI
 
-- 状态：待执行
+- 状态：已执行（本地完成）
+- 执行命令：`git push origin main`
+- 提交：`0a8ad93`
+- 推送后远端 HEAD 对齐：
+  - `git ls-remote --heads origin main` 指向 `0a8ad93680e5604a2d1752de9b1d78dbf030d02d`
 - 预期门禁：
   - `.github/workflows/ci.yml`：`ruff`（3.12）、`mypy`（3.12）、`pytest`（3.10/3.11/3.12）
 
 ## 6) CI 全绿
 
-- 本地与 HA 局部闭环已通过，CI 结果尚未产生推送事件（待推送执行）
+- 本地与 HA 局部闭环已通过；CI 正在仓库端触发中（`ruff`/`mypy`/`pytest`）。
+- 建议在 GitHub Actions 中确认通过后补一条验证证据：`Run URL + 所有任务 green`。
 - 风险点：无代码回归阻断；仅平台 smoke 配置项缺失导致本机平台回归阶段 FAIL（可通过配置平台 URL 后重跑消除）
 
 ## 7) 捕获问题
