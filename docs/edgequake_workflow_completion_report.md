@@ -61,21 +61,23 @@
   - `415e71b`（记录补齐 URL 重跑与失败归因）
   - `5651433`（补齐平台回归重跑与执行命令）
   - `b339dd3`（补齐仓内闭环与最新 CI run）
+  - `14fa576`（同步边界与标准化基线证据）
 - 产出状态：本轮变更已全部入主干；如需可补充 PR 编号与联测结果链接。
 
 ## 5) 推送触发 CI
 
 - 状态：已执行（已完成）
 - 执行命令：`git push origin main`
-- 提交：`b339dd3`
+- 提交：`14fa576`
 - 推送后远端 HEAD 对齐：
-  - `git ls-remote --heads origin main` 指向 `b339dd37128e75e98d0bd452c90a62db786f86c5`
+  - `git ls-remote --heads origin main` 指向 `14fa576fe0a3e1f7adb82b58df0a0b4422094851`
 - 预期门禁：
   - `.github/workflows/ci.yml`：`ruff`（3.12）、`mypy`（3.12）、`pytest`（3.10/3.11/3.12）
 
 ## 6) CI 全绿
 
 - CI 已在仓库端全部通过：
+- `22632164596`（提交 `14fa576...`）：completed / success
 - `22632049712`（提交 `b339dd3...`）：completed / success
 - `22632020711`（提交 `5651433...`）：completed / success
 - `22631799782`（提交 `11283fa...`）：completed / success
