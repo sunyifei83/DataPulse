@@ -564,6 +564,31 @@
           "notes": "提示仍需 datapulse --login xhs，当前会话未成功兜底"
         }
       ]
+    },
+    {
+      "run_id": "run-2026-03-03T19:57:00Z",
+      "commands": [
+        {
+          "id": "x7",
+          "command": "DATAPULSE_SMOKE_XHS_URL=https://www.xiaohongshu.com/explore uv run python3 -m datapulse.tools.smoke --platforms xhs --min-confidence 0.0",
+          "status": "passed",
+          "stdout_summary": "PASS: xhs platform (generic/feed-probe/source-catalog)",
+          "notes": "Jina 读取仍出现 blocked（HTTP 451）警告，但 fallback 通过。当前会话文件仍不存在（~/.datapulse/sessions/xhs.json）。"
+        }
+      ]
+    }
+    ,
+    {
+      "run_id": "run-2026-03-03T20:00:18Z",
+      "commands": [
+        {
+          "id": "x7",
+          "command": "DATAPULSE_SMOKE_XHS_URL=https://www.xiaohongshu.com/explore uv run python3 -m datapulse.tools.smoke --platforms xhs --min-confidence 0.0",
+          "status": "passed",
+          "stdout_summary": "PASS: xhs generic:0.830 + source-catalog + feed-probe",
+          "notes": "Jina read仍被451 blocked，但 browser fallback 成功；会话文件已落盘并复用。"
+        }
+      ]
     }
   ]
 }

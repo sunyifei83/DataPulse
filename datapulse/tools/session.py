@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
+import time
 from typing import Dict
 
 from datapulse.core.utils import run_sync, session_path
@@ -20,6 +22,9 @@ PLATFORM_LOGIN_URLS: Dict[str, str] = {
     "xhs": "https://www.xiaohongshu.com/explore",
     "wechat": "https://mp.weixin.qq.com",
 }
+
+_DEFAULT_LOGIN_TIMEOUT_SECONDS = int(os.getenv("DATAPULSE_LOGIN_TIMEOUT_SECONDS", "600"))
+_DEFAULT_LOGIN_POLL_SECONDS = float(os.getenv("DATAPULSE_LOGIN_POLL_SECONDS", "2"))
 
 
 def supported_platforms() -> list[str]:
@@ -43,15 +48,58 @@ def _run_instructions(platform: str, state_path: Path) -> str:
         f"Platform: {platform}\n"
         f"Session saved to: {state_path}\n"
         "1) Complete login in the opened browser window.\n"
-        "2) After login is successful, keep the window open and press Ctrl+C in this terminal.\n"
-        "3) The session state will be persisted automatically."
+        "2) Wait for the page state to settle; session auto-save will trigger when login is detected.\n"
+        "3) If detection does not trigger, it will auto-save again after timeout (default 10 minutes)."
     )
+
+
+async def _is_login_complete(page, platform: str) -> bool:
+    try:
+        current_url = (page.url or "").lower()
+        if any(piece in current_url for piece in ("/login", "/passport", "/signin", "/auth")):
+            return False
+    except Exception:
+        current_url = ""
+
+    try:
+        cookies = await page.context.cookies()
+        auth_like_cookie = any(
+            any(token in (cookie.get("name", "").lower() or "") for token in ("token", "session", "auth", "access", "userid", "uid"))
+            for cookie in cookies
+        )
+        if auth_like_cookie:
+            return True
+    except Exception:
+        pass
+
+    if platform == "xhs":
+        try:
+            keys = await page.evaluate(
+                "() => {\n                try {\n                    const storage = window.localStorage || {};\n                    return Object.keys(storage).filter((k) => /(token|access|auth|session|uid|userid|user|login|passport)/i.test(k));\n                } catch {\n                    return [];\n                }\n            }"
+            )
+            if keys:
+                return True
+        except Exception:
+            pass
+
+    if not current_url:
+        return False
+
+    # xiaohongshu 主页在未登录时常伴随明显登录提示；有导航到用户态路径或业务页面可视为登录成功
+    if current_url.startswith("https://www.xiaohongshu.com") and "xiaohongshu.com" in current_url:
+        if any(path in current_url for path in ("/user/", "/profile/", "/notes/", "/note/", "/explore/settings", "/favorite/")):
+            return True
+
+    return False
 
 
 async def _login(platform: str) -> str:
     state_path = Path(session_path(platform))
     state_path.parent.mkdir(parents=True, exist_ok=True)
     start_url = PLATFORM_LOGIN_URLS[platform]
+    timeout_seconds = _DEFAULT_LOGIN_TIMEOUT_SECONDS
+    poll_seconds = max(0.5, _DEFAULT_LOGIN_POLL_SECONDS)
+    deadline = time.monotonic() + timeout_seconds
 
     async with async_playwright() as p:  # type: ignore[union-attr]
         browser = await p.chromium.launch(headless=False)
@@ -62,12 +110,15 @@ async def _login(platform: str) -> str:
             await page.goto(start_url, wait_until="domcontentloaded", timeout=60000)
             print(_run_instructions(platform, state_path))
             try:
-                while True:
+                while time.monotonic() < deadline:
                     if page.is_closed():
                         break
-                    await page.wait_for_timeout(1000)
+                    if await _is_login_complete(page, platform):
+                        logger.info("Login completion detected for %s; persisting session.", platform)
+                        break
+                    await page.wait_for_timeout(int(poll_seconds * 1000))
             except KeyboardInterrupt:
-                pass
+                logger.info("Login flow for %s interrupted by user; saving session anyway.", platform)
             await context.storage_state(path=str(state_path))
             return str(state_path)
         finally:
