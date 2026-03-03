@@ -1,6 +1,6 @@
 # EdgeQuake 交付闭环报告（本轮）
 
-生成时间：2026-03-03T16:06:42Z
+生成时间：2026-03-03T16:18:09Z
 主机：sunyifeideMacBook-Pro.local
 
 ## 1) 功能迭代
@@ -45,16 +45,17 @@
 - 已入库提交：
   - `04cb173`（补齐 CI 触发与结果记录）
   - `3d2ca74`（补齐交付闭环文档）
-  - `239f3f8`（记录最新 CI run）
+- `239f3f8`（记录 CI run）
+- `283bac5`（刷新闭环报告与最终 run）
 - 产出状态：本轮变更已全部入主干；如需可补充 PR 编号与联测结果链接。
 
 ## 5) 推送触发 CI
 
 - 状态：已执行（已完成）
 - 执行命令：`git push origin main`
-- 提交：`239f3f8`
+- 提交：`283bac5`
 - 推送后远端 HEAD 对齐：
-  - `git ls-remote --heads origin main` 指向 `239f3f824b3f60f7b602dbc31b85d0943aa903ab`
+  - `git ls-remote --heads origin main` 指向 `283bac54e38f4ae94d036965cdccc0928d062aa5`
 - 预期门禁：
   - `.github/workflows/ci.yml`：`ruff`（3.12）、`mypy`（3.12）、`pytest`（3.10/3.11/3.12）
 
@@ -62,6 +63,7 @@
 
 - CI 已在仓库端全部通过：
 - `22631703167`（提交 `239f3f8...`）：completed / success
+- `22631731502`（提交 `283bac5...`）：completed / success
 - `22631672074`（提交 `3d2ca74...`）：completed / success
 - `22631579129`（提交 `04cb173...`）：completed / success
 - `22631572723`（提交 `0a8ad93...`）：completed / success
