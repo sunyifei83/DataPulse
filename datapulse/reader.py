@@ -96,6 +96,19 @@ class DataPulseReader:
         }
         return hits, search_audit
 
+    @staticmethod
+    def _is_api_key_error(exc: BaseException) -> bool:
+        message = (str(exc) or "").lower()
+        if not message:
+            return False
+        return (
+            "api key" in message
+            or "apikey" in message
+            or "api-key" in message
+            or "unauthorized" in message
+            or "authentication" in message
+        )
+
     async def read(self, url: str, *, min_confidence: float = 0.0) -> DataPulseItem:
         return await asyncio.to_thread(self._read_sync, url, min_confidence)
 
@@ -185,12 +198,18 @@ class DataPulseReader:
         requested_time_range = time_range or freshness
 
         if provider in {"jina", "auto"}:
-            search_hits, search_audit = self._run_jina_search(
-                query,
-                sites=merged_sites,
-                limit=limit,
-            )
-            if not search_hits and provider == "auto":
+            try:
+                search_hits, search_audit = self._run_jina_search(
+                    query,
+                    sites=merged_sites,
+                    limit=limit,
+                )
+                if not search_hits:
+                    raise RuntimeError("No results from Jina")
+            except Exception as exc:
+                if provider == "jina" or self._is_api_key_error(exc):
+                    raise
+                logger.warning("Auto search fallback triggered: %s", exc)
                 search_hits, search_audit = self._search_gateway.search(
                     query,
                     sites=merged_sites,
