@@ -217,6 +217,24 @@
         "p2.scoring_dims"
       ],
       "expected": "脚本可正常列出测试场景；后续按本地环境补充 online 场景"
+    },
+    {
+      "id": "x6",
+      "command": "python3 -m datapulse.cli --login xhs",
+      "description": "执行 xhs 登录（或补齐 session）后再跑 xhs 平台 smoke",
+      "depends_on": [
+        "x5"
+      ],
+      "expected": "完成 xhs 登录会话保存，后续 xhs 平台不再直接 fail"
+    },
+    {
+      "id": "x7",
+      "command": "DATAPULSE_SMOKE_YOUTUBE_URL=<injected> DATAPULSE_SMOKE_BILIBILI_URL=<injected> DATAPULSE_SMOKE_REDDIT_URL=<injected> DATAPULSE_SMOKE_RSS_URL=<injected> DATAPULSE_SMOKE_TELEGRAM_URL=<injected> DATAPULSE_SMOKE_TWITTER_URL=<injected> DATAPULSE_SMOKE_WECHAT_URL=<injected> python3 -m datapulse.tools.smoke --platforms youtube bilibili reddit rss telegram twitter wechat --min-confidence 0.0",
+      "description": "建立无阻断 baseline smoke（排除 xhs），用于发布前验收",
+      "depends_on": [
+        "x6"
+      ],
+      "expected": "7 个场景全部 PASS（包含 source-catalog 与 feed-probe）"
     }
   ]
   ,
@@ -452,6 +470,79 @@
           "status": "passed",
           "stdout_summary": "工具清单可被机器化解析",
           "notes": "文档同步后的可执行性校验"
+        }
+      ]
+    },
+    {
+      "run_id": "run-2026-03-03T19:14:04Z",
+      "commands": [
+        {
+          "id": "x1",
+          "command": "TAVILY_API_KEY=<injected> JINA_API_KEY=<injected> python3 -m datapulse.cli --search \"DataPulse\" --search-provider tavily --search-limit 5 --search-time-range day",
+          "status": "passed",
+          "stdout_summary": "Found 5 result(s) for: DataPulse",
+          "notes": "Provider tavily 返回含 confidence/score/sample，含 search_audit/search_sources"
+        },
+        {
+          "id": "x3",
+          "command": "TAVILY_API_KEY=<injected> JINA_API_KEY=<injected> python3 -m datapulse.cli --trending us --trending-limit 10 --trending-validate --trending-validate-mode strict",
+          "status": "degraded",
+          "stdout_summary": "No trending data found",
+          "notes": "严格校验下无可交叉验证趋势"
+        },
+        {
+          "id": "x2",
+          "command": "python3 -m datapulse.cli --trending us --trending-limit 3",
+          "status": "passed",
+          "stdout_summary": "Trending Topics on X (us) 返回 1 条基线趋势",
+          "notes": "基线趋势可返回，strict 模式仍可能缺失"
+        },
+        {
+          "id": "s4",
+          "command": "TAVILY_API_KEY=<injected> JINA_API_KEY=<injected> python3 -m datapulse.mcp_server --stdio (tools/call search_web)",
+          "status": "passed",
+          "stdout_summary": "search_web MCP tools/call 返回 3 条结果文本",
+          "notes": "Jina fallback 日志记录可观测，关键在于将 token 绑定到 python 命令进程而非 printf"
+        },
+        {
+          "id": "s5",
+          "command": "python3 -m datapulse.mcp_server --stdio (tools/call trending)",
+          "status": "passed",
+          "stdout_summary": "trending MCP tools/call 返回 trend_count=1",
+          "notes": "参数应使用 location/top_n，而非 region"
+        },
+        {
+          "id": "x5",
+          "command": "DATAPULSE_SMOKE_BILIBILI_URL=... DATAPULSE_SMOKE_REDDIT_URL=... DATAPULSE_SMOKE_WECHAT_URL=... DATAPULSE_SMOKE_XHS_URL=... python3 -m datapulse.tools.smoke --platforms bilibili reddit xhs wechat --min-confidence 0.0",
+          "status": "degraded",
+          "stdout_summary": "PASS: bilibili/reddit/wechat；FAIL: xhs",
+          "notes": "xhs 提示需先运行 datapulse --login xhs；bilibili/reddit/wechat 可返回 PASS 或兜底"
+        },
+        {
+          "id": "x5b",
+          "command": "DATAPULSE_SMOKE_TWITTER_URL=... DATAPULSE_SMOKE_WECHAT_URL=... DATAPULSE_SMOKE_BILIBILI_URL=... DATAPULSE_SMOKE_REDDIT_URL=... DATAPULSE_SMOKE_XHS_URL=... python3 -m datapulse.tools.smoke --platforms bilibili reddit xhs wechat twitter --min-confidence 0.0",
+          "status": "degraded",
+          "stdout_summary": "PASS: bilibili/reddit/wechat/twitter；FAIL: xhs",
+          "notes": "twitter baseline 可用；xhs 缺少 login session"
+        },
+        {
+          "id": "x5-list",
+          "command": "python3 -m datapulse.tools.smoke --list",
+          "status": "degraded",
+          "stdout_summary": "工具仍提示 DATAPULSE_SMOKE_* 全部缺省（基于当前进程未持久注入环境变量）",
+          "notes": "本次验证采用临时注入环境变量；未在会话间持久化"
+        }
+      ]
+    },
+    {
+      "run_id": "run-2026-03-03T19:43:52Z",
+      "commands": [
+        {
+          "id": "x7",
+          "command": "DATAPULSE_SMOKE_YOUTUBE_URL=<injected> DATAPULSE_SMOKE_BILIBILI_URL=<injected> DATAPULSE_SMOKE_REDDIT_URL=<injected> DATAPULSE_SMOKE_RSS_URL=<injected> DATAPULSE_SMOKE_TELEGRAM_URL=<injected> DATAPULSE_SMOKE_TWITTER_URL=<injected> DATAPULSE_SMOKE_WECHAT_URL=<injected> python3 -m datapulse.tools.smoke --platforms youtube bilibili reddit rss telegram twitter wechat --min-confidence 0.0",
+          "status": "passed",
+          "stdout_summary": "7 场景全部 PASS（含 source-catalog 与 feed-probe）",
+          "notes": "xhs 过滤后形成发布基线；bilibili/reddit/telegram 为降级成功路径，整体链路通过"
         }
       ]
     }
