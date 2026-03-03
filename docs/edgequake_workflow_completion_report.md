@@ -1,6 +1,6 @@
 # EdgeQuake 交付闭环报告（本轮）
 
-生成时间：2026-03-03T16:03:17Z
+生成时间：2026-03-03T16:06:42Z
 主机：sunyifeideMacBook-Pro.local
 
 ## 1) 功能迭代
@@ -24,7 +24,7 @@
 
 ## 3) HA 本机交付
 
-- 完成度：进行中（闭环清晰，阻塞项为环境配置）
+- 完成度：进行中（闭环清晰，阻塞项为平台环境配置）
 - 命令与结果：
   - `bash scripts/quick_test.sh`
     - 执行结果：脚本完成，主链路通过；未配置 URL 自动跳过，仅留配置提示
@@ -36,12 +36,15 @@
 
 ## 4) 提交变更入库
 
-- 完成度：待提交
+- 完成度：已完成（代码与验收已入库）
 - 文档支持：
   - `docs/edgequake_pr_evidence.md`
   - `docs/pr_template_edgequake.md`
   - `docs/inhouse_workflow.md`
 - 建议 PR 标题：`feat: absorb entity extraction and corroboration enhancements from EdgeQuake distillation`
+- 已入库提交：
+  - `04cb173`（补齐 CI 结果与报告）
+- 产出状态：本轮变更已推送主干，可按“入库闭环”继续提交流程（如需可补提交 PR 编号）
 
 ## 5) 推送触发 CI
 
@@ -55,8 +58,11 @@
 
 ## 6) CI 全绿
 
-- 本地与 HA 局部闭环已通过；CI 正在仓库端触发中（`ruff`/`mypy`/`pytest`）。
-- 建议在 GitHub Actions 中确认通过后补一条验证证据：`Run URL + 所有任务 green`。
+- CI 已在仓库端全部通过：
+  - `22631579129`（提交 `04cb173...`）：completed / success
+  - `22631572723`（提交 `0a8ad93...`）：completed / success
+  - 触发事件：`push` 到 `main`
+- `ruff`/`mypy`/`pytest` 三层门禁均绿（见对应执行记录）
 - 风险点：无代码回归阻断；仅平台 smoke 配置项缺失导致本机平台回归阶段 FAIL（可通过配置平台 URL 后重跑消除）
 
 ## 7) 捕获问题
