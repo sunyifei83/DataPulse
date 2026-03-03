@@ -7,6 +7,7 @@ import os
 import random
 import time
 from pathlib import Path
+from typing import Any
 
 from datapulse.core.models import SourceType
 from datapulse.core.utils import clean_text, run_sync
@@ -80,7 +81,7 @@ async def _throttle_requests(interval_seconds: float, jitter_seconds: float) -> 
         _LAST_HUMAN_REQUEST_MONO = time.monotonic()
 
 
-async def _simulate_human_page_read(page: object) -> None:
+async def _simulate_human_page_read(page: Any) -> None:
     viewport = await page.evaluate("() => ({width: window.innerWidth, height: window.innerHeight})")
     width = max(800, int(viewport.get("width", 1280)))
     height = max(600, int(viewport.get("height", 720)))
@@ -93,7 +94,7 @@ async def _simulate_human_page_read(page: object) -> None:
         await page.wait_for_timeout(_human_wait_ms(150, 700))
 
 
-async def _simulate_scroll(page: object, *, traffic_profile: str) -> None:
+async def _simulate_scroll(page: Any, *, traffic_profile: str) -> None:
     min_steps, max_steps = _env_int_range(
         "DATAPULSE_BROWSER_SCROLL_STEPS_MIN",
         "DATAPULSE_BROWSER_SCROLL_STEPS_MAX",
@@ -175,7 +176,7 @@ class BrowserCollector(BaseCollector):
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
                 await _throttle_requests(min_interval, interval_jitter)
-                kwargs = {}
+                kwargs: dict[str, Any] = {}
                 if storage_state and Path(storage_state).exists():
                     kwargs["storage_state"] = storage_state
                 if _env_bool("DATAPULSE_BROWSER_USE_STEALTH_HEADERS", True):
@@ -194,7 +195,7 @@ class BrowserCollector(BaseCollector):
                     kwargs["user_agent"] = ua
 
                 context = await browser.new_context(**kwargs)
-                page = await context.new_page()
+                page: Any = await context.new_page()
                 try:
                     if human_like:
                         if _env_bool("DATAPULSE_BROWSER_DISABLE_WEBDRIVER", True):
