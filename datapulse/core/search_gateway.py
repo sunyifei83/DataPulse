@@ -18,10 +18,10 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import requests
 
+from datapulse.core.config import SearchGatewayConfig
 from datapulse.core.jina_client import JinaAPIClient, JinaSearchOptions
 from datapulse.core.retry import CircuitBreaker, CircuitBreakerOpen, RateLimitError, retry
 from datapulse.core.security import get_secret
-from datapulse.core.config import SearchGatewayConfig
 
 logger = logging.getLogger("datapulse.search_gateway")
 
@@ -533,7 +533,7 @@ class SearchGateway:
             summary_consistency = 1.0
             if len(hit_list) > 1:
                 pairs = 0
-                match = 0
+                match: float = 0.0
                 for i in range(len(hit_list)):
                     for j in range(i + 1, len(hit_list)):
                         pairs += 1

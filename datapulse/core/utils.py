@@ -17,6 +17,8 @@ from urllib.parse import urlparse, urlunparse
 
 import tldextract
 
+from datapulse.core.cache import TTLCache
+
 _URL_PATTERN = re.compile(r"https?://(?:[a-zA-Z0-9\-._~:/?#\[\]@!$&'()*+,;=%])+", re.IGNORECASE)
 _ALLOWED_SCHEMES = {"http", "https"}
 _T = TypeVar("_T")
@@ -390,8 +392,6 @@ def session_path(platform: str) -> str:
 
 
 # --- Session TTL cache (positive-only, 12h default) ---
-
-from datapulse.core.cache import TTLCache
 
 _SESSION_TTL_SECONDS = float(os.getenv("DATAPULSE_SESSION_TTL_HOURS", "12")) * 3600
 _session_ttl_cache = TTLCache(maxsize=16, ttl=_SESSION_TTL_SECONDS)

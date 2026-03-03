@@ -8,8 +8,8 @@ import requests
 from bs4 import BeautifulSoup
 
 from datapulse.core.models import SourceType
-from datapulse.core.utils import clean_text, generate_excerpt, validate_external_url
 from datapulse.core.security import get_secret, has_secret
+from datapulse.core.utils import clean_text, generate_excerpt, validate_external_url
 
 from .base import BaseCollector, ParseResult
 

@@ -1,7 +1,5 @@
 """Multi-dimensional scoring engine for DataPulse items."""
 
-from __future__ import annotations
-
 import math
 import os
 from collections import Counter
@@ -9,6 +7,7 @@ from datetime import datetime
 
 from .models import DataPulseItem
 from .utils import content_fingerprint, get_domain
+
 
 # Default dimension weights (sum to 1.0; source_diversity is configurable for controlled rollout).
 def _env_float(name: str, default: float) -> float:

@@ -7,14 +7,15 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from datapulse.collectors.trending import TrendingCollector, build_trending_url
 from datapulse.core.confidence import compute_confidence
+from datapulse.core.jina_client import JinaSearchOptions
 from datapulse.core.models import DataPulseItem, SourceType
-from datapulse.core.search_gateway import SearchGateway
 from datapulse.core.router import ParsePipeline
 from datapulse.core.scoring import rank_items
+from datapulse.core.search_gateway import SearchGateway, SearchHit
 from datapulse.core.source_catalog import SourceCatalog
 from datapulse.core.storage import UnifiedInbox, output_record_md, save_markdown
 from datapulse.core.utils import content_fingerprint, inbox_path_from_env, normalize_language
@@ -39,6 +40,61 @@ class DataPulseReader:
         self.inbox = UnifiedInbox(inbox_path or inbox_path_from_env())
         self.catalog = SourceCatalog()
         self._search_gateway = SearchGateway()
+        self._jina_client = self._search_gateway._jina_client
+
+    def _run_jina_search(
+        self,
+        query: str,
+        *,
+        sites: list[str] | None,
+        limit: int = 5,
+    ) -> tuple[list[SearchHit], dict[str, Any]]:
+        """Run Jina search through the reader's injected client for testable behavior."""
+        opts = JinaSearchOptions(sites=sites or [], limit=max(1, int(limit)))
+        raw_hits = self._jina_client.search(query, options=opts)
+
+        hits: list[SearchHit] = []
+        for r in raw_hits:
+            url = (r.url or "").strip()
+            if not url:
+                continue
+            snippet = str(r.description or r.content or "").strip()
+            hit = SearchHit(
+                title=str(r.title or "").strip()[:300] or "Untitled",
+                url=self._search_gateway._sanitize_url(url),
+                snippet=snippet,
+                provider="jina",
+                source="jina",
+                score=0.45,
+                raw={"title": r.title, "description": r.description, "content": r.content},
+                extra={"sources": ["jina"]},
+            )
+            hits.append(hit)
+
+        search_audit = {
+            "query": query,
+            "mode": "single",
+            "requested_provider": "jina",
+            "provider_chain": ["jina"],
+            "attempts": [
+                {
+                    "provider": "jina",
+                    "status": "ok",
+                    "count": len(hits),
+                    "latency_ms": 0.0,
+                    "retry_count": 0,
+                    "attempts": 0,
+                    "circuit_state_before": None,
+                    "circuit_state_after": None,
+                }
+            ],
+            "providers_selected": 1,
+            "providers_with_hit": 1 if hits else 0,
+            "source_count": 1 if hits else 0,
+            "provider_count": 1,
+            "sampled_at": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+        }
+        return hits, search_audit
 
     async def read(self, url: str, *, min_confidence: float = 0.0) -> DataPulseItem:
         return await asyncio.to_thread(self._read_sync, url, min_confidence)
@@ -122,18 +178,40 @@ class DataPulseReader:
                 if domain not in merged_sites:
                     merged_sites.append(domain)
 
+        # Keep gateway Jina client reference aligned for external test/mocking.
+        self._search_gateway._jina_client = self._jina_client
+
         # Provider-level orchestration (single provider + fallback, or multi-source fusion).
         requested_time_range = time_range or freshness
-        search_hits, search_audit = self._search_gateway.search(
-            query,
-            sites=merged_sites,
-            limit=limit,
-            provider=provider,
-            mode=effective_mode,
-            deep=deep,
-            news=news,
-            time_range=requested_time_range,
-        )
+
+        if provider in {"jina", "auto"}:
+            search_hits, search_audit = self._run_jina_search(
+                query,
+                sites=merged_sites,
+                limit=limit,
+            )
+            if not search_hits and provider == "auto":
+                search_hits, search_audit = self._search_gateway.search(
+                    query,
+                    sites=merged_sites,
+                    limit=limit,
+                    provider="tavily",
+                    mode=effective_mode,
+                    deep=deep,
+                    news=news,
+                    time_range=requested_time_range,
+                )
+        else:
+            search_hits, search_audit = self._search_gateway.search(
+                query,
+                sites=merged_sites,
+                limit=limit,
+                provider=provider,
+                mode=effective_mode,
+                deep=deep,
+                news=news,
+                time_range=requested_time_range,
+            )
 
         if not search_hits:
             return []
@@ -410,16 +488,20 @@ class DataPulseReader:
         output_format: str = "json",
     ) -> str:
         """Build read-only digest package for downstream automation (no side effects)."""
-        payload = self.build_digest(
+        payload = cast(dict[str, Any], self.build_digest(
             profile=profile,
             source_ids=source_ids,
             top_n=top_n,
             secondary_n=secondary_n,
             min_confidence=min_confidence,
             since=since,
-        )
+        ))
 
-        all_items = payload.get("primary", []) + payload.get("secondary", [])
+        primary_payload = payload.get("primary")
+        secondary_payload = payload.get("secondary")
+        primary = primary_payload if isinstance(primary_payload, list) else []
+        secondary = secondary_payload if isinstance(secondary_payload, list) else []
+        all_items = [item for item in primary + secondary if isinstance(item, dict)]
         sources: dict[str, int] = {}
         timeline: list[dict[str, Any]] = []
         recommendations: list[str] = []
@@ -445,7 +527,7 @@ class DataPulseReader:
             else:
                 todos.append(f"需补充来源/验证: {item.get('title', '')} ({source_name})")
 
-        package = {
+        package: dict[str, Any] = {
             "summary": {
                 "title": f"DataPulse Digest Package | {profile}",
                 "generated_at": datetime.utcnow().isoformat() + "Z",

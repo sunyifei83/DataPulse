@@ -236,7 +236,7 @@ def main() -> None:
         return
 
     if args.emit_digest_package:
-        payload = reader.emit_digest_package(
+        package_payload = reader.emit_digest_package(
             profile=args.source_profile,
             source_ids=_normalize_csv_ids(args.source_ids),
             top_n=args.top_n,
@@ -244,7 +244,7 @@ def main() -> None:
             min_confidence=args.min_confidence,
             output_format=args.emit_digest_format,
         )
-        print(payload)
+        print(package_payload)
         return
 
     if args.trending is not None:

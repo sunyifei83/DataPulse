@@ -11,8 +11,8 @@ import tempfile
 import requests
 
 from datapulse.core.models import MediaType, SourceType
+from datapulse.core.security import get_secret, has_secret
 from datapulse.core.utils import clean_text, generate_excerpt
-from datapulse.core.security import has_secret, get_secret
 
 from .base import BaseCollector, ParseResult
 

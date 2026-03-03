@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import inspect
+import json
 import sys
 from typing import Any, get_origin
 
@@ -348,7 +348,7 @@ class _LocalMCP:
             result = await result
         return result
 
-    def _emit(self, message: dict[str, Any]) -> None:
+    def _emit(self, message: dict[str, Any] | list[dict[str, Any]]) -> None:
         print(json.dumps(message, ensure_ascii=False), flush=True)
 
     def _handle_stdio_request(self, message: Any) -> list[dict[str, Any]]:

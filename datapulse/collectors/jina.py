@@ -7,8 +7,8 @@ from urllib.parse import urlparse
 from datapulse.core.jina_client import JinaAPIClient, JinaReadOptions
 from datapulse.core.models import SourceType
 from datapulse.core.retry import CircuitBreakerOpen
-from datapulse.core.utils import clean_text
 from datapulse.core.security import has_secret
+from datapulse.core.utils import clean_text
 
 from .base import BaseCollector, ParseResult
 

@@ -31,6 +31,8 @@ local-test-context.*
 model-endpoints.local.*
 .env.local
 .env.secret
+.env
+.env.*
 .env.datapulse
 .env.openclaw
 openclaw-*.env
