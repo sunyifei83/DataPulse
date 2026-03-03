@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
 from dataclasses import dataclass, field
 
 import requests
 
 from datapulse.core.retry import CircuitBreaker, retry
+from datapulse.core.security import get_secret
 
 logger = logging.getLogger("datapulse.jina_client")
 
@@ -66,7 +66,7 @@ class JinaAPIClient:
         proxy_url: str = "",
         timeout: int = 30,
     ):
-        self.api_key = api_key or os.environ.get("JINA_API_KEY", "")
+        self.api_key = api_key or get_secret("JINA_API_KEY")
         self.proxy_url = proxy_url
         self.timeout = timeout
         self._read_cb = CircuitBreaker(failure_threshold=5, recovery_timeout=60.0, name="jina_read")

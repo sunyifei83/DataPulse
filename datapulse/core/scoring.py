@@ -10,13 +10,28 @@ from datetime import datetime
 from .models import DataPulseItem
 from .utils import content_fingerprint, get_domain
 
-# Default dimension weights (sum to 1.0)
-DEFAULT_WEIGHTS = {
-    "confidence": 0.25,
-    "authority": 0.30,
-    "corroboration": 0.25,
-    "recency": 0.20,
-}
+# Default dimension weights (sum to 1.0; source_diversity is configurable for controlled rollout).
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    try:
+        return float(raw) if raw is not None else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _default_weights() -> dict[str, float]:
+    return {
+        "confidence": 0.25,
+        "authority": 0.30,
+        "corroboration": 0.25,
+        "recency": 0.20,
+        "source_diversity": _env_float("DATAPULSE_SOURCE_DIVERSITY_WEIGHT", 0.07),
+        "cross_validation": _env_float("DATAPULSE_CROSS_VALIDATION_WEIGHT", 0.06),
+        "recency_bonus": _env_float("DATAPULSE_RECENCY_BONUS_WEIGHT", 0.00),
+    }
+
+
+DEFAULT_WEIGHTS = _default_weights()
 
 # Default half-life for recency decay (hours)
 _DEFAULT_HALF_LIFE_HOURS = 24.0
@@ -79,6 +94,38 @@ def corroboration_score(item: DataPulseItem, fingerprint_counts: dict[str, int])
     return 1.0
 
 
+def source_diversity_score(item: DataPulseItem) -> float:
+    """Score based on multi-source search confirmation."""
+    sources = item.extra.get("search_sources")
+    if not sources:
+        return 0.0
+    uniq = {s.lower() for s in sources if s}
+    if len(uniq) <= 1:
+        return 0.0
+    if len(uniq) == 2:
+        return 0.8
+    return 1.0
+
+
+def cross_validation_score(item: DataPulseItem) -> float:
+    """Score based on search cross-source consistency and multi-source hits."""
+    search_consistency = item.extra.get("search_cross_validation") or item.extra.get(
+        "search_consistency",
+    )
+    if isinstance(search_consistency, dict):
+        if search_consistency.get("is_cross_validated"):
+            return 1.0
+        provider_count = search_consistency.get("provider_count", 0)
+        if provider_count >= 2:
+            return 0.7
+        if provider_count == 1:
+            return 0.1
+    source_count = item.extra.get("search_source_count", 0)
+    if source_count >= 2:
+        return 0.4
+    return 0.0
+
+
 def compute_composite_score(
     item: DataPulseItem,
     *,
@@ -99,12 +146,21 @@ def compute_composite_score(
     dim_authority = authority_score(item, amap)
     dim_corroboration = corroboration_score(item, fp_counts)
     dim_recency = recency_score(item.fetched_at, now=now)
+    dim_source_diversity = source_diversity_score(item)
+    w_source_diversity = w.get("source_diversity", 0.0)
+    dim_cross_validation = cross_validation_score(item)
+    w_cross_validation = w.get("cross_validation", 0.0)
+    # Backward-compatible alias to satisfy acceptance docs using "recency_bonus" naming.
+    recency_bonus = dim_recency * w.get("recency_bonus", 0.0)
 
     raw = (
         w.get("confidence", 0.25) * dim_confidence
         + w.get("authority", 0.30) * dim_authority
         + w.get("corroboration", 0.25) * dim_corroboration
         + w.get("recency", 0.20) * dim_recency
+        + w_source_diversity * dim_source_diversity
+        + w_cross_validation * dim_cross_validation
+        + recency_bonus
     )
 
     score = max(0, min(100, round(raw * 100)))
@@ -114,6 +170,11 @@ def compute_composite_score(
         "authority": round(dim_authority, 4),
         "corroboration": round(dim_corroboration, 4),
         "recency": round(dim_recency, 4),
+        "source_diversity": round(dim_source_diversity, 4),
+        "source_diversity_weight": round(w_source_diversity, 4),
+        "cross_validation": round(dim_cross_validation, 4),
+        "cross_validation_weight": round(w_cross_validation, 4),
+        "recency_bonus": round(dim_recency * w.get("recency_bonus", 0.0), 4),
     }
 
     return score, breakdown

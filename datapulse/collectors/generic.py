@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 
 from datapulse.core.models import SourceType
 from datapulse.core.utils import clean_text, generate_excerpt, validate_external_url
+from datapulse.core.security import get_secret, has_secret
 
 from .base import BaseCollector, ParseResult
 
@@ -31,7 +32,7 @@ class GenericCollector(BaseCollector):
             backends.append("trafilatura")
         except ImportError:
             pass
-        if __import__("os").getenv("FIRECRAWL_API_KEY", "").strip():
+        if has_secret("FIRECRAWL_API_KEY"):
             backends.append("firecrawl")
         msg = f"backends: {', '.join(backends)}"
         if "trafilatura" not in backends:
@@ -171,7 +172,7 @@ class GenericCollector(BaseCollector):
         return clean_text(content)
 
     def _extract_with_firecrawl(self, url: str) -> ParseResult | None:
-        api_key = __import__("os").getenv("FIRECRAWL_API_KEY", "").strip()
+        api_key = get_secret("FIRECRAWL_API_KEY")
         if not api_key:
             return None
 

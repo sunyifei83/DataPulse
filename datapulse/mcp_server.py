@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import argparse
+import asyncio
 import json
+import inspect
+import sys
+from typing import Any, get_origin
 
 from datapulse.reader import DataPulseReader
 
@@ -95,6 +100,27 @@ async def _run_build_digest(
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
+async def _run_emit_digest_package(
+    profile: str = "default",
+    source_ids: list[str] | None = None,
+    top_n: int = 3,
+    secondary_n: int = 7,
+    min_confidence: float = 0.0,
+    since: str | None = None,
+    output_format: str = "json",
+) -> str:
+    reader = DataPulseReader()
+    return reader.emit_digest_package(
+        profile=profile,
+        source_ids=source_ids,
+        top_n=top_n,
+        secondary_n=secondary_n,
+        min_confidence=min_confidence,
+        since=since,
+        output_format=output_format,
+    )
+
+
 async def _run_build_atom_feed(
     profile: str = "default",
     source_ids: list[str] | None = None,
@@ -143,8 +169,15 @@ async def _run_search_web(
     limit: int = 5,
     fetch_content: bool = True,
     min_confidence: float = 0.0,
+    provider: str = "auto",
+    mode: str = "single",
+    deep: bool = False,
+    news: bool = False,
+    time_range: str | None = None,
+    freshness: str | None = None,
 ) -> str:
     reader = DataPulseReader()
+    requested_time_range = time_range or freshness
     items = await reader.search(
         query,
         sites=sites,
@@ -152,6 +185,11 @@ async def _run_search_web(
         limit=limit,
         fetch_content=fetch_content,
         min_confidence=min_confidence,
+        provider=provider,
+        mode=mode,
+        deep=deep,
+        news=news,
+        time_range=requested_time_range,
     )
     return json.dumps([item.to_dict() for item in items], ensure_ascii=False, indent=2)
 
@@ -160,9 +198,17 @@ async def _run_trending(
     location: str = "",
     top_n: int = 20,
     store: bool = False,
+    validate: bool = False,
+    validate_mode: str = "strict",
 ) -> str:
     reader = DataPulseReader()
-    result = await reader.trending(location=location, top_n=top_n, store=store)
+    result = await reader.trending(
+        location=location,
+        top_n=top_n,
+        store=store,
+        validate=validate,
+        validate_mode=validate_mode,
+    )
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
@@ -204,17 +250,249 @@ async def _run_install_pack(profile: str, slug: str) -> str:
     return json.dumps({"ok": added > 0, "added": added, "slug": slug, "profile": profile}, ensure_ascii=False, indent=2)
 
 
-if __name__ == "__main__":
-    try:
-        from mcp.server.fastmcp import FastMCP
-    except Exception as exc:
-        raise SystemExit(
-            "MCP dependency is required. Install with: pip install -e '.[mcp]'\n"
-            + str(exc)
+class _LocalMCP:
+    """Minimal stdlib MCP-compatible runtime fallback."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.tools: dict[str, Any] = {}
+
+    def tool(self):
+        def decorator(func):
+            self.tools[func.__name__] = func
+            return func
+
+        return decorator
+
+    @staticmethod
+    def _json_type(annotation: Any) -> str:
+        if isinstance(annotation, str):
+            ann = annotation.strip().lower()
+            if ann.startswith(("list[", "tuple[", "set[")):
+                return "array"
+            return {"str": "string", "string": "string",
+                    "int": "integer", "integer": "integer",
+                    "float": "number", "bool": "boolean", "boolean": "boolean",
+                    "dict": "object", "list": "array", "tuple": "array", "set": "array"}.get(ann, "string")
+        origin = get_origin(annotation)
+        if annotation in {str, int, float, bool, None}:
+            return {
+                str: "string",
+                int: "integer",
+                float: "number",
+                bool: "boolean",
+                None: "null",
+            }[annotation]
+        if origin in {list, tuple, set}:
+            return "array"
+        if origin is dict:
+            return "object"
+        if origin is not None:
+            return "string"
+        return "string"
+
+    def _tool_schema(self, func: Any) -> dict[str, Any]:
+        signature = inspect.signature(func)
+        properties: dict[str, Any] = {}
+        required: list[str] = []
+
+        for name, parameter in signature.parameters.items():
+            if parameter.kind in {parameter.VAR_KEYWORD, parameter.VAR_POSITIONAL}:
+                continue
+            annotation = parameter.annotation if parameter.annotation is not parameter.empty else str
+            field: dict[str, Any] = {"type": self._json_type(annotation)}
+            if parameter.default is parameter.empty:
+                required.append(name)
+            else:
+                field["default"] = parameter.default
+            properties[name] = field
+
+        return {
+            "name": func.__name__,
+            "description": (inspect.getdoc(func) or "").strip() or func.__name__,
+            "inputSchema": {
+                "type": "object",
+                "properties": properties,
+                "required": required,
+            },
+        }
+
+    def _tool_metadata(self) -> list[dict[str, Any]]:
+        return [self._tool_schema(func) for _, func in self.tools.items()]
+
+    def _build_response(
+        self,
+        request_id: Any,
+        result: Any = None,
+        error: str | None = None,
+        error_code: int = -32603,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"jsonrpc": "2.0", "id": request_id}
+        if error is None:
+            payload["result"] = result
+        else:
+            payload["error"] = {"code": error_code, "message": error}
+        return payload
+
+    async def _run_tool(self, name: str | None, arguments: Any) -> str:
+        if not name:
+            raise ValueError("tool name is required")
+        if name not in self.tools:
+            raise KeyError(f"tool not found: {name}")
+        if not isinstance(arguments, dict):
+            raise TypeError("tool arguments must be a JSON object")
+
+        handler = self.tools[name]
+        result = handler(**arguments)
+        if asyncio.iscoroutine(result):
+            result = await result
+        return result
+
+    def _emit(self, message: dict[str, Any]) -> None:
+        print(json.dumps(message, ensure_ascii=False), flush=True)
+
+    def _handle_stdio_request(self, message: Any) -> list[dict[str, Any]]:
+        if not isinstance(message, dict):
+            return [self._build_response(None, error="Invalid Request", error_code=-32600)]
+
+        request_id = message.get("id")
+        method = message.get("method")
+        if not method:
+            if request_id is None:
+                return []
+            return [self._build_response(request_id, error="Invalid Request", error_code=-32600)]
+
+        if method in {"notifications/initialized", "initialized", "ping", "notifications/shutdown"}:
+            return []
+
+        if method == "initialize":
+            if request_id is None:
+                return []
+            return [
+                self._build_response(
+                    request_id,
+                    {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {"tools": {}},
+                        "serverInfo": {"name": self.name, "version": "1.0"},
+                    },
+                )
+            ]
+
+        if method == "tools/list":
+            if request_id is None:
+                return []
+            return [self._build_response(request_id, {"tools": self._tool_metadata()})]
+
+        if method == "tools/call":
+            params = message.get("params")
+            if request_id is None:
+                return []
+            if not isinstance(params, dict):
+                return [self._build_response(request_id, error="Invalid params: must be object", error_code=-32602)]
+            tool_name = params.get("name")
+            arguments = params.get("arguments", {})
+            if not isinstance(tool_name, str) or not tool_name:
+                return [self._build_response(request_id, error="Invalid params: tool name is required", error_code=-32602)]
+            if not isinstance(arguments, dict):
+                return [self._build_response(request_id, error="Invalid params: arguments must be object", error_code=-32602)]
+            try:
+                result = asyncio.run(self._run_tool(tool_name, arguments))
+            except KeyError as exc:
+                return [self._build_response(request_id, error=str(exc), error_code=-32601)]
+            except Exception as exc:
+                return [self._build_response(request_id, error=str(exc), error_code=-32603)]
+            return [
+                self._build_response(
+                    request_id,
+                    {
+                        "content": [{"type": "text", "text": result}],
+                        "isError": False,
+                    },
+                )
+            ]
+
+        if method == "shutdown":
+            if request_id is None:
+                return []
+            return [self._build_response(request_id, {"ok": True})]
+
+        if method in {"notifications/cancelled", "notifications/progress"}:
+            return []
+
+        if request_id is not None:
+            return [self._build_response(request_id, error=f"Unsupported method: {method}", error_code=-32601)]
+        return []
+
+    def _run_stdio_loop(self) -> None:
+        while True:
+            raw_line = sys.stdin.readline()
+            if not raw_line:
+                break
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                message = json.loads(line)
+            except json.JSONDecodeError:
+                self._emit(self._build_response(None, error="Parse error", error_code=-32700))
+                continue
+
+            responses: list[dict[str, Any]] = []
+            if isinstance(message, list):
+                if not message:
+                    responses.append(self._build_response(None, error="Invalid Request", error_code=-32600))
+                else:
+                    for item in message:
+                        responses.extend(self._handle_stdio_request(item))
+            else:
+                responses.extend(self._handle_stdio_request(message))
+
+            if not responses:
+                continue
+            if len(responses) == 1:
+                self._emit(responses[0])
+            else:
+                self._emit(responses)
+
+    def run(self) -> None:
+        parser = argparse.ArgumentParser(
+            prog="python -m datapulse.mcp_server",
+            description="DataPulse MCP-compatible server (fast local fallback when dependency is unavailable).",
         )
+        parser.add_argument("--list-tools", action="store_true", help="List all registered tools as JSON.")
+        parser.add_argument("--call", help="Call one tool directly by name.")
+        parser.add_argument("--args", default="{}", help="Tool arguments as JSON string.")
+        parser.add_argument(
+            "--stdio",
+            action="store_true",
+            help="Start stdio JSON-RPC loop (default when no explicit action).",
+        )
+        parsed = parser.parse_args()
 
-    app = FastMCP("datapulse")
+        if parsed.list_tools:
+            print(json.dumps(self._tool_metadata(), ensure_ascii=False, indent=2))
+            return
 
+        if parsed.call:
+            try:
+                arguments = json.loads(parsed.args or "{}")
+            except json.JSONDecodeError as exc:
+                raise SystemExit(f"--args must be valid JSON: {exc}")
+            if not isinstance(arguments, dict):
+                raise SystemExit("--args must be a JSON object")
+            result = asyncio.run(self._run_tool(parsed.call, arguments))
+            print(result)
+            return
+
+        if parsed.stdio or not sys.argv[1:]:
+            self._run_stdio_loop()
+            return
+
+        parser.print_help()
+
+
+def _register_tools(app: Any) -> None:
     @app.tool()
     async def read_url(url: str, min_confidence: float = 0.0) -> str:  # noqa: ANN001
         return await _run_read_url(url, min_confidence=min_confidence)
@@ -309,6 +587,27 @@ if __name__ == "__main__":
         )
 
     @app.tool()
+    async def emit_digest_package(
+        profile: str = "default",
+        source_ids: list[str] | None = None,
+        top_n: int = 3,
+        secondary_n: int = 7,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+        output_format: str = "json",
+    ) -> str:  # noqa: ANN001
+        """Export digest package for office automation integrations (read-only payload)."""
+        return await _run_emit_digest_package(
+            profile=profile,
+            source_ids=source_ids,
+            top_n=top_n,
+            secondary_n=secondary_n,
+            min_confidence=min_confidence,
+            since=since,
+            output_format=output_format,
+        )
+
+    @app.tool()
     async def mark_processed(item_id: str, processed: bool = True) -> str:  # noqa: ANN001
         return await _run_mark_processed(item_id, processed=processed)
 
@@ -330,6 +629,12 @@ if __name__ == "__main__":
         limit: int = 5,
         fetch_content: bool = True,
         min_confidence: float = 0.0,
+        provider: str = "auto",
+        mode: str = "single",
+        deep: bool = False,
+        news: bool = False,
+        time_range: str | None = None,
+        freshness: str | None = None,
     ) -> str:  # noqa: ANN001
         """Search the web and return scored, LLM-friendly results."""
         return await _run_search_web(
@@ -339,6 +644,12 @@ if __name__ == "__main__":
             limit=limit,
             fetch_content=fetch_content,
             min_confidence=min_confidence,
+            provider=provider,
+            mode=mode,
+            deep=deep,
+            news=news,
+            time_range=time_range,
+            freshness=freshness,
         )
 
     @app.tool()
@@ -365,9 +676,17 @@ if __name__ == "__main__":
         location: str = "",
         top_n: int = 20,
         store: bool = False,
+        validate: bool = False,
+        validate_mode: str = "strict",
     ) -> str:  # noqa: ANN001
         """Get trending topics on X/Twitter for a location (powered by trends24.in)."""
-        return await _run_trending(location=location, top_n=top_n, store=store)
+        return await _run_trending(
+            location=location,
+            top_n=top_n,
+            store=store,
+            validate=validate,
+            validate_mode=validate_mode,
+        )
 
     @app.tool()
     async def doctor() -> str:  # noqa: ANN001
@@ -400,4 +719,14 @@ if __name__ == "__main__":
             indent=2,
         )
 
+
+if __name__ == "__main__":
+    try:
+        from mcp.server.fastmcp import FastMCP
+    except Exception:
+        app: Any = _LocalMCP("datapulse")
+    else:
+        app = FastMCP("datapulse")
+
+    _register_tools(app)
     app.run()

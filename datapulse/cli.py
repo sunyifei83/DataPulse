@@ -64,6 +64,8 @@ def main() -> None:
     parser.add_argument("--query-rss", action="store_true", help="Print RSS feed output")
     parser.add_argument("--query-atom", action="store_true", help="Print Atom 1.0 feed output")
     parser.add_argument("--digest", action="store_true", help="Build curated digest")
+    parser.add_argument("--emit-digest-package", action="store_true", help="Export minimal office-ready digest package")
+    parser.add_argument("--emit-digest-format", default="json", choices=["json", "markdown", "md"], help="Digest package output format")
     parser.add_argument("--top-n", type=int, default=3, help="Number of primary stories in digest")
     parser.add_argument("--secondary-n", type=int, default=7, help="Number of secondary stories in digest")
     parser.add_argument("--list", action="store_true", help="List inbox")
@@ -75,6 +77,12 @@ def main() -> None:
     parser.add_argument("--site", action="append", metavar="DOMAIN", help="Restrict search to domain (repeatable)")
     parser.add_argument("--search-limit", type=int, default=5, help="Max search results (default 5)")
     parser.add_argument("--no-fetch", action="store_true", help="Skip full content fetch for search results")
+    parser.add_argument("--search-provider", default="auto", choices=["auto", "jina", "tavily", "multi"], help="Search provider: auto/jina/tavily/multi")
+    parser.add_argument("--search-mode", default="single", choices=["single", "multi"], help="Search mode: single (fallback) / multi (fused)")
+    parser.add_argument("--search-deep", action="store_true", help="Enable deep search depth (Tavily)")
+    parser.add_argument("--search-news", action="store_true", help="Enable news-only retrieval (Tavily)")
+    parser.add_argument("--search-time-range", choices=["day", "week", "month", "year"], help="Time range filter (Tavily)")
+    parser.add_argument("--search-freshness", choices=["day", "week", "month", "year"], help="Alias for time range filter")
     parser.add_argument(
         "--platform",
         choices=["xhs", "twitter", "reddit", "hackernews", "arxiv", "bilibili"],
@@ -85,6 +93,8 @@ def main() -> None:
                         help="Show trending topics (default: worldwide). Locations: us, uk, jp, etc.")
     parser.add_argument("--trending-limit", type=int, default=20, help="Max trending topics (default 20)")
     parser.add_argument("--trending-store", action="store_true", help="Save trending snapshot to inbox")
+    parser.add_argument("--trending-validate", action="store_true", help="Use cross-validated trending strategy")
+    parser.add_argument("--trending-validate-mode", default="strict", choices=["strict", "news", "lenient"], help="Trending validate mode")
     # Doctor
     parser.add_argument("--doctor", action="store_true", help="Run health checks on all collectors")
     # Jina reader options
@@ -225,12 +235,26 @@ def main() -> None:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
 
+    if args.emit_digest_package:
+        payload = reader.emit_digest_package(
+            profile=args.source_profile,
+            source_ids=_normalize_csv_ids(args.source_ids),
+            top_n=args.top_n,
+            secondary_n=args.secondary_n,
+            min_confidence=args.min_confidence,
+            output_format=args.emit_digest_format,
+        )
+        print(payload)
+        return
+
     if args.trending is not None:
         async def run_trending() -> None:
             result = await reader.trending(
                 location=args.trending,
                 top_n=args.trending_limit,
                 store=args.trending_store,
+                validate=args.trending_validate,
+                validate_mode=args.trending_validate_mode,
             )
             if not result["trends"]:
                 print("No trending data found")
@@ -256,6 +280,12 @@ def main() -> None:
                 limit=args.search_limit,
                 fetch_content=not args.no_fetch,
                 min_confidence=args.min_confidence,
+                provider=args.search_provider,
+                mode=args.search_mode,
+                deep=args.search_deep,
+                news=args.search_news,
+                time_range=args.search_time_range,
+                freshness=args.search_freshness,
             )
             if not results:
                 print("No search results above confidence threshold")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 from datetime import datetime
@@ -10,8 +11,8 @@ from typing import Any
 
 from datapulse.collectors.trending import TrendingCollector, build_trending_url
 from datapulse.core.confidence import compute_confidence
-from datapulse.core.jina_client import JinaAPIClient, JinaSearchOptions
 from datapulse.core.models import DataPulseItem, SourceType
+from datapulse.core.search_gateway import SearchGateway
 from datapulse.core.router import ParsePipeline
 from datapulse.core.scoring import rank_items
 from datapulse.core.source_catalog import SourceCatalog
@@ -37,7 +38,7 @@ class DataPulseReader:
         self.router = ParsePipeline()
         self.inbox = UnifiedInbox(inbox_path or inbox_path_from_env())
         self.catalog = SourceCatalog()
-        self._jina_client = JinaAPIClient()
+        self._search_gateway = SearchGateway()
 
     async def read(self, url: str, *, min_confidence: float = 0.0) -> DataPulseItem:
         return await asyncio.to_thread(self._read_sync, url, min_confidence)
@@ -106,22 +107,56 @@ class DataPulseReader:
         limit: int = 5,
         fetch_content: bool = True,
         min_confidence: float = 0.0,
+        provider: str = "auto",
+        mode: str = "single",
+        deep: bool = False,
+        news: bool = False,
+        time_range: str | None = None,
+        freshness: str | None = None,
     ) -> list[DataPulseItem]:
-        """Search the web via Jina and return scored DataPulseItems."""
+        """Search the web via Jina/Tavily and return scored DataPulseItems."""
+        effective_mode = "multi" if provider == "multi" else mode
         merged_sites = list(sites or [])
         if platform and platform in PLATFORM_SEARCH_SITES:
             for domain in PLATFORM_SEARCH_SITES[platform]:
                 if domain not in merged_sites:
                     merged_sites.append(domain)
-        opts = JinaSearchOptions(sites=merged_sites, limit=limit)
-        search_results = self._jina_client.search(query, options=opts)
 
-        if not search_results:
+        # Provider-level orchestration (single provider + fallback, or multi-source fusion).
+        requested_time_range = time_range or freshness
+        search_hits, search_audit = self._search_gateway.search(
+            query,
+            sites=merged_sites,
+            limit=limit,
+            provider=provider,
+            mode=effective_mode,
+            deep=deep,
+            news=news,
+            time_range=requested_time_range,
+        )
+
+        if not search_hits:
             return []
 
         items: list[DataPulseItem] = []
-        for sr in search_results:
+        for sr in search_hits:
             item: DataPulseItem | None = None
+            hit_sources = sr.extra.get("sources", [sr.provider])
+            hit_sources = list(dict.fromkeys(hit_sources)) if hit_sources else [sr.provider]
+            hit_source_count = len(hit_sources)
+            cross_validation = sr.extra.get("cross_validation", {})
+            cross_validated = bool(
+                isinstance(cross_validation, dict)
+                and cross_validation.get("is_cross_validated")
+            )
+
+            # Tag and confidence bias for multi-source supported snippets.
+            parser_name = "jina_search" if sr.provider == "jina" else "tavily_search" if sr.provider == "tavily" else "search_result"
+            extra_flags = ["search_result", parser_name]
+            if hit_source_count >= 2:
+                extra_flags.append("multi_source")
+            if cross_validated:
+                extra_flags.append("cross_validated")
 
             if fetch_content and sr.url:
                 try:
@@ -133,39 +168,72 @@ class DataPulseReader:
 
             if item is None:
                 # Build item directly from search snippet
-                content = sr.content or sr.description
+                content = sr.snippet
                 lang = normalize_language(f"{sr.title} {content}")
                 confidence, reasons = compute_confidence(
-                    "jina_search",
+                    parser_name,
                     has_title=bool(sr.title),
                     content_length=len(content),
                     has_source=True,
                     has_author=False,
-                    extra_flags=["search_result"],
+                    extra_flags=extra_flags,
                 )
                 snippet_source_type = SourceType.XHS if platform == "xhs" else SourceType.GENERIC
-                snippet_tags = ["jina_search", snippet_source_type.value]
+                snippet_tags = [parser_name, snippet_source_type.value]
                 if platform == "xhs":
                     snippet_tags.append("xhs_search")
+                snippet_tags.append(sr.provider)
+                if hit_source_count >= 2:
+                    snippet_tags.append("multi_source")
+                if cross_validated:
+                    snippet_tags.append("cross_validated")
                 item = DataPulseItem(
                     source_type=snippet_source_type,
-                    source_name="jina_search",
+                    source_name=sr.source,
                     title=(sr.title or "Untitled").strip()[:300],
                     content=content,
                     url=sr.url,
-                    parser="jina_search",
+                    parser=parser_name,
                     confidence=confidence,
                     confidence_factors=reasons,
                     language=lang,
                     tags=snippet_tags,
-                    extra={"search_query": query, "search_description": sr.description},
+                    extra={
+                        "search_query": query,
+                        "search_provider": provider,
+                        "search_mode": effective_mode,
+                        "search_audit": search_audit,
+                        "search_sources": hit_sources,
+                        "search_source_count": hit_source_count,
+                        "search_raw": sr.raw,
+                        "search_consistency": cross_validation,
+                        "search_cross_validation": cross_validation,
+                        "search_description": "",
+                    },
                     score=0,
                 )
 
             # Ensure search metadata is present
             item.extra["search_query"] = query
+            item.extra["search_provider"] = provider
+            item.extra["search_mode"] = effective_mode
+            item.extra["search_audit"] = search_audit
+            item.extra["search_sources"] = hit_sources
+            item.extra["search_source_count"] = hit_source_count
+            item.extra["search_consistency"] = cross_validation
+            item.extra["search_cross_validation"] = cross_validation
+            item.extra["search_source_diversity"] = sr.extra.get("source_diversity", 0.0)
             if "jina_search" not in item.tags:
                 item.tags.append("jina_search")
+            if parser_name not in item.tags:
+                item.tags.append(parser_name)
+            if "search" not in item.tags:
+                item.tags.append("search")
+            if effective_mode == "multi" or hit_source_count >= 2:
+                if "multi_source" not in item.tags:
+                    item.tags.append("multi_source")
+            if cross_validated and "cross_validated" not in item.tags:
+                item.tags.append("cross_validated")
 
             if min_confidence and item.confidence < min_confidence:
                 continue
@@ -190,6 +258,8 @@ class DataPulseReader:
         location: str = "",
         top_n: int = 20,
         store: bool = False,
+        validate: bool | None = None,
+        validate_mode: str = "strict",
     ) -> dict[str, Any]:
         """Fetch trending topics from trends24.in.
 
@@ -229,6 +299,20 @@ class DataPulseReader:
             "trends": trends_out,
         }
 
+        if validate is None:
+            validate = os.getenv("DATAPULSE_TRENDING_CROSS_VALIDATE", "0").strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+        if validate and result["trends"]:
+            result["trends"] = await self._validate_trending_topics(
+                result["trends"],
+                query_mode=validate_mode,
+            )
+            result["trend_count"] = len(result["trends"])
+
         if store:
             url = build_trending_url(location)
             parse_result = collector.parse(url)
@@ -239,6 +323,181 @@ class DataPulseReader:
                 result["stored_item_id"] = item.id
 
         return result
+
+    async def _validate_trending_topics(
+        self,
+        trends: list[dict[str, Any]],
+        *,
+        query_mode: str = "strict",
+    ) -> list[dict[str, Any]]:
+        concurrency = max(1, int(os.getenv("DATAPULSE_TRENDING_VALIDATE_CONCURRENCY", "4")))
+        sem = asyncio.Semaphore(concurrency)
+
+        async def _check(topic: str) -> dict[str, Any]:
+            async with sem:
+                def _sync_search() -> tuple[list[Any], dict[str, Any]]:
+                    return self._search_gateway.search(
+                        topic,
+                        limit=3,
+                        provider="tavily",
+                        mode="single",
+                        news=query_mode == "news",
+                        time_range="day" if query_mode == "news" else None,
+                    )
+
+                hits, audit = await asyncio.to_thread(_sync_search)
+                is_validated = False
+                source_count = 0
+                consistency: dict[str, Any] = {}
+                search_provider = "tavily"
+                validation_level = "unvalidated"
+
+                if hits:
+                    top_hit = hits[0]
+                    providers = top_hit.extra.get("providers", [])
+                    if not providers and isinstance(top_hit.extra.get("cross_validation"), dict):
+                        providers = top_hit.extra["cross_validation"].get("providers", [])
+                    source_count = len(set(providers or [top_hit.provider]))
+                    consistency = top_hit.extra.get("cross_validation", {})
+                    is_cross_validated = bool(
+                        isinstance(consistency, dict)
+                        and consistency.get("is_cross_validated", False)
+                    )
+                    if is_cross_validated:
+                        search_provider = "multi"
+                    if query_mode == "strict":
+                        is_validated = is_cross_validated
+                        validation_level = "strict_validated" if is_validated else "strict_rejected"
+                    elif query_mode == "news":
+                        is_validated = source_count >= 1
+                        validation_level = "news_validated" if is_validated else "news_rejected"
+                    else:
+                        is_validated = source_count >= 1
+                        validation_level = "lenient_validated" if is_validated else "lenient_rejected"
+                return {
+                    "search_consistency": consistency,
+                    "search_source_count": source_count,
+                    "is_validated": is_validated,
+                    "validation_mode": query_mode,
+                    "validation_level": validation_level,
+                    "search_provider": search_provider,
+                    "search_audit": audit,
+                }
+
+        check_tasks = [(_check(item["name"]), item) for item in trends if item.get("name")]
+        if not check_tasks:
+            return []
+
+        check_results = await asyncio.gather(*[t[0] for t in check_tasks])
+
+        validated_topics: list[dict[str, Any]] = []
+        for report, (_, topic) in zip(check_results, check_tasks):
+            merged = dict(topic)
+            merged.update(report)
+            if report.get("is_validated"):
+                validated_topics.append(merged)
+        return validated_topics
+
+    def emit_digest_package(
+        self,
+        *,
+        profile: str = "default",
+        source_ids: list[str] | None = None,
+        top_n: int = 3,
+        secondary_n: int = 7,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+        output_format: str = "json",
+    ) -> str:
+        """Build read-only digest package for downstream automation (no side effects)."""
+        payload = self.build_digest(
+            profile=profile,
+            source_ids=source_ids,
+            top_n=top_n,
+            secondary_n=secondary_n,
+            min_confidence=min_confidence,
+            since=since,
+        )
+
+        all_items = payload.get("primary", []) + payload.get("secondary", [])
+        sources: dict[str, int] = {}
+        timeline: list[dict[str, Any]] = []
+        recommendations: list[str] = []
+        todos: list[str] = []
+        high_confidence_hits = 0
+
+        for item in all_items:
+            source_name = item.get("source_name") or "unknown"
+            sources[source_name] = sources.get(source_name, 0) + 1
+            timeline.append(
+                {
+                    "time": item.get("date_published", item.get("fetched_at", "")),
+                    "title": item.get("title", ""),
+                    "source": source_name,
+                    "url": item.get("url", ""),
+                }
+            )
+            if (item.get("score", 0) or 0) >= 60:
+                recommendations.append(
+                    f"优先复核高置信内容: {item.get('title', '')} ({source_name})"
+                )
+                high_confidence_hits += 1
+            else:
+                todos.append(f"需补充来源/验证: {item.get('title', '')} ({source_name})")
+
+        package = {
+            "summary": {
+                "title": f"DataPulse Digest Package | {profile}",
+                "generated_at": datetime.utcnow().isoformat() + "Z",
+                "high_confidence_count": high_confidence_hits,
+                "item_count": len(all_items),
+                "stats": payload.get("stats", {}),
+            },
+            "sources": [
+                {"source_name": name, "count": count}
+                for name, count in sorted(sources.items(), key=lambda kv: kv[0])
+            ],
+            "recommendations": recommendations,
+            "timeline": sorted(timeline, key=lambda x: x.get("time", ""), reverse=True),
+            "todos": todos,
+            "digest_payload": payload,
+        }
+
+        if output_format.lower() == "md" or output_format.lower() == "markdown":
+            lines = [
+                "# DataPulse Digest Package",
+                f"- **生成时间**: {package['summary']['generated_at']}",
+                f"- **高置信条目**: {package['summary']['high_confidence_count']}",
+                f"- **总条目**: {package['summary']['item_count']}",
+                "",
+                "## 摘要",
+                package["summary"]["title"],
+                "",
+                "## 来源",
+            ]
+            for source in package["sources"]:
+                lines.append(f"- {source['source_name']}: {source['count']}")
+            lines.extend([
+                "",
+                "## 建议行动",
+            ])
+            for item in package["recommendations"]:
+                lines.append(f"- {item}")
+            lines.extend([
+                "",
+                "## 待办",
+            ])
+            for item in package["todos"]:
+                lines.append(f"- {item}")
+            lines.extend([
+                "",
+                "## 时序",
+            ])
+            for event in package["timeline"]:
+                lines.append(f"- [{event.get('time','')}]{event.get('title','')}")
+            return "\n".join(lines)
+
+        return json.dumps(package, ensure_ascii=False, indent=2)
 
     def _to_item(self, parse_result, parser_name: str) -> DataPulseItem:
         source_type = parse_result.source_type or SourceType.GENERIC

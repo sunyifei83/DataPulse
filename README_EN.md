@@ -58,7 +58,8 @@ pip install -e ".[all]"   # enable all optional capabilities
 
 Optional groups:
 
-- `.[trafilatura]`, `.[youtube]`, `.[telegram]`, `.[browser]`, `.[mcp]`, `.[notebooklm]`
+- `.[trafilatura]`, `.[youtube]`, `.[telegram]`, `.[browser]`, `.[mcp]`, `.[notebooklm]`  
+  Note: `.[mcp]` enables native MCP transport; when missing, `python -m datapulse.mcp_server` falls back to an internal stdio-compatible runtime.
 
 ## Development
 
@@ -142,10 +143,12 @@ Smoke env vars:
 
 ## MCP / Skill / Agent usage
 
-- MCP server:
+- MCP server (`.[mcp]` optional, fallback to built-in stdio when missing):
 
 ```bash
 python -m datapulse.mcp_server
+python -m datapulse.mcp_server --list-tools
+python -m datapulse.mcp_server --call health
 ```
 
 24 tools available:
@@ -222,6 +225,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_MIN_CONFIDENCE`
 - `DATAPULSE_SESSION_TTL_HOURS` (default 12 — session cache TTL in hours)
 - `JINA_API_KEY` (Jina API Key for enhanced reading and web search)
+- `TAVILY_API_KEY` (Tavily API Key for web search)
 
 ## Functional validation guide
 

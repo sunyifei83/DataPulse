@@ -57,7 +57,8 @@ pip install -e ".[all]"   # 启用全部可选能力
 
 可选安装组：
 
-- `.[trafilatura]`、`.[youtube]`、`.[telegram]`、`.[browser]`、`.[mcp]`、`.[notebooklm]`
+- `.[trafilatura]`、`.[youtube]`、`.[telegram]`、`.[browser]`、`.[mcp]`、`.[notebooklm]`  
+  说明：`.[mcp]` 为原生 MCP 能力；未安装时，`python -m datapulse.mcp_server` 自动切到本地 fallback。
 
 ## 开发环境
 
@@ -141,10 +142,12 @@ datapulse-smoke --min-confidence 0.45
 
 ## MCP / Skill / Agent
 
-- MCP 服务端（需 `.[mcp]`）：
+- MCP 服务端（`.[mcp]` 可选）：
 
 ```bash
 python -m datapulse.mcp_server
+python -m datapulse.mcp_server --list-tools
+python -m datapulse.mcp_server --call health
 ```
 
 24 个可用工具：
@@ -221,6 +224,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_MIN_CONFIDENCE`
 - `DATAPULSE_SESSION_TTL_HOURS`（默认 12 — session 缓存 TTL 小时数）
 - `JINA_API_KEY`（Jina 增强读取 + Web 搜索 API Key）
+- `TAVILY_API_KEY`（Tavily 搜索 API Key）
 
 ## 测试与功能使用建议
 

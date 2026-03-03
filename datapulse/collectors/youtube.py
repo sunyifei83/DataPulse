@@ -12,6 +12,7 @@ import requests
 
 from datapulse.core.models import MediaType, SourceType
 from datapulse.core.utils import clean_text, generate_excerpt
+from datapulse.core.security import has_secret, get_secret
 
 from .base import BaseCollector, ParseResult
 
@@ -33,7 +34,7 @@ class YouTubeCollector(BaseCollector):
             has_transcript = True
         except ImportError:
             has_transcript = False
-        has_groq = bool(os.getenv("GROQ_API_KEY", "").strip())
+        has_groq = has_secret("GROQ_API_KEY")
         if not has_transcript and not has_groq:
             return {"status": "warn", "message": "youtube-transcript-api missing and no GROQ_API_KEY", "available": False}
         parts = []
@@ -210,7 +211,7 @@ class YouTubeCollector(BaseCollector):
             return "", ""
 
     def _fallback_whisper(self, url: str) -> str:
-        api_key = os.getenv("GROQ_API_KEY", "").strip()
+        api_key = get_secret("GROQ_API_KEY")
         if not api_key:
             return ""
 

@@ -8,6 +8,7 @@ from datapulse.core.jina_client import JinaAPIClient, JinaReadOptions
 from datapulse.core.models import SourceType
 from datapulse.core.retry import CircuitBreakerOpen
 from datapulse.core.utils import clean_text
+from datapulse.core.security import has_secret
 
 from .base import BaseCollector, ParseResult
 
@@ -20,8 +21,7 @@ class JinaCollector(BaseCollector):
     setup_hint = "Set JINA_API_KEY for higher rate limits"
 
     def check(self) -> dict[str, str | bool]:
-        import os
-        if os.getenv("JINA_API_KEY", "").strip():
+        if has_secret("JINA_API_KEY"):
             return {"status": "ok", "message": "JINA_API_KEY set", "available": True}
         return {"status": "warn", "message": "JINA_API_KEY not set (anonymous rate limits apply)", "available": True}
 

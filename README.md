@@ -62,7 +62,8 @@ pip install -e ".[all]"   # 启用全部可选能力
 
 可选分组：
 
-- `.[trafilatura]`、`.[youtube]`、`.[telegram]`、`.[browser]`、`.[mcp]`、`.[notebooklm]`
+- `.[trafilatura]`、`.[youtube]`、`.[telegram]`、`.[browser]`、`.[mcp]`、`.[notebooklm]`  
+  注：`.[mcp]` 为原生 MCP 运行支持；若未安装该额外依赖，`python -m datapulse.mcp_server` 会自动退化为内置 stdio fallback（支持 `--list-tools` / `--call`）。
 
 ## 开发环境
 
@@ -146,10 +147,12 @@ datapulse-smoke --min-confidence 0.45
 
 ## MCP / Skill / Agent 使用
 
-- MCP 服务端（需安装 `.[mcp]`）：
+- MCP 服务端（`.[mcp]` 可选，未安装时自动切入内置 fallback）：
 
 ```bash
 python -m datapulse.mcp_server
+python -m datapulse.mcp_server --list-tools
+python -m datapulse.mcp_server --call health
 ```
 
 暴露 24 个工具：
@@ -227,6 +230,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_MIN_CONFIDENCE`
 - `DATAPULSE_SESSION_TTL_HOURS`（默认 12，Session 缓存 TTL 小时数）
 - `JINA_API_KEY`（Jina 增强读取 + Web 搜索 API Key）
+- `TAVILY_API_KEY`（Tavily 搜索 API Key）
 
 ## 使用建议（openclaw-bot 场景）
 
@@ -415,10 +419,12 @@ Smoke env vars:
 
 ## MCP / Skill / Agent
 
-- MCP server (install with `.[mcp]`):
+- MCP server (`.[mcp]` optional, fallback to built-in stdio when missing):
 
 ```bash
 python -m datapulse.mcp_server
+python -m datapulse.mcp_server --list-tools
+python -m datapulse.mcp_server --call health
 ```
 
 24 exposed tools:
@@ -496,6 +502,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_MIN_CONFIDENCE`
 - `DATAPULSE_SESSION_TTL_HOURS` (default 12 — session cache TTL in hours)
 - `JINA_API_KEY` (Jina API key for enhanced reading and web search)
+- `TAVILY_API_KEY` (Tavily API key for web search)
 
 ## Recommended usage for bot/agent stacks
 

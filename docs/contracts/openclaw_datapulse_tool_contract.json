@@ -35,6 +35,10 @@
   "mcp": {
     "command": "python -m datapulse.mcp_server",
     "transport": "stdio",
+    "fallback": {
+      "enabled": true,
+      "notes": "If the optional `mcp` package is unavailable, DataPulse falls back to an internal stdio-compatible runtime supporting tools/list and tools/call."
+    },
     "tools": [
       {
         "name": "read_url",
@@ -187,10 +191,16 @@
       },
       {
         "name": "search_web",
-        "description": "Search the web via Jina and return scored, LLM-friendly results.",
+        "description": "Search the web via multi-source gateway (Jina/Tavily) and return scored, LLM-friendly results.",
         "parameters": {
           "query": "string (required)",
           "sites": "array[string] (optional, restrict to domains)",
+          "provider": "string = auto|jina|tavily|multi (default auto)",
+          "mode": "string = single|multi (default single)",
+          "deep": "bool (default false)",
+          "news": "bool (default false)",
+          "time_range": "string = day|week|month|year (optional)",
+          "freshness": "string = day|week|month|year (optional)",
           "limit": "int (default 5)",
           "fetch_content": "bool (default true)",
           "min_confidence": "float (default 0.0)"
@@ -214,7 +224,22 @@
         "parameters": {
           "location": "string (default empty = worldwide, supports aliases: us, uk, jp, etc.)",
           "top_n": "int (default 20)",
-          "store": "bool (default false, opt-in inbox persistence)"
+          "store": "bool (default false, opt-in inbox persistence)",
+          "validate": "bool (default false, cross-validated query mode)",
+          "validate_mode": "string = strict|news|lenient (default strict)"
+        }
+      },
+      {
+        "name": "emit_digest_package",
+        "description": "Export digest package with office-ready fields: summary, sources, recommendations, timeline, todos. Read-only payload, no side effects.",
+        "parameters": {
+          "profile": "string = default",
+          "source_ids": "array[string] (optional)",
+          "top_n": "int (default 3)",
+          "secondary_n": "int (default 7)",
+          "min_confidence": "float (default 0.0)",
+          "since": "string (optional)",
+          "output_format": "string = json|markdown|md (default json)"
         }
       },
       {

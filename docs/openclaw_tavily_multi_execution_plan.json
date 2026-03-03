@@ -1,0 +1,459 @@
+{
+  "plan_id": "datapulse-openclaw-tavily-multi-2026-03-03",
+  "generated_at": "2026-03-03T00:00:00Z",
+  "scope": "DataPulse OpenClaw 接入补强（Tavily + Multi Search 为主）",
+  "status": "in_progress",
+  "milestones": [
+    {
+      "id": "phase_1",
+      "name": "Provider 抽象与检索执行层",
+      "priority": 1,
+      "tasks": [
+        {
+          "id": "p1.search_gateway",
+          "name": "search provider 抽象（auto/jina/tavily/multi）",
+          "status": "done",
+          "artifacts": [
+            "datapulse/core/search_gateway.py"
+          ]
+        },
+        {
+          "id": "p1.tavily_adapter",
+          "name": "Tavily 查询适配器（deep/news/freshness/time_range）",
+          "status": "done",
+          "artifacts": [
+            "datapulse/core/search_gateway.py",
+            "datapulse/mcp_server.py",
+            "datapulse/cli.py",
+            "datapulse/reader.py"
+          ]
+        },
+        {
+          "id": "p1.multi_aggregation",
+          "name": "multi 模式并发聚合与统一 schema（title/url/summary/source/score）",
+          "status": "done",
+          "artifacts": [
+            "datapulse/core/search_gateway.py",
+            "datapulse/reader.py"
+          ]
+        },
+        {
+          "id": "p1.cross_validation_annotations",
+          "name": "多源一致性（cross_validation）注入与来源聚合",
+          "status": "done",
+          "artifacts": [
+            "datapulse/core/search_gateway.py",
+            "datapulse/reader.py",
+            "datapulse/core/scoring.py"
+          ]
+        },
+        {
+          "id": "p1.fallback_and_retry",
+          "name": "多层失败降级与超时/熔断/重试",
+          "status": "done",
+          "artifacts": [
+            "datapulse/core/search_gateway.py"
+          ]
+        },
+        {
+          "id": "p1.mcp_cli_params",
+          "name": "MCP/CLI 新增 provider/mode/deep/news/time_range/freshness 参数",
+          "status": "done",
+          "artifacts": [
+            "datapulse/mcp_server.py",
+            "datapulse/cli.py",
+            "docs/contracts/openclaw_datapulse_tool_contract.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase_2",
+      "name": "可信度与趋势验证增强",
+      "priority": 2,
+      "tasks": [
+        {
+          "id": "p2.scoring_dims",
+          "name": "评分维度加入 source_diversity/cross_validation/recency_bonus",
+          "status": "done",
+          "artifacts": [
+            "datapulse/core/scoring.py"
+          ]
+        },
+        {
+          "id": "p2.search_audit",
+          "name": "search_audit 元信息与采样审计链路",
+          "status": "done",
+          "artifacts": [
+            "datapulse/core/search_gateway.py",
+            "datapulse/reader.py"
+          ]
+        },
+        {
+          "id": "p2.trending_cross_validate",
+          "name": "Trending 高置信策略（validate=true 时按多源标记筛选）",
+          "status": "done",
+          "artifacts": [
+            "datapulse/reader.py",
+            "datapulse/mcp_server.py",
+            "datapulse/cli.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase_3",
+      "name": "Office-Automation 最小落地",
+      "priority": 3,
+      "tasks": [
+        {
+          "id": "p3.digest_package",
+          "name": "emit_digest_package 工具与标准字段输出",
+          "status": "done",
+          "artifacts": [
+            "datapulse/reader.py",
+            "datapulse/mcp_server.py",
+            "docs/contracts/openclaw_datapulse_tool_contract.json"
+          ]
+        },
+        {
+          "id": "p3.auto_exec_boundary",
+          "name": "明确只输出不执行的边界声明",
+          "status": "done",
+          "artifacts": [
+            "datapulse/reader.py",
+            "datapulse/mcp_server.py",
+            "docs/contracts/openclaw_datapulse_tool_contract.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase_4",
+      "name": "安全配置与 MCP 本地兜底能力对齐",
+      "priority": 4,
+      "tasks": [
+        {
+          "id": "p4.secret_config",
+          "name": "统一 API Key 获取与脱敏辅助函数（JINA/TAVILY/FIRECRAWL/GROQ）",
+          "status": "done",
+          "artifacts": [
+            "datapulse/core/security.py",
+            "datapulse/core/jina_client.py",
+            "datapulse/core/search_gateway.py",
+            "datapulse/collectors/generic.py",
+            "datapulse/collectors/jina.py",
+            "datapulse/collectors/youtube.py"
+          ]
+        },
+        {
+          "id": "p4.mcp_fallback_protocol",
+          "name": "增强本地 MCP fallback 的 stdio 协议兼容（batch、-32600/-32601、shutdown、通知忽略）",
+          "status": "done",
+          "artifacts": [
+            "datapulse/mcp_server.py"
+          ]
+        },
+        {
+          "id": "p4.docs_sync",
+          "name": "同步 MCP 运行说明与安全/可执行文档（README 与 OpenClaw 合约）",
+          "status": "done",
+          "artifacts": [
+            "README.md",
+            "README_CN.md",
+            "README_EN.md",
+            "docs/contracts/openclaw_datapulse_tool_contract.json",
+            "/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/DataPulse_OpenClaw_Skill补强计划_Tavily+Multi为主.md",
+            "docs/openclaw_tavily_multi_execution_plan.json"
+          ]
+        }
+      ]
+    }
+  ],
+  "execution_queue": [
+    {
+      "id": "x1",
+      "command": "python3 -m datapulse.cli --search \"DataPulse\" --search-provider tavily --search-limit 5 --search-time-range day",
+      "description": "快速验证 Tavily 查询与 time_range/freshness 映射",
+      "depends_on": [
+        "p1.tavily_adapter"
+      ],
+      "expected": "search_web 返回包含 search_audit 与 search_sources 的结果列表"
+    },
+    {
+      "id": "x2",
+      "command": "python3 -m datapulse.mcp_server --help",
+      "description": "确认 MCP 工具参数包含 freshness/search/trending validate_mode",
+      "depends_on": [
+        "p1.mcp_cli_params",
+        "p2.trending_cross_validate"
+      ],
+      "expected": "search_web/tool/ trending 工具签名存在"
+    },
+    {
+      "id": "x3",
+      "command": "python3 -m datapulse.cli --trending us --trending-limit 10 --trending-validate --trending-validate-mode strict",
+      "description": "执行趋势交叉验证筛选链路（严格模式）",
+      "depends_on": [
+        "p2.trending_cross_validate"
+      ],
+      "expected": "返回趋势条目并过滤为 is_validated=true 的趋势"
+    },
+    {
+      "id": "x4",
+      "command": "python3 -m datapulse.cli --emit-digest-package --emit-digest-format json --top-n 3 --secondary-n 7",
+      "description": "校验 Office-Automation 可消费包结构",
+      "depends_on": [
+        "p3.digest_package"
+      ],
+      "expected": "JSON 输出含 summary/sources/recommendations/timeline/todos"
+    },
+    {
+      "id": "x5",
+      "command": "python3 -m datapulse.tools.smoke --list",
+      "description": "（可选）执行仓内烟雾测试脚本（若支持）验证回退链路",
+      "depends_on": [
+        "p1.fallback_and_retry",
+        "p2.scoring_dims"
+      ],
+      "expected": "脚本可正常列出测试场景；后续按本地环境补充 online 场景"
+    }
+  ]
+  ,
+  "execution_runs": [
+    {
+      "run_id": "run-2026-03-03T17:24:55Z",
+      "commands": [
+        {
+          "id": "x4",
+          "command": "python3 -m datapulse.cli --emit-digest-package --emit-digest-format json --top-n 1 --secondary-n 1",
+          "status": "passed",
+          "stdout_summary": "成功返回 summary/sources/recommendations/timeline/todos 与 digest_payload",
+          "notes": "基于本地 inbox 构建成功"
+        },
+        {
+          "id": "x1",
+          "command": "python3 -m datapulse.cli --search \"DataPulse\" --search-provider tavily --search-limit 1",
+          "status": "blocked",
+          "stdout_summary": "Provider tavily failed: Tavily API key not configured / Jina API key not configured",
+          "notes": "No search results above confidence threshold"
+        },
+        {
+          "id": "x3",
+          "command": "python3 -m datapulse.cli --trending us --trending-limit 1 --trending-validate --trending-validate-mode strict",
+          "status": "degraded",
+          "stdout_summary": "No trending data found",
+          "notes": "联网趋势源返回为空或不可达；需验证环境"
+        }
+      ]
+    },
+    {
+      "run_id": "run-2026-03-03T17:25:23Z",
+      "commands": [
+        {
+          "id": "x2",
+          "command": "python3 - <<'PY'\nimport inspect\nimport datapulse.mcp_server as m\nprint('run_search_web sig:', inspect.signature(m._run_search_web))\nprint('run_trending sig:', inspect.signature(m._run_trending))\nprint('run_emit_digest sig:', inspect.signature(m._run_emit_digest_package))\nPY",
+          "status": "passed",
+          "stdout_summary": "搜索/趋势/MCP helper 签名已包含时间和验证参数(time_range/freshness, validate/validate_mode)",
+          "notes": "通过 inspect signature 方式确认，未依赖 CLI --help"
+        },
+        {
+          "id": "x1",
+          "command": "python3 - <<'PY'\nimport os\nos.environ['TAVILY_API_KEY'] = 'invalid'\nos.environ['JINA_API_KEY'] = 'invalid'\nfrom datapulse.reader import DataPulseReader\nimport asyncio\n\nasync def main():\n    reader = DataPulseReader()\n    items = await reader.search('DataPulse', limit=1, provider='multi', mode='multi', deep=False, news=False)\n    print('items', len(items))\n    if items:\n        i = items[0]\n        print('first', i.title)\n        print('audit', i.extra.get('search_audit'))\n        print('sources', i.extra.get('search_sources'))\n        print('cross', i.extra.get('search_cross_validation'))\n\nasyncio.run(main())\nPY",
+          "status": "failed",
+          "stdout_summary": "tavily key invalid, jina key invalid -> items 0",
+          "notes": "fallback 机制触发但无可用 provider"
+        },
+        {
+          "id": "x4",
+          "command": "python3 -m datapulse.cli --trending --trending-limit 5",
+          "status": "passed",
+          "stdout_summary": "返回 worldwide 主题（如 YouTube Trending Videos）",
+          "notes": "趋势源可达；未启用 validate 时能返回基础列表"
+        },
+        {
+          "id": "x3",
+          "command": "python3 -m datapulse.cli --search \"DataPulse\" --search-provider auto --search-freshness day --search-limit 1",
+          "status": "blocked",
+          "stdout_summary": "Provider tavily/jina 未配置 key",
+          "notes": "与搜索失败链路一致"
+        },
+        {
+          "id": "x3b",
+          "command": "python3 -m datapulse.cli --trending --trending-limit 5 --trending-validate --trending-validate-mode lenient",
+          "status": "degraded",
+          "stdout_summary": "No trending data found",
+          "notes": "缺省 no key 下，验证过滤返回空"
+        },
+        {
+          "id": "x3c",
+          "command": "python3 -m datapulse.cli --trending --trending-limit 5 --trending-validate --trending-validate-mode strict",
+          "status": "degraded",
+          "stdout_summary": "No trending data found",
+          "notes": "缺省 no key 下，验证过滤返回空"
+        }
+      ]
+    },
+    {
+      "run_id": "run-2026-03-03T17:38:00Z",
+      "commands": [
+        {
+          "id": "x1",
+          "command": "python3 -m datapulse.cli --search \"DataPulse\" --search-provider multi --search-limit 3 --search-time-range day",
+          "status": "passed",
+          "stdout_summary": "返回3条搜索结果（含 score/confidence/url/sample）",
+          "notes": "环境变量注入后可返回结果；Jina 出现 read timeout 并已回退"
+        },
+        {
+          "id": "x1b",
+          "command": "python3 -m datapulse.cli --search \"DataPulse\" --search-provider tavily --search-limit 3 --search-time-range day",
+          "status": "passed",
+          "stdout_summary": "返回3条搜索结果",
+          "notes": "tavily 路径可用"
+        },
+        {
+          "id": "x1c",
+          "command": "python3 -m datapulse.cli --search \"DataPulse\" --search-provider multi --search-limit 5 --search-mode multi --search-time-range day",
+          "status": "passed",
+          "stdout_summary": "返回5条结果（含社媒/博客来源）",
+          "notes": "multi 模式聚合+去重生效"
+        },
+        {
+          "id": "x4",
+          "command": "python3 -m datapulse.cli --trending us --trending-limit 10",
+          "status": "passed",
+          "stdout_summary": "返回基线趋势（如 YouTube Trending Videos）",
+          "notes": "趋势源本身可达"
+        },
+        {
+          "id": "x3",
+          "command": "python3 -m datapulse.cli --trending us --trending-limit 10 --trending-validate --trending-validate-mode strict",
+          "status": "degraded",
+          "stdout_summary": "No trending data found",
+          "notes": "strict 模式下 cross-validated 过滤后结果为空（可能来源质量不足）"
+        },
+        {
+          "id": "x3b",
+          "command": "python3 -m datapulse.cli --trending us --trending-limit 10 --trending-validate --trending-validate-mode lenient",
+          "status": "degraded",
+          "stdout_summary": "No trending data found",
+          "notes": "lenient 模式下仍为空，需优化趋势搜索验证阈值/超时"
+        }
+      ]
+    },
+    {
+      "run_id": "run-2026-03-03T17:39:00Z",
+      "commands": [
+        {
+          "id": "x3-timeout",
+          "command": "DATAPULSE_SEARCH_TIMEOUT=8 python3 -m datapulse.cli --trending us --trending-limit 5 --trending-validate --trending-validate-mode strict",
+          "status": "degraded",
+          "stdout_summary": "No trending data found",
+          "notes": "即使将搜索超时放宽到8秒，Jina 仍 read timed out；多源验证仍无可用项"
+        }
+      ]
+    },
+    {
+      "run_id": "run-2026-03-03T17:44:00Z",
+      "commands": [
+        {
+          "id": "x1",
+          "command": "TAVILY_API_KEY=<injected> JINA_API_KEY=<injected> python3 -m datapulse.cli --search \"DataPulse\" --search-provider tavily --search-limit 5 --search-time-range day",
+          "status": "passed",
+          "stdout_summary": "Found 5 result(s) for: DataPulse",
+          "notes": "注入 Jina/Tavily key 后 tavily 路径返回 5 条搜索结果（含 confidence/score/sample）"
+        },
+        {
+          "id": "x2",
+          "command": "TAVILY_API_KEY=<injected> JINA_API_KEY=<injected> python3 -m datapulse.mcp_server --help",
+          "status": "blocked",
+          "stdout_summary": "MCP dependency is required. Install with: pip install -e '.[mcp]'",
+          "notes": "No module named 'mcp'，需补齐 mcp 运行时依赖后再执行 x2 形式校验"
+        },
+        {
+          "id": "x3",
+          "command": "TAVILY_API_KEY=<injected> JINA_API_KEY=<injected> python3 -m datapulse.cli --trending us --trending-limit 10 --trending-validate --trending-validate-mode strict",
+          "status": "degraded",
+          "stdout_summary": "No trending data found",
+          "notes": "strict 模式下仍无可用交叉验证结果；与上次 run 一致"
+        }
+      ]
+    },
+    {
+      "run_id": "run-2026-03-03T17:45:10Z",
+      "commands": [
+        {
+          "id": "x4",
+          "command": "python3 -m datapulse.cli --emit-digest-package --emit-digest-format json --top-n 3 --secondary-n 7",
+          "status": "passed",
+          "stdout_summary": "成功返回 summary/sources/recommendations/timeline/todos 与 digest_payload",
+          "notes": "摘要项 2 条，selected_primary=2，high_confidence_count=0；来源为 generic，含 search_audit/search_cross_validation 等元信息"
+        }
+      ]
+    },
+    {
+      "run_id": "run-2026-03-03T17:45:40Z",
+      "commands": [
+        {
+          "id": "x5",
+          "command": "python3 -m datapulse.tools.smoke --list",
+          "status": "degraded",
+          "stdout_summary": "成功列出 smoke 检查项清单，但所有场景提示缺少环境变量",
+          "notes": "bilibili/reddit/rss/telegram/twitter/wechat/xhs/youtube 均显示 MISSING 对应 DATAPULSE_SMOKE_* URL 环境变量"
+        }
+      ]
+    },
+    {
+      "run_id": "run-2026-03-03T17:46:22Z",
+      "commands": [
+        {
+          "id": "x2",
+          "command": "python3 -m datapulse.mcp_server --help",
+          "status": "passed",
+          "stdout_summary": "help 输出本地兼容参数；未再要求安装外部 mcp 依赖",
+          "notes": "fallback 层成功启动，提示本地 stdio/diagnostics 模式（list-tools/call）"
+        },
+        {
+          "id": "x2b",
+          "command": "python3 -m datapulse.mcp_server --list-tools",
+          "status": "passed",
+          "stdout_summary": "成功输出 20+ 个工具注册元信息（JSON Schema）",
+          "notes": "表明 mcp 工具注册链路可离线可用，无外部 mcp 运行时"
+        }
+      ]
+    },
+    {
+      "run_id": "run-2026-03-03T17:48:00Z",
+      "commands": [
+        {
+          "id": "s1",
+          "command": "python3 - <<'PY'\nfrom datapulse.core.security import get_secret, has_secret, mask_secret\nprint('secret_helper', callable(get_secret), callable(has_secret), callable(mask_secret))\nprint('mask', mask_secret('supersecretkey1234', prefix=4, suffix=4, max_mid=4))\nPY",
+          "status": "passed",
+          "stdout_summary": "security helper helper 可用，脱敏函数返回掩码字符串",
+          "notes": "完成步骤 1：API token 配置与脱敏入口统一"
+        },
+        {
+          "id": "s2",
+          "command": "printf '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}\\n' | python3 -m datapulse.mcp_server --stdio",
+          "status": "passed",
+          "stdout_summary": "返回 MCP tools/list JSON-RPC 结果",
+          "notes": "完成步骤 2：fallback stdio 协议（tools/list）兼容"
+        },
+        {
+          "id": "s3",
+          "command": "printf '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"foo/unknown\"}\\n{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"shutdown\"}\\n' | python3 -m datapulse.mcp_server --stdio",
+          "status": "passed",
+          "stdout_summary": "返回 batch 内含 -32601 与 shutdown ack",
+          "notes": "完成步骤 3：补齐 MCP batch 与错误码行为（unsupported/shutdown）"
+        },
+        {
+          "id": "s3-doc",
+          "command": "python3 -m datapulse.mcp_server --list-tools | python3 -m json.tool > /dev/null",
+          "status": "passed",
+          "stdout_summary": "工具清单可被机器化解析",
+          "notes": "文档同步后的可执行性校验"
+        }
+      ]
+    }
+  ]
+}
