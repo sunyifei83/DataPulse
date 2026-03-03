@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import json
 from datetime import datetime, timedelta
 from pathlib import Path
-
-import pytest
 
 from datapulse.core.models import DataPulseItem, SourceType
 from datapulse.core.storage import UnifiedInbox

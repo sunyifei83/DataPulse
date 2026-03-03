@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
-from datapulse.core.confidence import compute_confidence, BASE_RELIABILITY
+from datapulse.core.confidence import BASE_RELIABILITY, compute_confidence
 
 
 class TestComputeConfidence:

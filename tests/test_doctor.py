@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from datapulse.collectors import (
@@ -23,7 +21,6 @@ from datapulse.collectors import (
     YouTubeCollector,
 )
 from datapulse.core.router import ParsePipeline
-
 
 # ── Tier assignment ──────────────────────────────────────────────────────────
 

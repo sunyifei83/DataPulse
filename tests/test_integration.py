@@ -11,7 +11,6 @@ import pytest
 from datapulse.core.models import DataPulseItem, SourceType
 from datapulse.reader import DataPulseReader
 
-
 SAMPLE_HTML = """
 <html>
 <head>

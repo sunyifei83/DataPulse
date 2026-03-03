@@ -11,6 +11,9 @@ from typing import Any, cast
 
 from datapulse.collectors.trending import TrendingCollector, build_trending_url
 from datapulse.core.confidence import compute_confidence
+from datapulse.core.entities import Entity, Relation
+from datapulse.core.entities import extract_entities as extract_entities_text
+from datapulse.core.entity_store import EntityStore
 from datapulse.core.jina_client import JinaSearchOptions
 from datapulse.core.models import DataPulseItem, SourceType
 from datapulse.core.router import ParsePipeline
@@ -41,6 +44,13 @@ class DataPulseReader:
         self.catalog = SourceCatalog()
         self._search_gateway = SearchGateway()
         self._jina_client = self._search_gateway._jina_client
+        self._entity_store: EntityStore | None = None
+
+    @property
+    def entity_store(self) -> EntityStore:
+        if self._entity_store is None:
+            self._entity_store = EntityStore()
+        return self._entity_store
 
     def _run_jina_search(
         self,
@@ -109,10 +119,41 @@ class DataPulseReader:
             or "authentication" in message
         )
 
-    async def read(self, url: str, *, min_confidence: float = 0.0) -> DataPulseItem:
-        return await asyncio.to_thread(self._read_sync, url, min_confidence)
+    async def read(
+        self,
+        url: str,
+        *,
+        min_confidence: float = 0.0,
+        extract_entities: bool = False,
+        entity_mode: str = "fast",
+        store_entities: bool = True,
+        entity_api_key: str | None = None,
+        entity_model: str = "gpt-4o-mini",
+        entity_api_base: str = "https://api.openai.com/v1",
+    ) -> DataPulseItem:
+        return await asyncio.to_thread(
+            self._read_sync,
+            url,
+            min_confidence,
+            extract_entities,
+            entity_mode,
+            store_entities,
+            entity_api_key,
+            entity_model,
+            entity_api_base,
+        )
 
-    def _read_sync(self, url: str, min_confidence: float = 0.0) -> DataPulseItem:
+    def _read_sync(
+        self,
+        url: str,
+        min_confidence: float = 0.0,
+        extract_entities: bool = False,
+        entity_mode: str = "fast",
+        store_entities: bool = True,
+        entity_api_key: str | None = None,
+        entity_model: str = "gpt-4o-mini",
+        entity_api_base: str = "https://api.openai.com/v1",
+    ) -> DataPulseItem:
         result, parser = self.router.route(url)
         if not result.success:
             raise RuntimeError(result.error)
@@ -120,6 +161,19 @@ class DataPulseReader:
         item = self._to_item(result, parser.name)
         if item.confidence < min_confidence:
             raise RuntimeError(f"Confidence too low: {item.confidence:.3f}")
+
+        if extract_entities:
+            self._attach_entities(
+                item,
+                *self._extract_entities(
+                    item,
+                    mode=entity_mode,
+                    store=store_entities,
+                    llm_api_key=entity_api_key,
+                    llm_model=entity_model,
+                    llm_api_base=entity_api_base,
+                )
+            )
 
         if self.inbox.add(item):
             self.inbox.save()
@@ -137,6 +191,12 @@ class DataPulseReader:
         *,
         min_confidence: float = 0.0,
         return_all: bool = True,
+        extract_entities: bool = False,
+        entity_mode: str = "fast",
+        store_entities: bool = True,
+        entity_api_key: str | None = None,
+        entity_model: str = "gpt-4o-mini",
+        entity_api_base: str = "https://api.openai.com/v1",
     ) -> list[DataPulseItem]:
         # Normalize and deduplicate URLs
         seen: set[str] = set()
@@ -151,7 +211,18 @@ class DataPulseReader:
 
         async def _bounded_read(url: str) -> DataPulseItem:
             async with semaphore:
-                return await self.read(url, min_confidence=min_confidence)
+                kwargs: dict[str, Any] = {"min_confidence": min_confidence}
+                if extract_entities:
+                    kwargs["extract_entities"] = True
+                    kwargs["entity_mode"] = entity_mode
+                    kwargs["store_entities"] = store_entities
+                if entity_api_key:
+                    kwargs["entity_api_key"] = entity_api_key
+                if entity_model != "gpt-4o-mini":
+                    kwargs["entity_model"] = entity_model
+                if entity_api_base != "https://api.openai.com/v1":
+                    kwargs["entity_api_base"] = entity_api_base
+                return await self.read(url, **kwargs)
 
         tasks = [_bounded_read(url) for url in unique_urls]
         outputs: list[DataPulseItem] = []
@@ -167,6 +238,75 @@ class DataPulseReader:
         outputs.sort(key=lambda it: it.confidence, reverse=True)
         return outputs
 
+    def _extract_entities(
+        self,
+        item: DataPulseItem,
+        *,
+        mode: str = "fast",
+        store: bool = True,
+        llm_api_key: str | None = None,
+        llm_model: str = "gpt-4o-mini",
+        llm_api_base: str = "https://api.openai.com/v1",
+    ) -> tuple[list[Entity], list[Relation]]:
+        source_id = item.id
+        entities, relations = extract_entities_text(
+            item.content,
+            mode=mode,
+            source_item_id=source_id,
+            llm_api_key=llm_api_key,
+            llm_model=llm_model,
+            llm_api_base=llm_api_base,
+        )
+        if store and (entities or relations):
+            self.entity_store.add_entities(entities)
+            self.entity_store.add_relations(relations)
+        return entities, relations
+
+    @staticmethod
+    def _extract_entities_from_dict(payload: Any) -> list[str]:
+        if isinstance(payload, list):
+            names: list[str] = []
+            for raw in payload:
+                if isinstance(raw, dict):
+                    name = str(raw.get("name", "")).strip().upper()
+                elif isinstance(raw, str):
+                    name = raw.strip().upper()
+                else:
+                    continue
+                if name:
+                    names.append(name)
+            return names
+        if isinstance(payload, str):
+            return [payload.strip().upper()]
+        return []
+
+    @staticmethod
+    def _collect_entity_source_counts(items: list[DataPulseItem]) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for item in items:
+            if not item.extra.get("entities"):
+                continue
+            names = set(DataPulseReader._extract_entities_from_dict(item.extra.get("entities")))
+            for name in names:
+                counts[name] = counts.get(name, 0) + 1
+        return counts
+
+    def _attach_entities(
+        self,
+        item: DataPulseItem,
+        entities: list[Entity],
+        relations: list[Relation],
+    ) -> None:
+        if entities:
+            item.extra["entities"] = [entity.to_dict() for entity in entities]
+        elif "entities" in item.extra:
+            item.extra.pop("entities")
+
+        if relations:
+            item.extra["relations"] = [relation.to_dict() for relation in relations]
+        elif "relations" in item.extra:
+            item.extra.pop("relations")
+
     async def search(
         self,
         query: str,
@@ -176,6 +316,12 @@ class DataPulseReader:
         limit: int = 5,
         fetch_content: bool = True,
         min_confidence: float = 0.0,
+        extract_entities: bool = False,
+        entity_mode: str = "fast",
+        store_entities: bool = True,
+        entity_api_key: str | None = None,
+        entity_model: str = "gpt-4o-mini",
+        entity_api_base: str = "https://api.openai.com/v1",
         provider: str = "auto",
         mode: str = "single",
         deep: bool = False,
@@ -332,6 +478,17 @@ class DataPulseReader:
             if cross_validated and "cross_validated" not in item.tags:
                 item.tags.append("cross_validated")
 
+            if extract_entities:
+                entities, relations = self._extract_entities(
+                    item,
+                    mode=entity_mode,
+                    store=store_entities,
+                    llm_api_key=entity_api_key,
+                    llm_model=entity_model,
+                    llm_api_base=entity_api_base,
+                )
+                self._attach_entities(item, entities, relations)
+
             if min_confidence and item.confidence < min_confidence:
                 continue
 
@@ -347,7 +504,8 @@ class DataPulseReader:
 
         # Score and rank
         authority_map = self.catalog.build_authority_map()
-        ranked = rank_items(items, authority_map=authority_map)
+        entity_source_counts = self._collect_entity_source_counts(items)
+        ranked = rank_items(items, authority_map=authority_map, entity_source_counts=entity_source_counts)
         return ranked
 
     async def trending(
@@ -965,6 +1123,109 @@ class DataPulseReader:
             + "</feed>"
         )
         return payload
+
+    async def extract_entities(
+        self,
+        source: str | DataPulseItem,
+        *,
+        mode: str = "fast",
+        store: bool = True,
+        llm_api_key: str | None = None,
+        llm_model: str = "gpt-4o-mini",
+        llm_api_base: str = "https://api.openai.com/v1",
+    ) -> dict[str, Any]:
+        if isinstance(source, DataPulseItem):
+            item = source
+            entities, relations = self._extract_entities(
+                item,
+                mode=mode,
+                store=store,
+                llm_api_key=llm_api_key,
+                llm_model=llm_model,
+                llm_api_base=llm_api_base,
+            )
+            self._attach_entities(item, entities, relations)
+        elif isinstance(source, str):
+            if not source.strip():
+                raise ValueError("URL is required")
+            item = await self.read(
+                source,
+                extract_entities=True,
+                entity_mode=mode,
+                store_entities=store,
+                entity_api_key=llm_api_key,
+                entity_model=llm_model,
+                entity_api_base=llm_api_base,
+            )
+        else:
+            raise TypeError("source must be URL string or DataPulseItem")
+
+        return {
+            "item": item.to_dict(),
+            "entities": item.extra.get("entities", []),
+            "relations": item.extra.get("relations", []),
+        }
+
+    def query_entities(
+        self,
+        *,
+        entity_type: str | None = None,
+        name: str | None = None,
+        min_sources: int = 1,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        if min_sources < 1:
+            min_sources = 1
+        if limit < 0:
+            limit = 0
+
+        candidate_entities: list[Entity] = []
+        normalized_name = (name or "").strip()
+        if normalized_name:
+            raw = self.entity_store.get_entity(normalized_name)
+            if raw:
+                candidate_entities = [raw]
+        elif entity_type:
+            candidate_entities = list(self.entity_store.query_by_type(entity_type))
+        else:
+            candidate_entities = list(self.entity_store.entities.values())
+
+        items: list[dict[str, Any]] = []
+        for raw in candidate_entities:
+            if entity_type and raw.entity_type.value != entity_type.strip().upper():
+                continue
+            if len(raw.source_item_ids) < min_sources:
+                continue
+            payload = raw.to_dict()
+            payload["source_count"] = len(raw.source_item_ids)
+            items.append(payload)
+
+        ordered = sorted(
+            items,
+            key=lambda value: (value.get("source_count", 0), value.get("mention_count", 0), value.get("name", "")),
+            reverse=True,
+        )
+        return ordered[:limit]
+
+    def entity_graph(self, entity_name: str, *, limit: int = 50) -> dict[str, Any]:
+        if not (entity_name or "").strip():
+            return {"entity": None, "related": []}
+
+        source_entity = self.entity_store.get_entity(entity_name)
+        if source_entity is None:
+            return {"entity": None, "related": []}
+
+        related = self.entity_store.query_related(source_entity.display_name)
+        if limit < 0:
+            limit = 0
+        return {
+            "entity": source_entity.to_dict(),
+            "related": related[:limit],
+            "relation_count": len(related),
+        }
+
+    def entity_stats(self) -> dict[str, Any]:
+        return self.entity_store.stats()
 
 
 def _safe_markdown_document(item: DataPulseItem) -> str:

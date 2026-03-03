@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from datapulse.collectors.jina import JinaCollector
 from datapulse.core.confidence import BASE_RELIABILITY, compute_confidence
-from datapulse.core.jina_client import JinaAPIClient, JinaReadOptions, JinaReadResult
+from datapulse.core.jina_client import JinaReadResult
 from datapulse.core.retry import CircuitBreakerOpen
 
 
@@ -91,7 +89,7 @@ class TestJinaCollectorEnhanced:
             status_code=200,
         )
         with patch.object(c._client, "read", return_value=fake_result) as mock_read:
-            result = c.parse("https://example.com")
+            c.parse("https://example.com")
             call_opts = mock_read.call_args[1]["options"]
             assert call_opts.cookie == "session=abc"
 

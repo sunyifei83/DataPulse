@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datapulse.core.jina_client import JinaSearchResult
-from datapulse.core.search_gateway import SearchHit
 from datapulse.core.models import DataPulseItem, SourceType
+from datapulse.core.search_gateway import SearchHit
 from datapulse.reader import DataPulseReader
 
 

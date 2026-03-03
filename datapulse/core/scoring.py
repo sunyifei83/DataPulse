@@ -23,6 +23,7 @@ def _default_weights() -> dict[str, float]:
         "confidence": 0.25,
         "authority": 0.30,
         "corroboration": 0.25,
+        "entity_corroboration": _env_float("DATAPULSE_ENTITY_CORROBORATION_WEIGHT", 0.0),
         "recency": 0.20,
         "source_diversity": _env_float("DATAPULSE_SOURCE_DIVERSITY_WEIGHT", 0.07),
         "cross_validation": _env_float("DATAPULSE_CROSS_VALIDATION_WEIGHT", 0.06),
@@ -93,6 +94,39 @@ def corroboration_score(item: DataPulseItem, fingerprint_counts: dict[str, int])
     return 1.0
 
 
+def entity_corroboration_bonus(
+    item: DataPulseItem,
+    entity_source_counts: dict[str, int] | None = None,
+) -> float:
+    """Bonus score for entities confirmed by multiple source documents."""
+    if not entity_source_counts:
+        return 0.0
+
+    raw_entities = item.extra.get("entities") or []
+    entity_names = []
+    for entity in raw_entities:
+        if isinstance(entity, dict):
+            name = str(entity.get("name", "")).strip().upper()
+        elif isinstance(entity, str):
+            name = entity.strip().upper()
+        else:
+            continue
+        if name:
+            entity_names.append(name)
+
+    if not entity_names:
+        return 0.0
+
+    multi_source_count = 0
+    for name in entity_names:
+        if entity_source_counts.get(name, 0) >= 2:
+            multi_source_count += 1
+
+    if multi_source_count <= 0:
+        return 0.0
+    return min(0.3, multi_source_count * 0.1)
+
+
 def source_diversity_score(item: DataPulseItem) -> float:
     """Score based on multi-source search confirmation."""
     sources = item.extra.get("search_sources")
@@ -130,6 +164,7 @@ def compute_composite_score(
     *,
     authority_map: dict[str, float] | None = None,
     fingerprint_counts: dict[str, int] | None = None,
+    entity_source_counts: dict[str, int] | None = None,
     now: datetime | None = None,
     weights: dict[str, float] | None = None,
 ) -> tuple[int, dict[str, float]]:
@@ -144,6 +179,7 @@ def compute_composite_score(
     dim_confidence = item.confidence
     dim_authority = authority_score(item, amap)
     dim_corroboration = corroboration_score(item, fp_counts)
+    dim_entity = entity_corroboration_bonus(item, entity_source_counts=entity_source_counts)
     dim_recency = recency_score(item.fetched_at, now=now)
     dim_source_diversity = source_diversity_score(item)
     w_source_diversity = w.get("source_diversity", 0.0)
@@ -156,6 +192,7 @@ def compute_composite_score(
         w.get("confidence", 0.25) * dim_confidence
         + w.get("authority", 0.30) * dim_authority
         + w.get("corroboration", 0.25) * dim_corroboration
+        + w.get("entity_corroboration", 0.0) * dim_entity
         + w.get("recency", 0.20) * dim_recency
         + w_source_diversity * dim_source_diversity
         + w_cross_validation * dim_cross_validation
@@ -168,6 +205,8 @@ def compute_composite_score(
         "confidence": round(dim_confidence, 4),
         "authority": round(dim_authority, 4),
         "corroboration": round(dim_corroboration, 4),
+        "entity_corroboration": round(dim_entity, 4),
+        "entity_corroboration_weight": round(w.get("entity_corroboration", 0.0), 4),
         "recency": round(dim_recency, 4),
         "source_diversity": round(dim_source_diversity, 4),
         "source_diversity_weight": round(w_source_diversity, 4),
@@ -183,6 +222,7 @@ def rank_items(
     items: list[DataPulseItem],
     *,
     authority_map: dict[str, float] | None = None,
+    entity_source_counts: dict[str, int] | None = None,
     now: datetime | None = None,
     weights: dict[str, float] | None = None,
 ) -> list[DataPulseItem]:
@@ -206,6 +246,7 @@ def rank_items(
             item,
             authority_map=amap,
             fingerprint_counts=fingerprint_counts,
+            entity_source_counts=entity_source_counts,
             now=now,
             weights=weights,
         )

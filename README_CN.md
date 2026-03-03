@@ -301,6 +301,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 2. 针对关键平台先执行 `datapulse-smoke --platforms ...` 做回归。
 3. 为 MCP/Skill/Agent 统一消费 `DataPulseItem.to_dict()` 的 JSON 字段，减少跨组件格式不一致。
 4. 敏感凭据通过外部秘钥渠道注入，不写入仓库。
+5. 仓内常规操作工作流（功能迭代→编译跟测→高 HA 交付→入库→推送→CI 全绿→问题闭环）见 [docs/inhouse_workflow.md](docs/inhouse_workflow.md)。
 
 ## 安全边界
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from datapulse.core.retry import retry, CircuitBreaker, CircuitBreakerOpen, RateLimitError
+from datapulse.core.retry import CircuitBreaker, CircuitBreakerOpen, RateLimitError, retry
 
 
 class TestRetry:

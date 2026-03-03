@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-
-from datapulse.core.router import ParsePipeline
 from datapulse.collectors.base import BaseCollector, ParseResult
 from datapulse.core.models import SourceType
+from datapulse.core.router import ParsePipeline
 
 
 class StubCollector(BaseCollector):

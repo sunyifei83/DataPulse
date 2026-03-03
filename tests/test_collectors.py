@@ -5,16 +5,16 @@ from __future__ import annotations
 import pytest
 
 from datapulse.collectors import (
-    TwitterCollector,
-    RedditCollector,
-    YouTubeCollector,
     BilibiliCollector,
-    TelegramCollector,
-    WeChatCollector,
-    XiaohongshuCollector,
-    RssCollector,
     GenericCollector,
     JinaCollector,
+    RedditCollector,
+    RssCollector,
+    TelegramCollector,
+    TwitterCollector,
+    WeChatCollector,
+    XiaohongshuCollector,
+    YouTubeCollector,
 )
 
 

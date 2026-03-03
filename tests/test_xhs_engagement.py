@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
-
-from datapulse.collectors.xhs import _extract_engagement, XiaohongshuCollector
 from datapulse.collectors.base import ParseResult
+from datapulse.collectors.xhs import XiaohongshuCollector, _extract_engagement
 from datapulse.core.models import SourceType
 
 

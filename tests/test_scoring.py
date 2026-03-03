@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-import pytest
-
 from datapulse.core.models import DataPulseItem, SourceType
 from datapulse.core.scoring import (
     authority_score,
@@ -111,7 +109,6 @@ class TestCorroborationScore:
 
     def test_boundary_single(self):
         item = _make_item(content="boundary test content for scoring")
-        fp = content_fingerprint(item.content)
         assert corroboration_score(item, {}) == 0.0
 
 

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from datapulse.core.media import (
     build_media_headers,
     build_referer,

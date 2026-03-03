@@ -8,13 +8,11 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from datapulse.core.models import DataPulseItem, SourceType
-from datapulse.core.storage import UnifiedInbox
 from datapulse.reader import DataPulseReader
 
 
 def _populate_inbox(inbox_path: str, items: list[DataPulseItem]) -> None:
     """Write items to an inbox file."""
-    import json
     from pathlib import Path
 
     payload = [item.to_dict() for item in items]
@@ -27,7 +25,6 @@ class TestBuildJsonFeed:
         inbox_path = str(tmp_path / "inbox.json")
         catalog_path = str(tmp_path / "catalog.json")
         # Write empty catalog
-        import json
         from pathlib import Path
 
         Path(catalog_path).write_text(json.dumps({
@@ -96,7 +93,7 @@ class TestBuildRssFeed:
     def reader_with_items(self, tmp_path):
         inbox_path = str(tmp_path / "inbox.json")
         catalog_path = str(tmp_path / "catalog.json")
-        import json, os
+        import os
         from pathlib import Path
 
         Path(catalog_path).write_text(json.dumps({
@@ -156,7 +153,7 @@ class TestBuildAtomFeed:
     def reader_with_items(self, tmp_path):
         inbox_path = str(tmp_path / "inbox.json")
         catalog_path = str(tmp_path / "catalog.json")
-        import json, os
+        import os
         from pathlib import Path
 
         Path(catalog_path).write_text(json.dumps({

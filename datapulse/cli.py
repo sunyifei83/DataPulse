@@ -68,6 +68,20 @@ def main() -> None:
     parser.add_argument("--emit-digest-format", default="json", choices=["json", "markdown", "md"], help="Digest package output format")
     parser.add_argument("--top-n", type=int, default=3, help="Number of primary stories in digest")
     parser.add_argument("--secondary-n", type=int, default=7, help="Number of secondary stories in digest")
+    parser.add_argument("--entities", action="store_true", help="Extract entities while reading URL inputs")
+    parser.add_argument("--entity-mode", default="fast", choices=["fast", "llm"], help="Entity extraction mode")
+    parser.add_argument(
+        "--entity-store",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Persist extracted entities to local entity store",
+    )
+    parser.add_argument("--entity-query", help="Query entities from store by name")
+    parser.add_argument("--entity-type", help="Filter entity query by type")
+    parser.add_argument("--entity-limit", type=int, default=50, help="Limit for entity query")
+    parser.add_argument("--entity-min-sources", type=int, default=1, help="Minimum source count for entity query")
+    parser.add_argument("--entity-graph", help="Show related entities for one entity name")
+    parser.add_argument("--entity-stats", action="store_true", help="Show entity store stats")
     parser.add_argument("--list", action="store_true", help="List inbox")
     parser.add_argument("--clear", action="store_true", help="Clear inbox")
     parser.add_argument("--min-confidence", type=float, default=0.0, help="Filter by confidence")
@@ -192,14 +206,32 @@ def main() -> None:
         print(f"✅ installed {count} source(s) from pack")
         return
 
+    if args.entity_stats:
+        print(json.dumps(reader.entity_stats(), ensure_ascii=False, indent=2))
+        return
+
+    if args.entity_graph:
+        print(json.dumps(reader.entity_graph(entity_name=args.entity_graph), ensure_ascii=False, indent=2))
+        return
+
+    if args.entity_query:
+        query_payload = reader.query_entities(
+            name=args.entity_query,
+            entity_type=args.entity_type,
+            limit=args.entity_limit,
+            min_sources=args.entity_min_sources,
+        )
+        print(json.dumps(query_payload, ensure_ascii=False, indent=2))
+        return
+
     if args.query_feed:
-        payload = reader.build_json_feed(
+        feed_payload = reader.build_json_feed(
             profile=args.source_profile,
             source_ids=_normalize_csv_ids(args.source_ids),
             limit=args.limit,
             min_confidence=args.min_confidence,
         )
-        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        print(json.dumps(feed_payload, ensure_ascii=False, indent=2))
         return
 
     if args.query_rss:
@@ -225,14 +257,14 @@ def main() -> None:
         return
 
     if args.digest:
-        payload = reader.build_digest(
+        digest_payload = reader.build_digest(
             profile=args.source_profile,
             source_ids=_normalize_csv_ids(args.source_ids),
             top_n=args.top_n,
             secondary_n=args.secondary_n,
             min_confidence=args.min_confidence,
         )
-        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        print(json.dumps(digest_payload, ensure_ascii=False, indent=2))
         return
 
     if args.emit_digest_package:
@@ -279,6 +311,9 @@ def main() -> None:
                 platform=args.platform,
                 limit=args.search_limit,
                 fetch_content=not args.no_fetch,
+                extract_entities=args.entities,
+                entity_mode=args.entity_mode,
+                store_entities=args.entity_store,
                 min_confidence=args.min_confidence,
                 provider=args.search_provider,
                 mode=args.search_mode,
@@ -330,7 +365,13 @@ def main() -> None:
         return
 
     async def run() -> None:
-        results = await reader.read_batch(targets, min_confidence=args.min_confidence)
+        results = await reader.read_batch(
+            targets,
+            min_confidence=args.min_confidence,
+            extract_entities=args.entities,
+            entity_mode=args.entity_mode,
+            store_entities=args.entity_store,
+        )
         if not results:
             print("No result above confidence threshold")
             return

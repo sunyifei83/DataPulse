@@ -8,7 +8,6 @@ import pytest
 
 from datapulse.collectors.trending import (
     TrendingCollector,
-    TrendSnapshot,
     build_trending_url,
     normalize_location,
     parse_volume,

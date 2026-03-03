@@ -5,10 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from datapulse.core.models import DataPulseItem, SourceType
-from datapulse.core.source_catalog import SourceCatalog, SourceRecord, SourcePack
+from datapulse.core.source_catalog import SourceCatalog, SourcePack, SourceRecord
 
 
 class TestSourceRecord:

@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
 from datapulse.collectors.arxiv import ArxivCollector, extract_arxiv_id
-
 
 SAMPLE_ATOM_XML = """\
 <?xml version="1.0" encoding="UTF-8"?>

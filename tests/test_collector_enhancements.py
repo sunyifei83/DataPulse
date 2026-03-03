@@ -4,12 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import os
-import re
 
-import pytest
-
-from datapulse.collectors.rss import RssCollector, _MAX_ENTRIES
 from datapulse.collectors.bilibili import BilibiliCollector
+from datapulse.collectors.rss import _MAX_ENTRIES, RssCollector
 from datapulse.collectors.telegram import TelegramCollector
 from datapulse.collectors.youtube import YouTubeCollector
 
@@ -64,8 +61,8 @@ class TestTelegramConfigurable:
 class TestBatchUrlDedup:
     def test_dedup_urls_in_batch(self):
         """read_batch should deduplicate URLs before processing."""
-        from datapulse.reader import DataPulseReader
         from datapulse.core.models import DataPulseItem, SourceType
+        from datapulse.reader import DataPulseReader
 
         reader = DataPulseReader.__new__(DataPulseReader)
 
@@ -100,8 +97,8 @@ class TestBatchConcurrencyLimit:
     def test_concurrency_bounded(self, monkeypatch):
         """read_batch should respect DATAPULSE_BATCH_CONCURRENCY."""
         monkeypatch.setenv("DATAPULSE_BATCH_CONCURRENCY", "2")
-        from datapulse.reader import DataPulseReader
         from datapulse.core.models import DataPulseItem, SourceType
+        from datapulse.reader import DataPulseReader
 
         reader = DataPulseReader.__new__(DataPulseReader)
         peak = 0

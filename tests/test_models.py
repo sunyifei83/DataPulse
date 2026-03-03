@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
-from datapulse.core.models import DataPulseItem, SourceType, MediaType
+from datapulse.core.models import DataPulseItem, MediaType, SourceType
 
 
 class TestDataPulseItem:

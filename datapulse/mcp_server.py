@@ -168,6 +168,12 @@ async def _run_search_web(
     platform: str | None = None,
     limit: int = 5,
     fetch_content: bool = True,
+    extract_entities: bool = False,
+    entity_mode: str = "fast",
+    store_entities: bool = True,
+    entity_api_key: str | None = None,
+    entity_model: str = "gpt-4o-mini",
+    entity_api_base: str = "https://api.openai.com/v1",
     min_confidence: float = 0.0,
     provider: str = "auto",
     mode: str = "single",
@@ -184,6 +190,12 @@ async def _run_search_web(
         platform=platform,
         limit=limit,
         fetch_content=fetch_content,
+        extract_entities=extract_entities,
+        entity_mode=entity_mode,
+        store_entities=store_entities,
+        entity_api_key=entity_api_key,
+        entity_model=entity_model,
+        entity_api_base=entity_api_base,
         min_confidence=min_confidence,
         provider=provider,
         mode=mode,
@@ -210,6 +222,52 @@ async def _run_trending(
         validate_mode=validate_mode,
     )
     return json.dumps(result, ensure_ascii=False, indent=2)
+
+
+async def _run_extract_entities(
+    url: str,
+    mode: str = "fast",
+    store_entities: bool = True,
+    llm_api_key: str | None = None,
+    llm_model: str = "gpt-4o-mini",
+    llm_api_base: str = "https://api.openai.com/v1",
+) -> str:
+    reader = DataPulseReader()
+    payload = await reader.extract_entities(
+        url,
+        mode=mode,
+        store=store_entities,
+        llm_api_key=llm_api_key,
+        llm_model=llm_model,
+        llm_api_base=llm_api_base,
+    )
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_query_entities(
+    entity_type: str = "",
+    name: str = "",
+    min_sources: int = 1,
+    limit: int = 50,
+) -> str:
+    reader = DataPulseReader()
+    payload = reader.query_entities(
+        entity_type=entity_type or None,
+        name=name,
+        min_sources=min_sources,
+        limit=limit,
+    )
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_entity_graph(entity_name: str, limit: int = 50) -> str:
+    reader = DataPulseReader()
+    return json.dumps(reader.entity_graph(entity_name=entity_name, limit=limit), ensure_ascii=False, indent=2)
+
+
+async def _run_entity_stats() -> str:
+    reader = DataPulseReader()
+    return json.dumps(reader.entity_stats(), ensure_ascii=False, indent=2)
 
 
 async def _run_doctor() -> str:
@@ -628,6 +686,12 @@ def _register_tools(app: Any) -> None:
         platform: str | None = None,
         limit: int = 5,
         fetch_content: bool = True,
+        extract_entities: bool = False,
+        entity_mode: str = "fast",
+        store_entities: bool = True,
+        entity_api_key: str | None = None,
+        entity_model: str = "gpt-4o-mini",
+        entity_api_base: str = "https://api.openai.com/v1",
         min_confidence: float = 0.0,
         provider: str = "auto",
         mode: str = "single",
@@ -650,7 +714,53 @@ def _register_tools(app: Any) -> None:
             news=news,
             time_range=time_range,
             freshness=freshness,
+            extract_entities=extract_entities,
+            entity_mode=entity_mode,
+            store_entities=store_entities,
+            entity_api_key=entity_api_key,
+            entity_model=entity_model,
+            entity_api_base=entity_api_base,
         )
+
+    @app.tool()
+    async def extract_entities(
+        url: str,
+        mode: str = "fast",
+        store_entities: bool = True,
+        llm_api_key: str | None = None,
+        llm_model: str = "gpt-4o-mini",
+        llm_api_base: str = "https://api.openai.com/v1",
+    ) -> str:
+        return await _run_extract_entities(
+            url=url,
+            mode=mode,
+            store_entities=store_entities,
+            llm_api_key=llm_api_key,
+            llm_model=llm_model,
+            llm_api_base=llm_api_base,
+        )
+
+    @app.tool()
+    async def query_entities(
+        entity_type: str = "",
+        name: str = "",
+        min_sources: int = 1,
+        limit: int = 50,
+    ) -> str:
+        return await _run_query_entities(
+            entity_type=entity_type,
+            name=name,
+            min_sources=min_sources,
+            limit=limit,
+        )
+
+    @app.tool()
+    async def entity_graph(entity_name: str, limit: int = 50) -> str:
+        return await _run_entity_graph(entity_name=entity_name, limit=limit)
+
+    @app.tool()
+    async def entity_stats() -> str:
+        return await _run_entity_stats()
 
     @app.tool()
     async def read_url_advanced(
