@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datapulse.core.jina_client import JinaSearchResult
+from datapulse.core.search_gateway import SearchHit
 from datapulse.core.models import DataPulseItem, SourceType
 from datapulse.reader import DataPulseReader
 
@@ -127,6 +128,42 @@ class TestReaderSearch:
             mock_client.search.side_effect = ValueError("API key required")
             with pytest.raises(ValueError, match="API key"):
                 _run(reader.search("test"))
+
+    def test_search_auto_fallback_on_jina_exception(self, reader):
+        fallback_hits = [
+            SearchHit(
+                title="Fallback",
+                url="https://example.com/fallback",
+                snippet="Fallback content",
+                provider="tavily",
+                source="tavily",
+                score=0.2,
+                raw={},
+                extra={"sources": ["tavily"]},
+            )
+        ]
+        fallback_audit = {
+            "query": "test",
+            "mode": "single",
+            "requested_provider": "tavily",
+            "provider_chain": ["tavily", "jina"],
+            "attempts": [],
+            "timeout_seconds": 3.0,
+            "providers_selected": 2,
+            "providers_with_hit": 1,
+            "source_count": 1,
+            "provider_count": 2,
+            "sampled_at": "now",
+        }
+
+        with patch.object(reader, "_jina_client") as mock_client:
+            mock_client.search.side_effect = TimeoutError("read timeout")
+            with patch.object(reader._search_gateway, "search", return_value=(fallback_hits, fallback_audit)):
+                items = _run(reader.search("test", fetch_content=False, provider="auto", mode="single"))
+
+        assert len(items) == 1
+        assert items[0].title == "Fallback"
+        assert items[0].extra["search_provider"] == "auto"
 
     def test_search_empty_results(self, reader):
         with patch.object(reader, "_jina_client") as mock_client:
