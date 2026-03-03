@@ -43,26 +43,29 @@
   - `docs/inhouse_workflow.md`
 - 建议 PR 标题：`feat: absorb entity extraction and corroboration enhancements from EdgeQuake distillation`
 - 已入库提交：
-  - `04cb173`（补齐 CI 结果与报告）
-- 产出状态：本轮变更已推送主干，提交 `3d2ca74` 已入主干；如需可补充 PR 编号与联测结果链接。
+  - `04cb173`（补齐 CI 触发与结果记录）
+  - `3d2ca74`（补齐交付闭环文档）
+  - `239f3f8`（记录最新 CI run）
+- 产出状态：本轮变更已全部入主干；如需可补充 PR 编号与联测结果链接。
 
 ## 5) 推送触发 CI
 
 - 状态：已执行（已完成）
 - 执行命令：`git push origin main`
-- 提交：`3d2ca74`
+- 提交：`239f3f8`
 - 推送后远端 HEAD 对齐：
-  - `git ls-remote --heads origin main` 指向 `3d2ca7447885071ab6dcf6084fc9a62db5e94b2a`
+  - `git ls-remote --heads origin main` 指向 `239f3f824b3f60f7b602dbc31b85d0943aa903ab`
 - 预期门禁：
   - `.github/workflows/ci.yml`：`ruff`（3.12）、`mypy`（3.12）、`pytest`（3.10/3.11/3.12）
 
 ## 6) CI 全绿
 
 - CI 已在仓库端全部通过：
+- `22631703167`（提交 `239f3f8...`）：completed / success
 - `22631672074`（提交 `3d2ca74...`）：completed / success
 - `22631579129`（提交 `04cb173...`）：completed / success
-  - `22631572723`（提交 `0a8ad93...`）：completed / success
-  - 触发事件：`push` 到 `main`
+- `22631572723`（提交 `0a8ad93...`）：completed / success
+- 触发事件：`push` 到 `main`
 - `ruff`/`mypy`/`pytest` 三层门禁均绿（见对应执行记录）
 - 风险点：无代码回归阻断；仅平台 smoke 配置项缺失导致本机平台回归阶段 FAIL（可通过配置平台 URL 后重跑消除）
 
