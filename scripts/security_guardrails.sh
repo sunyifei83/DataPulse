@@ -17,6 +17,12 @@ while IFS= read -r -d '' file; do
   if ! grep -Iq . "$file"; then
     continue
   fi
+  if [[ "$file" == "scripts/security_guardrails.sh" || "$file" == "$ROOT_DIR/scripts/security_guardrails.sh" ]]; then
+    if grep -E -n "$TOKEN_RE" "$file" | grep -v 'TOKEN_RE='; then
+      found=1
+    fi
+    continue
+  fi
   if grep -E -n "$TOKEN_RE" "$file"; then
     found=1
   fi
