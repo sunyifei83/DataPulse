@@ -55,8 +55,9 @@ title: Test Facts
 - 环境与端点主事实来源：
   - `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/openclaw-bot/mac-m4环境/基础信息.md`
   - `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/openclaw-bot/mac-m4环境/模型端点配置.md`
-- 已执行快照（2026-02-24）：
-  - 本机：`PASS=10 FAIL=1`（缺口：缺少 7 个 `DATAPULSE_SMOKE_*`）
+- 已执行快照（2026-03-04）：
+  - 本机：`PASS=10 FAIL=1`（能力边界缺口：`wechat` 解析/DNS 失败、`rss` 目标源 `403/422`；见 RUN_ID `20260304_001443`）
+  - 标准化基线：`PASS=11 FAIL=0`（收敛 `PLATFORMS=twitter reddit youtube bilibili telegram xhs`；见 RUN_ID `20260304_001737`）
 - 历史快照（修复前）：`FAIL`（阻断链路定位到 `ModuleNotFoundError: No module named 'datapulse'`）
 - 历史快照（修复前）：`FAIL`（当前卡点定位到 `pip install -e .` 构建依赖下载失败：`hatchling` 拉取阶段走代理失败，返回 `ProxyError: Cannot connect to proxy`）
   - 远端记录值（高敏信息不入库）：`VPS_HOST=<VPS_HOST>`，`MACMINI_HOST=<MACMINI_HOST>`，`MACMINI_DATAPULSE_DIR=<MACMINI_DATAPULSE_DIR>`

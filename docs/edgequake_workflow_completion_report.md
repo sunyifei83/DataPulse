@@ -31,13 +31,18 @@
   - `uv run scripts/datapulse_local_smoke.sh`
     - 历史复核（配置缺失）：RUN_ID `20260304_000302`，结果 `PASS=8 FAIL=1`，原因 `No smoke URLs configured`
     - 重跑复核（补齐环境变量）：RUN_ID `20260304_001443`，结果 `PASS=10 FAIL=1`
+    - 标准化基线复核（收敛平台：`PLATFORMS=twitter reddit youtube bilibili telegram xhs`）：RUN_ID `20260304_001737`，结果 `PASS=11 FAIL=0`，说明主链路/平台回归均通过，`wechat`/`rss` 被抽离为边界项
+      - 执行命令（基线）：
+        `URL_1=https://beewebsystems.com/ URL_BATCH='https://chatprd.ai/ https://beewebsystems.com/ https://uxpilot.ai/' DATAPULSE_SMOKE_TWITTER_URL='https://x.com/everestchris6/status/2025995047729254701' DATAPULSE_SMOKE_REDDIT_URL='https://www.reddit.com/r/python/comments/1f6m2v9/why_i_use_python/' DATAPULSE_SMOKE_YOUTUBE_URL='https://www.youtube.com/watch?v=dQw4w9WgXcQ' DATAPULSE_SMOKE_BILIBILI_URL='https://www.bilibili.com/video/BV1Xx411c7mD' DATAPULSE_SMOKE_TELEGRAM_URL='https://t.me/s/telegram' DATAPULSE_SMOKE_XHS_URL='https://www.xiaohongshu.com/explore' PLATFORMS='twitter reddit youtube bilibili telegram xhs' MIN_CONFIDENCE=0.0 uv run scripts/datapulse_local_smoke.sh`
     - 失败说明：平台回归失败项为能力/依赖边界（非必填配置缺失）
       - `wechat`：DNS/解析失败（`weixin.qq.com` 不可达）
       - `rss`：示例源 `https://www.reddit.com/.rss` 返回 `403`/`422`
-    - 说明：`telegram`、`youtube`、`bilibili`、`reddit`、`xhs`、`twitter` 已 PASS；`feed-probe` 与主链路 PASS
+    - 说明：`twitter`、`reddit`、`youtube`、`bilibili`、`xhs`、`telegram` 已 PASS；`feed-probe` 与主链路 PASS；`wechat`/`rss` 被分离为能力边界项（见下）
     - 执行命令（本地复测）：
       `URL_1=https://beewebsystems.com/ URL_BATCH='https://chatprd.ai/ https://beewebsystems.com/ https://uxpilot.ai/' DATAPULSE_SMOKE_TWITTER_URL='https://x.com/everestchris6/status/2025995047729254701' DATAPULSE_SMOKE_REDDIT_URL='https://www.reddit.com/r/python/comments/1f6m2v9/why_i_use_python/' DATAPULSE_SMOKE_YOUTUBE_URL='https://www.youtube.com/watch?v=dQw4w9WgXcQ' DATAPULSE_SMOKE_BILIBILI_URL='https://www.bilibili.com/video/BV1Xx411c7mD' DATAPULSE_SMOKE_TELEGRAM_URL='https://t.me/s/telegram' DATAPULSE_SMOKE_RSS_URL='https://www.reddit.com/.rss' DATAPULSE_SMOKE_WECHAT_URL='https://www.weixin.qq.com/' DATAPULSE_SMOKE_XHS_URL='https://www.xiaohongshu.com/explore' MIN_CONFIDENCE=0.0 uv run scripts/datapulse_local_smoke.sh`
-    - 报告文件：`/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260304_001443/local_report.md`
+    - 报告文件：
+      - `/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260304_001443/local_report.md`
+      - `/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260304_001737/local_report.md`
 
 ## 4) 提交变更入库
 
@@ -55,21 +60,23 @@
   - `9cae9e5`（补齐最终闭环状态）
   - `415e71b`（记录补齐 URL 重跑与失败归因）
   - `5651433`（补齐平台回归重跑与执行命令）
+  - `b339dd3`（补齐仓内闭环与最新 CI run）
 - 产出状态：本轮变更已全部入主干；如需可补充 PR 编号与联测结果链接。
 
 ## 5) 推送触发 CI
 
 - 状态：已执行（已完成）
 - 执行命令：`git push origin main`
-- 提交：`5651433`
+- 提交：`b339dd3`
 - 推送后远端 HEAD 对齐：
-  - `git ls-remote --heads origin main` 指向 `56514337c14cfcb4ba5ba91dd938343a4a2d2b19`
+  - `git ls-remote --heads origin main` 指向 `b339dd37128e75e98d0bd452c90a62db786f86c5`
 - 预期门禁：
   - `.github/workflows/ci.yml`：`ruff`（3.12）、`mypy`（3.12）、`pytest`（3.10/3.11/3.12）
 
 ## 6) CI 全绿
 
 - CI 已在仓库端全部通过：
+- `22632049712`（提交 `b339dd3...`）：completed / success
 - `22632020711`（提交 `5651433...`）：completed / success
 - `22631799782`（提交 `11283fa...`）：completed / success
 - `22631759366`（提交 `9cae9e5...`）：completed / success

@@ -37,8 +37,11 @@
   - 结果：脚本完成（非阻塞跳过项除外）
   - 说明：`URL_1`/`URL_BATCH` 未配置时自动跳过 URL 冒烟；缺失平台 URL 仅出现在 smoke 命令提示，不影响主链路。
 - `uv run scripts/datapulse_local_smoke.sh`
-  - 结果：`PASS=8 FAIL=1`
-  - 失败项：缺少 `DATAPULSE_SMOKE_*_URL` 环境变量导致平台回归阶段 `No smoke URLs configured.`（配置性问题）
+  - 结果：`PASS=10 FAIL=1`
+  - 失败项：能力/依赖边界问题，不属于功能回归阻塞
+    - `wechat`：`No parser produced successful result for https://www.weixin.qq.com/`（DNS/封禁波动）
+    - `rss`：`No parser produced successful result for https://www.reddit.com/.rss`（`403`/`422`）
+  - 标准化基线验证：`PLATFORMS=twitter reddit youtube bilibili telegram xhs` 下，`PASS=11 FAIL=0`（RUN_ID `20260304_001737`）
 
 ## 仓库历史性问题处置证据
 

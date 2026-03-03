@@ -27,7 +27,8 @@ feat: 吸收实体抽取能力并补强评分链路（EdgeQuake 交付）
 - `bash scripts/quick_test.sh`
   - 成功完成；仅在未设置 URL 环境变量时跳过 URL 冒烟；缺失 smoke 平台 URL 的提示不阻塞主链路。
 - `uv run scripts/datapulse_local_smoke.sh`
-  - PASS=8 FAIL=1（FAIL 为缺少 `DATAPULSE_SMOKE_*_URL` 的配置性项）
+  - PASS=10 FAIL=1（FAIL 为平台能力/依赖边界：`wechat`、`rss`；RUN_ID `20260304_001443`）
+  - 标准化基线：`PLATFORMS=twitter reddit youtube bilibili telegram xhs`，`PASS=11 FAIL=0`（RUN_ID `20260304_001737`）
 
 ## 风险与回滚
 - 风险主要集中在 `entity_source_counts`/`entity` 新特性未开启时为默认关闭、主逻辑行为保持兼容。
