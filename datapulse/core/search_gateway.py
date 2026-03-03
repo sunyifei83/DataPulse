@@ -8,7 +8,6 @@ Provides single-provider, fallback, and multi-source search paths:
 from __future__ import annotations
 
 import logging
-import os
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -22,6 +21,7 @@ import requests
 from datapulse.core.jina_client import JinaAPIClient, JinaSearchOptions
 from datapulse.core.retry import CircuitBreaker, CircuitBreakerOpen, RateLimitError, retry
 from datapulse.core.security import get_secret
+from datapulse.core.config import SearchGatewayConfig
 
 logger = logging.getLogger("datapulse.search_gateway")
 
@@ -49,7 +49,8 @@ class SearchGateway:
     """Provider registry + execution engine for web search."""
 
     def __init__(self, timeout_seconds: float | None = None):
-        timeout = timeout_seconds if timeout_seconds is not None else float(os.getenv("DATAPULSE_SEARCH_TIMEOUT", str(DEFAULT_TIMEOUT)))
+        gateway_config = SearchGatewayConfig.load()
+        timeout = timeout_seconds if timeout_seconds is not None else gateway_config.timeout_seconds
         timeout = max(1.0, timeout)
 
         self._timeout_seconds = timeout
@@ -59,19 +60,15 @@ class SearchGateway:
         # Keep API key-based behavior aligned with existing Jina client contract.
         self._jina_client = JinaAPIClient(api_key=self._jina_key, timeout=int(timeout))
 
-        self._seq = ("tavily", "jina")
-        self._retry_attempts = max(1, int(os.getenv("DATAPULSE_SEARCH_RETRY_ATTEMPTS", "2")))
-        self._retry_base_delay = float(os.getenv("DATAPULSE_SEARCH_RETRY_BASE_DELAY", "1.0"))
-        self._retry_max_delay = float(os.getenv("DATAPULSE_SEARCH_RETRY_MAX_DELAY_SECONDS", "4.0"))
-        self._retry_backoff_factor = float(os.getenv("DATAPULSE_SEARCH_RETRY_BACKOFF", "2.0"))
-        self._retry_respect_retry_after = os.getenv(
-            "DATAPULSE_SEARCH_RETRY_RESPECT_RETRY_AFTER", "1"
-        ) not in {"0", "false", "False", "NO", "no", "off", "Off"}
-        self._breaker_failure_threshold = max(1, int(os.getenv("DATAPULSE_SEARCH_CB_FAILURE_THRESHOLD", "5")))
-        self._breaker_recovery_timeout = float(os.getenv("DATAPULSE_SEARCH_CB_RECOVERY_TIMEOUT", "60"))
-        self._breaker_rate_limit_weight = max(
-            1, int(os.getenv("DATAPULSE_SEARCH_CB_RATE_LIMIT_WEIGHT", "2"))
-        )
+        self._seq = gateway_config.provider_preference or ("tavily", "jina")
+        self._retry_attempts = gateway_config.retry_attempts
+        self._retry_base_delay = gateway_config.retry_base_delay
+        self._retry_max_delay = gateway_config.retry_max_delay
+        self._retry_backoff_factor = gateway_config.retry_backoff_factor
+        self._retry_respect_retry_after = gateway_config.retry_respect_retry_after
+        self._breaker_failure_threshold = gateway_config.breaker_failure_threshold
+        self._breaker_recovery_timeout = gateway_config.breaker_recovery_timeout
+        self._breaker_rate_limit_weight = gateway_config.breaker_rate_limit_weight
         self._provider_breakers: dict[str, CircuitBreaker] = {
             "tavily": self._new_circuit_breaker("tavily"),
             "jina": self._new_circuit_breaker("jina"),
@@ -556,7 +553,7 @@ class SearchGateway:
                 }
 
     def _resolve_providers(self, provider: str, mode: str) -> list[str]:
-        preferred = os.getenv("DATAPULSE_SEARCH_PROVIDER_PRECEDENCE", "").lower()
+        preferred = ",".join(self._seq)
         if preferred:
             parts = [x.strip() for x in preferred.split(",") if x.strip()]
             base = [p for p in parts if p in {"tavily", "jina"}]
