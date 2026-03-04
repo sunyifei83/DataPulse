@@ -75,9 +75,9 @@
 
 - 状态：已执行（已完成）
 - 执行命令：`git push origin main`
-- 提交：`514890a`
+- 提交：`a6c2cf5`
 - 推送后远端 HEAD 对齐：
-  - `git ls-remote --heads origin main` 指向 `514890af867ad54b8a774ecc16adb61d184b0fca`
+  - `git ls-remote --heads origin main` 指向 `a6c2cf593d1bf59d8fde41f084a39a25e5aa234b`
 - 预期门禁：
   - `.github/workflows/ci.yml`：`ruff`（3.12）、`mypy`（3.12）、`pytest`（3.10/3.11/3.12）
 
