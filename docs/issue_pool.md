@@ -94,3 +94,23 @@
 - 关单动作：
   - 按上述分流统一执行关闭，不再保留该批调研型事实单为 `open`
 - 当前状态：`DONE`
+
+## WQ-2026-03-05-02（OpenClaw 线索问题 #18-#24 落地修复交付）
+
+- 触发时间：`2026-03-05`
+- 阶段：`事实线索复盘` → `实现级修复` → `交付事实入库`
+- 触发分支：`main`
+- 责任人：`@sunyifei83`
+- 目标范围：线索文档提及 `#18 #19 #20 #21 #22 #23 #24`
+- 交付事实：
+  - 文档：`/Users/sunyifei/DataPulse/docs/openclaw_issue_remediation_delivery_2026-03-05.md`
+  - 实现：`reader/config/router/semantic/pyproject` 多文件修复
+- 修复摘要：
+  - `#18`：trending 区域失败自动回退 `worldwide`
+  - `#19`：搜索默认超时 3s → 8s，保留 env 可调
+  - `#20`：doctor 新增 `ok` 兼容字段
+  - `#21`：Twitter thin_content 自动 Jina 回填
+  - `#22`：YouTube transcript 依赖纳入默认安装
+  - `#23`：API 兼容参数与 async 包装器补齐
+  - `#24`：新增首版语义审阅模块并接入 digest
+- 当前状态：`DONE`

@@ -116,11 +116,19 @@ class ParsePipeline:
         }
         for parser in self.parsers:
             check = parser.check()
+            status = str(check.get("status", "ok"))
+            available = bool(check.get("available", True))
+            raw_ok = check.get("ok")
+            if isinstance(raw_ok, bool):
+                ok = raw_ok
+            else:
+                ok = available and status in {"ok", "warn"}
             entry: dict[str, str | bool] = {
                 "name": parser.name,
-                "status": check.get("status", "ok"),
+                "status": status,
                 "message": check.get("message", ""),
-                "available": check.get("available", True),
+                "available": available,
+                "ok": ok,
                 "setup_hint": parser.setup_hint,
             }
             tier_key = f"tier_{parser.tier}"

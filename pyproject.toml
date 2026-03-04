@@ -33,6 +33,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "tldextract>=5.1",
     "feedparser>=6.0",
+    "youtube-transcript-api>=0.6.2",
 ]
 
 # Optional capability groups.

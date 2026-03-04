@@ -26,7 +26,7 @@ from datapulse.core.security import get_secret
 logger = logging.getLogger("datapulse.search_gateway")
 
 
-DEFAULT_TIMEOUT = 3.0
+DEFAULT_TIMEOUT = 8.0
 
 
 @dataclass

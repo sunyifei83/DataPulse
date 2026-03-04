@@ -68,7 +68,7 @@ def read_env_list(name: str, *, default: Iterable[str] | None = None, separator:
 class SearchGatewayConfig:
     """Config model for web search gateway tuning."""
 
-    timeout_seconds: float = 3.0
+    timeout_seconds: float = 8.0
     retry_attempts: int = 2
     retry_base_delay: float = 1.0
     retry_max_delay: float = 4.0
@@ -82,7 +82,7 @@ class SearchGatewayConfig:
     @classmethod
     def load(cls) -> "SearchGatewayConfig":
         return cls(
-            timeout_seconds=read_env_float("DATAPULSE_SEARCH_TIMEOUT", 3.0, min_value=1.0),
+            timeout_seconds=read_env_float("DATAPULSE_SEARCH_TIMEOUT", 8.0, min_value=1.0),
             retry_attempts=read_env_int("DATAPULSE_SEARCH_RETRY_ATTEMPTS", 2, min_value=1, max_value=10),
             retry_base_delay=read_env_float("DATAPULSE_SEARCH_RETRY_BASE_DELAY", 1.0, min_value=0.1, max_value=10.0),
             retry_max_delay=read_env_float("DATAPULSE_SEARCH_RETRY_MAX_DELAY_SECONDS", 4.0, min_value=0.1, max_value=30.0),

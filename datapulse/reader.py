@@ -159,6 +159,25 @@ class DataPulseReader:
             raise RuntimeError(result.error)
 
         item = self._to_item(result, parser.name)
+        if parser.name == "twitter" and "thin_content" in item.confidence_factors:
+            try:
+                fallback = self._jina_client.read(url)
+                fallback_content = (fallback.content or "").strip()
+                if len(fallback_content) >= max(160, len(item.content) * 2):
+                    item.content = fallback_content
+                    item.parser = "twitter+jina_fallback"
+                    item.confidence = max(item.confidence, 0.92)
+                    item.confidence_factors = [
+                        factor for factor in item.confidence_factors
+                        if factor != "thin_content"
+                    ]
+                    if "long_content" not in item.confidence_factors:
+                        item.confidence_factors.append("long_content")
+                    if "jina_fallback" not in item.tags:
+                        item.tags.append("jina_fallback")
+                    item.extra["fallback_parser"] = "jina_reader"
+            except Exception as exc:  # noqa: BLE001
+                logger.info("Twitter thin_content fallback skipped for %s: %s", url, exc)
         if item.confidence < min_confidence:
             raise RuntimeError(f"Confidence too low: {item.confidence:.3f}")
 
@@ -191,6 +210,7 @@ class DataPulseReader:
         *,
         min_confidence: float = 0.0,
         return_all: bool = True,
+        store: bool | None = None,
         extract_entities: bool = False,
         entity_mode: str = "fast",
         store_entities: bool = True,
@@ -208,6 +228,11 @@ class DataPulseReader:
                 unique_urls.append(url.strip())
         max_concurrency = int(os.getenv("DATAPULSE_BATCH_CONCURRENCY", "5"))
         semaphore = asyncio.Semaphore(max_concurrency)
+        if store is not None:
+            logger.debug(
+                "read_batch(store=%s) is deprecated; storage remains automatic.",
+                store,
+            )
 
         async def _bounded_read(url: str) -> DataPulseItem:
             async with semaphore:
@@ -314,6 +339,7 @@ class DataPulseReader:
         sites: list[str] | None = None,
         platform: str | None = None,
         limit: int = 5,
+        top_n: int | None = None,
         fetch_content: bool = True,
         min_confidence: float = 0.0,
         extract_entities: bool = False,
@@ -330,6 +356,8 @@ class DataPulseReader:
         freshness: str | None = None,
     ) -> list[DataPulseItem]:
         """Search the web via Jina/Tavily and return scored DataPulseItems."""
+        if top_n is not None and top_n > 0:
+            limit = top_n
         effective_mode = "multi" if provider == "multi" else mode
         merged_sites = list(sites or [])
         if platform and platform in PLATFORM_SEARCH_SITES:
@@ -350,8 +378,6 @@ class DataPulseReader:
                     sites=merged_sites,
                     limit=limit,
                 )
-                if not search_hits:
-                    raise RuntimeError("No results from Jina")
             except Exception as exc:
                 if provider == "jina" or self._is_api_key_error(exc):
                     raise
@@ -522,19 +548,39 @@ class DataPulseReader:
         store=True saves the snapshot as a DataPulseItem to inbox (opt-in).
         """
         collector = TrendingCollector()
-        snapshots = await asyncio.to_thread(
-            collector.fetch_snapshots, location, top_n
-        )
+        requested_location = location.strip().lower() if location else "worldwide"
+        resolved_location = requested_location
+        fallback_reason = ""
+        try:
+            snapshots = await asyncio.to_thread(
+                collector.fetch_snapshots, location, top_n
+            )
+        except Exception as exc:  # noqa: BLE001
+            if requested_location not in {"", "worldwide", "global"}:
+                logger.warning(
+                    "Trending fetch failed for %s, fallback to worldwide: %s",
+                    requested_location,
+                    exc,
+                )
+                snapshots = await asyncio.to_thread(
+                    collector.fetch_snapshots, "worldwide", top_n
+                )
+                resolved_location = "worldwide"
+                fallback_reason = str(exc)
+            else:
+                raise
         if not snapshots:
             return {
-                "location": location or "worldwide",
+                "location": resolved_location or "worldwide",
+                "requested_location": requested_location or "worldwide",
                 "snapshot_time": "",
                 "trend_count": 0,
                 "trends": [],
+                "fallback_reason": fallback_reason,
             }
 
         latest = snapshots[0]
-        loc_slug = location.strip().lower() if location else "worldwide"
+        loc_slug = resolved_location or "worldwide"
         from urllib.parse import quote
         trends_out = [
             {
@@ -549,10 +595,13 @@ class DataPulseReader:
 
         result: dict[str, Any] = {
             "location": loc_slug,
+            "requested_location": requested_location or "worldwide",
             "snapshot_time": latest.timestamp_utc or latest.timestamp,
             "trend_count": len(latest.trends),
             "trends": trends_out,
         }
+        if fallback_reason:
+            result["fallback_reason"] = fallback_reason
 
         if validate is None:
             validate = os.getenv("DATAPULSE_TRENDING_CROSS_VALIDATE", "0").strip().lower() in {
@@ -802,6 +851,10 @@ class DataPulseReader:
         """Run health checks on all collectors, grouped by tier."""
         return self.router.doctor()
 
+    async def doctor_async(self) -> dict[str, list[dict[str, str | bool]]]:
+        """Async wrapper for doctor() in coroutine contexts."""
+        return await asyncio.to_thread(self.doctor)
+
     def mark_processed(self, item_id: str, processed: bool = True) -> bool:
         ok = self.inbox.mark_processed(item_id, processed=processed)
         if ok:
@@ -966,6 +1019,7 @@ class DataPulseReader:
 
     def build_digest(
         self,
+        items: list[DataPulseItem] | None = None,
         *,
         profile: str = "default",
         source_ids: list[str] | None = None,
@@ -977,13 +1031,19 @@ class DataPulseReader:
     ) -> dict[str, Any]:
         """Build a curated digest with primary and secondary stories."""
         # 1. Get candidates
-        candidates = self.query_feed(
-            profile=profile,
-            source_ids=source_ids,
-            limit=500,  # grab a large pool
-            min_confidence=min_confidence,
-            since=since,
-        )
+        if items is None:
+            candidates = self.query_feed(
+                profile=profile,
+                source_ids=source_ids,
+                limit=500,  # grab a large pool
+                min_confidence=min_confidence,
+                since=since,
+            )
+        else:
+            candidates = [
+                item for item in items
+                if (not min_confidence or item.confidence >= min_confidence)
+            ]
         candidates_total = len(candidates)
 
         if not candidates:
@@ -1001,6 +1061,13 @@ class DataPulseReader:
                 },
                 "primary": [],
                 "secondary": [],
+                "semantic_review": {
+                    "status": "empty",
+                    "items_analyzed": 0,
+                    "stance_counts": {"positive": 0, "negative": 0, "neutral": 0},
+                    "contradictions": [],
+                    "claim_candidates": [],
+                },
                 "provenance": "No items available",
             }
 
@@ -1032,6 +1099,8 @@ class DataPulseReader:
         for item in primary + secondary:
             item.digest_date = today
 
+        semantic_review = self._build_semantic_review(primary + secondary)
+
         return {
             "version": "1.0",
             "generated_at": datetime.utcnow().isoformat() + "Z",
@@ -1045,8 +1114,60 @@ class DataPulseReader:
             },
             "primary": [item.to_dict() for item in primary],
             "secondary": [item.to_dict() for item in secondary],
+            "semantic_review": semantic_review,
             "provenance": f"Curated from {candidates_total} items across {sources_seen} sources",
         }
+
+    async def build_digest_async(
+        self,
+        items: list[DataPulseItem] | None = None,
+        *,
+        profile: str = "default",
+        source_ids: list[str] | None = None,
+        top_n: int = 3,
+        secondary_n: int = 7,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+        max_per_source: int = 2,
+    ) -> dict[str, Any]:
+        """Async wrapper for build_digest() in coroutine contexts."""
+        return await asyncio.to_thread(
+            self.build_digest,
+            items,
+            profile=profile,
+            source_ids=source_ids,
+            top_n=top_n,
+            secondary_n=secondary_n,
+            min_confidence=min_confidence,
+            since=since,
+            max_per_source=max_per_source,
+        )
+
+    @staticmethod
+    def _build_semantic_review(items: list[DataPulseItem]) -> dict[str, Any]:
+        if not items:
+            return {
+                "status": "empty",
+                "items_analyzed": 0,
+                "stance_counts": {"positive": 0, "negative": 0, "neutral": 0},
+                "contradictions": [],
+                "claim_candidates": [],
+            }
+        try:
+            from datapulse.core.semantic import build_semantic_review
+
+            payload = build_semantic_review(items)
+            payload["status"] = "ok"
+            return payload
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "status": "degraded",
+                "items_analyzed": len(items),
+                "stance_counts": {"positive": 0, "negative": 0, "neutral": 0},
+                "contradictions": [],
+                "claim_candidates": [],
+                "error": str(exc),
+            }
 
     @staticmethod
     def _select_diverse(
