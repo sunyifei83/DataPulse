@@ -160,24 +160,58 @@ class DataPulseReader:
 
         item = self._to_item(result, parser.name)
         if parser.name == "twitter" and "thin_content" in item.confidence_factors:
+            fallback_content = ""
+            fallback_parser = ""
+            original_timeout = getattr(self._jina_client, "timeout", 8)
             try:
-                fallback = self._jina_client.read(url)
-                fallback_content = (fallback.content or "").strip()
-                if len(fallback_content) >= max(160, len(item.content) * 2):
-                    item.content = fallback_content
-                    item.parser = "twitter+jina_fallback"
-                    item.confidence = max(item.confidence, 0.92)
-                    item.confidence_factors = [
-                        factor for factor in item.confidence_factors
-                        if factor != "thin_content"
-                    ]
-                    if "long_content" not in item.confidence_factors:
-                        item.confidence_factors.append("long_content")
-                    if "jina_fallback" not in item.tags:
-                        item.tags.append("jina_fallback")
-                    item.extra["fallback_parser"] = "jina_reader"
-            except Exception as exc:  # noqa: BLE001
-                logger.info("Twitter thin_content fallback skipped for %s: %s", url, exc)
+                for timeout in (int(original_timeout), max(20, int(original_timeout))):
+                    try:
+                        self._jina_client.timeout = timeout
+                        fallback = self._jina_client.read(url)
+                        candidate = (fallback.content or "").strip()
+                        if candidate:
+                            fallback_content = candidate
+                            fallback_parser = f"jina_reader_t{timeout}"
+                            break
+                    except Exception as exc:  # noqa: BLE001
+                        logger.info(
+                            "Twitter thin_content jina fallback failed for %s (timeout=%s): %s",
+                            url,
+                            timeout,
+                            exc,
+                        )
+            finally:
+                self._jina_client.timeout = original_timeout
+
+            if not fallback_content:
+                try:
+                    import requests
+
+                    resp = requests.get(
+                        f"https://r.jina.ai/{url}",
+                        headers={"Accept": "text/plain"},
+                        timeout=max(20, int(original_timeout)),
+                    )
+                    resp.raise_for_status()
+                    fallback_content = (resp.text or "").strip()
+                    if fallback_content:
+                        fallback_parser = "jina_http_direct"
+                except Exception as exc:  # noqa: BLE001
+                    logger.info("Twitter thin_content direct fallback skipped for %s: %s", url, exc)
+
+            if len(fallback_content) >= max(160, len(item.content) * 2):
+                item.content = fallback_content
+                item.parser = "twitter+jina_fallback"
+                item.confidence = max(item.confidence, 0.92)
+                item.confidence_factors = [
+                    factor for factor in item.confidence_factors
+                    if factor != "thin_content"
+                ]
+                if "long_content" not in item.confidence_factors:
+                    item.confidence_factors.append("long_content")
+                if "jina_fallback" not in item.tags:
+                    item.tags.append("jina_fallback")
+                item.extra["fallback_parser"] = fallback_parser or "jina_reader"
         if item.confidence < min_confidence:
             raise RuntimeError(f"Confidence too low: {item.confidence:.3f}")
 
@@ -379,19 +413,25 @@ class DataPulseReader:
                     limit=limit,
                 )
             except Exception as exc:
-                if provider == "jina" or self._is_api_key_error(exc):
+                if provider == "jina":
                     raise
                 logger.warning("Auto search fallback triggered: %s", exc)
-                search_hits, search_audit = self._search_gateway.search(
-                    query,
-                    sites=merged_sites,
-                    limit=limit,
-                    provider="tavily",
-                    mode=effective_mode,
-                    deep=deep,
-                    news=news,
-                    time_range=requested_time_range,
-                )
+                try:
+                    search_hits, search_audit = self._search_gateway.search(
+                        query,
+                        sites=merged_sites,
+                        limit=limit,
+                        provider="auto",
+                        mode=effective_mode,
+                        deep=deep,
+                        news=news,
+                        time_range=requested_time_range,
+                    )
+                except Exception as fallback_exc:
+                    if self._is_api_key_error(exc) or self._is_api_key_error(fallback_exc):
+                        logger.warning("Search unavailable due to missing API key(s): %s", fallback_exc)
+                        return []
+                    raise
         else:
             search_hits, search_audit = self._search_gateway.search(
                 query,

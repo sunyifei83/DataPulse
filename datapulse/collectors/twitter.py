@@ -124,6 +124,15 @@ class TwitterCollector(BaseCollector):
                         title += f" ({created_at})"
                     body = tweet.get("text", "")
 
+                if not body:
+                    body = (
+                        str(tweet.get("description", "") or "").strip()
+                        or str((tweet.get("note_tweet") or {}).get("text", "")).strip()
+                        or str(((tweet.get("legacy") or {}).get("full_text", ""))).strip()
+                        or str(data.get("text", "")).strip()
+                        or str(data.get("tweetText", "")).strip()
+                    )
+
                 if tweet.get("note_tweet"):
                     body += "\n\n[Note Tweet]"
                     quotes.append("note")
