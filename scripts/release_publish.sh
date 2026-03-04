@@ -92,6 +92,7 @@ lines = text.splitlines()
 header_patterns = [
     rf"^##\s+Release:\s*DataPulse\s+v{re.escape(target)}\b",
     rf"^##\s+Release:\s+v{re.escape(target)}\b",
+    rf"^##\s*DataPulse\s+v{re.escape(target)}\b",
 ]
 start = None
 for idx, line in enumerate(lines):
@@ -100,29 +101,27 @@ for idx, line in enumerate(lines):
         break
 
 if start is None:
-    # Fallback: use full file when exact version section is missing.
-    sys.stdout.write(text.rstrip())
-    sys.exit(0)
+    sys.stderr.write(f"Release notes section not found for tag {tag}.\\n")
+    sys.exit(1)
 
 end = len(lines)
 for idx in range(start, len(lines)):
-    if re.match(r"^##\s+Release:", lines[idx]):
+    if re.match(r"^##\s+Release:|^##\s*DataPulse", lines[idx]):
         end = idx
         break
 
 section = "\n".join(lines[start:end]).strip()
 if not section:
-    # Fallback if section has no body.
-    print(text.rstrip())
+    sys.stderr.write(f"Release notes section for {tag} is empty.\\n")
+    sys.exit(1)
 else:
     print(section)
 PY
   )
 
   if [[ -z "$raw_notes" ]]; then
-    echo "No notes found for ${tag} in ${notes_file}, fallback to full notes file." >&2
-    cat "$notes_file"
-    return
+    echo "No notes found for ${tag} in ${notes_file}." >&2
+    return 1
   fi
 
   if [[ "$SCRUB_FULL_CHANGELOG" -eq 1 ]]; then
@@ -160,7 +159,8 @@ fi
 {
   echo "Release notes for ${TAG}:"
   echo "----------------------------------------"
-  extract_notes "$NOTES_FILE" "$TAG" | tee "$TMP_NOTES_FILE"
+  notes_body="$(extract_notes "$NOTES_FILE" "$TAG")" || exit 1
+  printf '%s' "$notes_body" | tee "$TMP_NOTES_FILE"
   echo "----------------------------------------"
 } >&2
 

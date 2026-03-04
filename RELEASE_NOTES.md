@@ -357,6 +357,24 @@
 
 ---
 
+## Release: DataPulse v0.1.1
+
+发布日期：2026-02-24
+
+### 本次更新
+- 补充发布流程体系：新增发布 checklist 与 PR/Release 模板。
+- 新增一键发布脚本：`scripts/release_publish.sh`。
+- 新增 GitHub Actions release 工作流：`.github/workflows/release.yml`（Tag push 自动发布）。
+- README 全面补充 release 与发布资产说明。
+- Changelog 增加 `0.1.1` 版本说明。
+
+### 验收
+- 与 `LICENSE` 与 `pyproject.toml` 许可声明一致。
+- README 三语文档、`CHANGELOG.md`、`RELEASE_NOTES.md`、`docs/release_checklist.md` 内容完整。
+- 敏感信息未出现在公开文档。
+
+---
+
 ## Release: DataPulse v0.1.0 (Initial)
 
 发布日期：2026-02-24  
