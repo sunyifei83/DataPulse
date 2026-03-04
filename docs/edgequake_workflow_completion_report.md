@@ -47,6 +47,8 @@
       - `/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260304_001737/local_report.md`
       - `/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260304_120313/local_report.md`
       - `/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260304_120341/local_report.md`
+      - `/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260304_120652/local_report.md`
+      - `/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260304_120853/local_report.md`
 
 ## 4) 提交变更入库
 
@@ -112,4 +114,5 @@
   - 依赖缺失导致 `mypy` 初始报错（`types-requests`）→ 使用 `uv run mypy`/CI `types` 安装路径验证确认
   - 脚本入口不一致导致快速验收误报（`python` 命令差异）→ 已修复 `quick_test.sh`
 - 仍待闭环：
-  - `datapulse_local_smoke.sh` 平台回归阶段已补齐 URL 重跑；仍需单独补齐：`wechat/rss` 的稳定公共地址与 `xhs/telegram` 的可复现实验路径。
+  - `datapulse_local_smoke.sh` 平台回归阶段已补齐 URL 重跑；`wechat/rss` 样例现已通过替代样例复测闭环，登记见：
+    - [问题池登记](issue_pool.md)
