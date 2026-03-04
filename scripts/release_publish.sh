@@ -90,8 +90,8 @@ target = tag.lstrip("v")
 text = notes_path.read_text(encoding="utf-8")
 lines = text.splitlines()
 header_patterns = [
-    rf"^##\\s+Release:\\s*DataPulse\\s+v{re.escape(target)}\\b",
-    rf"^##\\s+Release:\\s+v{re.escape(target)}\\b",
+    rf"^##\s+Release:\s*DataPulse\s+v{re.escape(target)}\b",
+    rf"^##\s+Release:\s+v{re.escape(target)}\b",
 ]
 start = None
 for idx, line in enumerate(lines):
@@ -106,7 +106,7 @@ if start is None:
 
 end = len(lines)
 for idx in range(start, len(lines)):
-    if re.match(r"^##\\s+Release:", lines[idx]):
+    if re.match(r"^##\s+Release:", lines[idx]):
         end = idx
         break
 
