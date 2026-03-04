@@ -24,8 +24,8 @@
   - Trending：trends24.in 全球 400+ 地区 X/Twitter 热搜趋势抓取，30+ 地区别名（us/uk/jp 等），小时级快照，Tweet 量级解析
   - 通用网页：Trafilatura / BeautifulSoup，失败再尝试 Firecrawl（`FIRECRAWL_API_KEY`）或 Jina Reader
   - Jina 增强读取：CSS 选择器定向抓取、等待元素加载、Cookie 透传、代理、AI 图片描述、缓存控制
-  - Web 搜索：通过 Jina Search API (`s.jina.ai`) 搜索全网，自动提取并评分，支持平台限定搜索（`--platform`）
-- 产出：
+  - Web 搜索：默认通过多源网关（`search-provider=auto`）路由 Jina/Tavily，支持平台限定搜索（`--platform`）、`--search-provider`、`--search-mode`、深度/新闻/时间窗参数（`--search-deep --search-news --search-time-range --search-freshness`）
+  - 产出：
   - 结构化 JSON（`DataPulseItem`）
   - 可选 Markdown 记忆输出（`datapulse-inbox.md` 或自定义路径）
 - 多维评分：四维度加权（置信度/来源权威/跨源互证/时效性），输出 0-100 综合分 + 0.01~0.99 置信分
@@ -44,8 +44,12 @@
   - 路由失败时自动附带 setup_hint，指导用户修复
 - 可观测性：
   - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
+- 轻量实体增强（EdgeQuake 蒸馏）：
+  - `--entities` 启用 URL 级实体抽取（`fast`/`llm`）
+  - `--entity-query` / `--entity-graph` / `--entity-stats` 支持实体存储与查询
+  - 评分链路可通过 `DATAPULSE_ENTITY_CORROBORATION_WEIGHT` 引入实体跨源互证加分（默认 `0`）
 - 测试基建：
-  - 481 个测试，覆盖 25 个测试模块
+  - 496 个测试，覆盖 25 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -114,6 +118,12 @@ datapulse --doctor
 
 # 定向抓取
 datapulse https://example.com --target-selector ".article-body" --no-cache
+
+# 实体增强
+datapulse https://x.com/xxxx/status/123 --entities --entity-mode fast
+datapulse --entity-query OPENAI --entity-type CONCEPT
+datapulse --entity-graph OPENAI
+datapulse --entity-stats
 ```
 
 ### 2. Smoke 测试
@@ -208,13 +218,13 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-24 个可用工具：
+28 个可用工具：
 
 **采集与读取：**
 - `read_url(url, min_confidence)` — 解析单条 URL
 - `read_batch(urls, min_confidence)` — 批量解析 URL
 - `read_url_advanced(url, target_selector, wait_for_selector, no_cache, with_alt, min_confidence)` — CSS 定向抓取
-- `search_web(query, sites, platform, limit, fetch_content, min_confidence)` — Web 搜索
+- `search_web(query, sites, platform, limit, fetch_content, min_confidence, provider='auto', mode='single', deep=False, news=False, time_range=None, freshness=None, extract_entities=False, entity_mode='fast', store_entities=True, entity_api_key=None, entity_model='gpt-4o-mini', entity_api_base='https://api.openai.com/v1')` — Web 搜索
 - `trending(location, top_n, store)` — X/Twitter 热搜趋势
 
 **内存与状态：**
@@ -237,11 +247,16 @@ python -m datapulse.mcp_server --call health
 - `build_rss_feed(profile, source_ids, limit, min_confidence, since)` — RSS Feed
 - `build_atom_feed(profile, source_ids, limit, min_confidence, since)` — Atom 1.0 Feed
 - `build_digest(profile, source_ids, top_n, secondary_n, min_confidence, since)` — 精选摘要
+- `emit_digest_package(profile='default', source_ids=None, top_n=3, secondary_n=7, min_confidence=0.0, since=None, output_format='json')` — 导出 office-ready 摘要包（`json`/`markdown`）
 
 **诊断与工具：**
 - `doctor()` — 采集器分级健康自检
 - `detect_platform(url)` — 平台检测
 - `health()` — 健康检查
+- `extract_entities(url, mode='fast', store_entities=True, ...)` — 单 URL 实体抽取（`fast`/`llm`）
+- `query_entities(entity_type='', name='', min_sources=1, limit=50)` — 实体查询
+- `entity_graph(entity_name, limit=50)` — 实体关联图
+- `entity_stats()` — 实体统计
 
 - Skill 接口（适配 OpenClaw 等）：
 
@@ -280,6 +295,8 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_TG_CUTOFF_HOURS`（默认 24）
 - `DATAPULSE_SMOKE_*`
 - `DATAPULSE_MIN_CONFIDENCE`
+- `DATAPULSE_ENTITY_STORE`（实体存储文件，默认 `entity_store.json`）
+- `DATAPULSE_ENTITY_CORROBORATION_WEIGHT`（实体跨源互证加权）
 - `DATAPULSE_SESSION_TTL_HOURS`（默认 12 — session 缓存 TTL 小时数）
 - `JINA_API_KEY`（Jina 增强读取 + Web 搜索 API Key）
 - `TAVILY_API_KEY`（Tavily 搜索 API Key）

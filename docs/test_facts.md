@@ -100,7 +100,7 @@ title: Test Facts
 ## Fact 3.6: v0.5.0 能力增量
 
 - **Jina 增强读取**：`JinaAPIClient`（`datapulse/core/jina_client.py`）封装 Reader + Search API，支持 CSS 选择器定向（`X-Target-Selector`）、等待元素（`X-Wait-For-Selector`）、缓存控制（`X-No-Cache`）、AI 图片描述（`X-With-Generated-Alt`）、Cookie 透传、代理。
-- **Web 搜索**：`DataPulseReader.search()` 通过 Jina Search API（`s.jina.ai`）搜索全网，返回经评分排序的 `DataPulseItem` 列表。CLI `--search` / MCP `search_web`。
+- **Web 搜索**：`DataPulseReader.search()` 支持多源检索（Jina/Tavily，默认 `provider=auto`），并返回经评分排序的 `DataPulseItem` 列表。CLI `--search` / MCP `search_web`。
 - **GenericCollector 回退链增强**：Trafilatura → BS4 → Firecrawl → Jina Reader → fail。
 - **新增 MCP 工具**：`search_web`、`read_url_advanced`。
 - **新增 CLI 参数**：`--search`、`--site`、`--search-limit`、`--no-fetch`、`--target-selector`、`--no-cache`、`--with-alt`。
@@ -135,13 +135,21 @@ title: Test Facts
 - **采集器健康自检（doctor）**：`BaseCollector` 新增 `tier`（0/1/2）、`setup_hint`、`check()` 方法。13 个采集器全部实现自检，按 tier 0（零配置：rss/arxiv/hackernews）、tier 1（网络/免费：twitter/reddit/bilibili/trending/generic/jina）、tier 2（需配置：youtube/xhs/wechat/telegram）三级分类。
 - **Doctor 聚合**：`ParsePipeline.doctor()` 按 tier 分组返回所有采集器健康状态。`DataPulseReader.doctor()` 透传。
 - **CLI `--doctor`**：分级表格展示 `[OK]`/`[WARN]`/`[ERR]` 状态图标与 setup_hint。
-- **MCP `doctor()` 工具**：返回 JSON 健康报告，MCP 工具总数 23 → 24。
+- **MCP `doctor()` 工具**：返回 JSON 健康报告，MCP 工具总数 24（v0.6.1）→ 28（实体与摘要导出能力补充后）。
 - **429 感知退避**：新增 `RateLimitError`（含 `retry_after` 字段），`retry()` 自动遵循 Retry-After 头部（上限 `max_delay`），`respect_retry_after=False` 可选禁用。
 - **CircuitBreaker 限速加权**：`rate_limit_weight`（默认 2）使 429 错误以双倍速度填充熔断计数器。
 - **入库指纹去重**：`UnifiedInbox.add()` 对 ≥50 字符内容计算指纹，拒绝近似重复。`fingerprint_dedup=False` 逃生口。指纹集 save/reload 持久化。
 - **可操作路由错误**：`ParsePipeline.route()` 追踪 `best_match` 采集器，路由失败时附带 `setup_hint` 修复指引。
-- **新增 42 个测试**（`test_doctor.py` 25 + `test_retry.py` 10 + `test_storage.py` 7），总计 481 passed，覆盖 25 个测试模块。
+- **新增 42 个测试**（`test_doctor.py` 25 + `test_retry.py` 10 + `test_storage.py` 7），总计 496 passed，覆盖 25 个测试模块。
 - **零新依赖**，零 breaking change。
+
+## Fact 3.10: v0.7.0 实体能力补齐（边界增强）
+
+- **轻量实体蒸馏链路**：`DataPulseReader.extract_entities()` 支持 URL 级实体提取，默认 `mode="fast"`，可切 `llm` 模式；CLI 增加 `--entities`、`--entity-query`、`--entity-graph`、`--entity-stats`。
+- **实体持久化能力**：`EntityStore` 增加文件化 JSON 存储（默认 `entity_store.json`），支持 `DATAPULSE_ENTITY_STORE` 覆盖路径；支持 `EntityType`/`Relation` 的查询、实体去重与合并、跨源计数。
+- **实体评分加权**：引入 `DATAPULSE_ENTITY_CORROBORATION_WEIGHT`，并在 `scoring` 模块中将跨源实体共现纳入综合评分。
+- **MCP 入口补齐**：新增 4 个高价值实体工具 `extract_entities`、`query_entities`、`entity_graph`、`entity_stats`。
+- **测试与门禁**：新增实体相关测试覆盖（`test_entities.py`/`test_entity_store.py`/`test_entity_integration.py`），纳入 `tests/` 全量闭环。
 
 ## Fact 4: 来源与订阅能力增强
 

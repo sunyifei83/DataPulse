@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.0] - 2026-03-04
+
+### Added — Features
+- **Entity Distillation Pipeline**: `DataPulseReader.extract_entities()` 引入轻量实体抽取链路，支持 URL 级实体与关系提取。
+- **Entity Persistence**: 新增 `EntityStore`（默认 `entity_store.json`）与实体/关系入库存储；支持按名称、类型、来源计数查询。
+- **Entity CLI / MCP 入口**：CLI 增加 `--entities`、`--entity-query`、`--entity-graph`、`--entity-stats`；MCP 新增 `extract_entities`、`query_entities`、`entity_graph`、`entity_stats` 四个工具。
+- **Multi-Source Search Gateway**：`search()` 支持 provider 路线（`auto`、`jina`、`tavily`、`multi`）、`search_mode`、`deep`、`news`、`time_range/freshness`，并在 `search` 结果中输出 `search_audit` 与 `search_consistency` 元数据。
+- **Scoring + Audit 增强**：`rank_items()` 与打分链路加入实体共现辅助维度；`DATAPULSE_ENTITY_CORROBORATION_WEIGHT`、`DATAPULSE_SOURCE_DIVERSITY_WEIGHT`、`DATAPULSE_CROSS_VALIDATION_WEIGHT` 与 `DATAPULSE_RECENCY_BONUS_WEIGHT` 可用于上线可观测调优。
+
+### Added — Testing
+- 新增实体抽取相关测试：`tests/test_entities.py`、`tests/test_entity_store.py`、`tests/test_entity_integration.py`。
+- 全量测试保持 `496 passed`（25 个测试模块）。
+
+### Changed
+- `DataPulseReader.search()` 与 `mcp_server`/`cli` 支持 `search_provider`、`search_mode`、`deep`、`news`、`time_range/freshness` 的参数透传与路由回退。
+- MCP 工具总数提升到 `28`（较 v0.6.1 的 `24`）。
+- 伴随交付文档（README/Workflow/issue_pool/contract）已同步到实体能力与 0.7 里程碑。
+
 ## [0.6.1] - 2026-03-01
 
 ### Added — Features

@@ -35,7 +35,7 @@
     - `RUN_ID 20260304_120313` 同样出现 `wechat`/`rss` 边界
     - `RUN_ID 20260304_120341`（排除 `wechat` 与 `rss`）为主链路 PASS
 - 关闭条件：
-  - 需要可复现可达替代 URL（如 `wechat` / `rss` 公开稳定样例）并完成同脚本复测后改为 `OPEN`->`DONE`
+  - 已完成：可复现可达替代 URL（如 `wechat` / `rss` 公开稳定样例）并在标准验收清单复测通过后标为 `DONE`
 - 复测（替代样例）：
   - 命令：
   ```bash
@@ -52,4 +52,4 @@
   - 报告：`/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260304_120853/local_report.md`
   - 日志：`/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260304_120853/local_test.log`
   - 判定：`wechat` 与 `rss` 平台本身链路可通过；原始 `FAIL` 为样例 URL 可达性波动导致的边界输入问题。
-- 当前状态：`DONE`（边界样例替代可复测，待在标准验收清单使用稳定样例）
+- 当前状态：`DONE`（替代样例复测通过；待在标准验收清单与交付模板持续使用稳定输入继续回归）

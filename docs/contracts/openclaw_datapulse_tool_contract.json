@@ -2,7 +2,7 @@
   "contract": {
     "project": "DataPulse",
     "project_zh": "数据脉搏",
-    "version": "0.6.1",
+    "version": "0.7.0",
     "scope": "cross-platform URL intake + confidence scoring + memory persistence",
     "targets": [
       "assistant-skill",
@@ -241,6 +241,46 @@
           "since": "string (optional)",
           "output_format": "string = json|markdown|md (default json)"
         }
+      },
+      {
+        "name": "doctor",
+        "description": "Return parser health status grouped by tier.",
+        "parameters": {}
+      },
+      {
+        "name": "extract_entities",
+        "description": "Extract entities from one URL and return entities/relations in payload.",
+        "parameters": {
+          "url": "string (required)",
+          "mode": "string = fast|llm (default fast)",
+          "store_entities": "bool (default true)",
+          "llm_api_key": "string (optional)",
+          "llm_model": "string (default gpt-4o-mini)",
+          "llm_api_base": "string (default https://api.openai.com/v1)"
+        }
+      },
+      {
+        "name": "query_entities",
+        "description": "Query extracted entities by optional name and type.",
+        "parameters": {
+          "entity_type": "string (optional)",
+          "name": "string (optional)",
+          "min_sources": "int (default 1)",
+          "limit": "int (default 50)"
+        }
+      },
+      {
+        "name": "entity_graph",
+        "description": "Get related entities for one entity with adjacency edges.",
+        "parameters": {
+          "entity_name": "string (required)",
+          "limit": "int (default 50)"
+        }
+      },
+      {
+        "name": "entity_stats",
+        "description": "Return entity store summary metrics.",
+        "parameters": {}
       },
       {
         "name": "detect_platform",

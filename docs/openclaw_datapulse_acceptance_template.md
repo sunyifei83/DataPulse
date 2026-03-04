@@ -1,6 +1,6 @@
 # DataPulse + OpenClaw 远程接入验收模板（macmini M4）
 
-> 生成时间：`2026-02-24`
+> 生成时间：`2026-03-04`
 
 ## 1) 测试环境
 - 机器：Mac Mini M4
@@ -192,7 +192,7 @@ sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" 
 ### OpenClaw/OpenModel 端点
 - Runtime 状态检测：`curl -sS http://127.0.0.1:18801/healthz`
 - 就绪检测：`curl -sS http://127.0.0.1:18801/readyz`
-- 工具链目标（23 个 MCP 工具）：`read_url` / `read_batch` / `read_url_advanced` / `search_web` / `trending` / `query_inbox` / `mark_processed` / `query_unprocessed` / `list_sources` / `list_packs` / `resolve_source` / `list_subscriptions` / `source_subscribe` / `source_unsubscribe` / `install_pack` / `query_feed` / `build_json_feed` / `build_rss_feed` / `build_atom_feed` / `build_digest` / `detect_platform` / `health`
+- 工具链目标（28 个 MCP 工具）：`read_url` / `read_batch` / `read_url_advanced` / `search_web` / `trending` / `query_inbox` / `mark_processed` / `query_unprocessed` / `list_sources` / `list_packs` / `resolve_source` / `list_subscriptions` / `source_subscribe` / `source_unsubscribe` / `install_pack` / `query_feed` / `build_json_feed` / `build_rss_feed` / `build_atom_feed` / `build_digest` / `emit_digest_package` / `extract_entities` / `query_entities` / `entity_graph` / `entity_stats` / `doctor` / `detect_platform` / `health`
 - 远端预检（建议在 `bash scripts/datapulse_remote_openclaw_smoke.sh` 前执行）：
   - `MACMINI_DATAPULSE_DIR` 下必须有 `pyproject.toml` 和 `datapulse/`
   - 远端 Python 版本必须 `>=3.10`
@@ -224,7 +224,7 @@ sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" 
 - [ ] `datapulse --list --limit 5` 返回可读结果
 - [ ] `datapulse --batch` 通过
 - [ ] `datapulse-smoke --platforms ... --require-all` 通过
-- [ ] `datapulse --search "test query" --search-limit 3` 返回搜索结果（需 `JINA_API_KEY`）
+- [ ] `datapulse --search "test query" --search-limit 3 --search-provider auto` 返回搜索结果（如遇 provider 限制，请配置对应 `JINA_API_KEY` 或 `TAVILY_API_KEY`）
 - [ ] `datapulse --trending us --trending-limit 10` 返回热搜趋势
 - [ ] `datapulse <url> --target-selector "main"` 定向抓取通过
 - [ ] `DataPulseAgent` 返回 JSON 风格 payload（status/count/items）
@@ -243,8 +243,14 @@ sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" 
 - [ ] `trending` MCP 工具返回热搜趋势 JSON
 - [ ] `query_feed` / `build_json_feed` / `build_rss_feed` / `build_atom_feed` Feed 输出正常
 - [ ] `build_digest` 精选摘要返回 JSON
+- [ ] `emit_digest_package` 产出 office-ready payload（`json`/`markdown`）正常
+- [ ] `doctor` MCP 工具返回采集器健康分组报告
 - [ ] `list_sources` / `resolve_source` / `list_subscriptions` 信源管理正常
 - [ ] `mark_processed` / `query_unprocessed` 状态管理正常
+- [ ] `extract_entities` 返回实体抽取结果，支持 `fast`/`llm`
+- [ ] `query_entities` 可按 `entity_type/name` 查询实体
+- [ ] `entity_graph` 输出实体关系闭环
+- [ ] `entity_stats` 返回实体存储汇总
 - [ ] OpenClaw 工具入口可被网关启动并返回结构化结果
 
 ## 6) 结果记录
@@ -260,8 +266,11 @@ sshpass -p "<VPS口令>" ssh -o StrictHostKeyChecking=no -p "${VPS_PORT:-6069}" 
 | MCP trending | PASS/FAIL | |
 | MCP Feed 输出 (json/rss/atom) | PASS/FAIL | |
 | MCP build_digest | PASS/FAIL | |
+| MCP emit_digest_package | PASS/FAIL | |
+| MCP doctor | PASS/FAIL | |
 | MCP 信源管理 (sources/subs) | PASS/FAIL | |
 | MCP 状态管理 (processed) | PASS/FAIL | |
+| MCP 实体工具 (extract/query/graph/stats) | PASS/FAIL | |
 | Skill run | PASS/FAIL | |
 | Agent handle | PASS/FAIL | |
 

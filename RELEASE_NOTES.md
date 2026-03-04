@@ -1,5 +1,43 @@
 # Release Notes
 
+## Release: DataPulse v0.7.0
+
+发布日期：2026-03-04
+构建目标：高价值能力补齐（实体蒸馏/持久化、搜索网关强化、可观测评分）
+
+### 主要变更
+
+**能力 1 — 轻量实体蒸馏能力补齐**
+- 新增实体抽取能力：`DataPulseReader.extract_entities()`，支持 URL 内容直接抽取 `entities` 与 `relations`。
+- 引入 `EntityStore` 持久化能力（默认 `entity_store.json`，支持 `DATAPULSE_ENTITY_STORE` 覆盖路径）。
+- 支持实体查询与知识图谱视图：
+  - `query_entities(entity_type, name, min_sources, limit)`
+  - `entity_graph(entity_name, limit)`
+  - `entity_stats()`
+- CLI 新增 `--entities`、`--entity-query`、`--entity-graph`、`--entity-stats`。
+
+**能力 2 — 多源搜索网关与可观测性增强**
+- 搜索链路支持 `search_provider=auto/jina/tavily/multi`、`search_mode=single/multi`、`deep/news/time_range/freshness`，并引入 provider 级 fallback + multi 聚合路径。
+- 搜索返回项带出 `search_audit`、`search_sources`、`search_source_count`、`search_consistency`，用于横向诊断与评分增强。
+- MCP 与 CLI 均开放 `search_provider`、`search_mode`、`deep`、`news` 等参数透传。
+
+**能力 3 — 评分与健康闭环增强**
+- `scoring` 加入实体交叉证据与多源一致性相关维度配置项。
+- 新增环境变量：`DATAPULSE_ENTITY_CORROBORATION_WEIGHT`、`DATAPULSE_SOURCE_DIVERSITY_WEIGHT`、`DATAPULSE_CROSS_VALIDATION_WEIGHT`、`DATAPULSE_RECENCY_BONUS_WEIGHT`。
+- 支持 `--entity-mode fast/llm` 与 `--search-provider`、`--search-mode` 的联动调用。
+
+### 测试
+- 新增 3 组实体能力测试：`test_entities.py` / `test_entity_store.py` / `test_entity_integration.py`。
+- 全量回归：`uv run pytest tests/ -q` → `496 passed in 13.60s`（已复核）。
+- MCP/CLI 相关搜索与实体参数回归通过上述全量测试链。
+
+### 验收建议
+1. `uv run pytest -q tests/test_entities.py tests/test_entity_store.py tests/test_entity_integration.py` — `14 passed`
+2. `uv run pytest tests/ -q` — `496 passed`
+3. `datapulse --entity-query OPENAI --entity-type CONCEPT` — 本地实体查询链路 smoke
+4. `python3 -m datapulse.mcp_server --call search_web '{"query":"DataPulse","provider":"auto","mode":"multi","limit":5}'`（按环境可用性适配）
+5. `datapulse --trending us --trending-limit 10` — 与趋势链路兼容性回归
+
 ## Release: DataPulse v0.6.1
 
 发布日期：2026-03-01

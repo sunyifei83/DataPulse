@@ -25,8 +25,8 @@ for MCP, Skill, Agent, and bot workflows.
   - Trending: trends24.in scraper for X/Twitter trending topics across 400+ global locations, 30+ location aliases (us/uk/jp etc.), hourly snapshots, tweet volume parsing
   - Generic web: Trafilatura / BeautifulSoup, optional Firecrawl fallback (`FIRECRAWL_API_KEY`) or Jina Reader
   - Jina enhanced reading: CSS selector targeting, wait-for-element, cookie passthrough, proxy, AI image descriptions, cache control
-  - Web search: search the web via Jina Search API (`s.jina.ai`), auto-extract and score results, platform-scoped search (`--platform`)
-- Outputs:
+  - Web search: multi-source search with default auto provider (Jina/Tavily), supports `--platform`, `--search-provider`, `--search-mode`, deep/news/time-range filters, and score-based output
+  - Outputs:
   - structured JSON (`DataPulseItem`)
   - optional Markdown inbox output (`datapulse-inbox.md` / custom path)
 - Multi-dimensional scoring: 4 dimensions weighted (confidence 0.25 / authority 0.30 / corroboration 0.25 / recency 0.20), outputs 0-100 composite score + 0.01~0.99 confidence score
@@ -39,6 +39,10 @@ for MCP, Skill, Agent, and bot workflows.
   - concurrent batch reads with auto URL dedup
   - dedupe and prune by max items / retention days
   - ingestion fingerprint dedup: similar content (≥50 chars) auto-deduplicated at inbox level
+- Light entity layer (EdgeQuake distillation):
+  - `--entities` enables URL-level entity extraction (`fast` / `llm`)
+  - `--entity-query` / `--entity-graph` / `--entity-stats` for entity store query and inspection
+  - entity corroboration can be tuned by `DATAPULSE_ENTITY_CORROBORATION_WEIGHT` (default `0`)
 - Self-diagnostics:
   - `datapulse --doctor`: tiered health check (tier 0/1/2) for all collectors with status icons and setup hints
   - Three-tier collector classification: tier 0 (zero-config), tier 1 (network/free), tier 2 (needs setup)
@@ -46,7 +50,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 481 tests across 25 modules
+  - 496 tests across 25 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -115,6 +119,12 @@ datapulse --doctor
 
 # targeted extraction
 datapulse https://example.com --target-selector ".article-body" --no-cache
+
+# entity-aware usage
+datapulse https://x.com/xxxx/status/123 --entities --entity-mode fast
+datapulse --entity-query OPENAI --entity-type CONCEPT
+datapulse --entity-graph OPENAI
+datapulse --entity-stats
 ```
 
 ### 2) Smoke checks
@@ -151,13 +161,13 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-24 tools available:
+28 tools available:
 
 **Intake & reading:**
 - `read_url(url, min_confidence)` — parse a single URL
 - `read_batch(urls, min_confidence)` — batch parse URLs
 - `read_url_advanced(url, target_selector, wait_for_selector, no_cache, with_alt, min_confidence)` — CSS-targeted extraction
-- `search_web(query, sites, platform, limit, fetch_content, min_confidence)` — web search
+- `search_web(query, sites, platform, limit, fetch_content, min_confidence, provider='auto', mode='single', deep=False, news=False, time_range=None, freshness=None, extract_entities=False, entity_mode='fast', store_entities=True, entity_api_key=None, entity_model='gpt-4o-mini', entity_api_base='https://api.openai.com/v1')` — web search
 - `trending(location, top_n, store)` — X/Twitter trending topics
 
 **Memory & state:**
@@ -180,11 +190,16 @@ python -m datapulse.mcp_server --call health
 - `build_rss_feed(profile, source_ids, limit, min_confidence, since)` — RSS Feed
 - `build_atom_feed(profile, source_ids, limit, min_confidence, since)` — Atom 1.0 Feed
 - `build_digest(profile, source_ids, top_n, secondary_n, min_confidence, since)` — curated digest
+- `emit_digest_package(profile='default', source_ids=None, top_n=3, secondary_n=7, min_confidence=0.0, since=None, output_format='json')` — export office-ready digest package (`json`/`markdown`)
 
 **Diagnostics & utilities:**
 - `doctor()` — tiered collector health check
 - `detect_platform(url)` — platform detection
 - `health()` — health check
+- `extract_entities(url, mode='fast', store_entities=True, ...)` — extract entities from a single URL (fast or llm mode)
+- `query_entities(entity_type='', name='', min_sources=1, limit=50)` — query entities by type/name
+- `entity_graph(entity_name, limit=50)` — entity relation graph output
+- `entity_stats()` — entity store statistics
 
 - Skill entry:
 
@@ -224,6 +239,8 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_SMOKE_*`
 - `DATAPULSE_MIN_CONFIDENCE`
 - `DATAPULSE_SESSION_TTL_HOURS` (default 12 — session cache TTL in hours)
+- `DATAPULSE_ENTITY_STORE` (entity store file, default `entity_store.json`)
+- `DATAPULSE_ENTITY_CORROBORATION_WEIGHT` (entity corroboration weight, default `0`)
 - `JINA_API_KEY` (Jina API Key for enhanced reading and web search)
 - `TAVILY_API_KEY` (Tavily API Key for web search)
 

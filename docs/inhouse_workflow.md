@@ -6,7 +6,7 @@
 
 - 在分支完成代码修改前先明确本次改动目标、影响范围与回归点。
 - 提交前做局部自检：  
-  - `python -m compileall datapulse`
+  - `python3 -m compileall datapulse`
 - 变更完成后运行快速静态检查（按开发环境执行）：
   - `pip install -e ".[dev]"`
   - `ruff check datapulse/`
@@ -36,7 +36,20 @@
   - `RUN_ID`（自动生成）
   - 本地/远端报告路径（`artifacts/openclaw_datapulse_<RUN_ID>/*`）
 
-## 4. 提交变更入库
+## 4. 文档联动刷新（准确性 / 易读性 / 时效性）
+
+- 在 HA 验收与 PR 提交流程前，先更新本次交付涉及的仓内事实文档：
+  - `README.md`、`README_CN.md`、`README_EN.md`
+  - 本次验收链路相关 docs（如 `docs/openclaw_datapulse_acceptance_template.md`、`docs/test_facts.md`、`docs/issue_pool.md`）
+  - 工具能力契约（如需新增/变更工具）同步更新 `docs/contracts/openclaw_datapulse_tool_contract.json`
+- 文档刷新核对清单（最小）：
+  - 版本与里程碑（如 `__version__`）
+  - MCP 工具数量与清单
+  - 搜索、实体、健康检查、远端验收链路
+  - 错误码与运行脚本边界输入
+- 完成文档更新后，补充一次 PR 说明中的“文档已对齐”条目，并记录更新摘要（变更文件 + 验证依据）。
+
+## 5. 提交变更入库
 
 - 本地确认通过后，执行标准提交流程：
   - `git add`
@@ -47,15 +60,16 @@
   - 远端 HA 验收结论
   - 遗留阻断与风险说明
 
-## 5. 推送触发 CI
+## 6. 推送触发 CI
 
 - 推送到远端分支触发 GitHub Actions：  
   - `.github/workflows/ci.yml`（main/pull_request）自动运行 lint、typecheck、tests。
+  - 仅文档/说明文件变更（`*.md`、`docs/**`、`README*`）按当前工作流配置可避免触发 CI；业务代码变更仍走完整 CI。
 - CI 全绿为交付前置条件，必须至少确认：
   - `ruff`、`mypy`、`pytest` 全部通过
 - 需要重现问题时，先复现最小范围用例，再回到对应阶段补测。
 
-## 6. 捕获问题（闭环）
+## 7. 捕获问题（闭环）
 
 - CI 失败或联测失败统一进入问题池（`docs/issue_pool.md`），记录以下最小信息：
   - 触发分支、提交号
@@ -67,4 +81,4 @@
 
 ## 附：推荐执行顺序
 
-1. 功能迭代 -> 2. 编译跟测 -> 3. 高 HA 交付 -> 4. 提交入库 -> 5. 推送触发CI -> 6. CI全绿 -> 7. 捕获问题
+1. 功能迭代 -> 2. 编译跟测 -> 3. 高 HA 交付 -> 4. 文档联动刷新 -> 5. 提交入库 -> 6. 推送触发CI -> 7. CI全绿 -> 8. 捕获问题

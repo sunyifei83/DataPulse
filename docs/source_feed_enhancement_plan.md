@@ -31,7 +31,7 @@
 ### P4：Jina 增强读取与 Web 搜索 ✅ (v0.5.0 完成)
 - Jina API 客户端统一封装（Reader + Search）。
 - CSS 选择器定向抓取、等待元素、缓存控制、AI 图片描述。
-- Web 搜索能力（`s.jina.ai`）：`DataPulseReader.search()` + CLI `--search` + MCP `search_web`。
+- Web 搜索能力：`DataPulseReader.search()` + CLI `--search` + MCP `search_web`（默认多源网关：Jina/Tavily）。
 - Generic Collector Jina 兜底回退链。
 
 ### P5：可靠性与诊断增强 ✅ (v0.6.1 完成)
@@ -51,7 +51,7 @@
 | 聚合输出 | ✅ `build_json_feed / build_rss_feed / build_atom_feed` + 测试覆盖 | ✅ v0.4.0: Atom 1.0 + Digest 构建器 |
 | 运维安全 | ✅ 健康检查 + SSRF 防护 + 配置化路径 | ✅ v0.3.0: processed 状态管理 |
 | 多维评分 | ✅ 四维度加权 + Source Authority Tiers | ✅ v0.4.0 完成 |
-| Web 搜索 | ✅ Jina Search API 集成 + CLI/MCP | ✅ v0.5.0 完成 |
+| Web 搜索 | ✅ 多源网关（Jina/Tavily）CLI/MCP | ✅ v0.5.0 完成 |
 
 ## 验收建议（本项目）
 
