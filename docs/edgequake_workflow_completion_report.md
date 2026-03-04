@@ -88,25 +88,12 @@
 
 ## 6) CI 全绿
 
-- CI 已在仓库端全部通过：
-- `22654692076`（提交 `b13abb0...`）：completed / success
-- `22654666692`（提交 `3eed7b3...`）：completed / success
-- `22654548872`（提交 `514890a...`）：completed / success
-- `22632270330`（提交 `703fd73...`）：completed / success
-- `22632233434`（提交 `b62add6...`）：completed / success
-- `22632197259`（提交 `36758e4...`）：completed / success
-- `22632164596`（提交 `14fa576...`）：completed / success
-- `22632049712`（提交 `b339dd3...`）：completed / success
-- `22632020711`（提交 `5651433...`）：completed / success
-- `22631799782`（提交 `11283fa...`）：completed / success
-- `22631759366`（提交 `9cae9e5...`）：completed / success
-- `22631703167`（提交 `239f3f8...`）：completed / success
-- `22631731502`（提交 `283bac5...`）：completed / success
-- `22631672074`（提交 `3d2ca74...`）：completed / success
-- `22631579129`（提交 `04cb173...`）：completed / success
-- `22631572723`（提交 `0a8ad93...`）：completed / success
-- 触发事件：`push` 到 `main`
-- `ruff`/`mypy`/`pytest` 三层门禁均绿（见对应执行记录）
+- CI 已在仓库端通过：
+  - 最近一次：`22654710856`（提交 `f0621e3...`）
+  - 触发事件：`push` 到 `main`
+  - `ruff`/`mypy`/`pytest` 三层门禁均绿（见对应执行记录）
+  - 全量历史见：
+    - `https://github.com/sunyifei83/DataPulse/actions/workflows/ci.yml?query=branch%3Amain+is%3Asuccess`
 - 风险点：本机平台回归的阻断项为能力依赖边界（`telegram` 仅日志提示依赖；`wechat`/`rss` 目标链路需切换可达示例；`xhs`/`reddit` 对部分公开内容存在网络退化/反爬波动）
 
 ## 7) 捕获问题
