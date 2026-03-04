@@ -75,15 +75,17 @@
 
 - 状态：已执行（已完成）
 - 执行命令：`git push origin main`
-- 提交：`703fd73`
+- 提交：`514890a`
 - 推送后远端 HEAD 对齐：
-  - `git ls-remote --heads origin main` 指向 `703fd734d8d3edf1cc971ca37cb02f9abd93af86`
+  - `git ls-remote --heads origin main` 指向 `514890af867ad54b8a774ecc16adb61d184b0fca`
 - 预期门禁：
   - `.github/workflows/ci.yml`：`ruff`（3.12）、`mypy`（3.12）、`pytest`（3.10/3.11/3.12）
 
 ## 6) CI 全绿
 
 - CI 已在仓库端全部通过：
+- `22654548872`（提交 `514890a...`）：completed / success
+- `22632270330`（提交 `703fd73...`）：completed / success
 - `22632233434`（提交 `b62add6...`）：completed / success
 - `22632197259`（提交 `36758e4...`）：completed / success
 - `22632164596`（提交 `14fa576...`）：completed / success
