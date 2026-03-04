@@ -283,6 +283,7 @@ bash scripts/datapulse_remote_openclaw_smoke.sh
   - attach `dist/*.whl` and `dist/*.tar.gz`
 - Publishing:
   - `./scripts/release_publish.sh --tag vX.Y.Z`
+  - `scripts/release_publish.sh` auto-extracts the matching `## Release: DataPulse vX.Y.Z` section from `RELEASE_NOTES.md` and strips `Full Changelog` by default.
   - On tag push, `.github/workflows/release.yml` auto uploads release assets
 
 [⬆️ Back to top](#top) | [🔙 Back to Main README](./README.md) | [🇨🇳 中文版本](./README_CN.md)

@@ -11,6 +11,8 @@ Options:
   --tag           Git tag to create if missing (default: from project version, e.g. v0.1.0)
   --notes-file    Notes file path (default: RELEASE_NOTES.md)
   --repo          GitHub repo in form owner/repo (default: auto from git remote)
+  --keep-full-changelog
+                 Keep lines containing `Full Changelog` in notes file (disabled by default)
   --dry-run       Print commands only without executing destructive steps
 EOF
 }
@@ -19,6 +21,7 @@ TAG=""
 NOTES_FILE="RELEASE_NOTES.md"
 REPO=""
 DRY_RUN=0
+SCRUB_FULL_CHANGELOG=1
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -38,6 +41,10 @@ while [[ $# -gt 0 ]]; do
       DRY_RUN=1
       shift
       ;;
+    --keep-full-changelog)
+      SCRUB_FULL_CHANGELOG=0
+      shift
+      ;;
     -h|--help)
       show_help
       exit 0
@@ -50,7 +57,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-PROJECT_VERSION=$(python - <<'PY'
+PROJECT_VERSION=$(python3 - <<'PY'
 import re, pathlib
 text = pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
 m = re.search(r'(?m)^version\\s*=\\s*"([^"]+)"', text)
@@ -65,6 +72,68 @@ fi
 if [[ -z "$REPO" ]]; then
   REPO=$(git remote get-url origin | sed -E 's#(git@github.com:|https://github.com/)##; s#\\.git$##')
 fi
+
+extract_notes() {
+  local notes_file="$1"
+  local tag="$2"
+  local raw_notes
+
+  raw_notes=$(
+    python3 - "$notes_file" "$tag" <<'PY'
+import pathlib
+import re
+import sys
+
+notes_path = pathlib.Path(sys.argv[1])
+tag = sys.argv[2]
+target = tag.lstrip("v")
+text = notes_path.read_text(encoding="utf-8")
+lines = text.splitlines()
+header_patterns = [
+    rf"^##\\s+Release:\\s*DataPulse\\s+v{re.escape(target)}\\b",
+    rf"^##\\s+Release:\\s+v{re.escape(target)}\\b",
+]
+start = None
+for idx, line in enumerate(lines):
+    if start is None and any(re.match(p, line) for p in header_patterns):
+        start = idx + 1
+        break
+
+if start is None:
+    # Fallback: use full file when exact version section is missing.
+    sys.stdout.write(text.rstrip())
+    sys.exit(0)
+
+end = len(lines)
+for idx in range(start, len(lines)):
+    if re.match(r"^##\\s+Release:", lines[idx]):
+        end = idx
+        break
+
+section = "\n".join(lines[start:end]).strip()
+if not section:
+    # Fallback if section has no body.
+    print(text.rstrip())
+else:
+    print(section)
+PY
+  )
+
+  if [[ -z "$raw_notes" ]]; then
+    echo "No notes found for ${tag} in ${notes_file}, fallback to full notes file." >&2
+    cat "$notes_file"
+    return
+  fi
+
+  if [[ "$SCRUB_FULL_CHANGELOG" -eq 1 ]]; then
+    printf "%s" "$raw_notes" | python3 -c 'import sys; [sys.stdout.write(line if "Full Changelog" not in line else "") for line in sys.stdin.read().splitlines(True)]'
+  else
+    printf "%s" "$raw_notes"
+  fi
+}
+
+TMP_NOTES_FILE=$(mktemp)
+trap 'rm -f "$TMP_NOTES_FILE"' EXIT
 
 run() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -88,6 +157,27 @@ if [[ ! -f "$NOTES_FILE" ]]; then
   exit 1
 fi
 
-run gh release create "$TAG" dist/* --repo "$REPO" --title "DataPulse ${TAG}" --notes-file "$NOTES_FILE"
+{
+  echo "Release notes for ${TAG}:"
+  echo "----------------------------------------"
+  extract_notes "$NOTES_FILE" "$TAG" | tee "$TMP_NOTES_FILE"
+  echo "----------------------------------------"
+} >&2
+
+if ! python3 - "$TMP_NOTES_FILE" <<'PY'
+import pathlib, sys
+text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+if "Full Changelog" in text:
+    print("ERROR: Release notes still contain 'Full Changelog'.")
+    sys.exit(1)
+PY
+then
+  if [[ "$SCRUB_FULL_CHANGELOG" -eq 1 ]]; then
+    echo "Release notes contain 'Full Changelog'; use --keep-full-changelog or clean RELEASE_NOTES.md first." >&2
+    exit 1
+  fi
+fi
+
+run gh release create "$TAG" dist/* --repo "$REPO" --title "DataPulse ${TAG}" --notes-file "$TMP_NOTES_FILE"
 
 echo "Release publish finished: ${TAG}"

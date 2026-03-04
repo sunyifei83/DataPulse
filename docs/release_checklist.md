@@ -24,7 +24,7 @@
 
 ## D. 发布动作
 - [ ] 创建/更新 release tag（`vX.Y.Z`）
-- [ ] 通过 `scripts/release_publish.sh` 生成 Release（或手动 `gh release create`）
+- [ ] 通过 `scripts/release_publish.sh` 生成 Release（脚本会从 `RELEASE_NOTES.md` 自动截取对应版本段，并默认清理 `Full Changelog`）
 - [ ] 确认 Release 页面挂载 assets 与 Release notes
 
 ## E. 回归与归档

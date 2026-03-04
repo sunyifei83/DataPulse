@@ -289,6 +289,7 @@ bash scripts/datapulse_remote_openclaw_smoke.sh
   - 附加 `dist/*.whl` 与 `dist/*.tar.gz`
 - 自动化：
   - `./scripts/release_publish.sh --tag vX.Y.Z`
+  - `scripts/release_publish.sh` 会自动读取 `RELEASE_NOTES.md` 的 `## Release: DataPulse vX.Y.Z` 区块作为 release notes，并剥离 `Full Changelog` 行，避免生成噪音
   - 推送 tag 后由 `.github/workflows/release.yml` 自动附加资产到 GitHub Release
 
 [🔼 回到顶部](#top) | [🇨🇳 中文详情页](./README_CN.md) | [🇺🇸 English details](./README_EN.md)

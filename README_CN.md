@@ -352,6 +352,7 @@ bash scripts/datapulse_remote_openclaw_smoke.sh
   - 生成的 `dist/*.whl` 与 `dist/*.tar.gz` 作为发布附件
 - 版本发布方式：
   - `./scripts/release_publish.sh --tag vX.Y.Z`
+  - `scripts/release_publish.sh` 会自动从 `RELEASE_NOTES.md` 中提取对应 `## Release: DataPulse vX.Y.Z` 片段作为发布说明，并默认剥离 `Full Changelog` 字段，避免发布页噪音
   - 推送 tag 后由 `.github/workflows/release.yml` 自动上传 GitHub Release 资产
 
 [⬆️ 回到顶部](#top) | [🔙 返回主 README](./README.md) | [🇺🇸 English version](./README_EN.md)
