@@ -26,6 +26,8 @@
 - [ ] 创建/更新 release tag（`vX.Y.Z`）
 - [ ] 通过 `scripts/release_publish.sh` 生成 Release（脚本会从 `RELEASE_NOTES.md` 自动截取对应版本段，并默认清理 `Full Changelog`）
 - [ ] 确认 Release 页面挂载 assets 与 Release notes
+- [ ] 复核历史 release 页面无 `Full Changelog` 噪音残留：
+  - `for t in $(gh release list --json tagName | jq -r '.[].tagName' | sort -V); do if gh release view "$t" --json body --jq '.body' | rg -n "Full Changelog|full changelog" >/dev/null; then echo \"$t has_full_changelog\"; else echo \"$t ok\"; fi; done`
 
 ## E. 回归与归档
 - [ ] 运行 smoke/关键场景验证
