@@ -101,7 +101,7 @@ for idx, line in enumerate(lines):
         break
 
 if start is None:
-    sys.stderr.write(f"Release notes section not found for tag {tag}.\\n")
+    sys.stderr.write(f"Release notes section not found for tag {tag}.\n")
     sys.exit(1)
 
 end = len(lines)
@@ -112,7 +112,7 @@ for idx in range(start, len(lines)):
 
 section = "\n".join(lines[start:end]).strip()
 if not section:
-    sys.stderr.write(f"Release notes section for {tag} is empty.\\n")
+    sys.stderr.write(f"Release notes section for {tag} is empty.\n")
     sys.exit(1)
 else:
     print(section)
