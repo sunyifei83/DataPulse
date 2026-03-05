@@ -35,6 +35,10 @@ model-endpoints.local.*
 .env.*
 .env.datapulse
 .env.openclaw
+## OpenClaw remote smoke test secret files (local only, do not commit)
+.env.openclaw.local
+!.env.openclaw.example
+.datapulse_notion_sync_state.json
 openclaw-*.env
 openclaw-*.env.local
 openclaw-*.secret

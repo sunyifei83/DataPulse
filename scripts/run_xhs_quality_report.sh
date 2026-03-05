@@ -11,7 +11,7 @@ mkdir -p "$REPORT_DIR"
 
 JSON_REPORT="$REPORT_DIR/xhs_quality_report.json"
 MD_REPORT="$REPORT_DIR/xhs_quality_report.md"
-RUN_LOG="$REPORT_DIR/run.log"
+TRACE_FILE="$REPORT_DIR/xhs_quality_trace.log"
 
 export DATAPULSE_XHS_QUERY="${DATAPULSE_XHS_QUERY:-openclaw}"
 export DATAPULSE_XHS_LIMIT="${DATAPULSE_XHS_LIMIT:-8}"
@@ -20,24 +20,63 @@ export DATAPULSE_XHS_SELECT="${DATAPULSE_XHS_SELECT:-1}"
 export DATAPULSE_XHS_PREFER_ENGAGEMENT="${DATAPULSE_XHS_PREFER_ENGAGEMENT:-1}"
 export DATAPULSE_XHS_NO_CONTENT_PRINT="${DATAPULSE_XHS_NO_CONTENT_PRINT:-1}"
 export DATAPULSE_XHS_TIMEOUT_SECONDS="${DATAPULSE_XHS_TIMEOUT_SECONDS:-120}"
+export DATAPULSE_XHS_THRESHOLD_FILE="${DATAPULSE_XHS_THRESHOLD_FILE:-$ROOT_DIR/scripts/xhs_quality_thresholds.json}"
+
+if [[ ! -f "$DATAPULSE_XHS_THRESHOLD_FILE" ]]; then
+  echo "WARN: threshold file not found: $DATAPULSE_XHS_THRESHOLD_FILE, fallback to default template."
+  export DATAPULSE_XHS_THRESHOLD_FILE="$ROOT_DIR/scripts/xhs_quality_thresholds.json"
+fi
 
 {
   echo "Started at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "Query: $DATAPULSE_XHS_QUERY"
   echo "Limit: $DATAPULSE_XHS_LIMIT"
   echo "Min-confidence: $DATAPULSE_XHS_MIN_CONFIDENCE"
+  echo "Threshold file: $DATAPULSE_XHS_THRESHOLD_FILE"
   echo "Prefer engagement: $DATAPULSE_XHS_PREFER_ENGAGEMENT"
   echo "Select index: $DATAPULSE_XHS_SELECT"
-} | tee "$RUN_LOG"
+} | tee "$TRACE_FILE"
 
-CMD=(uv run python3 scripts/xhs_quality_report.py
-  --query "$DATAPULSE_XHS_QUERY"
-  --limit "$DATAPULSE_XHS_LIMIT"
-  --min-confidence "$DATAPULSE_XHS_MIN_CONFIDENCE"
-  --select "$DATAPULSE_XHS_SELECT"
-  --json
-  --json-indent 2
-)
+PYTHON_BIN=""
+for candidate in python3.12 python3.11 python3.10 python3; do
+  if command -v "$candidate" >/dev/null 2>&1; then
+    if "$candidate" - <<'PY'
+import sys
+sys.exit(0 if sys.version_info >= (3, 10) else 1)
+PY
+    then
+      PYTHON_BIN="$candidate"
+      break
+    fi
+  fi
+done
+
+if [[ -z "$PYTHON_BIN" ]] && ! command -v uv >/dev/null 2>&1; then
+  echo "ERROR: xhs quality report requires Python >=3.10. Please ensure python3.10+ is available and re-run." >&2
+  exit 2
+fi
+
+if command -v uv >/dev/null 2>&1; then
+  CMD=(uv run python3 scripts/xhs_quality_report.py
+    --query "$DATAPULSE_XHS_QUERY"
+    --limit "$DATAPULSE_XHS_LIMIT"
+    --min-confidence "$DATAPULSE_XHS_MIN_CONFIDENCE"
+    --select "$DATAPULSE_XHS_SELECT"
+    --json
+    --json-indent 2
+    --threshold-file "$DATAPULSE_XHS_THRESHOLD_FILE"
+  )
+else
+  CMD=(PYTHONPATH="$ROOT_DIR" "$PYTHON_BIN" scripts/xhs_quality_report.py
+    --query "$DATAPULSE_XHS_QUERY"
+    --limit "$DATAPULSE_XHS_LIMIT"
+    --min-confidence "$DATAPULSE_XHS_MIN_CONFIDENCE"
+    --select "$DATAPULSE_XHS_SELECT"
+    --json
+    --json-indent 2
+    --threshold-file "$DATAPULSE_XHS_THRESHOLD_FILE"
+  )
+fi
 
 if [[ "$DATAPULSE_XHS_PREFER_ENGAGEMENT" == "1" ]]; then
   CMD+=(--prefer-engagement)
@@ -48,21 +87,21 @@ fi
 
 set +e
 if command -v timeout >/dev/null 2>&1; then
-  timeout "$DATAPULSE_XHS_TIMEOUT_SECONDS" "${CMD[@]}" > "$JSON_REPORT" 2>> "$RUN_LOG"
+  timeout "$DATAPULSE_XHS_TIMEOUT_SECONDS" "${CMD[@]}" > "$JSON_REPORT" 2>> "$TRACE_FILE"
   CMD_EXIT=$?
 else
-  "${CMD[@]}" > "$JSON_REPORT" 2>> "$RUN_LOG"
+  "${CMD[@]}" > "$JSON_REPORT" 2>> "$TRACE_FILE"
   CMD_EXIT=$?
 fi
 set -e
 
 if (( CMD_EXIT == 124 )); then
-  echo "ERROR: xhs quality report timed out: ${DATAPULSE_XHS_TIMEOUT_SECONDS}s" | tee -a "$RUN_LOG"
+  echo "ERROR: xhs quality report timed out: ${DATAPULSE_XHS_TIMEOUT_SECONDS}s" | tee -a "$TRACE_FILE"
   exit 1
 fi
 
 if (( CMD_EXIT != 0 )); then
-  echo "WARN: xhs quality report exit code $CMD_EXIT (retained for report generation)" | tee -a "$RUN_LOG"
+  echo "WARN: xhs quality report exit code $CMD_EXIT (retained for report generation)" | tee -a "$TRACE_FILE"
 fi
 
 python3 - "$JSON_REPORT" "$MD_REPORT" <<'PY'
@@ -131,7 +170,8 @@ PY
 {
   echo "JSON: $JSON_REPORT"
   echo "Markdown: $MD_REPORT"
-} | tee -a "$RUN_LOG"
+  echo "Trace: $TRACE_FILE"
+} | tee -a "$TRACE_FILE"
 echo "Done."
 
 if (( CMD_EXIT != 0 )); then

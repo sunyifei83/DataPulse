@@ -16,6 +16,21 @@
       "type": "message",
       "pattern": "(?i)(?:read|fetch|save|summary|summarize|extract|parse|/read|/save)\\s+https?://",
       "description": "Triggered for URL ingestion requests."
+    },
+    {
+      "type": "message",
+      "pattern": "(?i)\\bsearch\\b.*(?:web|trending|trend|topic|资讯|搜索|热搜)",
+      "description": "Triggered for topical search and trend discovery requests."
+    },
+    {
+      "type": "message",
+      "pattern": "(?i)\\b(datapulse|skill|agent)\\b.*\\b(health|doctor|config|diagnose|update|version|upgrade|troubleshoot)\\b",
+      "description": "Triggered for maintenance and capability introspection tasks."
+    },
+    {
+      "type": "message",
+      "pattern": "(?i)(?:datapulse|data.?pulse)\\b.*\\b(help|usage|contract|能力|命令)\\b",
+      "description": "Triggered for user requests about usage/help/contract output."
     }
   ],
   "memory_path": "../../memory/inbox/",

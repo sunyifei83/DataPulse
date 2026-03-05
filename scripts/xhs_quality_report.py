@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from datapulse.reader import DataPulseReader
@@ -25,25 +26,81 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-HIGH_CONF_THRESHOLD = _env_float("DATAPULSE_XHS_HIGH_CONFIDENCE", 0.80)
-MEDIUM_CONF_THRESHOLD = _env_float("DATAPULSE_XHS_MEDIUM_CONFIDENCE", 0.65)
-HIGH_SCORE_THRESHOLD = _env_int("DATAPULSE_XHS_HIGH_SCORE", 70)
-MEDIUM_SCORE_THRESHOLD = _env_int("DATAPULSE_XHS_MEDIUM_SCORE", 50)
+DEFAULT_THRESHOLD_FILE = Path(__file__).resolve().parent / "xhs_quality_thresholds.json"
 
 
-def classify_tier(confidence: float, score: int) -> tuple[str, str]:
+def _coerce_int(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _load_thresholds(path: str | None = None) -> dict[str, float | int]:
+    thresholds = {
+        "high_confidence": 0.80,
+        "medium_confidence": 0.65,
+        "high_score": 70,
+        "medium_score": 50,
+    }
+    source = path if path is not None else os.getenv("DATAPULSE_XHS_THRESHOLD_FILE")
+    if source is None:
+        source = str(DEFAULT_THRESHOLD_FILE)
+
+    if source and os.path.exists(source):
+        try:
+            with open(source, "r", encoding="utf-8") as fp:
+                data = json.load(fp)
+            if isinstance(data, dict):
+                profile = data.get("thresholds", data)
+                if isinstance(profile, dict):
+                    if "high_confidence" in profile:
+                        thresholds["high_confidence"] = float(profile["high_confidence"])
+                    if "medium_confidence" in profile:
+                        thresholds["medium_confidence"] = float(profile["medium_confidence"])
+                    if "high_score" in profile:
+                        thresholds["high_score"] = _coerce_int(profile["high_score"], 70)
+                    if "medium_score" in profile:
+                        thresholds["medium_score"] = _coerce_int(profile["medium_score"], 50)
+        except Exception as exc:
+            print(f"[WARN] DATAPULSE_XHS_THRESHOLD_FILE load failed: {exc}")
+
+    thresholds["high_confidence"] = _env_float("DATAPULSE_XHS_HIGH_CONFIDENCE", thresholds["high_confidence"])
+    thresholds["medium_confidence"] = _env_float(
+        "DATAPULSE_XHS_MEDIUM_CONFIDENCE", thresholds["medium_confidence"]
+    )
+    thresholds["high_score"] = _env_int("DATAPULSE_XHS_HIGH_SCORE", thresholds["high_score"])
+    thresholds["medium_score"] = _env_int("DATAPULSE_XHS_MEDIUM_SCORE", thresholds["medium_score"])
+    return thresholds
+
+
+def _coerce_scores(confidence: float, score: int, thresholds: dict[str, float | int]) -> tuple[float, float, int, int]:
+    return (
+        float(thresholds.get("high_confidence", 0.80)),
+        float(thresholds.get("medium_confidence", 0.65)),
+        int(thresholds.get("high_score", 70)),
+        int(thresholds.get("medium_score", 50)),
+    )
+
+
+def classify_tier(confidence: float, score: int, thresholds: dict[str, float | int]) -> tuple[str, str]:
     """Return (tier, rationale) by combining confidence + score."""
-    if confidence >= HIGH_CONF_THRESHOLD and score >= HIGH_SCORE_THRESHOLD:
+    high_conf_threshold, medium_conf_threshold, high_score_threshold, medium_score_threshold = _coerce_scores(
+        confidence,
+        score,
+        thresholds,
+    )
+    if confidence >= high_conf_threshold and score >= high_score_threshold:
         return (
             "高置信",
-            f"confidence >= {HIGH_CONF_THRESHOLD:.2f} 且 score >= {HIGH_SCORE_THRESHOLD}",
+            f"confidence >= {high_conf_threshold:.2f} 且 score >= {high_score_threshold}",
         )
-    if confidence >= MEDIUM_CONF_THRESHOLD and score >= MEDIUM_SCORE_THRESHOLD:
+    if confidence >= medium_conf_threshold and score >= medium_score_threshold:
         return (
             "中置信",
-            f"confidence >= {MEDIUM_CONF_THRESHOLD:.2f} 且 score >= {MEDIUM_SCORE_THRESHOLD}",
+            f"confidence >= {medium_conf_threshold:.2f} 且 score >= {medium_score_threshold}",
         )
-    return "低置信", f"未达到高/中置信阈值"
+    return "低置信", "未达到高/中置信阈值"
 
 
 def fmt_snippet(text: str, max_chars: int = 200) -> str:
@@ -122,8 +179,9 @@ def print_human_report(
     selected_index: int,
     searched_at: str,
     output_selected: bool,
+    thresholds: dict[str, float | int],
 ) -> None:
-    print(f"DataPulse xhs 复核报告")
+    print("DataPulse xhs 复核报告")
     print(f"生成时间: {searched_at}")
     print(f"目标查询: {query}")
     if items:
@@ -136,7 +194,7 @@ def print_human_report(
         return
 
     for idx, item in enumerate(items, 1):
-        tier, tier_reason = classify_tier(item.confidence, int(item.score))
+        tier, tier_reason = classify_tier(item.confidence, int(item.score), thresholds)
         item.extra["xhs_tier"] = tier
         item.extra["xhs_tier_rationale"] = tier_reason
         confidence_factors = ",".join(item.confidence_factors)
@@ -179,6 +237,7 @@ def print_human_report(
 
 
 async def run(args: argparse.Namespace) -> int:
+    thresholds = _load_thresholds(args.threshold_file)
     searched_at = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
     items = await run_xhs_search(args.query, limit=args.limit, min_confidence=args.min_confidence)
     if not items:
@@ -191,12 +250,20 @@ async def run(args: argparse.Namespace) -> int:
                 "provider": "multi",
                 "mode": "multi",
                 "searched_at": searched_at,
+                "thresholds": thresholds,
                 "items": [],
                 "selected_index": None,
             }
             print(json.dumps(payload, ensure_ascii=False, indent=args.json_indent))
             return 1
-        print_human_report(args.query, [], 0, searched_at, False)
+        print_human_report(
+            args.query,
+            [],
+            0,
+            searched_at,
+            False,
+            thresholds,
+        )
         return 1
 
     if args.prefer_engagement:
@@ -229,6 +296,7 @@ async def run(args: argparse.Namespace) -> int:
             "provider": "multi",
             "mode": "multi",
             "searched_at": searched_at,
+            "thresholds": thresholds,
             "select_rule": "engagement_desc_then_score_desc" if args.prefer_engagement else "score_desc",
             "items": [_to_json_record(item, args.query) for item in items],
             "selected_index": selected_index,
@@ -243,6 +311,7 @@ async def run(args: argparse.Namespace) -> int:
         selected_index=selected_index,
         searched_at=searched_at,
         output_selected=not args.no_content_print,
+        thresholds=thresholds,
     )
     return 0
 
@@ -279,6 +348,11 @@ def parse_args() -> argparse.Namespace:
         help="输出机器可读 JSON",
     )
     parser.add_argument("--json-indent", type=int, default=2, help="JSON 缩进（默认 2）")
+    parser.add_argument(
+        "--threshold-file",
+        default=None,
+        help="可选阈值模板文件，支持 high_confidence / medium_confidence / high_score / medium_score",
+    )
     return parser.parse_args()
 
 

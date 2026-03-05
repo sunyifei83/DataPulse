@@ -1,0 +1,191 @@
+{
+  "version": "1.2.0",
+  "updated": "2026-03-04",
+  "runbook": "docs/emergency_mode_runbook.md",
+  "state_machine": [
+    {
+      "id": "S0",
+      "name": "监控",
+      "meaning": "收集阻断码、症状与日志证据"
+    },
+    {
+      "id": "S1",
+      "name": "分型",
+      "meaning": "归因到固定信号"
+    },
+    {
+      "id": "S2",
+      "name": "隔离",
+      "meaning": "阻断新增试错，只允许一次修复动作"
+    },
+    {
+      "id": "S3",
+      "name": "路由",
+      "meaning": "按规则矩阵选唯一恢复动作"
+    },
+    {
+      "id": "S4",
+      "name": "恢复执行",
+      "meaning": "执行动作并立刻复测"
+    },
+    {
+      "id": "S5",
+      "name": "复核放行",
+      "meaning": "输出 GREEN/YELLOW/RED 与 STOP 决策"
+    }
+  ],
+  "signals": [
+    {
+      "id": "context window exceeded",
+      "aliases": ["Context window exceeded", "context_length_exceeded"],
+      "severity": "blocker",
+      "class": "上下文类",
+      "primary_action": "trim_context_and_retest",
+      "requires_new_run_id": true
+    },
+    {
+      "id": "PYTHON_VERSION_TOO_LOW",
+      "aliases": ["REMOTE_PYTHON", "REMOTE_PYTHON_MIN_VERSION"],
+      "severity": "blocker",
+      "class": "解释器类",
+      "primary_action": "REMOTE_USE_UV=0 + REMOTE_PYTHON=/opt/homebrew/bin/python3.10 + REMOTE_BOOTSTRAP_INSTALL=1",
+      "secondary_action": "REMOTE_USE_UV=1 + REMOTE_UV_PYTHON=3.10",
+      "requires_new_run_id": true
+    },
+  {
+      "id": "UV_NOT_FOUND",
+      "aliases": ["UV_LOCAL_BINARY_COPY_FAIL", "UV_NOT_FOUND"],
+      "severity": "blocker",
+      "class": "工具链类",
+      "primary_action": "REMOTE_USE_UV=0",
+      "secondary_action": "bootstrap uv by python -m pip install --user uv",
+      "requires_new_run_id": true
+    },
+    {
+      "id": "DATAPULSE_DIR_NOT_FOUND",
+      "aliases": ["MACMINI_DATAPULSE_DIR", "DATAPULSE_DIR"],
+      "severity": "blocker",
+      "class": "路径类",
+      "primary_action": "verify MACMINI_DATAPULSE_DIR and allow auto probe",
+      "secondary_action": "set MACMINI_DATAPULSE_DIR to repo root containing pyproject.toml",
+      "requires_new_run_id": true
+    },
+    {
+      "id": "PYPROJECT_MISSING",
+      "aliases": ["pyproject.toml", "PYPROJECT_MISSING"],
+      "severity": "blocker",
+      "class": "路径类",
+      "primary_action": "set MACMINI_DATAPULSE_DIR to source root",
+      "requires_new_run_id": true
+    },
+    {
+      "id": "PACKAGE_MISSING",
+      "aliases": ["PACKAGE_MISSING", "datapulse/"],
+      "severity": "blocker",
+      "class": "路径类",
+      "primary_action": "set MACMINI_DATAPULSE_DIR to source root",
+      "requires_new_run_id": true
+    },
+    {
+      "id": "IMPORT_FAILED",
+      "aliases": ["import datapulse", "IMPORT_FAILED"],
+      "severity": "blocker",
+      "class": "依赖类",
+      "primary_action": "REMOTE_BOOTSTRAP_INSTALL=1",
+      "secondary_action": "set REMOTE_PIP_EXTRAS by platform",
+      "requires_new_run_id": true
+    },
+    {
+      "id": "BUILD_DEPENDENCY_PROXY_FAIL",
+      "aliases": ["ProxyError", "Could not connect to proxy", "proxyconnect", "BUILD_DEPENDENCY_PROXY_FAIL"],
+      "severity": "watch",
+      "class": "网络类",
+      "primary_action": "ensure REMOTE_PIP_NO_PROXY='*' and no command-line proxy injection",
+      "secondary_action": "REMOTE_UV_BOOTSTRAP=1",
+      "requires_new_run_id": true
+    },
+    {
+      "id": "SSH_CONNECTION_REFUSED",
+      "aliases": ["Connection refused", "No route to host", "SSH_CONNECTION_REFUSED"],
+      "severity": "blocker",
+      "class": "网络类",
+      "primary_action": "rotate MACMINI_HOST from MACMINI_HOST_CANDIDATES",
+      "secondary_action": "switch VPS_HOST/VPS_PORT backup once",
+      "requires_new_run_id": true
+    },
+    {
+      "id": "SSH_HOST_KEY_UNKNOWN",
+      "aliases": ["Could not resolve host", "SSH_HOST_KEY_UNKNOWN"],
+      "severity": "blocker",
+      "class": "网络类",
+      "primary_action": "check VPS_HOST/MACMINI_HOST reachability",
+      "secondary_action": "switch VPS_HOST/VPS_PORT backup once",
+      "requires_new_run_id": true
+    },
+    {
+      "id": "SSH_AUTH_FAILED",
+      "aliases": ["Permission denied", "Authentication failed", "SSH_AUTH_FAILED"],
+      "severity": "blocker",
+      "class": "网络类",
+      "primary_action": "check MACMINI_PASSWORD / REMOTE_SSH_IDENTITY",
+      "requires_new_run_id": true
+    }
+  ],
+  "vps": {
+    "primary": {
+      "VPS_HOST": "137.220.151.57",
+      "VPS_PORT": 6069
+    },
+    "backup": {
+      "VPS_HOST": "38.244.20.109",
+      "VPS_PORT": 20108,
+      "single_switch_allowed": true
+    }
+  },
+  "rerun": {
+    "tracked_env_keys": [
+      "VPS_HOST",
+      "VPS_PORT",
+      "MACMINI_HOST",
+      "REMOTE_USE_UV",
+      "REMOTE_UV_PYTHON",
+      "REMOTE_PYTHON",
+      "REMOTE_PYTHON_MIN_VERSION",
+      "REMOTE_PIP_EXTRAS",
+      "MACMINI_HOST_CANDIDATES"
+    ],
+    "codes_require_new_run_id": [
+      "context window exceeded",
+      "PYTHON_VERSION_TOO_LOW",
+      "UV_NOT_FOUND",
+      "DATAPULSE_DIR_NOT_FOUND",
+      "PYPROJECT_MISSING",
+      "PACKAGE_MISSING",
+      "IMPORT_FAILED",
+      "BUILD_DEPENDENCY_PROXY_FAIL",
+      "SSH_CONNECTION_REFUSED",
+      "SSH_HOST_KEY_UNKNOWN",
+      "SSH_AUTH_FAILED"
+    ],
+    "always_new_run_on_failure": true
+  },
+  "stop_rules": {
+    "blocker_codes": [
+      "DATAPULSE_DIR_NOT_FOUND",
+      "PYPROJECT_MISSING",
+      "PACKAGE_MISSING",
+      "PYTHON_VERSION_TOO_LOW",
+      "UV_NOT_FOUND",
+      "SSH_CONNECTION_REFUSED",
+      "SSH_AUTH_FAILED",
+      "SSH_HOST_KEY_UNKNOWN"
+    ],
+    "escalation": "need manual issue_pool handoff when context window exceeded repeats under same signal",
+    "require_new_run_after_stop": false
+  },
+  "artifacts": {
+    "report": "remote_report.md",
+    "log": "remote_test.log",
+    "state": "emergency_state.json"
+  }
+}

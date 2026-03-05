@@ -47,6 +47,10 @@ for MCP, Skill, Agent, and bot workflows.
   - `datapulse --doctor`: tiered health check (tier 0/1/2) for all collectors with status icons and setup hints
   - Three-tier collector classification: tier 0 (zero-config), tier 1 (network/free), tier 2 (needs setup)
   - Actionable error messages in route failures with setup hints
+  - `datapulse --troubleshoot`: output actionable fix suggestions (optional `--troubleshoot <collector>`)
+  - `datapulse --check-update`: check latest GitHub release
+  - `datapulse --version`: show current version
+  - `datapulse --self-update`: run an update attempt when a newer release exists
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
@@ -82,6 +86,56 @@ Please refer to the root `LICENSE` file for the full terms.
 
 ## Workflows
 
+### 0) Minimum runnable setup
+
+Only required:
+
+- Python 3.10+ available
+- Datapulse install command can run
+
+Run first:
+
+```bash
+pip install -e .
+datapulse --config-check
+datapulse --doctor
+```
+
+What to do next:
+
+- If `--config-check` marks search keys missing, set only what you need:
+  - `export JINA_API_KEY=<your_jina_api_key>` (improves extraction and search)
+  - `export TAVILY_API_KEY=<your_tavily_api_key>` (improves search coverage/fallback)
+- If `--doctor` marks tier-2 collectors as not ready, follow the printed `Suggested commands`.
+
+### 0.1) Command cheatsheet by scenario
+
+A. Parse one URL:
+  - `datapulse https://x.com/xxxx/status/123`
+B. Parse a batch:
+  - `datapulse --batch https://x.com/... https://www.reddit.com/...`
+  - Short form: `datapulse -b https://x.com/... https://www.reddit.com/...`
+C. Search web:
+  - `datapulse --search "LLM inference optimization"`
+  - Short form: `datapulse -s "LLM inference optimization"`
+D. Trending:
+  - `datapulse --trending us --trending-limit 10`
+  - Short form: `datapulse -T us --trending-limit 10`
+E. Entity flow:
+  - `datapulse https://x.com/xxxx/status/123 --entities --entity-mode fast`
+F. Diagnostics:
+  - `datapulse --config-check`
+  - `datapulse --doctor`
+  - `datapulse --troubleshoot`
+  - `datapulse --troubleshoot telegram`
+  - `datapulse --skill-contract`
+  - `datapulse --check-update`
+  - `datapulse --self-update`
+  - Short form: `datapulse -k` and `datapulse -d`
+
+Short flags introduced in CLI:
+- `-b/--batch`, `-s/--search`, `-S/--site`, `-l/--list`, `-T/--trending`, `-i/--login`, `-d/--doctor`, `-k/--config-check`; diagnostic extras: `--troubleshoot`, `--skill-contract`, `--check-update`, `--self-update`, `--version`
+
 ### 1) CLI usage
 
 ```bash
@@ -116,6 +170,13 @@ datapulse --trending uk --trending-store     # UK, save to inbox
 
 # collector health check
 datapulse --doctor
+datapulse --troubleshoot
+datapulse --troubleshoot telegram
+
+# version and updates
+datapulse --version
+datapulse --check-update
+datapulse --self-update
 
 # targeted extraction
 datapulse https://example.com --target-selector ".article-body" --no-cache
@@ -264,16 +325,42 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 ## OpenClaw integration assets
 
 - Tool contract: `docs/contracts/openclaw_datapulse_tool_contract.json`
-- Quick validation scripts: `scripts/datapulse_local_smoke.sh`, `scripts/datapulse_remote_openclaw_smoke.sh`
+- Quick validation scripts: `scripts/datapulse_local_smoke.sh`, `scripts/run_openclaw_remote_smoke_local.sh`
 - Release checklist: `docs/release_checklist.md`
 
+### OpenClaw credential management best practice (debug vs app environment)
+
+- Debug environment (local verification):
+  - Keep real `VPS_*`, `MACMINI_*`, `TG_API_*`, `JINA_API_KEY` values in `.env.openclaw.local` only.
+  - `.env.openclaw.local` must stay out of version control.
+  - `scripts/run_openclaw_remote_smoke_local.sh` bootstraps from `.env.openclaw.example` and writes your actual local run context back locally.
+- App environment (CI/CD/shared runtime):
+  - Do not persist secrets in repository files.
+  - Inject credentials through deployment secret channels (GitHub Secrets, OS env store, vault, mounted secret files).
+  - Runtime variables should be provided at process start and take precedence over local test defaults.
+- Shared guardrail:
+  - `.env.openclaw.example` is a redacted template only.
+  - Run `bash scripts/security_guardrails.sh` before release to enforce non-leak checks.
+
+#### Deployment credential matrix (debug vs app)
+
+| Target | Secret source | Storage location | Repo policy | Runtime precedence |
+| --- | --- | --- | --- | --- |
+| Local debug/repro | Manual environment values | `.env.openclaw.local` (local only) | Git-ignored, not committed | Higher than `.env.openclaw.example` |
+| Shared test/CI/CD | Secret manager or OS env | Runtime env injection | Must not be committed | Higher than local debug file |
+| Template publishing | Redacted template | `.env.openclaw.example` | Can be committed with placeholders | Lower than runtime |
+
+Keep this aligned with `docs/search_gateway_config.md` and `docs/test_facts.md`.
+
 ```bash
-chmod +x scripts/datapulse_local_smoke.sh scripts/datapulse_remote_openclaw_smoke.sh
+chmod +x scripts/datapulse_local_smoke.sh scripts/run_openclaw_remote_smoke_local.sh
+# First run auto-persists from existing local/session config.
+# For manual override: cp .env.openclaw.example .env.openclaw.local then edit.
 export URL_1="https://x.com/xxxx/status/123"
 export URL_BATCH="https://x.com/... https://www.reddit.com/..."
 bash scripts/datapulse_local_smoke.sh
 # remote execution requires VPS/M4 tunnel
-bash scripts/datapulse_remote_openclaw_smoke.sh
+bash scripts/run_openclaw_remote_smoke_local.sh
 ```
 
 ## Release & publishing

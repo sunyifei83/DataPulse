@@ -195,15 +195,22 @@
         "parameters": {
           "query": "string (required)",
           "sites": "array[string] (optional, restrict to domains)",
+          "platform": "string = auto|xhs|twitter|reddit|hackernews|arxiv|bilibili (optional)",
           "provider": "string = auto|jina|tavily|multi (default auto)",
           "mode": "string = single|multi (default single)",
+          "limit": "int (default 5)",
           "deep": "bool (default false)",
           "news": "bool (default false)",
           "time_range": "string = day|week|month|year (optional)",
           "freshness": "string = day|week|month|year (optional)",
-          "limit": "int (default 5)",
           "fetch_content": "bool (default true)",
-          "min_confidence": "float (default 0.0)"
+          "min_confidence": "float (default 0.0)",
+          "extract_entities": "bool (default false)",
+          "entity_mode": "string = fast|llm (default fast)",
+          "store_entities": "bool (default true)",
+          "entity_api_key": "string (optional)",
+          "entity_model": "string (default gpt-4o-mini)",
+          "entity_api_base": "string (default https://api.openai.com/v1)"
         }
       },
       {

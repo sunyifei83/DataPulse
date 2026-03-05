@@ -10,15 +10,14 @@ RUN_LOG_DIR="$OUT_DIR/openclaw_datapulse_${RUN_ID}"
 mkdir -p "$RUN_LOG_DIR"
 LOG_FILE="$RUN_LOG_DIR/local_test.log"
 
-if [[ -f ".env.openclaw" ]]; then
-  set -a
-  source ".env.openclaw"
-  set +a
-elif [[ -f ".env" ]]; then
-  set -a
-  source ".env"
-  set +a
-fi
+for env_file in ".env.openclaw.local" ".env.openclaw" ".env.local" ".env.secret" ".env"; do
+  if [[ -f "$env_file" ]]; then
+    set -a
+    source "$env_file"
+    set +a
+    break
+  fi
+done
 
 : "${URL_1:=}"
 : "${URL_BATCH:=}"

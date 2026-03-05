@@ -22,6 +22,25 @@
 - 由部署环境注入，运行时统一通过 `datapulse.core.security.get_secret` 读取。
 - 日志/接口返回中的敏感值统一做脱敏处理（`mask_secret`）。
 
+### 三环境调用边界（简化版）
+
+- 本地调试：直接在本机注入最小变量集合进行行为回归；支持快速修正 `DATAPULSE_SEARCH_*`。
+- VPS/中转：以 `scripts/run_openclaw_remote_smoke_local.sh` 与 `scripts/datapulse_remote_openclaw_smoke.sh` 为闭环入口，重点校验链路可达性和代理策略隔离。
+- 应用环境：统一走运行时 secret，`get_secret` 作为唯一读取入口，避免临时 `.env` 污染共享实例。
+- 规则：每次链路失败不掩蔽异常，需带阻断码（`RETRY`、`proxy`、`timeout`）回传。
+
+## 调试环境 / 应用环境凭据分层（最佳实践）
+
+- 调试环境（本地验证）：
+  - 使用 `.env.openclaw.local` 持久化本次会话凭据（或本机开发机运行时环境变量），支持快速迭代与复现。
+  - 仅本地文件，不参与共享部署；执行 `bash scripts/security_guardrails.sh` 防止误提交。
+- 应用环境（CI/CD/生产）：
+  - 使用部署侧 secret 管理服务或操作系统环境变量注入，不在仓库路径新增/修改凭据文件。
+  - 对接入口统一走启动时变量注入，支持按实例、按工作流、按环境覆盖。
+- 统一约束：
+  - 模板文件保留占位符（如 `.env.openclaw.example`），不承载任何明文凭据。
+  - 敏感变量优先从运行时上下文注入，避免把同一份凭据写到本地与应用文件。
+
 ## 验收命令
 - `python3 -m datapulse.mcp_server --help`
 - `python3 -m datapulse.mcp_server --list-tools`

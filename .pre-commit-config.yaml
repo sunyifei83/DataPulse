@@ -5,3 +5,10 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: datapulse-security-guardrails
+        name: DataPulse security guardrails
+        entry: bash scripts/security_guardrails.sh
+        language: system
+        pass_filenames: false

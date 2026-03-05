@@ -123,11 +123,12 @@ class TestReaderSearch:
             call_kwargs = mock_client.search.call_args[1]
             assert call_kwargs["options"].limit == 3
 
-    def test_search_no_api_key_raises(self, reader):
+    def test_search_no_api_key_returns_empty(self, reader):
         with patch.object(reader, "_jina_client") as mock_client:
             mock_client.search.side_effect = ValueError("API key required")
-            with pytest.raises(ValueError, match="API key"):
-                _run(reader.search("test"))
+            with patch.object(reader._search_gateway, "search", side_effect=ValueError("API key missing")):
+                items = _run(reader.search("test", provider="auto", fetch_content=False))
+        assert items == []
 
     def test_search_auto_fallback_on_jina_exception(self, reader):
         fallback_hits = [

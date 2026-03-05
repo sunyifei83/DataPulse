@@ -1,5 +1,7 @@
 # DataPulse 发布回退指南
 
+> 应急执行优先文档（v1.1）：[`应急模式说明（远端联测）`](/Users/sunyifei/DataPulse/docs/emergency_mode_runbook.md)
+
 ## 适用场景
 - 新 release 发布后发现功能回归、接口不可用或外部依赖抖动导致服务不稳定
 - 合约变更影响 openclaw-bot/下游调用

@@ -42,6 +42,10 @@
   - `datapulse --doctor`：采集器分级健康检查（tier 0/1/2），展示状态、可用性与设置提示
   - 三级采集器分级：tier 0（零配置）、tier 1（网络/免费）、tier 2（需配置）
   - 路由失败时自动附带 setup_hint，指导用户修复
+  - `datapulse --troubleshoot`：输出可执行修复清单（支持 `--troubleshoot <collector>` 定向）
+  - `datapulse --check-update`：检查 GitHub 最新版本
+  - `datapulse --version`：展示当前版本
+  - `datapulse --self-update`：检测并执行线上升级（无更新则提示）
 - 可观测性：
   - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
 - 轻量实体增强（EdgeQuake 蒸馏）：
@@ -115,6 +119,13 @@ datapulse --trending uk --trending-store     # 英国热搜，存入 inbox
 
 # 采集器健康自检
 datapulse --doctor
+datapulse --troubleshoot
+datapulse --troubleshoot wechat
+
+# 版本与更新
+datapulse --version
+datapulse --check-update
+datapulse --self-update
 
 # 定向抓取
 datapulse https://example.com --target-selector ".article-body" --no-cache
@@ -125,6 +136,56 @@ datapulse --entity-query OPENAI --entity-type CONCEPT
 datapulse --entity-graph OPENAI
 datapulse --entity-stats
 ```
+
+### 0. 最小可用启动
+
+仅需先满足：
+
+- Python 3.10+
+- `pip install -e .` 可执行
+
+先执行：
+
+```bash
+pip install -e .
+datapulse --config-check
+datapulse --doctor
+```
+
+后续建议：
+
+- 若 `--config-check` 显示搜索密钥缺失，仅按需配置（至少一个即可）：
+  - `export JINA_API_KEY=<your_jina_api_key>`（增强抓取/搜索能力）
+  - `export TAVILY_API_KEY=<your_tavily_api_key>`（增强搜索覆盖与回退）
+- 若 `--doctor` 提示 tier2 依赖不足，按输出的 `建议执行` 逐步修复。
+
+### 0.1 场景化命令速查
+
+A. 单条解析:
+  - `datapulse https://x.com/xxxx/status/123`
+B. 批量解析:
+  - `datapulse --batch https://x.com/... https://www.reddit.com/...`
+  - 短参数：`datapulse -b https://x.com/... https://www.reddit.com/...`
+C. 搜索:
+  - `datapulse --search "LLM inference optimization"`
+  - 短参数：`datapulse -s "LLM inference optimization"`
+D. 热搜:
+  - `datapulse --trending us --trending-limit 10`
+  - 短参数：`datapulse -T us --trending-limit 10`
+E. 实体:
+  - `datapulse https://x.com/xxxx/status/123 --entities --entity-mode fast`
+F. 诊断:
+  - `datapulse --config-check`
+  - `datapulse --doctor`
+  - `datapulse --troubleshoot`
+  - `datapulse --troubleshoot wechat`
+  - `datapulse --skill-contract`
+  - `datapulse --check-update`
+  - `datapulse --self-update`
+  - 短参数：`datapulse -k`、`datapulse -d`
+
+已提供的短参数：
+- `-b/--batch`、`-s/--search`、`-S/--site`、`-l/--list`、`-T/--trending`、`-i/--login`、`-d/--doctor`、`-k/--config-check`；诊断扩展命令：`--troubleshoot`、`--skill-contract`、`--check-update`、`--self-update`、`--version`
 
 ### 2. Smoke 测试
 
@@ -333,16 +394,39 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 ## OpenClaw 对接说明
 
 - 工具合约模板：`docs/contracts/openclaw_datapulse_tool_contract.json`
-- 快速验证脚本：`scripts/datapulse_local_smoke.sh`、`scripts/datapulse_remote_openclaw_smoke.sh`
+- 快速验证脚本：`scripts/datapulse_local_smoke.sh`、`scripts/run_openclaw_remote_smoke_local.sh`
 - 发布清单：`docs/release_checklist.md`
 
+### OpenClaw 调试环境与应用环境凭据管理建议
+
+- 调试环境（本地/测试验证）：
+  - 真实 `VPS_*`、`MACMINI_*`、`TG_API_*`、`JINA_API_KEY` 等写入 `.env.openclaw.local`，仅用于本机复现与调试。
+  - `.env.openclaw.local` 不入库，`scripts/run_openclaw_remote_smoke_local.sh` 可从 `.env.openclaw.example` 引导自动持久化。
+- 应用环境（发布/CI/共享主机）：
+  - 不在仓库中放入明文凭据；使用部署侧安全渠道注入（如 GitHub Secrets、系统变量、vault、secret mount）。
+  - 部署进程侧应优先注入与覆盖，脚本通过环境变量读取后生效。
+- 公共红线：
+  - `.env.openclaw.example` 仅保留占位符，禁止提交真实账号密码、口令与密钥。
+  - 提交前执行 `bash scripts/security_guardrails.sh`，将敏感写入行为变更视为阻塞问题。
+
+### 实操对照表（调试环境 vs 应用环境）
+
+| 目标 | 凭据来源 | 存放位置 | 入库策略 | 运行优先级 |
+| --- | --- | --- | --- | --- |
+| 本地调试/复现 | 现场手工变量 | `.env.openclaw.local`（本机） | `.gitignore` 保护，不入库 | 高于 `.env.openclaw.example` |
+| 共享测试/CI/CD | Secret 管理服务/OS Env | 运行时环境注入 | 不写入仓库历史 | 高于本地调试文件 |
+| 模板发布 | 脱敏模板 | `.env.openclaw.example` | 可入库，保持占位符 | 低于运行时 |
+
+建议配合 [docs/search_gateway_config.md](docs/search_gateway_config.md) 与 [docs/test_facts.md](docs/test_facts.md) 执行统一约束。
+
 ```bash
-chmod +x scripts/datapulse_local_smoke.sh scripts/datapulse_remote_openclaw_smoke.sh
+chmod +x scripts/datapulse_local_smoke.sh scripts/run_openclaw_remote_smoke_local.sh
+# 首次执行会自动持久化；如需手工覆盖可先 cp .env.openclaw.example .env.openclaw.local 后编辑
 export URL_1="https://x.com/xxxx/status/123"
 export URL_BATCH="https://x.com/... https://www.reddit.com/..."
 bash scripts/datapulse_local_smoke.sh
 # 远端执行（需先配置 VPS/M4）
-bash scripts/datapulse_remote_openclaw_smoke.sh
+bash scripts/run_openclaw_remote_smoke_local.sh
 ```
 
 ## 发布与版本绑定

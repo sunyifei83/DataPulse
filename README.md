@@ -51,6 +51,10 @@
   - `datapulse --doctor`：采集器分级健康检查（tier 0/1/2），展示状态、可用性与设置提示
   - 三级采集器分级：tier 0（零配置）、tier 1（网络/免费）、tier 2（需配置）
   - 路由失败时自动附带 setup_hint，指导用户修复
+  - `datapulse --troubleshoot`：输出可执行修复清单（支持 `--troubleshoot <collector>` 定向）
+  - `datapulse --check-update`：检查 GitHub 最新版本
+  - `datapulse --version`：展示当前版本
+  - `datapulse --self-update`：检测并执行线上升级（无更新则提示）
 - 可观测性：
   - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
 - 测试基建：
@@ -120,6 +124,13 @@ datapulse --trending uk --trending-store     # 英国热搜，存入 inbox
 
 # 采集器健康自检
 datapulse --doctor
+datapulse --troubleshoot
+datapulse --troubleshoot telegram
+
+# 版本与更新
+datapulse --version
+datapulse --check-update
+datapulse --self-update
 
 # 定向抓取
 datapulse https://example.com --target-selector ".article-body" --no-cache
@@ -270,16 +281,42 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 ## OpenClaw 对接资产（建议）
 
 - 工具契约模板：`docs/contracts/openclaw_datapulse_tool_contract.json`
-- 快速验收脚本：`scripts/datapulse_local_smoke.sh`、`scripts/datapulse_remote_openclaw_smoke.sh`
+- 快速验收脚本：`scripts/datapulse_local_smoke.sh`、`scripts/run_openclaw_remote_smoke_local.sh`
 - 发布清单：`docs/release_checklist.md`
 
+### OpenClaw 调试环境与应用环境凭据管理建议
+
+- 调试环境（本地/实验）：
+  - 真实 SSH/TG/Model 配置写入 `.env.openclaw.local`，由 `scripts/run_openclaw_remote_smoke_local.sh` 读取，脚本会按 `cp .env.openclaw.example .env.openclaw.local` 模板化落盘。
+  - 不要把 `.env.openclaw.local` 加入版本控制。
+- 应用环境（生产/CI/共享运维）：
+  - 不在仓库目录持久化敏感值。
+  - 用部署侧 secret 管理（如 GitHub Secrets / 系统环境变量 / secret manager）注入 `VPS_*`、`MACMINI_*`、`TG_API_*`、`JINA_API_KEY` 等。
+  - 运行时以环境变量或安全 secret 文件（如运行时挂载）注入，执行脚本时优先级高于 `.env.openclaw.local`。
+- 共同红线：
+  - 本地脱敏模板使用 `.env.openclaw.example`，不承载真实密码/口令/密钥。
+  - 任何环境都应通过 `bash scripts/security_guardrails.sh` 做入库前检测，避免敏感字段误入 commit。
+
+#### 实操对照表（调试环境 vs 应用环境）
+
+| 目标 | 凭据来源 | 存放位置 | 入库策略 | 运行优先级 |
+| --- | --- | --- | --- | --- |
+| 本地调试/复现 | 运营现场手工变量 | `.env.openclaw.local`（本机） | `.gitignore` 屏蔽，不入库 | 高于 `.env.openclaw.example` |
+| 共享测试/CI/CD | Secret 管理器或系统环境变量 | 运行时环境注入（注入式密钥） | 不放入仓库历史 | 高于本地调试文件 |
+| 模板发布 | 脱敏模板文件 | `.env.openclaw.example` | 可入库，保持占位符 | 低于运行时 |
+
+建议配合 `docs/search_gateway_config.md` 与 `docs/test_facts.md` 中的统一约束执行。
+
 ```bash
-chmod +x scripts/datapulse_local_smoke.sh scripts/datapulse_remote_openclaw_smoke.sh
+chmod +x scripts/datapulse_local_smoke.sh scripts/run_openclaw_remote_smoke_local.sh
+# Optional manual bootstrap: cp .env.openclaw.example .env.openclaw.local, then edit.
+#
+# The wrapper auto-persists from existing session/config when first run.
 export URL_1="https://x.com/xxxx/status/123"
 export URL_BATCH="https://x.com/... https://www.reddit.com/..."
 bash scripts/datapulse_local_smoke.sh
 # 远端（需先配置 VPS/M4 连接变量）
-bash scripts/datapulse_remote_openclaw_smoke.sh
+bash scripts/run_openclaw_remote_smoke_local.sh
 ```
 
 ## 发布与版本绑定（Release）
@@ -375,6 +412,56 @@ Commercial usage requires a separate license from the author.
 See the root `LICENSE` file for full terms.
 
 ## Quick start
+
+### 0) Minimum runnable setup
+
+Only required:
+
+- Python 3.10+ available
+- Datapulse install command can run
+
+Run first:
+
+```bash
+pip install -e .
+datapulse --config-check
+datapulse --doctor
+```
+
+What to do next:
+
+- If `--config-check` marks search keys missing, set only what you need:
+  - `export JINA_API_KEY=<your_jina_api_key>` (improves extraction and search)
+  - `export TAVILY_API_KEY=<your_tavily_api_key>` (improves search coverage/fallback)
+- If `--doctor` marks tier-2 collectors as not ready, follow the printed `Suggested commands`.
+
+### 0.1) Command cheatsheet by scenario
+
+A. Parse one URL:
+  - `datapulse https://x.com/xxxx/status/123`
+B. Parse a batch:
+  - `datapulse --batch https://x.com/... https://www.reddit.com/...`
+  - Short form: `datapulse -b https://x.com/... https://www.reddit.com/...`
+C. Search web:
+  - `datapulse --search "LLM inference optimization"`
+  - Short form: `datapulse -s "LLM inference optimization"`
+D. Trending:
+  - `datapulse --trending us --trending-limit 10`
+  - Short form: `datapulse -T us --trending-limit 10`
+E. Entity flow:
+  - `datapulse https://x.com/xxxx/status/123 --entities --entity-mode fast`
+F. Diagnostics:
+  - `datapulse --config-check`
+  - `datapulse --doctor`
+  - `datapulse --troubleshoot`
+  - `datapulse --troubleshoot xhs`
+  - `datapulse --skill-contract`
+  - `datapulse --check-update`
+  - `datapulse --self-update`
+  - Short form: `datapulse -k`, `datapulse -d`
+
+Short flags introduced in CLI:
+- `-b/--batch`、`-s/--search`、`-S/--site`、`-l/--list`、`-T/--trending`、`-i/--login`、`-d/--doctor`、`-k/--config-check`；诊断扩展命令：`--troubleshoot`、`--skill-contract`、`--check-update`、`--self-update`、`--version`
 
 ### 1) CLI basics
 
@@ -563,16 +650,33 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 ## OpenClaw integration assets
 
 - Tool contract: `docs/contracts/openclaw_datapulse_tool_contract.json`
-- Quick validation scripts: `scripts/datapulse_local_smoke.sh`, `scripts/datapulse_remote_openclaw_smoke.sh`
+- Quick validation scripts: `scripts/datapulse_local_smoke.sh`, `scripts/run_openclaw_remote_smoke_local.sh`
 - Release checklist: `docs/release_checklist.md`
 
+### OpenClaw credential management best practice (debug vs app env)
+
+- Debug environment (local test/replication):
+  - Put real SSH/test credentials in `.env.openclaw.local` only.
+  - `scripts/run_openclaw_remote_smoke_local.sh` loads values from `.env.openclaw.local` and supports one-click bootstrap from `.env.openclaw.example`.
+  - `.env.openclaw.local` is ignored and must never be committed.
+- App environment (CI/CD/prod/runtime):
+  - Do not persist secrets in repo files.
+  - Inject runtime credentials via environment variables from your secret manager (GitHub Secrets, OS secret store, secret mount, vault).
+  - Inject runtime values for `VPS_*`, `MACMINI_*`, `TG_API_*`, `JINA_API_KEY`, etc. at process startup; this path should override local test defaults.
+- Common guardrail:
+  - `.env.openclaw.example` is the redacted template only.
+  - Run `bash scripts/security_guardrails.sh` before release to block plaintext leakage.
+
 ```bash
-chmod +x scripts/datapulse_local_smoke.sh scripts/datapulse_remote_openclaw_smoke.sh
+chmod +x scripts/datapulse_local_smoke.sh scripts/run_openclaw_remote_smoke_local.sh
+# Optional manual bootstrap: cp .env.openclaw.example .env.openclaw.local, then edit.
+#
+# The wrapper auto-persists from existing session/config when first run.
 export URL_1="https://x.com/xxxx/status/123"
 export URL_BATCH="https://x.com/... https://www.reddit.com/..."
 bash scripts/datapulse_local_smoke.sh
 # remote execution requires VPS tunnel
-bash scripts/datapulse_remote_openclaw_smoke.sh
+bash scripts/run_openclaw_remote_smoke_local.sh
 ```
 
 ## Release and publishing
