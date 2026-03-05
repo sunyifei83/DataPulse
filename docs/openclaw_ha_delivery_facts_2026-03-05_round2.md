@@ -89,8 +89,8 @@ bash scripts/release_readiness.sh
 
 ## 4. 入库完成事实
 
-- 提交：`<TO_BE_FILLED_COMMIT>`
-- 推送：`<TO_BE_FILLED_PUSH>`
+- 提交：`22e4590`（`chore(ha): land emergency guardrails and delivery facts`）
+- 推送：`main -> origin/main`（已完成）
 - 结论：本次变更已按“安全守卫 + 全量测试 + 发布就绪”三重校验完成高置信入库。
 
 ## 5. 残留观察项
