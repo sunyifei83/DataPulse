@@ -1,551 +1,105 @@
-<a id="top"></a>
+# DataPulse Intelligence Hub
 
-# DataPulse (数据脉搏) Intelligence Hub
+跨平台内容采集与事实筛选工具，面向 CLI / MCP / Skill / Agent 工作流。
 
-> 英文名：DataPulse｜中文名：数据脉搏  
-> 点击切换到对应语言版本：  
-> <a href="./README_CN.md">🇨🇳 中文版</a> | <a href="./README_EN.md">🇺🇸 English version</a>
+- 中文文档：[`README_CN.md`](./README_CN.md)
+- English docs: [`README_EN.md`](./README_EN.md)
+- 许可证：`DataPulse Non-Commercial License v1.0`
 
-<details open>
-<summary><b>🇨🇳 中文</b></summary>
+## 这是什么
 
-## 数据脉搏（DataPulse）核心目标
+DataPulse 提供一个统一入口，用于：
 
-在统一入口下完成跨平台内容采集、结构化抽取、置信度评估与持久化输出，支持后续接入 MCP / Skill / Agent / Bot 的标准化结果流。
+1. 读取 URL（社媒、论文、RSS、通用网页等）
+2. 结构化抽取并评分（置信度 + 综合分）
+3. 写入本地 inbox，支持后续查询、摘要、分发
 
-## 当前实现能力（按代码实际）
+适用场景：
 
-- 路由与采集器：`twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `arxiv`, `hackernews`, `trending`, `generic web`, `jina`
-- 采集策略：
-  - Twitter：FxTwitter + Nitter 兜底
-  - Reddit：公开 JSON API
-  - YouTube：字幕优先，缺失时可回退到音频转写（`GROQ_API_KEY`）
-  - Bilibili：官方 API + 交互数据（播放/点赞/投币/收藏/弹幕/转发）
-  - Telegram：Telethon（`TG_API_ID`/`TG_API_HASH`），支持 `DATAPULSE_TG_*` 可配置限制
-  - WeChat / Xiaohongshu：Jina 兜底 + 重试，支持 Playwright Session 回退，XHS 自动提取互动指标（赞/评论/收藏/分享），Session TTL 缓存
-  - RSS：多条目 Feed 解析（最多 5 条），自动识别 feed 类型
-  - arXiv：Atom API 解析论文元数据（标题/作者/摘要/分类/PDF 链接）
-  - Hacker News：Firebase API 动态抓取，engagement 自动标记
-  - Trending：trends24.in 全球 400+ 地区 X/Twitter 热搜趋势抓取，支持地区别名（us/uk/jp 等 30+），小时级快照，Tweet 量级解析
-  - 通用网页：Trafilatura/BeautifulSoup，失败时可回退 Firecrawl（`FIRECRAWL_API_KEY`）或 Jina Reader
-  - Jina 增强读取：CSS 选择器定向抓取、等待元素加载、Cookie 透传、代理、AI 图片描述、缓存控制
-  - Web 搜索：默认通过多源网关（`search_provider=auto`）路由 Jina/Tavily，支持 `--platform`、`--search-provider`、`--search-mode`、深度检索与时间窗参数，自动提取并评分
-  - 双层输出：
-  - 结构化 JSON（统一 `DataPulseItem`）
-  - 可选 Markdown 记忆写入（`datapulse-inbox.md` / 自定义路径）
-  - 多维评分：四维度加权（置信度/来源权威/跨源互证/时效性），输出 0-100 综合分 + 0.01~0.99 置信分
-  - 轻量实体增强（EdgeQuake 蒸馏）：
-    - `--entities` 启动 URL 级实体抽取（`fast`/`llm` 两模式）
-    - `--entity-query`/`--entity-graph`/`--entity-stats` 支持实体存储与查询
-    - 评分链路支持 `DATAPULSE_ENTITY_CORROBORATION_WEIGHT`，用于实体跨源互证加分（默认 `0`）
-- Digest 构建：自动生成包含 primary/secondary 故事的摘要信封，支持指纹去重与多样性选择
-- 稳健性：
-  - 统一错误处理，异常窄化（精确捕获 `RequestException`/`TimeoutError` 等）
-  - `retry_with_backoff` 重试装饰器 + `CircuitBreaker` 熔断器
-  - 429 感知退避：`RateLimitError` 自动遵循 Retry-After 头部，`CircuitBreaker` 对限速加权触发
-  - 内存级 TTL 缓存（线程安全，无外部依赖）
-  - 并发批量执行（`read_batch`），自动 URL 去重
-  - 去重与过期裁剪（默认最多 500 条、30 天）
-  - 入库指纹去重：相似内容（≥50 字符）自动去重，避免重复入库
-- 自诊断：
-  - `datapulse --doctor`：采集器分级健康检查（tier 0/1/2），展示状态、可用性与设置提示
-  - 三级采集器分级：tier 0（零配置）、tier 1（网络/免费）、tier 2（需配置）
-  - 路由失败时自动附带 setup_hint，指导用户修复
-  - `datapulse --troubleshoot`：输出可执行修复清单（支持 `--troubleshoot <collector>` 定向）
-  - `datapulse --check-update`：检查 GitHub 最新版本
-  - `datapulse --version`：展示当前版本
-  - `datapulse --self-update`：检测并执行线上升级（无更新则提示）
-- 可观测性：
-  - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
-- 测试基建：
-  - 496 单元测试，覆盖 25 个测试模块
-  - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
+- 热点追踪与信号归档
+- Bot/Agent 的“先采集、后推理”前置层
+- 多平台内容的标准化落库
 
-## 安装
+## 当前能力（按仓内实现）
+
+| 能力域 | 当前支持 |
+| --- | --- |
+| 平台采集 | `twitter/x`、`reddit`、`youtube`、`bilibili`、`telegram`、`wechat`、`xhs`、`rss`、`arxiv`、`hackernews`、`generic web` |
+| 热点趋势 | `trending`（X/Twitter 趋势页抓取） |
+| 搜索 | `Jina` / `Tavily` / `auto` / `multi`，支持 `--platform`、`--site`、时间窗参数 |
+| 输出模型 | 统一 `DataPulseItem`（`title/content/url/confidence/score/tags/extra`） |
+| 评分排序 | 置信度 + 权威度 + 互证 + 时效性 |
+| 实体增强 | `--entities` 抽取，`--entity-query` / `--entity-graph` / `--entity-stats` |
+| 摘要与分发 | `build_digest`、JSON/RSS/Atom feed、digest package |
+| 生态接入 | CLI、MCP Server、`datapulse_skill`、`DataPulseAgent` |
+| 诊断运维 | `--config-check`、`--doctor`、`--troubleshoot`、`--check-update`、`--self-update` |
+
+## 1 分钟上手
+
+### 1) 安装
 
 ```bash
+# 推荐
+uv pip install -e .
+
+# 或
 pip install -e .
-pip install -e ".[all]"   # 启用全部可选能力
 ```
 
-可选分组：
-
-- `.[trafilatura]`、`.[youtube]`、`.[telegram]`、`.[browser]`、`.[mcp]`、`.[notebooklm]`  
-  注：`.[mcp]` 为原生 MCP 运行支持；若未安装该额外依赖，`python -m datapulse.mcp_server` 会自动退化为内置 stdio fallback（支持 `--list-tools` / `--call`）。
-
-## 开发环境
+可选能力：
 
 ```bash
-pip install -e ".[dev]"
-pip install pre-commit && pre-commit install
+pip install -e ".[all]"
+# 或按需安装：.[telegram] / .[browser] / .[mcp] / .[youtube] ...
 ```
 
-## 许可证
-
-本项目采用「DataPulse Non-Commercial License v1.0」。
-仅允许非商业用途（教学、科研、个人研究、内部评估等）内免费使用；商业使用请联系作者获取商业授权。
-
-详细条款请查看仓库根目录 `LICENSE` 文件。
-
-## 快速开始
-
-### 1) CLI 基础用法
+### 2) 环境自检
 
 ```bash
-# 解析单条 URL
-datapulse https://x.com/xxxx/status/123
-
-# 批量解析（并发）
-datapulse --batch https://x.com/... https://www.reddit.com/... --min-confidence 0.45
-
-# 列出内存（按置信降序）
-datapulse --list --limit 10 --min-confidence 0.30
-
-# 登录状态采集（用于登录后场景）
-datapulse --login xhs
-datapulse --login wechat
-
-# 清空内存
-datapulse --clear
-
-# Web 搜索
-datapulse --search "LLM inference optimization"
-datapulse --search "Python 3.13" --site python.org --site peps.python.org
-datapulse --search "RAG best practices" --search-limit 10 --min-confidence 0.7
-
-# 平台限定搜索
-datapulse --search "护肤" --platform xhs --search-limit 3
-
-# 热搜趋势
-datapulse --trending              # 全球热搜
-datapulse --trending us           # 美国热搜
-datapulse --trending jp --trending-limit 10  # 日本 Top 10
-datapulse --trending uk --trending-store     # 英国热搜，存入 inbox
-
-# 采集器健康自检
-datapulse --doctor
-datapulse --troubleshoot
-datapulse --troubleshoot telegram
-
-# 版本与更新
-datapulse --version
-datapulse --check-update
-datapulse --self-update
-
-# 定向抓取
-datapulse https://example.com --target-selector ".article-body" --no-cache
-
-# 实体增强
-datapulse https://x.com/xxxx/status/123 --entities --entity-mode fast
-datapulse --entity-query OPENAI --entity-type CONCEPT
-datapulse --entity-graph OPENAI
-# 实体存储统计
-datapulse --entity-stats
-```
-
-### 2) Smoke 测试命令
-
-```bash
-# 仅列出需要配置的环境变量
-datapulse-smoke --list
-
-# 按平台回归
-datapulse-smoke --platforms xhs wechat --require-all
-
-# 运行全部场景（可设置置信阈值）
-datapulse-smoke --min-confidence 0.45
-```
-
-`datapulse-smoke` 的环境变量输入项：
-
-- `DATAPULSE_SMOKE_TWITTER_URL`
-- `DATAPULSE_SMOKE_REDDIT_URL`
-- `DATAPULSE_SMOKE_YOUTUBE_URL`
-- `DATAPULSE_SMOKE_BILIBILI_URL`
-- `DATAPULSE_SMOKE_TELEGRAM_URL`
-- `DATAPULSE_SMOKE_RSS_URL`
-- `DATAPULSE_SMOKE_WECHAT_URL`
-- `DATAPULSE_SMOKE_XHS_URL`
-
-## MCP / Skill / Agent 使用
-
-- MCP 服务端（`.[mcp]` 可选，未安装时自动切入内置 fallback）：
-
-```bash
-python -m datapulse.mcp_server
-python -m datapulse.mcp_server --list-tools
-python -m datapulse.mcp_server --call health
-```
-
-暴露 28 个工具：
-
-**采集与读取：**
-- `read_url(url, min_confidence=0.0)` — 解析单条 URL
-- `read_batch(urls, min_confidence=0.0)` — 批量解析 URL
-- `read_url_advanced(url, target_selector, wait_for_selector, no_cache, with_alt, min_confidence)` — CSS 定向抓取
-- `search_web(query, sites, platform, limit, fetch_content, min_confidence, provider="auto", mode="single", deep=False, news=False, time_range=None, freshness=None, extract_entities=False, entity_mode="fast", store_entities=True, entity_api_key=None, entity_model="gpt-4o-mini", entity_api_base="https://api.openai.com/v1")` — Web 搜索
-- `trending(location, top_n, store)` — X/Twitter 热搜趋势
-
-**内存与状态：**
-- `query_inbox(limit, min_confidence)` — 查询收件箱
-- `mark_processed(item_id, processed)` — 标记已处理
-- `query_unprocessed(limit, min_confidence)` — 查询未处理条目
-
-**信源管理：**
-- `list_sources(include_inactive, public_only)` — 列出信源目录
-- `list_packs(public_only)` — 列出信源包
-- `resolve_source(url)` — URL 信源识别
-- `list_subscriptions(profile)` — 列出订阅
-- `source_subscribe(profile, source_id)` — 订阅信源
-- `source_unsubscribe(profile, source_id)` — 取消订阅
-- `install_pack(profile, slug)` — 安装信源包
-
-**Feed 与 Digest：**
-- `query_feed(profile, source_ids, limit, min_confidence, since)` — 查询 Feed
-- `build_json_feed(profile, source_ids, limit, min_confidence, since)` — JSON Feed
-- `build_rss_feed(profile, source_ids, limit, min_confidence, since)` — RSS Feed
-- `build_atom_feed(profile, source_ids, limit, min_confidence, since)` — Atom 1.0 Feed
-- `build_digest(profile, source_ids, top_n, secondary_n, min_confidence, since)` — 精选摘要
-- `emit_digest_package(profile='default', source_ids=None, top_n=3, secondary_n=7, min_confidence=0.0, since=None, output_format='json')` — 导出 office-ready 摘要包（`json`/`markdown`）
-
-**诊断与工具：**
-- `doctor()` — 采集器分级健康自检
-- `detect_platform(url)` — 平台检测
-- `health()` — 健康检查
-- `extract_entities(url, mode='fast', store_entities=True, ...)` — 单 URL 实体抽取（`fast`/`llm`）
-- `query_entities(entity_type='', name='', min_sources=1, limit=50)` — 实体查询
-- `entity_graph(entity_name, limit=50)` — 实体关联图谱
-- `entity_stats()` — 实体库统计
-
-- Skill 入口（可供 OpenClaw Skill 接入）：
-
-```python
-from datapulse_skill import run
-run("请处理这些信息: https://x.com/... 或 https://reddit.com/...")
-```
-
-- Agent 调用（可被上层 Bot 框架封装）：
-
-```python
-from datapulse.agent import DataPulseAgent
-
-agent = DataPulseAgent(min_confidence=0.25)
-result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
-```
-
-## 配置与环境变量
-
-- `INBOX_FILE`
-- `DATAPULSE_MEMORY_DIR`
-- `DATAPULSE_KEEP_DAYS`（默认 30）
-- `DATAPULSE_MAX_INBOX`（默认 500）
-- `OUTPUT_DIR`
-- `DATAPULSE_MARKDOWN_PATH`
-- `OBSIDIAN_VAULT`
-- `DATAPULSE_SESSION_DIR`（默认 `~/.datapulse/sessions`）
-- `TG_API_ID` / `TG_API_HASH`
-- `NITTER_INSTANCES`
-- `FXTWITTER_API_URL`
-- `FIRECRAWL_API_KEY`
-- `GROQ_API_KEY`
-- `DATAPULSE_LOG_LEVEL`（默认 WARNING）
-- `DATAPULSE_TG_MAX_MESSAGES`（默认 20）
-- `DATAPULSE_TG_MAX_CHARS`（默认 800）
-- `DATAPULSE_TG_CUTOFF_HOURS`（默认 24）
-- `DATAPULSE_SMOKE_*`
-- `DATAPULSE_BATCH_CONCURRENCY`（默认 5）
-- `DATAPULSE_MIN_CONFIDENCE`
-- `DATAPULSE_SESSION_TTL_HOURS`（默认 12，Session 缓存 TTL 小时数）
-- `DATAPULSE_ENTITY_STORE`（实体存储文件路径，默认 `entity_store.json`）
-- `DATAPULSE_ENTITY_CORROBORATION_WEIGHT`（实体交叉证据加权，默认 `0`）
-- `JINA_API_KEY`（Jina 增强读取 + Web 搜索 API Key）
-- `TAVILY_API_KEY`（Tavily 搜索 API Key）
-
-## 使用建议（openclaw-bot 场景）
-
-- MCP 侧建议用 `read_url/read_batch` 产生结构化 JSON，按 `source_type/confidence/tags` 做二次路由。
-- Skill 侧建议用 `DataPulseItem` 的 `to_dict()` 结果直接入队，避免复写解析逻辑。
-- Agent 侧建议在对话中先抽 URL，再调用 `agent.handle` 做批量批注与限置信。
-- 统一记忆路径建议配置独立目录，便于 Bot 多实例共享已采集结果。
-
-## 安全与边界
-
-- 当前实现对 URL 做基础可达性与域名策略校验（拦截内网/本地地址与非公网解析）。
-- `read_batch` 默认跳过单条失败，`return_all=False` 可改为遇错即抛。
-
-## 说明
-
-- 仓库文档不包含本地测试环境与模型端点明文信息。
-- 敏感配置需放入你的私有运行时环境，通过安全凭证管理方式注入。
-
-## OpenClaw 对接资产（建议）
-
-- 工具契约模板：`docs/contracts/openclaw_datapulse_tool_contract.json`
-- 快速验收脚本：`scripts/datapulse_local_smoke.sh`、`scripts/run_openclaw_remote_smoke_local.sh`
-- 发布清单：`docs/release_checklist.md`
-
-### OpenClaw 调试环境与应用环境凭据管理建议
-
-- 调试环境（本地/实验）：
-  - 真实 SSH/TG/Model 配置写入 `.env.openclaw.local`，由 `scripts/run_openclaw_remote_smoke_local.sh` 读取，脚本会按 `cp .env.openclaw.example .env.openclaw.local` 模板化落盘。
-  - 不要把 `.env.openclaw.local` 加入版本控制。
-- 应用环境（生产/CI/共享运维）：
-  - 不在仓库目录持久化敏感值。
-  - 用部署侧 secret 管理（如 GitHub Secrets / 系统环境变量 / secret manager）注入 `VPS_*`、`MACMINI_*`、`TG_API_*`、`JINA_API_KEY` 等。
-  - 运行时以环境变量或安全 secret 文件（如运行时挂载）注入，执行脚本时优先级高于 `.env.openclaw.local`。
-- 共同红线：
-  - 本地脱敏模板使用 `.env.openclaw.example`，不承载真实密码/口令/密钥。
-  - 任何环境都应通过 `bash scripts/security_guardrails.sh` 做入库前检测，避免敏感字段误入 commit。
-
-#### 实操对照表（调试环境 vs 应用环境）
-
-| 目标 | 凭据来源 | 存放位置 | 入库策略 | 运行优先级 |
-| --- | --- | --- | --- | --- |
-| 本地调试/复现 | 运营现场手工变量 | `.env.openclaw.local`（本机） | `.gitignore` 屏蔽，不入库 | 高于 `.env.openclaw.example` |
-| 共享测试/CI/CD | Secret 管理器或系统环境变量 | 运行时环境注入（注入式密钥） | 不放入仓库历史 | 高于本地调试文件 |
-| 模板发布 | 脱敏模板文件 | `.env.openclaw.example` | 可入库，保持占位符 | 低于运行时 |
-
-建议配合 `docs/search_gateway_config.md` 与 `docs/test_facts.md` 中的统一约束执行。
-
-```bash
-chmod +x scripts/datapulse_local_smoke.sh scripts/run_openclaw_remote_smoke_local.sh
-# Optional manual bootstrap: cp .env.openclaw.example .env.openclaw.local, then edit.
-#
-# The wrapper auto-persists from existing session/config when first run.
-export URL_1="https://x.com/xxxx/status/123"
-export URL_BATCH="https://x.com/... https://www.reddit.com/..."
-bash scripts/datapulse_local_smoke.sh
-# 远端（需先配置 VPS/M4 连接变量）
-bash scripts/run_openclaw_remote_smoke_local.sh
-```
-
-## 发布与版本绑定（Release）
-
-- 发布资产：
-  - `python -m build --sdist --wheel .`
-  - 附加 `dist/*.whl` 与 `dist/*.tar.gz`
-- 自动化：
-  - `./scripts/release_publish.sh --tag vX.Y.Z`
-  - `scripts/release_publish.sh` 会自动读取 `RELEASE_NOTES.md` 的 `## Release: DataPulse vX.Y.Z` 区块作为 release notes，并剥离 `Full Changelog` 行，避免生成噪音
-  - 推送 tag 后由 `.github/workflows/release.yml` 自动附加资产到 GitHub Release
-
-[🔼 回到顶部](#top) | [🇨🇳 中文详情页](./README_CN.md) | [🇺🇸 English details](./README_EN.md)
-
-</details>
-
----
-
-<a id="top"></a>
-
-<details>
-<summary><b>🇺🇸 English</b></summary>
-
-## Core goal
-
-Build a single intake path for URL content extraction, confidence scoring, and memory output,
-with structured results that can feed MCP, Assistant Skill, Agent, or Bot workflows.
-
-## Implemented capabilities
-
-- Router and collectors: `twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `arxiv`, `hackernews`, `trending`, `generic web`, `jina`
-- Collector strategy:
-  - Twitter: FxTwitter primary + Nitter fallback
-  - Reddit: public JSON API
-  - YouTube: transcript first, optional audio transcription fallback (`GROQ_API_KEY`)
-  - Bilibili: official API + interaction stats (views/likes/coins/favorites/danmaku/shares)
-  - Telegram: Telethon (`TG_API_ID`/`TG_API_HASH`), configurable via `DATAPULSE_TG_*` env vars
-  - WeChat / Xiaohongshu: Jina fallback with retry, optional Playwright session fallback, XHS auto-extracts engagement metrics (likes/comments/favorites/shares), session TTL cache
-  - RSS: multi-entry feed parsing (up to 5 entries), auto feed type detection
-  - arXiv: Atom API parsing for paper metadata (title/authors/abstract/categories/PDF link)
-  - Hacker News: Firebase API with dynamic engagement flags
-  - Trending: trends24.in scraper for X/Twitter trending topics across 400+ global locations, 30+ location aliases (us/uk/jp etc.), hourly snapshots, tweet volume parsing
-  - Generic web: Trafilatura / BeautifulSoup, optional Firecrawl fallback (`FIRECRAWL_API_KEY`) or Jina Reader
-  - Jina enhanced reading: CSS selector targeting, wait-for-element, cookie passthrough, proxy, AI image descriptions, cache control
-- Web search: multi-source web search gateway (Jina/Tavily, default provider auto), auto-extract and score results, support platform-scoped query (`--platform`)
-- Output:
-  - Structured JSON (`DataPulseItem`)
-  - Optional Markdown output (`datapulse-inbox.md` / custom path)
-- Multi-dimensional scoring: 4-axis weighted (confidence/authority/corroboration/recency), 0-100 composite + [0.01, 0.99] confidence
-- Digest builder: curated primary/secondary stories with fingerprint dedup and diversity selection
-- Resilience:
-  - unified parse result handling with narrowed exceptions
-  - `retry_with_backoff` decorator + `CircuitBreaker` for fault tolerance
-  - 429-aware backoff: `RateLimitError` respects Retry-After header, `CircuitBreaker` applies weighted rate-limit detection
-  - in-memory TTL cache (thread-safe, zero external deps)
-  - concurrent batch read (`read_batch`) with auto URL dedup
-  - dedupe and prune by max items / retention days
-  - ingestion fingerprint dedup: similar content (≥50 chars) auto-deduplicated at inbox level
-- Self-diagnostics:
-  - `datapulse --doctor`: tiered health check (tier 0/1/2) for all collectors with status icons and setup hints
-  - Three-tier collector classification: tier 0 (zero-config), tier 1 (network/free), tier 2 (needs setup)
-  - Actionable error messages in route failures with setup hints
-- Observability:
-  - structured logging (`DATAPULSE_LOG_LEVEL` env var)
-- Testing:
-  - 496 tests across 25 test modules
-  - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
-
-## Install
-
-```bash
-pip install -e .
-pip install -e ".[all]"   # enable all optional capabilities
-```
-
-Optional groups:
-
-- `.[trafilatura]`, `.[youtube]`, `.[telegram]`, `.[browser]`, `.[mcp]`, `.[notebooklm]`
-
-## Development
-
-```bash
-pip install -e ".[dev]"
-pip install pre-commit && pre-commit install
-```
-
-## License
-
-This project is released under the **DataPulse Non-Commercial License v1.0**.
-It is free for non-commercial use (e.g., education, research, personal/POC evaluation).
-Commercial usage requires a separate license from the author.
-
-See the root `LICENSE` file for full terms.
-
-## Quick start
-
-### 0) Minimum runnable setup
-
-Only required:
-
-- Python 3.10+ available
-- Datapulse install command can run
-
-Run first:
-
-```bash
-pip install -e .
 datapulse --config-check
 datapulse --doctor
 ```
 
-What to do next:
-
-- If `--config-check` marks search keys missing, set only what you need:
-  - `export JINA_API_KEY=<your_jina_api_key>` (improves extraction and search)
-  - `export TAVILY_API_KEY=<your_tavily_api_key>` (improves search coverage/fallback)
-- If `--doctor` marks tier-2 collectors as not ready, follow the printed `Suggested commands`.
-
-### 0.1) Command cheatsheet by scenario
-
-A. Parse one URL:
-  - `datapulse https://x.com/xxxx/status/123`
-B. Parse a batch:
-  - `datapulse --batch https://x.com/... https://www.reddit.com/...`
-  - Short form: `datapulse -b https://x.com/... https://www.reddit.com/...`
-C. Search web:
-  - `datapulse --search "LLM inference optimization"`
-  - Short form: `datapulse -s "LLM inference optimization"`
-D. Trending:
-  - `datapulse --trending us --trending-limit 10`
-  - Short form: `datapulse -T us --trending-limit 10`
-E. Entity flow:
-  - `datapulse https://x.com/xxxx/status/123 --entities --entity-mode fast`
-F. Diagnostics:
-  - `datapulse --config-check`
-  - `datapulse --doctor`
-  - `datapulse --troubleshoot`
-  - `datapulse --troubleshoot xhs`
-  - `datapulse --skill-contract`
-  - `datapulse --check-update`
-  - `datapulse --self-update`
-  - Short form: `datapulse -k`, `datapulse -d`
-
-Short flags introduced in CLI:
-- `-b/--batch`、`-s/--search`、`-S/--site`、`-l/--list`、`-T/--trending`、`-i/--login`、`-d/--doctor`、`-k/--config-check`；诊断扩展命令：`--troubleshoot`、`--skill-contract`、`--check-update`、`--self-update`、`--version`
-
-### 1) CLI basics
+### 3) 跑第一个任务
 
 ```bash
-# read one URL
-datapulse https://x.com/xxxx/status/123
+# 读取单条链接
+datapulse https://www.reddit.com/r/dataengineering/comments/1rg6fjo/which_data_quality_tool_do_you_use/
 
-# batch read
-datapulse --batch https://x.com/... https://www.reddit.com/... --min-confidence 0.45
+# 搜索
+datapulse --search "data governance" --search-limit 5
 
-# list memory in confidence order
-datapulse --list --limit 10 --min-confidence 0.30
-
-# store login sessions when needed
-datapulse --login xhs
-datapulse --login wechat
-
-# clear memory
-datapulse --clear
-
-# web search
-datapulse --search "LLM inference optimization"
-datapulse --search "Python 3.13" --site python.org --site peps.python.org
-
-# trending topics
-datapulse --trending              # worldwide
-datapulse --trending us           # United States
-datapulse --trending jp --trending-limit 10  # Japan top 10
-datapulse --trending uk --trending-store     # UK, save to inbox
-
-# collector health check
-datapulse --doctor
-
-# targeted extraction
-datapulse https://example.com --target-selector ".article-body" --no-cache
+# 趋势
+datapulse --trending us --trending-limit 10
 ```
 
-### 2) Smoke check
+### 4) 查看落库结果
 
 ```bash
-# show required environment keys for smoke tests
-datapulse-smoke --list
-
-# run selected platforms
-datapulse-smoke --platforms xhs wechat --require-all
-
-# run all configured scenarios
-datapulse-smoke --min-confidence 0.45
+datapulse --list --limit 10
 ```
 
-Smoke env vars:
+## 命令速查
 
-- `DATAPULSE_SMOKE_TWITTER_URL`
-- `DATAPULSE_SMOKE_REDDIT_URL`
-- `DATAPULSE_SMOKE_YOUTUBE_URL`
-- `DATAPULSE_SMOKE_BILIBILI_URL`
-- `DATAPULSE_SMOKE_TELEGRAM_URL`
-- `DATAPULSE_SMOKE_RSS_URL`
-- `DATAPULSE_SMOKE_WECHAT_URL`
-- `DATAPULSE_SMOKE_XHS_URL`
-
-Optional human-like browser fallback controls (used by session-based fallback, especially XHS):
-
-- `DATAPULSE_BROWSER_HUMAN_LIKE=1` (enable human-like timing/scroll/mouse jitter; default 0)
-- `DATAPULSE_BROWSER_MIN_INTERVAL_SECONDS` (global minimum spacing between browser requests, default 2.2)
-- `DATAPULSE_BROWSER_INTERVAL_JITTER_SECONDS` (random jitter, default 1.5)
-- `DATAPULSE_BROWSER_PRE_NAV_WAIT_MS_MIN` / `DATAPULSE_BROWSER_PRE_NAV_WAIT_MS_MAX` (pre-navigation wait range)
-- `DATAPULSE_BROWSER_POST_NAV_WAIT_MS_MIN` / `DATAPULSE_BROWSER_POST_NAV_WAIT_MS_MAX` (post-navigation settle wait range)
-- `DATAPULSE_BROWSER_SCROLL_STEPS_MIN` / `DATAPULSE_BROWSER_SCROLL_STEPS_MAX` (human-like scrolling steps)
-- `DATAPULSE_BROWSER_SCROLL_WAIT_MS_MIN` / `DATAPULSE_BROWSER_SCROLL_WAIT_MS_MAX` (delay between scroll steps)
-- `DATAPULSE_BROWSER_RANDOMIZE_VIEWPORT=1` (random viewport, default 1)
-- `DATAPULSE_BROWSER_USER_AGENT` (custom UA)
-- `DATAPULSE_BROWSER_LOCALE` (default `zh-CN`)
-- `DATAPULSE_BROWSER_TIMEZONE` (default `Asia/Shanghai`)
-- `DATAPULSE_BROWSER_DISABLE_WEBDRIVER=1` (inject `navigator.webdriver=false`, default 1)
-
-Suggested XHS order:
-
-1) `uv run python3 -m datapulse.cli --login xhs`
-2) `DATAPULSE_BROWSER_HUMAN_LIKE=1 uv run python3 -m datapulse.tools.smoke --platforms xhs --min-confidence 0.0`
+| 场景 | 命令 |
+| --- | --- |
+| 单条解析 | `datapulse <url>` |
+| 批量解析 | `datapulse --batch <url1> <url2> ...` |
+| 平台限定搜索 | `datapulse --search "关键词" --platform reddit --search-limit 10` |
+| 指定 provider | `datapulse --search "关键词" --search-provider tavily` |
+| 指定时间窗 | `datapulse --search "关键词" --search-freshness week` |
+| 趋势抓取 | `datapulse --trending [us|uk|jp|...] --trending-limit 20` |
+| 实体抽取 | `datapulse <url> --entities --entity-mode fast` |
+| 查询实体 | `datapulse --entity-query OPENAI --entity-limit 20` |
+| 生成摘要 | `datapulse --digest --top-n 3 --secondary-n 7` |
+| 导出摘要包 | `datapulse --emit-digest-package --emit-digest-format markdown` |
+| 健康检查 | `datapulse --doctor` |
+| 故障建议 | `datapulse --troubleshoot` / `datapulse --troubleshoot twitter` |
+| smoke 回归 | `datapulse-smoke --list` / `datapulse-smoke --platforms reddit twitter` |
 
 ## MCP / Skill / Agent
 
-- MCP server (`.[mcp]` optional, fallback to built-in stdio when missing):
+### MCP Server
 
 ```bash
 python -m datapulse.mcp_server
@@ -553,54 +107,16 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-28 exposed tools:
+常用工具：`read_url`、`read_batch`、`search_web`、`trending`、`query_inbox`、`build_digest`、`doctor`。
 
-**Intake & reading:**
-- `read_url(url, min_confidence)` — parse a single URL
-- `read_batch(urls, min_confidence)` — batch parse URLs
-- `read_url_advanced(url, target_selector, wait_for_selector, no_cache, with_alt, min_confidence)` — CSS-targeted extraction
-- `search_web(query, sites, platform, limit, fetch_content, min_confidence, provider="auto", mode="single", deep=False, news=False, time_range=None, freshness=None, extract_entities=False, entity_mode="fast", store_entities=True, entity_api_key=None, entity_model="gpt-4o-mini", entity_api_base="https://api.openai.com/v1")` — web search
-- `trending(location, top_n, store)` — X/Twitter trending topics
-
-**Memory & state:**
-- `query_inbox(limit, min_confidence)` — query inbox
-- `mark_processed(item_id, processed)` — mark as processed
-- `query_unprocessed(limit, min_confidence)` — query unprocessed items
-
-**Source management:**
-- `list_sources(include_inactive, public_only)` — list source catalog
-- `list_packs(public_only)` — list source packs
-- `resolve_source(url)` — resolve URL to source
-- `list_subscriptions(profile)` — list subscriptions
-- `source_subscribe(profile, source_id)` — subscribe to source
-- `source_unsubscribe(profile, source_id)` — unsubscribe
-- `install_pack(profile, slug)` — install source pack
-
-**Feed & digest:**
-- `query_feed(profile, source_ids, limit, min_confidence, since)` — query feed
-- `build_json_feed(profile, source_ids, limit, min_confidence, since)` — JSON Feed
-- `build_rss_feed(profile, source_ids, limit, min_confidence, since)` — RSS Feed
-- `build_atom_feed(profile, source_ids, limit, min_confidence, since)` — Atom 1.0 Feed
-- `build_digest(profile, source_ids, top_n, secondary_n, min_confidence, since)` — curated digest
-
-**Diagnostics & utilities:**
-- `doctor()` — tiered collector health check
-- `detect_platform(url)` — platform detection
-- `health()` — health check
-- `emit_digest_package(profile='default', source_ids=None, top_n=3, secondary_n=7, min_confidence=0.0, since=None, output_format='json')` — office-ready digest package export (`json|markdown|md`)
-- `extract_entities(url, mode='fast', store_entities=True, ... )` — extract entities from a single URL (`fast`/`llm`)
-- `query_entities(entity_type='', name='', min_sources=1, limit=50)` — query entity store by type/name/source count
-- `entity_graph(entity_name, limit=50)` — retrieve related entities and edges
-- `entity_stats()` — entity store summary statistics
-
-- Skill entry (for OpenClaw/assistant adapters):
+### Skill 调用
 
 ```python
 from datapulse_skill import run
-run("Please process: https://x.com/... and https://www.reddit.com/...")
+run("请处理这些链接: https://x.com/... https://www.reddit.com/...")
 ```
 
-- Agent usage:
+### Agent 调用
 
 ```python
 from datapulse.agent import DataPulseAgent
@@ -609,90 +125,43 @@ agent = DataPulseAgent(min_confidence=0.25)
 result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 ```
 
-## Config and env vars
+## 常用环境变量
 
-- `INBOX_FILE`
-- `DATAPULSE_MEMORY_DIR`
-- `DATAPULSE_KEEP_DAYS` (default 30)
-- `DATAPULSE_MAX_INBOX` (default 500)
-- `OUTPUT_DIR`
-- `DATAPULSE_MARKDOWN_PATH`
-- `OBSIDIAN_VAULT`
-- `DATAPULSE_SESSION_DIR` (default `~/.datapulse/sessions`)
-- `TG_API_ID` / `TG_API_HASH`
-- `NITTER_INSTANCES`
-- `FXTWITTER_API_URL`
-- `FIRECRAWL_API_KEY`
-- `GROQ_API_KEY`
-- `DATAPULSE_LOG_LEVEL` (default WARNING)
-- `DATAPULSE_TG_MAX_MESSAGES` (default 20)
-- `DATAPULSE_TG_MAX_CHARS` (default 800)
-- `DATAPULSE_TG_CUTOFF_HOURS` (default 24)
-- `DATAPULSE_SMOKE_*`
-- `DATAPULSE_BATCH_CONCURRENCY` (default 5)
+最常见：
+
+- `JINA_API_KEY`：Jina 搜索/读取增强
+- `TAVILY_API_KEY`：Tavily 搜索
+- `TG_API_ID` / `TG_API_HASH`：Telegram
+- `GROQ_API_KEY`：YouTube 音频转写兜底
+
+运行参数：
+
 - `DATAPULSE_MIN_CONFIDENCE`
-- `DATAPULSE_SESSION_TTL_HOURS` (default 12 — session cache TTL in hours)
-- `JINA_API_KEY` (Jina API key for enhanced reading and web search)
-- `TAVILY_API_KEY` (Tavily API key for web search)
+- `DATAPULSE_BATCH_CONCURRENCY`
+- `DATAPULSE_MEMORY_DIR`
+- `DATAPULSE_KEEP_DAYS`
+- `DATAPULSE_MAX_INBOX`
+- `DATAPULSE_LOG_LEVEL`
 
-## Recommended usage for bot/agent stacks
+## 安全与边界
 
-- MCP: call `read_url/read_batch` and route by `source_type + confidence` before tool selection.
-- Skill: use returned summaries or raw `DataPulseItem.to_dict()` directly to avoid re-parsing.
-- Agent: extract URLs from text first, then call `DataPulseAgent.handle` for batched processing.
-- Keep memory path stable across nodes if your bot runtime needs shared cache.
-
-## Security and boundaries
-
-- URL routing applies public-network checks and blocks obvious local/private targets.
-- `read_batch` skips failed entries by default; set strict failure behavior by code as needed.
-
-## OpenClaw integration assets
-
-- Tool contract: `docs/contracts/openclaw_datapulse_tool_contract.json`
-- Quick validation scripts: `scripts/datapulse_local_smoke.sh`, `scripts/run_openclaw_remote_smoke_local.sh`
-- Release checklist: `docs/release_checklist.md`
-
-### OpenClaw credential management best practice (debug vs app env)
-
-- Debug environment (local test/replication):
-  - Put real SSH/test credentials in `.env.openclaw.local` only.
-  - `scripts/run_openclaw_remote_smoke_local.sh` loads values from `.env.openclaw.local` and supports one-click bootstrap from `.env.openclaw.example`.
-  - `.env.openclaw.local` is ignored and must never be committed.
-- App environment (CI/CD/prod/runtime):
-  - Do not persist secrets in repo files.
-  - Inject runtime credentials via environment variables from your secret manager (GitHub Secrets, OS secret store, secret mount, vault).
-  - Inject runtime values for `VPS_*`, `MACMINI_*`, `TG_API_*`, `JINA_API_KEY`, etc. at process startup; this path should override local test defaults.
-- Common guardrail:
-  - `.env.openclaw.example` is the redacted template only.
-  - Run `bash scripts/security_guardrails.sh` before release to block plaintext leakage.
+- 请勿将密钥提交到仓库（使用运行时环境注入）。
+- 本地调试建议使用 `.env.openclaw.local`，保持脱敏模板 `.env.openclaw.example`。
+- 提交前可运行：
 
 ```bash
-chmod +x scripts/datapulse_local_smoke.sh scripts/run_openclaw_remote_smoke_local.sh
-# Optional manual bootstrap: cp .env.openclaw.example .env.openclaw.local, then edit.
-#
-# The wrapper auto-persists from existing session/config when first run.
-export URL_1="https://x.com/xxxx/status/123"
-export URL_BATCH="https://x.com/... https://www.reddit.com/..."
-bash scripts/datapulse_local_smoke.sh
-# remote execution requires VPS tunnel
-bash scripts/run_openclaw_remote_smoke_local.sh
+bash scripts/security_guardrails.sh
 ```
 
-## Release and publishing
+## 推荐阅读
 
-- Build artifacts:
-  - `python -m build --sdist --wheel .`
-  - Upload `dist/*.whl` and `dist/*.tar.gz`
-- Release automation:
-  - `./scripts/release_publish.sh --tag vX.Y.Z`
-  - GitHub Actions auto-publishes assets on tag push via `.github/workflows/release.yml`
+- 详细中文说明：[`README_CN.md`](./README_CN.md)
+- Detailed English guide: [`README_EN.md`](./README_EN.md)
+- 搜索网关配置：[`docs/search_gateway_config.md`](./docs/search_gateway_config.md)
+- 验收模板：[`docs/openclaw_datapulse_acceptance_template.md`](./docs/openclaw_datapulse_acceptance_template.md)
+- 事实沉淀：[`docs/test_facts.md`](./docs/test_facts.md)
+- 发布清单：[`docs/release_checklist.md`](./docs/release_checklist.md)
 
-## Notes
+## License
 
-- Repository docs do not include local test environment or model endpoint plaintext.
-- Keep sensitive runtime configuration outside repository and inject via private environment management.
-
-[🔼 Back to top](#top) | [🇨🇳 中文详情页](./README_CN.md) | [🇺🇸 English details](./README_EN.md)
-
-</details>
+DataPulse Non-Commercial License v1.0（见根目录 `LICENSE`）。
