@@ -10,11 +10,14 @@ import re
 import time
 import urllib.error
 import urllib.request
+from typing import Any
 from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
 
+from datapulse.core.config import read_env_bool, read_env_int
+from datapulse.core.jina_client import JinaAPIClient, JinaReadOptions
 from datapulse.core.models import MediaType, SourceType
 from datapulse.core.utils import clean_text, generate_excerpt
 
@@ -43,6 +46,9 @@ class TwitterCollector(BaseCollector):
 
     max_nitter_retries = 3
     max_nitter_response_bytes = 3_000_000
+    twitter_media_extract_env = "DATAPULSE_TWITTER_MEDIA_EXTRACT"
+    twitter_media_timeout_env = "DATAPULSE_TWITTER_MEDIA_TIMEOUT"
+    twitter_media_max_items_env = "DATAPULSE_TWITTER_MEDIA_MAX_ITEMS"
 
     def check(self) -> dict[str, str | bool]:
         try:
@@ -144,6 +150,7 @@ class TwitterCollector(BaseCollector):
 
                 media = tweet.get("media", {})
                 media_items = media.get("all", []) or []
+                media_extraction = self._build_media_extraction(media_items)
                 if media_items:
                     body += "\n\n## Media\n"
                     for index, item in enumerate(media_items, 1):
@@ -153,9 +160,23 @@ class TwitterCollector(BaseCollector):
                             body += f"{index}. {media_url}\n"
                         elif media_url:
                             body += f"{index}. {media_type}: {media_url}\n"
+                if media_extraction.get("items"):
+                    body += "\n## Media Extracted Signals (Unverified)\n"
+                    for extracted in media_extraction["items"]:
+                        hint = str(extracted.get("method", "unknown"))
+                        index = int(extracted.get("index", 0))
+                        text = str(extracted.get("text", "")).strip()
+                        if not text:
+                            continue
+                        body += f"- [{hint} #{index}] {text}\n"
 
                 content = clean_text(f"{body}  \n\n👍 {likes}  🔁 {retweets}  👁️ {views}")
                 excerpt = generate_excerpt(content)
+                confidence_flags = ["fxtwitter", "engagement"]
+                if media_extraction.get("status") == "degraded":
+                    confidence_flags.append("media_extraction_degraded")
+                if media_extraction.get("items"):
+                    confidence_flags.append("media_extraction_available")
 
                 return ParseResult(
                     url=original_url,
@@ -166,7 +187,7 @@ class TwitterCollector(BaseCollector):
                     tags=["twitter", "x"],
                     source_type=self.source_type,
                     media_type=(MediaType.IMAGE.value if media_items else MediaType.TEXT.value),
-                    confidence_flags=["fxtwitter", "engagement"],
+                    confidence_flags=confidence_flags,
                     extra={
                         "tweet_id": tweet_id,
                         "screen_name": screen_name,
@@ -175,6 +196,8 @@ class TwitterCollector(BaseCollector):
                         "views": views,
                         "is_article": bool(tweet.get("is_article")),
                         "features": quotes,
+                        "media_urls": [str(item.get("url", "")).strip() for item in media_items if str(item.get("url", "")).strip()],
+                        "media_extraction": media_extraction,
                     },
                 )
             except urllib.error.HTTPError as exc:
@@ -187,6 +210,169 @@ class TwitterCollector(BaseCollector):
                 last_error = str(exc)
                 break
         return ParseResult.failure(original_url, last_error or "FxTwitter request failed")
+
+    def _build_media_extraction(self, media_items: list[dict[str, Any]]) -> dict[str, Any]:
+        if not media_items:
+            return {
+                "status": "not_applicable",
+                "items": [],
+                "method": "none",
+                "confidence": 0.0,
+                "attempted": 0,
+                "failed": 0,
+            }
+
+        enable_generated_alt = read_env_bool(self.twitter_media_extract_env, False)
+        max_items = read_env_int(self.twitter_media_max_items_env, 4, min_value=1, max_value=12)
+        timeout = read_env_int(self.twitter_media_timeout_env, 20, min_value=5, max_value=90)
+
+        items: list[dict[str, Any]] = []
+        methods_used: set[str] = set()
+        attempted = 0
+        failed = 0
+
+        for index, media in enumerate(media_items[:max_items], 1):
+            media_url = str(media.get("url", "")).strip()
+            media_type = str(media.get("type", "unknown")).strip().lower() or "unknown"
+            if not media_url:
+                continue
+
+            text = self._extract_media_text_from_metadata(media)
+            method = "fxtwitter_metadata"
+            confidence = 0.78
+
+            if not text and enable_generated_alt and media_type in {"photo", "image"}:
+                attempted += 1
+                try:
+                    text = self._extract_media_text_via_jina(media_url, timeout=timeout)
+                    if text:
+                        method = "jina_generated_alt"
+                        confidence = 0.55
+                except Exception as exc:  # noqa: BLE001
+                    failed += 1
+                    logger.info("Twitter media extraction degraded for %s: %s", media_url, exc)
+
+            if not text:
+                continue
+
+            methods_used.add(method)
+            items.append({
+                "index": index,
+                "type": media_type,
+                "url": media_url,
+                "text": text,
+                "method": method,
+                "confidence": round(confidence, 2),
+            })
+
+        if failed > 0:
+            status = "degraded"
+        elif items:
+            status = "ok"
+        else:
+            status = "skipped"
+
+        if methods_used:
+            method = "+".join(sorted(methods_used))
+        elif enable_generated_alt:
+            method = "jina_generated_alt"
+        else:
+            method = "fxtwitter_metadata_only"
+
+        avg_confidence = 0.0
+        if items:
+            avg_confidence = round(sum(float(item["confidence"]) for item in items) / len(items), 2)
+
+        return {
+            "status": status,
+            "items": items,
+            "method": method,
+            "confidence": avg_confidence,
+            "attempted": attempted,
+            "failed": failed,
+        }
+
+    def _extract_media_text_via_jina(self, media_url: str, *, timeout: int) -> str:
+        client = JinaAPIClient(timeout=timeout)
+        result = client.read(
+            media_url,
+            options=JinaReadOptions(
+                response_format="markdown",
+                no_cache=True,
+                with_generated_alt=True,
+            ),
+        )
+        return self._normalize_generated_alt_text(result.content)
+
+    @staticmethod
+    def _extract_media_text_from_metadata(media_item: dict[str, Any]) -> str:
+        candidate_keys = (
+            "altText",
+            "alt_text",
+            "description",
+            "caption",
+            "text",
+            "title",
+            "ocr_text",
+        )
+        for key in candidate_keys:
+            text = TwitterCollector._normalize_media_text(media_item.get(key))
+            if text:
+                return text
+
+        nested_keys = ("metadata", "ocr", "ai")
+        for key in nested_keys:
+            payload = media_item.get(key)
+            if not isinstance(payload, dict):
+                continue
+            for nested_key in ("text", "description", "caption", "alt", "alt_text", "summary"):
+                text = TwitterCollector._normalize_media_text(payload.get(nested_key))
+                if text:
+                    return text
+        return ""
+
+    @staticmethod
+    def _normalize_generated_alt_text(raw: str) -> str:
+        cleaned_lines: list[str] = []
+        for line in (raw or "").splitlines():
+            normalized = line.strip()
+            if not normalized:
+                continue
+            lower = normalized.lower()
+            if lower.startswith("title:") or lower.startswith("url source:") or lower.startswith("markdown content:"):
+                continue
+            if lower.startswith("http://") or lower.startswith("https://"):
+                continue
+            normalized = normalized.lstrip("#*- ").strip()
+            if normalized:
+                cleaned_lines.append(normalized)
+
+        text = clean_text(" ".join(cleaned_lines)).strip()
+        if len(text) < 16:
+            return ""
+        return text[:600]
+
+    @staticmethod
+    def _normalize_media_text(value: Any) -> str:
+        if isinstance(value, str):
+            text = clean_text(value).strip()
+            if len(text) < 8:
+                return ""
+            return text[:600]
+
+        if isinstance(value, list):
+            for item in value:
+                text = TwitterCollector._normalize_media_text(item)
+                if text:
+                    return text
+
+        if isinstance(value, dict):
+            for key in ("text", "description", "caption", "value"):
+                text = TwitterCollector._normalize_media_text(value.get(key))
+                if text:
+                    return text
+
+        return ""
 
     def _parse_profile(self, original_url: str, profile: str) -> ParseResult:
         api_url = f"https://api.fxtwitter.com/{profile}"
