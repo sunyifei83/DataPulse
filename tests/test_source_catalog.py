@@ -306,3 +306,42 @@ class TestSourceCatalog:
         catalog = SourceCatalog(str(tmp_path / "empty.json"))
         assert catalog.list_sources() == []
         assert catalog.list_packs() == []
+
+    def test_bootstrap_builtin_sources_for_implicit_catalog(self, tmp_path: Path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("DATAPULSE_SOURCE_CATALOG", raising=False)
+        catalog = SourceCatalog()
+        sources = catalog.list_sources()
+        assert len(sources) >= 1
+        assert any(source.id == "builtin_github" for source in sources)
+
+    def test_resolve_source_github_uses_builtin_profile(self, tmp_path: Path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("DATAPULSE_SOURCE_CATALOG", raising=False)
+        catalog = SourceCatalog()
+        result = catalog.resolve_source("https://github.com/OpenLineage/OpenLineage")
+        assert result.get("source_id") == "builtin_github"
+        assert result.get("source_type") == "github"
+
+    def test_bootstrap_defaults_do_not_filter_without_subscriptions(self, tmp_path: Path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("DATAPULSE_SOURCE_CATALOG", raising=False)
+        catalog = SourceCatalog()
+        items = [
+            DataPulseItem(
+                source_type=SourceType.GENERIC,
+                source_name="github.com",
+                title="repo",
+                content="repo content",
+                url="https://github.com/foo/bar",
+            ),
+            DataPulseItem(
+                source_type=SourceType.GENERIC,
+                source_name="example.com",
+                title="example",
+                content="example content",
+                url="https://example.com/page",
+            ),
+        ]
+        filtered = catalog.filter_by_subscription(items, profile="default")
+        assert len(filtered) == 2

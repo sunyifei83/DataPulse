@@ -196,26 +196,98 @@ class SourcePack:
 
 
 _SUPPORTED_CATALOG_VERSIONS = {1, 2}
+_BUILTIN_SOURCE_SEEDS: tuple[JSONSource, ...] = (
+    {
+        "id": "builtin_github",
+        "name": "GitHub Open Source",
+        "source_type": "github|generic",
+        "config": {"url": "https://github.com"},
+        "is_active": True,
+        "is_public": True,
+        "tags": ["github", "code", "opensource"],
+        "match": {"domain": "github.com"},
+        "tier": 1,
+        "authority_weight": 0.92,
+    },
+    {
+        "id": "builtin_reddit",
+        "name": "Reddit Communities",
+        "source_type": "reddit",
+        "config": {"url": "https://www.reddit.com"},
+        "is_active": True,
+        "is_public": True,
+        "tags": ["reddit", "community"],
+        "match": {"domain": "reddit.com"},
+        "tier": 1,
+        "authority_weight": 0.75,
+    },
+    {
+        "id": "builtin_x",
+        "name": "X Network",
+        "source_type": "twitter",
+        "config": {"url": "https://x.com"},
+        "is_active": True,
+        "is_public": True,
+        "tags": ["x", "twitter"],
+        "match": {"domain": "x.com"},
+        "tier": 1,
+        "authority_weight": 0.72,
+    },
+    {
+        "id": "builtin_hn",
+        "name": "Hacker News",
+        "source_type": "hackernews",
+        "config": {"url": "https://news.ycombinator.com"},
+        "is_active": True,
+        "is_public": True,
+        "tags": ["hackernews", "tech"],
+        "match": {"domain": "news.ycombinator.com"},
+        "tier": 1,
+        "authority_weight": 0.78,
+    },
+)
 
 
 class SourceCatalog:
     def __init__(self, catalog_path: str | None = None):
         default_path = os.getenv("DATAPULSE_SOURCE_CATALOG", "").strip() or "datapulse_source_catalog.json"
+        self._explicit_catalog_path = catalog_path is not None
         self.path = Path(catalog_path or default_path).expanduser()
         self.version = 1
         self.sources: dict[str, SourceRecord] = {}
         self.subscriptions: dict[str, list[str]] = {}
         self.packs: dict[str, SourcePack] = {}
+        self._bootstrapped_defaults = False
         self._load()
+
+    def _bootstrap_builtin_sources(self) -> None:
+        added = False
+        for raw in _BUILTIN_SOURCE_SEEDS:
+            try:
+                source = SourceRecord.from_dict(raw)
+            except (KeyError, TypeError, ValueError):
+                continue
+            if source.id in self.sources:
+                continue
+            self.sources[source.id] = source
+            added = True
+        if added:
+            self._bootstrapped_defaults = True
 
     def _load(self) -> None:
         if not self.path.exists():
+            if not self._explicit_catalog_path:
+                self._bootstrap_builtin_sources()
             return
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
+            if not self._explicit_catalog_path:
+                self._bootstrap_builtin_sources()
             return
         if not isinstance(raw, dict):
+            if not self._explicit_catalog_path:
+                self._bootstrap_builtin_sources()
             return
 
         self.version = _safe_int(raw.get("version"), default=1)
@@ -256,6 +328,8 @@ class SourceCatalog:
             except (KeyError, TypeError, ValueError):
                 continue
             self.packs[key] = pack
+        if not self.sources and not self._explicit_catalog_path:
+            self._bootstrap_builtin_sources()
 
     def _ensure_file(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -315,10 +389,17 @@ class SourceCatalog:
     def get_source(self, source_id: str) -> SourceRecord | None:
         return self.sources.get(str(source_id))
 
+    @staticmethod
+    def _primary_source_type(source_type: str) -> str:
+        parts = [part.strip() for part in str(source_type or "").split("|") if part.strip()]
+        if not parts:
+            return SourceType.GENERIC.value
+        return parts[0]
+
     def _to_source_payload(self, source: SourceRecord) -> dict[str, Any]:
         return {
             "source_id": source.id,
-            "source_type": source.source_type,
+            "source_type": self._primary_source_type(source.source_type),
             "name": source.name,
             "config": dict(source.config),
             "tags": source.tags,
@@ -362,7 +443,8 @@ class SourceCatalog:
             if source_host and source._matches_host(source_host, host):
                 score = max(score, 50)
 
-            source_type_match = source.source_type == normalized_source_type
+            source_types = [part.strip() for part in source.source_type.split("|") if part.strip()]
+            source_type_match = normalized_source_type in source_types
             if source_type_match and score < 20:
                 score = max(score, 20)
 
@@ -476,6 +558,8 @@ class SourceCatalog:
         if source_ids is None:
             source_ids = self.get_subscription(profile)
             if not source_ids:
+                if self._bootstrapped_defaults and not self.subscriptions:
+                    return items
                 # fallback: all public active sources
                 source_ids = [s.id for s in self.list_sources(include_inactive=False, public_only=True)]
             if not source_ids:
