@@ -197,6 +197,44 @@ class TestCompositeScore:
         assert float(breakdown["recency"]) < 0.1
         assert breakdown["recency_source"] == "twitter_status_id"
 
+    def test_search_noise_penalty_reduces_listicle_score(self):
+        now = datetime.utcnow()
+        listicle = _make_item(
+            title="Top 20 Best Data Governance Tools",
+            content="Curated list for buyers.",
+            confidence=0.85,
+            url="https://example.com/top-data-governance-tools",
+        )
+        listicle.parser = "search_result"
+        listicle.extra = {"search_query": "data governance open source"}
+
+        actionable = _make_item(
+            title="OpenLineage on GitHub",
+            content="Project repo: https://github.com/OpenLineage/OpenLineage",
+            confidence=0.85,
+            url="https://github.com/OpenLineage/OpenLineage",
+        )
+        actionable.parser = "search_result"
+        actionable.extra = {"search_query": "data governance open source"}
+
+        weights = {
+            "confidence": 1.0,
+            "authority": 0.0,
+            "corroboration": 0.0,
+            "entity_corroboration": 0.0,
+            "recency": 0.0,
+            "source_diversity": 0.0,
+            "cross_validation": 0.0,
+            "recency_bonus": 0.0,
+            "engagement": 0.0,
+            "search_noise_penalty": 0.4,
+        }
+        listicle_score, listicle_breakdown = compute_composite_score(listicle, now=now, weights=weights)
+        actionable_score, actionable_breakdown = compute_composite_score(actionable, now=now, weights=weights)
+
+        assert listicle_breakdown["search_noise_penalty"] > actionable_breakdown["search_noise_penalty"]
+        assert listicle_score < actionable_score
+
 
 class TestRankItems:
     def test_sorted_order(self):

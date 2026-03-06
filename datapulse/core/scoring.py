@@ -30,6 +30,7 @@ def _default_weights() -> dict[str, float]:
         "cross_validation": _env_float("DATAPULSE_CROSS_VALIDATION_WEIGHT", 0.06),
         "recency_bonus": _env_float("DATAPULSE_RECENCY_BONUS_WEIGHT", 0.00),
         "engagement": _env_float("DATAPULSE_ENGAGEMENT_WEIGHT", 0.08),
+        "search_noise_penalty": _env_float("DATAPULSE_SEARCH_NOISE_PENALTY_WEIGHT", 0.08),
     }
 
 
@@ -298,6 +299,40 @@ def engagement_score(item: DataPulseItem) -> float:
     )
 
 
+def search_noise_penalty(item: DataPulseItem) -> float:
+    """Penalty for likely low-value search listicles/marketing pages."""
+    extra = item.extra if isinstance(item.extra, dict) else {}
+    parser = (item.parser or "").lower()
+    if "search_query" not in extra and "search" not in parser:
+        return 0.0
+
+    title_url = f"{item.title} {item.url}".lower()
+    content = (item.content or "").lower()
+    penalty = 0.0
+
+    marketing_markers = (
+        "top ",
+        "top-",
+        "best ",
+        "alternatives",
+        "comparison",
+        " vs ",
+        "list of",
+        "tools for",
+        "software for",
+    )
+    if any(marker in title_url for marker in marketing_markers):
+        penalty += 0.35
+    if len(content.strip()) < 120:
+        penalty += 0.12
+    if "sponsored" in content or "affiliate" in content:
+        penalty += 0.20
+    if "github.com/" in title_url or "github.com/" in content:
+        penalty -= 0.20
+
+    return round(max(0.0, min(1.0, penalty)), 4)
+
+
 def compute_composite_score(
     item: DataPulseItem,
     *,
@@ -327,6 +362,8 @@ def compute_composite_score(
     w_cross_validation = w.get("cross_validation", 0.0)
     dim_engagement = engagement_score(item)
     w_engagement = w.get("engagement", 0.0)
+    dim_search_noise = search_noise_penalty(item)
+    w_search_noise = w.get("search_noise_penalty", 0.0)
     # Backward-compatible alias to satisfy acceptance docs using "recency_bonus" naming.
     recency_bonus = dim_recency * w.get("recency_bonus", 0.0)
 
@@ -339,6 +376,7 @@ def compute_composite_score(
         + w_source_diversity * dim_source_diversity
         + w_cross_validation * dim_cross_validation
         + w_engagement * dim_engagement
+        - w_search_noise * dim_search_noise
         + recency_bonus
     )
 
@@ -358,6 +396,8 @@ def compute_composite_score(
         "cross_validation_weight": round(w_cross_validation, 4),
         "engagement": round(dim_engagement, 4),
         "engagement_weight": round(w_engagement, 4),
+        "search_noise_penalty": round(dim_search_noise, 4),
+        "search_noise_penalty_weight": round(w_search_noise, 4),
         "recency_bonus": round(dim_recency * w.get("recency_bonus", 0.0), 4),
     }
 
