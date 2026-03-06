@@ -9,6 +9,7 @@ from datapulse.collectors import (
     BaseCollector,
     BilibiliCollector,
     GenericCollector,
+    GitHubCollector,
     HackerNewsCollector,
     JinaCollector,
     RedditCollector,
@@ -27,7 +28,7 @@ from datapulse.core.router import ParsePipeline
 TIER_0 = [RssCollector, ArxivCollector, HackerNewsCollector]
 TIER_1 = [
     TwitterCollector, RedditCollector, BilibiliCollector,
-    TrendingCollector, GenericCollector, JinaCollector,
+    TrendingCollector, GenericCollector, JinaCollector, GitHubCollector,
 ]
 TIER_2 = [YouTubeCollector, XiaohongshuCollector, WeChatCollector, TelegramCollector]
 

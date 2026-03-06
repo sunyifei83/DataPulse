@@ -4,6 +4,7 @@ from .arxiv import ArxivCollector
 from .base import BaseCollector, ParseResult
 from .bilibili import BilibiliCollector
 from .generic import GenericCollector
+from .github import GitHubCollector
 from .hackernews import HackerNewsCollector
 from .jina import JinaCollector
 from .reddit import RedditCollector
@@ -33,6 +34,7 @@ __all__ = [
     "WeChatCollector",
     "XiaohongshuCollector",
     "HackerNewsCollector",
+    "GitHubCollector",
     "TrendingCollector",
     "GenericCollector",
     "JinaCollector",

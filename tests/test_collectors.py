@@ -7,6 +7,7 @@ import pytest
 from datapulse.collectors import (
     BilibiliCollector,
     GenericCollector,
+    GitHubCollector,
     JinaCollector,
     RedditCollector,
     RssCollector,
@@ -165,6 +166,28 @@ class TestRssCollectorCanHandle:
     def test_rejects(self):
         collector = RssCollector()
         assert collector.can_handle("https://example.com/page") is False
+
+
+class TestGitHubCollectorCanHandle:
+    @pytest.fixture()
+    def collector(self):
+        return GitHubCollector()
+
+    @pytest.mark.parametrize("url", [
+        "https://github.com/openlineage/OpenLineage",
+        "https://www.github.com/dbt-labs/dbt-core",
+        "https://github.com/apache/spark/issues/1",
+    ])
+    def test_accepts(self, collector, url):
+        assert collector.can_handle(url) is True
+
+    @pytest.mark.parametrize("url", [
+        "https://github.com/topics/data-engineering",
+        "https://github.com/explore",
+        "https://example.com/repo",
+    ])
+    def test_rejects(self, collector, url):
+        assert collector.can_handle(url) is False
 
 
 class TestGenericCollectorCanHandle:

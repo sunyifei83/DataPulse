@@ -37,6 +37,7 @@ class TestParsePipeline:
         assert "twitter" in names
         assert "youtube" in names
         assert "reddit" in names
+        assert "github" in names
         assert "bilibili" in names
         assert "rss" in names
         assert "generic" in names
