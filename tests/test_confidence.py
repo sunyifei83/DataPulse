@@ -191,3 +191,29 @@ class TestComputeConfidence:
         assert "source_name" in reasons
         assert "author" in reasons
         assert "medium_content" in reasons
+
+    def test_high_engagement_flag_boost(self):
+        with_flag, reasons = compute_confidence(
+            "generic", has_title=True, content_length=300,
+            has_source=True, has_author=True,
+            extra_flags=["high_engagement"],
+        )
+        without_flag, _ = compute_confidence(
+            "generic", has_title=True, content_length=300,
+            has_source=True, has_author=True,
+        )
+        assert with_flag > without_flag
+        assert "high_engagement" in reasons
+
+    def test_low_engagement_flag_penalty(self):
+        with_flag, reasons = compute_confidence(
+            "generic", has_title=True, content_length=300,
+            has_source=True, has_author=True,
+            extra_flags=["low_engagement"],
+        )
+        without_flag, _ = compute_confidence(
+            "generic", has_title=True, content_length=300,
+            has_source=True, has_author=True,
+        )
+        assert with_flag < without_flag
+        assert "low_engagement" in reasons

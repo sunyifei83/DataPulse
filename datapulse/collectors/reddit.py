@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 import time
 import urllib.error
@@ -145,6 +146,19 @@ class RedditCollector(BaseCollector):
         if not is_self:
             tags.append("link-post")
 
+        confidence_flags = ["native-json", "comments"]
+        if upvote_ratio is not None:
+            confidence_flags.append("engagement_metrics")
+        if score >= 100 or num_comments >= 50:
+            confidence_flags.append("high_engagement")
+        elif score <= 2 and num_comments <= 8:
+            confidence_flags.append("low_engagement")
+        community_signal = self._community_signal(
+            score=score,
+            num_comments=num_comments,
+            upvote_ratio=upvote_ratio,
+        )
+
         return ParseResult(
             url=url,
             title=f"[{subreddit}] {title}",
@@ -153,7 +167,7 @@ class RedditCollector(BaseCollector):
             excerpt=generate_excerpt(content),
             tags=tags,
             source_type=self.source_type,
-            confidence_flags=["native-json", "comments"],
+            confidence_flags=confidence_flags,
             extra={
                 "score": score,
                 "num_comments": num_comments,
@@ -162,6 +176,7 @@ class RedditCollector(BaseCollector):
                 "subreddit": subreddit_name,
                 "subreddit_name_prefixed": subreddit,
                 "upvote_ratio": upvote_ratio,
+                "community_signal": community_signal,
                 "comments_captured": len(comments),
                 "comments_available": num_comments,
                 "comments_truncated": bool(num_comments and len(comments) < num_comments),
@@ -336,3 +351,10 @@ class RedditCollector(BaseCollector):
                     _walk(child_nodes, 1)
 
         return links, github_repos
+
+    @staticmethod
+    def _community_signal(*, score: int, num_comments: int, upvote_ratio: float | None) -> float:
+        score_norm = min(math.log1p(max(0, int(score))) / math.log1p(1000), 1.0)
+        comments_norm = min(math.log1p(max(0, int(num_comments))) / math.log1p(500), 1.0)
+        ratio_norm = 0.5 if upvote_ratio is None else min(max(float(upvote_ratio), 0.0), 1.0)
+        return round((score_norm * 0.45) + (comments_norm * 0.35) + (ratio_norm * 0.20), 4)

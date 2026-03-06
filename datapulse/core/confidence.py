@@ -98,6 +98,12 @@ def compute_confidence(
         elif flag == "engagement_metrics":
             score += 0.03
             reasons.append("engagement_metrics")
+        elif flag == "high_engagement":
+            score += 0.05
+            reasons.append("high_engagement")
+        elif flag == "low_engagement":
+            score -= 0.35
+            reasons.append("low_engagement")
         elif flag == "trending_snapshot":
             score += 0.02
             reasons.append("trending_snapshot")

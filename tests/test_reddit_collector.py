@@ -114,3 +114,24 @@ def test_parse_can_disable_comment_link_extraction(monkeypatch):
     assert result.extra["comment_links"] == []
     assert result.extra["github_repos"] == []
     assert result.extra["comment_link_count"] == 0
+
+
+def test_parse_sets_engagement_flags_and_community_signal():
+    collector = RedditCollector()
+
+    high_payload = _build_reddit_payload(num_comments=72)
+    high_payload[0]["data"]["children"][0]["data"]["score"] = 180
+    high_payload[0]["data"]["children"][0]["data"]["upvote_ratio"] = 0.93
+
+    low_payload = _build_reddit_payload(num_comments=5)
+    low_payload[0]["data"]["children"][0]["data"]["score"] = 0
+    low_payload[0]["data"]["children"][0]["data"]["upvote_ratio"] = 0.61
+
+    with patch("urllib.request.urlopen", return_value=_mock_urlopen_payload(high_payload)):
+        high_result = collector.parse("https://www.reddit.com/r/dataengineering/comments/high/test/")
+    with patch("urllib.request.urlopen", return_value=_mock_urlopen_payload(low_payload)):
+        low_result = collector.parse("https://www.reddit.com/r/dataengineering/comments/low/test/")
+
+    assert "high_engagement" in high_result.confidence_flags
+    assert "low_engagement" in low_result.confidence_flags
+    assert high_result.extra["community_signal"] > low_result.extra["community_signal"]
