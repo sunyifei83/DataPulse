@@ -38,6 +38,7 @@ for MCP, Skill, Agent, and bot workflows.
   - review states: `new / triaged / verified / duplicate / ignored / escalated`
   - review notes, review actions, and `duplicate_of` linking
   - shared triage semantics across CLI, Reader, MCP, and the browser console
+  - duplicate explain workflow with candidate ranking, signals, and suggested primary item
 - Alerts and scheduling (initial support):
   - threshold alert rules, due-runner polling, daemon single-instance lock
   - keyword / tag / domain / source-type / freshness filters for alert matching
@@ -71,7 +72,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 606 tests across 40 modules
+  - 609 tests across 40 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -152,6 +153,7 @@ I. Daemon:
   - `datapulse --watch-daemon --watch-daemon-once`
 J. Triage queue:
   - `datapulse --triage-list`
+  - `datapulse --triage-explain <item_id>`
   - `datapulse --triage-update <item_id> --triage-state verified`
 K. Browser console:
   - `datapulse-console --port 8765`
@@ -226,6 +228,7 @@ datapulse --watch-status
 
 # Triage queue
 datapulse --triage-list
+datapulse --triage-explain item-123
 datapulse --triage-update item-123 --triage-state verified --triage-note-text "confirmed by analyst"
 datapulse --triage-note item-123 --triage-note-text "needs follow-up"
 datapulse --triage-stats
@@ -303,6 +306,7 @@ python -m datapulse.mcp_server --call health
 
 **Triage queue:**
 - `triage_list(limit=20, min_confidence=0.0, states=None, include_closed=False)` — list triage queue items
+- `triage_explain(item_id, limit=5)` — explain likely duplicate candidates and suggested primary item
 - `triage_update(item_id, state, note='', actor='mcp', duplicate_of='')` — update one triage state
 - `triage_note(item_id, note, author='mcp')` — append one review note
 - `triage_stats(min_confidence=0.0)` — show queue counts by state

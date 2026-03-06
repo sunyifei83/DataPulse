@@ -28,7 +28,7 @@ DataPulse 提供一个统一入口，用于：
 | 热点趋势 | `trending`（X/Twitter 趋势页抓取） |
 | 搜索 | `Jina` / `Tavily` / `auto` / `multi`，支持 `--platform`、`--site`、时间窗参数 |
 | 任务化 | 首版 watch mission：`--watch-create`、`--watch-list`、`--watch-run`、`--watch-run-due`、`--watch-daemon`、`--watch-status` |
-| 处置化 | 首版 triage queue：`--triage-list`、`--triage-update`、`--triage-note`、`--triage-stats` |
+| 处置化 | 首版 triage queue：`--triage-list`、`--triage-explain`、`--triage-update`、`--triage-note`、`--triage-stats` |
 | 告警分发 | threshold alert rule、关键词/标签/域名/时效过滤、JSON/Markdown/Webhook/Feishu/Telegram sink、`--alert-list`、`--alert-route-list` |
 | 运行状态 | daemon 单实例锁、heartbeat JSON/HTML 状态页、MCP `watch_status` |
 | 浏览器控制台 | `datapulse-console` 本地 G0 GUI，统一 watch / triage / alert / route / status 工作台 |
@@ -101,6 +101,7 @@ datapulse --watch-status
 
 # 查看 triage 队列并确认高价值条目
 datapulse --triage-list
+datapulse --triage-explain item-123
 datapulse --triage-update item-123 --triage-state verified --triage-note-text "confirmed by analyst"
 
 # 启动浏览器控制台（G0）
@@ -130,6 +131,7 @@ datapulse --list --limit 10
 | daemon 调度轮询 | `datapulse --watch-daemon --watch-daemon-once` |
 | daemon 状态快照 | `datapulse --watch-status` |
 | triage 队列 | `datapulse --triage-list` |
+| triage 重复项解释 | `datapulse --triage-explain <item_id>` |
 | triage 状态更新 | `datapulse --triage-update <item_id> --triage-state verified` |
 | 浏览器控制台 | `datapulse-console --port 8765` |
 | 实体抽取 | `datapulse <url> --entities --entity-mode fast` |
@@ -150,7 +152,7 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-常用工具：`read_url`、`read_batch`、`search_web`、`create_watch`、`list_watches`、`run_watch`、`run_due_watches`、`triage_list`、`triage_update`、`triage_note`、`triage_stats`、`list_alerts`、`list_alert_routes`、`watch_status`、`trending`、`query_inbox`、`build_digest`、`doctor`。
+常用工具：`read_url`、`read_batch`、`search_web`、`create_watch`、`list_watches`、`run_watch`、`run_due_watches`、`triage_list`、`triage_explain`、`triage_update`、`triage_note`、`triage_stats`、`list_alerts`、`list_alert_routes`、`watch_status`、`trending`、`query_inbox`、`build_digest`、`doctor`。
 
 ### Skill 调用
 

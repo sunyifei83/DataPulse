@@ -112,3 +112,22 @@ def test_triage_stats_counts_states(tmp_path):
     assert payload["total"] == 3
     assert payload["open_count"] == 2
     assert payload["states"]["verified"] == 1
+
+
+def test_triage_explain_duplicate_ranks_candidate(tmp_path):
+    reader = _reader(
+        tmp_path,
+        [
+            _make_item("item-1", title="OpenAI Launch Event", confidence=0.95),
+            _make_item("item-2", title="OpenAI Launch Event Recap", confidence=0.71),
+            _make_item("item-3", title="Unrelated Market Update", confidence=0.88),
+        ],
+    )
+
+    payload = reader.triage_explain("item-1", limit=3)
+
+    assert payload is not None
+    assert payload["item"]["id"] == "item-1"
+    assert payload["candidate_count"] >= 1
+    assert payload["candidates"][0]["id"] == "item-2"
+    assert "same_domain" in payload["candidates"][0]["signals"]

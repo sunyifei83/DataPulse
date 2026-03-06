@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Iterable
+
+from .utils import content_fingerprint, get_domain
 
 if TYPE_CHECKING:
     from .models import DataPulseItem
@@ -117,6 +120,23 @@ def _sortable_epoch(value: str) -> float:
         return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
     except Exception:
         return 0.0
+
+
+def _tokenize(text: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[\w\-]{2,}", str(text or "").lower())
+        if token
+    }
+
+
+def _jaccard(left: set[str], right: set[str]) -> float:
+    if not left or not right:
+        return 0.0
+    union = left | right
+    if not union:
+        return 0.0
+    return len(left & right) / len(union)
 
 
 class TriageQueue:
@@ -234,4 +254,75 @@ class TriageQueue:
             "states": counts,
             "note_count": note_count,
             "processed_count": sum(1 for item in filtered if item.processed),
+        }
+
+    def explain_duplicate(self, item_id: str, *, limit: int = 5) -> dict[str, Any] | None:
+        item = self._find_item(item_id)
+        if item is None:
+            return None
+
+        title_tokens = _tokenize(item.title)
+        content_tokens = _tokenize(item.content[:1200])
+        domain = get_domain(item.url)
+        fingerprint = content_fingerprint(item.content) if len(item.content) >= 50 else ""
+        candidates: list[dict[str, Any]] = []
+
+        for other in self.inbox.items:
+            if other.id == item.id:
+                continue
+            other_title_tokens = _tokenize(other.title)
+            other_content_tokens = _tokenize(other.content[:1200])
+            title_overlap = _jaccard(title_tokens, other_title_tokens)
+            content_overlap = _jaccard(content_tokens, other_content_tokens)
+            domain_match = domain == get_domain(other.url)
+            fingerprint_match = bool(fingerprint) and len(other.content) >= 50 and fingerprint == content_fingerprint(other.content)
+            similarity = 1.0 if fingerprint_match else round((0.55 * title_overlap) + (0.35 * content_overlap) + (0.10 if domain_match else 0.0), 4)
+            if similarity < 0.18 and not fingerprint_match:
+                continue
+
+            keep_current = (item.score, item.confidence, item.fetched_at) >= (other.score, other.confidence, other.fetched_at)
+            signals: list[str] = []
+            if fingerprint_match:
+                signals.append("same_fingerprint")
+            if domain_match:
+                signals.append("same_domain")
+            if title_overlap >= 0.25:
+                signals.append("title_overlap")
+            if content_overlap >= 0.25:
+                signals.append("content_overlap")
+
+            candidates.append(
+                {
+                    "id": other.id,
+                    "title": other.title,
+                    "url": other.url,
+                    "review_state": normalize_review_state(other.review_state, processed=other.processed),
+                    "similarity": similarity,
+                    "title_overlap": round(title_overlap, 4),
+                    "content_overlap": round(content_overlap, 4),
+                    "same_domain": domain_match,
+                    "fingerprint_match": fingerprint_match,
+                    "signals": signals,
+                    "suggested_primary_id": item.id if keep_current else other.id,
+                }
+            )
+
+        candidates.sort(key=lambda row: (row["similarity"], row["fingerprint_match"], row["title_overlap"]), reverse=True)
+        candidate_count = len(candidates)
+        top = candidates[: max(0, limit)]
+        suggested_primary = item.id
+        if top and top[0]["suggested_primary_id"] != item.id:
+            suggested_primary = str(top[0]["suggested_primary_id"])
+        return {
+            "item": {
+                "id": item.id,
+                "title": item.title,
+                "url": item.url,
+                "review_state": normalize_review_state(item.review_state, processed=item.processed),
+            },
+            "candidate_count": candidate_count,
+            "returned_count": len(top),
+            "limit": max(0, limit),
+            "candidates": top,
+            "suggested_primary_id": suggested_primary,
         }

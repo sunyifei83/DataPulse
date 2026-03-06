@@ -228,6 +228,26 @@ class _WatchReader:
             },
         }
 
+    def triage_explain(self, item_id, **kwargs):
+        return {
+            "item": {
+                "id": item_id,
+                "title": "OpenAI launch post",
+            },
+            "suggested_primary_id": item_id,
+            "candidate_count": 1,
+            "returned_count": 1,
+            "candidates": [
+                {
+                    "id": "item-2",
+                    "title": "OpenAI launch recap",
+                    "review_state": "triaged",
+                    "similarity": 0.84,
+                    "signals": ["same_domain", "title_overlap"],
+                }
+            ],
+        }
+
 
 def test_trending_prints_fallback_context(monkeypatch, capsys):
     monkeypatch.setattr(cli, "DataPulseReader", lambda: _TrendingReader())
@@ -507,6 +527,18 @@ def test_triage_stats_prints_counts(monkeypatch, capsys):
     assert "verified: 1" in out
 
 
+def test_triage_explain_prints_candidates(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--triage-explain", "item-1"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "item: item-1" in out
+    assert "suggested_primary_id: item-1" in out
+    assert "item-2: similarity=0.840 | state=triaged | signals=same_domain,title_overlap" in out
+
+
 def test_skill_contract_lists_watch_status_and_alert_envs(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["datapulse", "--skill-contract"])
 
@@ -515,7 +547,9 @@ def test_skill_contract_lists_watch_status_and_alert_envs(monkeypatch, capsys):
 
     assert "watch_status" in out
     assert "triage_list" in out
+    assert "triage_explain" in out
     assert "--triage-list" in out
+    assert "--triage-explain" in out
     assert "DATAPULSE_WATCH_STATUS_PATH" in out
     assert "DATAPULSE_WATCH_STATUS_HTML" in out
     assert "DATAPULSE_ALERT_ROUTING_PATH" in out

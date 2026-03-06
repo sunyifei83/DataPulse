@@ -121,6 +121,25 @@ class _ConsoleReader:
     def triage_note(self, item_id, **kwargs):
         return {"id": item_id, "review_notes": [{"note": kwargs["note"]}]}
 
+    def triage_explain(self, item_id, **kwargs):
+        return {
+            "item": {"id": item_id, "title": "OpenAI launch post"},
+            "candidate_count": 1,
+            "returned_count": 1,
+            "suggested_primary_id": item_id,
+            "candidates": [
+                {
+                    "id": "item-2",
+                    "title": "OpenAI launch recap",
+                    "review_state": "triaged",
+                    "similarity": 0.81,
+                    "signals": ["same_domain", "title_overlap"],
+                    "same_domain": True,
+                    "suggested_primary_id": item_id,
+                }
+            ],
+        }
+
 
 def _client() -> TestClient:
     app = create_app(reader_factory=lambda: _ConsoleReader())
@@ -198,11 +217,14 @@ def test_console_triage_routes():
 
     triage = client.get("/api/triage?limit=5")
     stats = client.get("/api/triage/stats")
+    explain = client.get("/api/triage/item-1/explain?limit=3")
     update = client.post("/api/triage/item-1/state", json={"state": "verified"})
 
     assert triage.status_code == 200
     assert triage.json()[0]["id"] == "item-1"
     assert stats.status_code == 200
     assert stats.json()["open_count"] == 1
+    assert explain.status_code == 200
+    assert explain.json()["candidates"][0]["id"] == "item-2"
     assert update.status_code == 200
     assert update.json()["review_state"] == "verified"

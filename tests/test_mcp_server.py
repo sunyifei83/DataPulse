@@ -132,6 +132,23 @@ class _WatchMCPReader:
             "states": {"new": 1, "triaged": 0, "verified": 1, "duplicate": 1, "ignored": 0, "escalated": 0},
         }
 
+    def triage_explain(self, item_id, **kwargs):
+        return {
+            "item": {"id": item_id, "title": "OpenAI launch post"},
+            "candidate_count": 1,
+            "returned_count": 1,
+            "suggested_primary_id": item_id,
+            "candidates": [
+                {
+                    "id": "item-2",
+                    "title": "OpenAI launch recap",
+                    "review_state": "triaged",
+                    "similarity": 0.82,
+                    "signals": ["same_domain", "title_overlap"],
+                }
+            ],
+        }
+
 
 def _make_app() -> mcp_server._LocalMCP:
     app = mcp_server._LocalMCP("datapulse")
@@ -153,6 +170,7 @@ def test_mcp_registers_watch_tools():
         "list_alert_routes",
         "watch_status",
         "triage_list",
+        "triage_explain",
         "triage_update",
         "triage_note",
         "triage_stats",
@@ -290,3 +308,15 @@ async def test_mcp_triage_stats_tool(monkeypatch):
 
     assert payload["total"] == 3
     assert payload["states"]["verified"] == 1
+
+
+@pytest.mark.asyncio
+async def test_mcp_triage_explain_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool("triage_explain", {"item_id": "item-1", "limit": 3})
+    payload = json.loads(raw)
+
+    assert payload["ok"] is True
+    assert payload["explanation"]["candidates"][0]["id"] == "item-2"

@@ -120,6 +120,26 @@ def _print_triage_stats(payload):
         print(f"{state}: {states.get(state, 0)}")
 
 
+def _print_triage_explain(payload):
+    item = payload.get("item", {}) if isinstance(payload, dict) else {}
+    print(f"item: {item.get('id', '-')}")
+    print(f"title: {item.get('title', '')}")
+    print(f"suggested_primary_id: {payload.get('suggested_primary_id', '-')}")
+    print(f"candidate_count: {payload.get('candidate_count', 0)}")
+    print(f"returned_count: {payload.get('returned_count', 0)}")
+    candidates = payload.get("candidates", []) if isinstance(payload, dict) else []
+    if not candidates:
+        print("No duplicate candidate found.")
+        return
+    for candidate in candidates:
+        signals = ",".join(candidate.get("signals", [])) or "-"
+        print(
+            f"{candidate.get('id')}: similarity={float(candidate.get('similarity', 0.0)):.3f} | "
+            f"state={candidate.get('review_state', 'new')} | signals={signals}"
+        )
+        print(f"    {candidate.get('title', '')}")
+
+
 _FIX_COMMANDS_BY_COLLECTOR = {
     "xhs": ["datapulse --login xhs"],
     "wechat": ["datapulse --login wechat"],
@@ -494,6 +514,7 @@ def _print_skill_contract() -> None:
                 "--alert-route-list",
                 "--watch-status",
                 "--triage-list",
+                "--triage-explain",
                 "--triage-update",
                 "--triage-note",
                 "--triage-stats",
@@ -532,7 +553,7 @@ def _print_skill_contract() -> None:
             "for alert review: --alert-list",
             "for route audit: --alert-route-list",
             "for daemon status: --watch-status",
-            "for analyst queue operations: --triage-list/--triage-update/--triage-note/--triage-stats",
+            "for analyst queue operations: --triage-list/--triage-explain/--triage-update/--triage-note/--triage-stats",
             "for source governance: --list-sources/--list-packs/--query-feed",
             "for health checks: --doctor / --troubleshoot",
         ],
@@ -778,9 +799,11 @@ def main() -> None:
     management_group.add_argument("--watch-daemon-retry-max-delay", type=float, default=30.0, help="Retry max delay in seconds")
     management_group.add_argument("--watch-daemon-retry-backoff", type=float, default=2.0, help="Retry backoff factor")
     management_group.add_argument("--triage-list", action="store_true", help="List triage queue items")
+    management_group.add_argument("--triage-explain", metavar="ITEM_ID", help="Explain duplicate candidates for one inbox item")
     management_group.add_argument("--triage-update", metavar="ITEM_ID", help="Update triage state for one inbox item")
     management_group.add_argument("--triage-note", metavar="ITEM_ID", help="Append one triage note to an inbox item")
     management_group.add_argument("--triage-stats", action="store_true", help="Show triage queue stats")
+    management_group.add_argument("--triage-explain-limit", type=int, default=5, help="Max duplicate candidates to print for --triage-explain")
     management_group.add_argument(
         "--triage-state",
         action="append",
@@ -1046,6 +1069,14 @@ def main() -> None:
         else:
             print(f"🧭 Triage queue: {len(items)}")
             _print_triage_items(items)
+        return
+
+    if args.triage_explain:
+        payload = reader.triage_explain(args.triage_explain, limit=max(0, args.triage_explain_limit))
+        if payload is None:
+            print(f"⚠️ triage item not found: {args.triage_explain}")
+        else:
+            _print_triage_explain(payload)
         return
 
     if args.triage_update:

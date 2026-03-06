@@ -37,6 +37,7 @@
   - 支持 `new / triaged / verified / duplicate / ignored / escalated` 状态流
   - 支持 review note、状态变更记录、`duplicate_of` 归并标记
   - 支持 CLI / Reader / MCP / Console 共用同一套 triage 语义
+  - 支持重复项解释（duplicate explain），给出候选条目、相似信号和建议保留主条目
 - 告警与调度（首版）：
   - 支持 threshold alert rule、到期任务轮询、daemon 单实例锁
   - 支持关键词 / 标签 / 域名 / source_type / 时效过滤
@@ -70,7 +71,7 @@
   - `--entity-query` / `--entity-graph` / `--entity-stats` 支持实体存储与查询
   - 评分链路可通过 `DATAPULSE_ENTITY_CORROBORATION_WEIGHT` 引入实体跨源互证加分（默认 `0`）
 - 测试基建：
-  - 606 个测试，覆盖 40 个测试模块
+  - 609 个测试，覆盖 40 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -160,6 +161,7 @@ datapulse --watch-status
 
 # Triage Queue
 datapulse --triage-list
+datapulse --triage-explain item-123
 datapulse --triage-update item-123 --triage-state verified --triage-note-text "confirmed by analyst"
 datapulse --triage-note item-123 --triage-note-text "need follow-up"
 datapulse --triage-stats
@@ -236,6 +238,7 @@ I. Daemon:
   - `datapulse --watch-daemon --watch-daemon-once`
 J. Triage:
   - `datapulse --triage-list`
+  - `datapulse --triage-explain <item_id>`
   - `datapulse --triage-update <item_id> --triage-state verified`
 K. GUI 控制台:
   - `datapulse-console --port 8765`
@@ -360,6 +363,7 @@ python -m datapulse.mcp_server --call health
 
 **处置层（Triage Queue）：**
 - `triage_list(limit=20, min_confidence=0.0, states=None, include_closed=False)` — 列出处置队列
+- `triage_explain(item_id, limit=5)` — 解释重复项候选和建议主条目
 - `triage_update(item_id, state, note='', actor='mcp', duplicate_of='')` — 更新处置状态
 - `triage_note(item_id, note, author='mcp')` — 追加处置备注
 - `triage_stats(min_confidence=0.0)` — 查看队列统计

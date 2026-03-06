@@ -442,9 +442,9 @@ def _console_html() -> str:
     <div class="footer-note">Local-first console shell. CLI and MCP remain first-class control planes.</div>
   </div>
 
-  <script>
+    <script>
     const initial = {initial_state};
-    const state = {{ watches: [], alerts: [], routes: [], status: null, overview: null, triage: [], triageStats: null }};
+    const state = {{ watches: [], alerts: [], routes: [], status: null, overview: null, triage: [], triageStats: null, triageExplain: {{}} }};
 
     const $ = (id) => document.getElementById(id);
     const jsonHeaders = {{ "Content-Type": "application/json" }};
@@ -606,6 +606,49 @@ def _console_html() -> str:
         </div>`;
     }}
 
+    function renderDuplicateExplain(payload) {{
+      if (!payload) {{
+        return "";
+      }}
+      const candidates = payload.candidates || [];
+      const header = `
+        <div class="meta">
+          <span>suggested_primary=${{payload.suggested_primary_id || "-"}}</span>
+          <span>matches=${{payload.candidate_count || 0}}</span>
+          <span>shown=${{payload.returned_count || 0}}</span>
+        </div>
+      `;
+      if (!candidates.length) {{
+        return `<div class="card" style="margin-top:12px;">${{header}}<div class="panel-sub">No close duplicate candidate found.</div></div>`;
+      }}
+      return `
+        <div class="card" style="margin-top:12px;">
+          ${{header}}
+          <div class="stack" style="margin-top:12px;">
+            ${{candidates.map((candidate) => `
+              <div class="card">
+                <div class="card-top">
+                  <div>
+                    <h3 class="card-title">${{candidate.title}}</h3>
+                    <div class="meta">
+                      <span>${{candidate.id}}</span>
+                      <span>similarity=${{Number(candidate.similarity || 0).toFixed(2)}}</span>
+                      <span>state=${{candidate.review_state || "new"}}</span>
+                    </div>
+                  </div>
+                  <span class="chip ${{candidate.suggested_primary_id === candidate.id ? "ok" : ""}}">${{candidate.suggested_primary_id === candidate.id ? "keep" : "merge"}}</span>
+                </div>
+                <div class="meta">
+                  <span>signals=${{(candidate.signals || []).join(", ") || "-"}}</span>
+                  <span>domain=${{candidate.same_domain ? "same" : "mixed"}}</span>
+                </div>
+              </div>
+            `).join("")}}
+          </div>
+        </div>
+      `;
+    }}
+
     function renderTriage() {{
       const root = $("triage-list");
       const inlineStats = $("triage-stats-inline");
@@ -636,12 +679,29 @@ def _console_html() -> str:
           </div>
           <div class="panel-sub">${{item.url}}</div>
           <div class="actions">
+            <button class="btn-secondary" data-triage-explain="${{item.id}}">Explain Dup</button>
             <button class="btn-secondary" data-triage-state="verified" data-triage-id="${{item.id}}">Verify</button>
             <button class="btn-secondary" data-triage-state="escalated" data-triage-id="${{item.id}}">Escalate</button>
             <button class="btn-secondary" data-triage-state="ignored" data-triage-id="${{item.id}}">Ignore</button>
           </div>
+          ${{renderDuplicateExplain(state.triageExplain[item.id])}}
         </div>
       `).join("");
+
+      root.querySelectorAll("[data-triage-explain]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          button.disabled = true;
+          try {{
+            const itemId = button.dataset.triageExplain;
+            state.triageExplain[itemId] = await api(`/api/triage/${{itemId}}/explain?limit=4`);
+            renderTriage();
+          }} catch (error) {{
+            alert(error.message);
+          }} finally {{
+            button.disabled = false;
+          }}
+        }});
+      }});
 
       root.querySelectorAll("[data-triage-state]").forEach((button) => {{
         button.addEventListener("click", async () => {{
@@ -842,6 +902,13 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     @app.get("/api/triage/stats")
     def triage_stats() -> dict[str, Any]:
         return reader_factory().triage_stats()
+
+    @app.get("/api/triage/{item_id}/explain")
+    def triage_explain(item_id: str, limit: int = 5) -> dict[str, Any]:
+        payload = reader_factory().triage_explain(item_id, limit=limit)
+        if payload is None:
+            raise HTTPException(status_code=404, detail=f"Triage item not found: {item_id}")
+        return payload
 
     @app.post("/api/triage/{item_id}/state")
     def triage_update(item_id: str, payload: TriageStateRequest) -> dict[str, Any]:

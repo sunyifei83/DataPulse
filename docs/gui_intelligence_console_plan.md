@@ -86,9 +86,9 @@ Current implementation status:
 
 - `FastAPI` adapter shipped in `datapulse/console_server.py`
 - browser shell shipped as a local-first single-file UI with `/api/overview`
-- current endpoints implemented: `GET /api/overview`, `GET /api/watches`, `POST /api/watches`, `POST /api/watches/{id}/run`, `POST /api/watches/{id}/disable`, `POST /api/watches/run-due`, `GET /api/alerts`, `GET /api/alert-routes`, `GET /api/watch-status`, `GET /api/triage`, `POST /api/triage/{id}/state`, `GET /api/triage/stats`
+- current endpoints implemented: `GET /api/overview`, `GET /api/watches`, `POST /api/watches`, `POST /api/watches/{id}/run`, `POST /api/watches/{id}/disable`, `POST /api/watches/run-due`, `GET /api/alerts`, `GET /api/alert-routes`, `GET /api/watch-status`, `GET /api/triage`, `GET /api/triage/{id}/explain`, `POST /api/triage/{id}/state`, `GET /api/triage/stats`
 - launch entry point: `datapulse-console --port 8765`
-- a lightweight triage queue panel is now available inside the G0 shell; full keyboard-first analyst workflow still belongs to G2
+- a lightweight triage queue panel is now available inside the G0 shell, including duplicate explain cards; full keyboard-first analyst workflow still belongs to G2
 
 ### G1: Mission Cockpit
 

@@ -208,6 +208,12 @@ async def _run_triage_stats(min_confidence: float = 0.0) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
+async def _run_triage_explain(item_id: str, limit: int = 5) -> str:
+    reader = DataPulseReader()
+    payload = reader.triage_explain(item_id, limit=limit)
+    return json.dumps({"ok": payload is not None, "explanation": payload}, ensure_ascii=False, indent=2)
+
+
 async def _run_search_web(
     query: str,
     sites: list[str] | None = None,
@@ -888,6 +894,11 @@ def _register_tools(app: Any) -> None:
     async def triage_stats(min_confidence: float = 0.0) -> str:  # noqa: ANN001
         """Show triage queue counts by state."""
         return await _run_triage_stats(min_confidence=min_confidence)
+
+    @app.tool()
+    async def triage_explain(item_id: str, limit: int = 5) -> str:  # noqa: ANN001
+        """Explain likely duplicate candidates for one inbox item."""
+        return await _run_triage_explain(item_id=item_id, limit=limit)
 
     @app.tool()
     async def query_inbox(limit: int = 20, min_confidence: float = 0.0) -> str:  # noqa: ANN001

@@ -1071,6 +1071,9 @@ class DataPulseReader:
     def triage_stats(self, *, min_confidence: float = 0.0) -> dict[str, Any]:
         return self.triage.stats(min_confidence=min_confidence)
 
+    def triage_explain(self, item_id: str, *, limit: int = 5) -> dict[str, Any] | None:
+        return self.triage.explain_duplicate(item_id, limit=limit)
+
     def detect_platform(self, url: str) -> str:
         result, parser = self.router.route(url)
         if result.success:
