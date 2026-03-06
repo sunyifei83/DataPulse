@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from fastapi.testclient import TestClient
 
 from datapulse.console_server import CONSOLE_TITLE, create_app
@@ -140,6 +142,84 @@ class _ConsoleReader:
             ],
         }
 
+    def list_stories(self, limit=20, min_items=1):
+        return [
+            {
+                "id": "story-openai-launch",
+                "title": "OpenAI Launch",
+                "summary": "3 signals across 2 sources around 'OpenAI Launch'; key entities: OpenAI, GPT-5; contradictions: 1",
+                "status": "active",
+                "score": 87.4,
+                "confidence": 0.91,
+                "item_count": 3,
+                "source_count": 2,
+                "primary_item_id": "item-1",
+                "entities": ["OpenAI", "GPT-5", "Sam Altman"],
+                "source_names": ["OpenAI Blog", "The Verge"],
+                "primary_evidence": [
+                    {
+                        "item_id": "item-1",
+                        "title": "OpenAI launch post",
+                        "url": "https://example.com/openai-launch",
+                        "source_name": "OpenAI Blog",
+                        "source_type": "generic",
+                        "score": 91,
+                        "confidence": 0.96,
+                        "review_state": "verified",
+                        "role": "primary",
+                    }
+                ],
+                "secondary_evidence": [
+                    {
+                        "item_id": "item-2",
+                        "title": "OpenAI launch recap",
+                        "url": "https://example.com/openai-launch-recap",
+                        "source_name": "The Verge",
+                        "source_type": "generic",
+                        "score": 83,
+                        "confidence": 0.88,
+                        "review_state": "triaged",
+                        "role": "secondary",
+                    }
+                ],
+                "timeline": [
+                    {
+                        "time": "2026-03-06T08:00:00+00:00",
+                        "item_id": "item-1",
+                        "title": "OpenAI launch post",
+                        "source_name": "OpenAI Blog",
+                        "url": "https://example.com/openai-launch",
+                        "role": "primary",
+                        "score": 91,
+                    }
+                ],
+                "contradictions": [
+                    {
+                        "topic": "launch timing",
+                        "positive": 1,
+                        "negative": 1,
+                        "neutral": 0,
+                        "note": "Conflicting source timing windows.",
+                    }
+                ],
+                "generated_at": "2026-03-06T00:00:00+00:00",
+                "updated_at": "2026-03-06T00:05:00+00:00",
+            }
+        ]
+
+    def show_story(self, identifier):
+        if identifier != "story-openai-launch":
+            return None
+        return self.list_stories()[0]
+
+    def export_story(self, identifier, **kwargs):
+        if identifier != "story-openai-launch":
+            return None
+        output_format = kwargs.get("output_format", "json")
+        if output_format in {"markdown", "md"}:
+            return "# OpenAI Launch\n\n- story_id: story-openai-launch"
+        return json.dumps(self.list_stories()[0], ensure_ascii=False, indent=2)
+
 
 def _client() -> TestClient:
     app = create_app(reader_factory=lambda: _ConsoleReader())
@@ -155,6 +235,7 @@ def test_console_index_serves_shell():
     assert "Mission Control For Signal Work" in response.text
     assert "create-watch-form" in response.text
     assert "Triage Queue" in response.text
+    assert "Story Workspace" in response.text
 
 
 def test_console_overview_returns_aggregates():
@@ -166,6 +247,7 @@ def test_console_overview_returns_aggregates():
     assert payload["enabled_watches"] == 1
     assert payload["disabled_watches"] == 1
     assert payload["due_watches"] == 1
+    assert payload["story_count"] == 1
     assert payload["route_count"] == 1
     assert payload["triage_open_count"] == 1
     assert payload["daemon_state"] == "running"
@@ -228,3 +310,19 @@ def test_console_triage_routes():
     assert explain.json()["candidates"][0]["id"] == "item-2"
     assert update.status_code == 200
     assert update.json()["review_state"] == "verified"
+
+
+def test_console_story_routes():
+    client = _client()
+
+    stories = client.get("/api/stories?limit=4&min_items=2")
+    detail = client.get("/api/stories/story-openai-launch")
+    export = client.get("/api/stories/story-openai-launch/export?format=markdown")
+
+    assert stories.status_code == 200
+    assert stories.json()[0]["id"] == "story-openai-launch"
+    assert detail.status_code == 200
+    assert detail.json()["primary_item_id"] == "item-1"
+    assert export.status_code == 200
+    assert export.headers["content-type"].startswith("text/markdown")
+    assert export.text.startswith("# OpenAI Launch")

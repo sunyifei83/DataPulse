@@ -32,7 +32,7 @@ DataPulse 提供一个统一入口，用于：
 | 证据化 | 首版 story workspace：`--story-build`、`--story-list`、`--story-show`、`--story-export` |
 | 告警分发 | threshold alert rule、关键词/标签/域名/时效过滤、JSON/Markdown/Webhook/Feishu/Telegram sink、`--alert-list`、`--alert-route-list` |
 | 运行状态 | daemon 单实例锁、heartbeat JSON/HTML 状态页、MCP `watch_status` |
-| 浏览器控制台 | `datapulse-console` 本地 G0 GUI，统一 watch / triage / alert / route / status 工作台 |
+| 浏览器控制台 | `datapulse-console` 本地 G0/G3 GUI，统一 watch / triage / story / alert / route / status 工作台 |
 | 输出模型 | 统一 `DataPulseItem`（`title/content/url/confidence/score/tags/extra`） |
 | 评分排序 | 置信度 + 权威度 + 互证 + 时效性 |
 | 实体增强 | `--entities` 抽取，`--entity-query` / `--entity-graph` / `--entity-stats` |
@@ -110,7 +110,7 @@ datapulse --story-build
 datapulse --story-list
 datapulse --story-show story-openai-launch
 
-# 启动浏览器控制台（G0）
+# 启动浏览器控制台（G0/G3）
 datapulse-console --port 8765
 ```
 
@@ -141,7 +141,7 @@ datapulse --list --limit 10
 | triage 状态更新 | `datapulse --triage-update <item_id> --triage-state verified` |
 | story 构建 | `datapulse --story-build` |
 | story 查看/导出 | `datapulse --story-show <story_id>` / `datapulse --story-export <story_id>` |
-| 浏览器控制台 | `datapulse-console --port 8765` |
+| 浏览器控制台 | `datapulse-console --port 8765`（含 Story Workspace 只读证据板） |
 | 实体抽取 | `datapulse <url> --entities --entity-mode fast` |
 | 查询实体 | `datapulse --entity-query OPENAI --entity-limit 20` |
 | 生成摘要 | `datapulse --digest --top-n 3 --secondary-n 7` |

@@ -7,7 +7,7 @@ import json
 from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 from datapulse.reader import DataPulseReader
@@ -23,7 +23,7 @@ def _console_html() -> str:
     initial_state = _json_blob(
         {
             "title": CONSOLE_TITLE,
-            "sections": ["overview", "missions", "alerts", "routes", "status", "triage"],
+            "sections": ["overview", "missions", "alerts", "routes", "status", "triage", "stories"],
         }
     )
     return f"""<!doctype html>
@@ -275,6 +275,22 @@ def _console_html() -> str:
       padding: 9px 12px;
       font-size: 0.76rem;
     }}
+    .actions a {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 9px 12px;
+      font: 700 0.76rem/1 var(--mono);
+      letter-spacing: 0.02em;
+      background: rgba(20, 35, 28, 0.08);
+      color: var(--ink);
+      text-decoration: none;
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+    }}
+    .actions a:hover {{
+      transform: translateY(-1px);
+    }}
     form {{
       display: grid;
       gap: 12px;
@@ -327,6 +343,50 @@ def _console_html() -> str:
       color: var(--muted);
       text-align: center;
     }}
+    .story-grid {{
+      display: grid;
+      grid-template-columns: 0.96fr 1.14fr;
+      gap: 16px;
+      align-items: start;
+    }}
+    .story-list {{
+      display: grid;
+      gap: 12px;
+      max-height: 760px;
+      overflow: auto;
+      padding-right: 4px;
+    }}
+    .card.selected {{
+      border-color: rgba(13, 123, 97, 0.34);
+      box-shadow: inset 0 0 0 1px rgba(13, 123, 97, 0.16);
+      background: rgba(252, 255, 249, 0.72);
+    }}
+    .entity-row {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }}
+    .story-detail {{
+      display: grid;
+      gap: 12px;
+    }}
+    .story-columns {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }}
+    .text-block {{
+      margin: 0;
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.48);
+      white-space: pre-wrap;
+      overflow: auto;
+      font: 500 12px/1.55 var(--mono);
+      color: var(--ink);
+    }}
     .footer-note {{
       padding: 18px 0 8px;
       color: var(--muted);
@@ -339,6 +399,7 @@ def _console_html() -> str:
     }}
     @media (max-width: 1100px) {{
       .hero, .grid {{ grid-template-columns: 1fr; }}
+      .story-grid, .story-columns {{ grid-template-columns: 1fr; }}
     }}
     @media (max-width: 760px) {{
       .shell {{ padding: 16px; }}
@@ -439,12 +500,39 @@ def _console_html() -> str:
       <div class="stack" id="triage-list"></div>
     </section>
 
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title">Story Workspace</h2>
+          <div class="panel-sub">Inspect clustered stories, evidence stacks, contradictions, and timeline drift without leaving the browser.</div>
+        </div>
+      </div>
+      <div class="meta" id="story-stats-inline"></div>
+      <div class="story-grid">
+        <div class="story-list" id="story-list"></div>
+        <div class="story-detail" id="story-detail"></div>
+      </div>
+    </section>
+
     <div class="footer-note">Local-first console shell. CLI and MCP remain first-class control planes.</div>
   </div>
 
     <script>
     const initial = {initial_state};
-    const state = {{ watches: [], alerts: [], routes: [], status: null, overview: null, triage: [], triageStats: null, triageExplain: {{}} }};
+    const state = {{
+      watches: [],
+      alerts: [],
+      routes: [],
+      status: null,
+      overview: null,
+      triage: [],
+      triageStats: null,
+      triageExplain: {{}},
+      stories: [],
+      storyDetails: {{}},
+      storyMarkdown: {{}},
+      selectedStoryId: "",
+    }};
 
     const $ = (id) => document.getElementById(id);
     const jsonHeaders = {{ "Content-Type": "application/json" }};
@@ -458,6 +546,21 @@ def _console_html() -> str:
       return response.json();
     }}
 
+    async function apiText(path, options = {{}}) {{
+      const response = await fetch(path, options);
+      if (!response.ok) {{
+        const detail = await response.text();
+        throw new Error(detail || `Request failed: ${{response.status}}`);
+      }}
+      return response.text();
+    }}
+
+    function escapeHtml(value) {{
+      return String(value ?? "").replace(/[&<>"']/g, (char) => {{
+        return {{ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }}[char];
+      }});
+    }}
+
     function metricCard(label, value, tone = "") {{
       return `<div class="metric"><div class="metric-label">${{label}}</div><div class="metric-value ${{tone}}">${{value}}</div></div>`;
     }}
@@ -467,6 +570,7 @@ def _console_html() -> str:
       $("overview-metrics").innerHTML = [
         metricCard("Enabled Missions", metrics.enabled_watches ?? 0),
         metricCard("Due Now", metrics.due_watches ?? 0, "hot"),
+        metricCard("Stories", metrics.story_count ?? 0),
         metricCard("Alert Routes", metrics.route_count ?? 0),
         metricCard("Open Queue", metrics.triage_open_count ?? 0),
         metricCard("Daemon State", String(metrics.daemon_state || "idle").toUpperCase()),
@@ -722,8 +826,234 @@ def _console_html() -> str:
       }});
     }}
 
+    async function loadStory(identifier) {{
+      state.selectedStoryId = identifier;
+      state.storyDetails[identifier] = await api(`/api/stories/${{identifier}}`);
+      renderStories();
+    }}
+
+    async function previewStoryMarkdown(identifier) {{
+      state.selectedStoryId = identifier;
+      if (!state.storyDetails[identifier]) {{
+        state.storyDetails[identifier] = await api(`/api/stories/${{identifier}}`);
+      }}
+      state.storyMarkdown[identifier] = await apiText(`/api/stories/${{identifier}}/export?format=markdown`);
+      renderStories();
+    }}
+
+    function renderStoryDetail() {{
+      const root = $("story-detail");
+      const selected = state.selectedStoryId;
+      const story = state.storyDetails[selected] || state.stories.find((candidate) => candidate.id === selected);
+      if (!story) {{
+        root.innerHTML = `<div class="empty">No persisted story snapshot yet. Build stories from CLI or MCP first.</div>`;
+        return;
+      }}
+      const evidenceBlock = (rows, emptyLabel) => rows.length
+        ? rows.map((row) => `
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{row.title}}</h3>
+                  <div class="meta">
+                    <span>${{row.item_id}}</span>
+                    <span>${{row.source_name || row.source_type || "-"}}</span>
+                    <span>score=${{row.score || 0}}</span>
+                    <span>confidence=${{Number(row.confidence || 0).toFixed(2)}}</span>
+                  </div>
+                </div>
+                <span class="chip ${{row.role === "primary" ? "ok" : ""}}">${{row.role || "secondary"}}</span>
+              </div>
+              <div class="panel-sub">${{row.url || "-"}}</div>
+            </div>
+          `).join("")
+        : `<div class="empty">${{emptyLabel}}</div>`;
+      const contradictionBlock = (story.contradictions || []).length
+        ? story.contradictions.map((conflict) => `
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{conflict.topic}}</h3>
+                  <div class="meta">
+                    <span>positive=${{conflict.positive || 0}}</span>
+                    <span>negative=${{conflict.negative || 0}}</span>
+                    <span>neutral=${{conflict.neutral || 0}}</span>
+                  </div>
+                </div>
+                <span class="chip hot">conflict</span>
+              </div>
+              <div class="panel-sub">${{conflict.note || "Cross-source stance divergence detected."}}</div>
+            </div>
+          `).join("")
+        : `<div class="empty">No contradiction marker in this story.</div>`;
+      const timelineBlock = (story.timeline || []).length
+        ? story.timeline.map((event) => `
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{event.title}}</h3>
+                  <div class="meta">
+                    <span>${{event.time || "-"}}</span>
+                    <span>${{event.source_name || "-"}}</span>
+                    <span>role=${{event.role || "secondary"}}</span>
+                    <span>score=${{event.score || 0}}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="panel-sub">${{event.url || "-"}}</div>
+            </div>
+          `).join("")
+        : `<div class="empty">No timeline event captured.</div>`;
+      const markdownPreview = state.storyMarkdown[selected]
+        ? `
+            <div class="card">
+              <div class="mono">markdown evidence pack</div>
+              <pre class="text-block">${{escapeHtml(state.storyMarkdown[selected])}}</pre>
+            </div>
+          `
+        : "";
+      root.innerHTML = `
+        <div class="card">
+          <div class="card-top">
+            <div>
+              <h3 class="card-title">${{story.title}}</h3>
+              <div class="meta">
+                <span>${{story.id}}</span>
+                <span>status=${{story.status || "active"}}</span>
+                <span>items=${{story.item_count || 0}}</span>
+                <span>sources=${{story.source_count || 0}}</span>
+                <span>score=${{Number(story.score || 0).toFixed(1)}}</span>
+                <span>confidence=${{Number(story.confidence || 0).toFixed(2)}}</span>
+              </div>
+            </div>
+            <span class="chip ${{(story.contradictions || []).length ? "hot" : "ok"}}">${{(story.contradictions || []).length ? "mixed signals" : "aligned"}}</span>
+          </div>
+          <div class="panel-sub">${{story.summary || "No summary captured."}}</div>
+          <div class="entity-row">
+            ${{(story.entities || []).slice(0, 8).map((entity) => `<span class="chip">${{entity}}</span>`).join("") || '<span class="chip">no entities</span>'}}
+          </div>
+          <div class="actions">
+            <button class="btn-secondary" data-story-markdown="${{story.id}}">Preview Markdown</button>
+            <a href="/api/stories/${{story.id}}" target="_blank" rel="noreferrer">Open JSON</a>
+            <a href="/api/stories/${{story.id}}/export?format=markdown" target="_blank" rel="noreferrer">Export MD</a>
+          </div>
+        </div>
+        <div class="story-columns">
+          <div class="stack">
+            <div class="mono">primary evidence</div>
+            ${{evidenceBlock(story.primary_evidence || [], "No primary evidence captured.")}}
+          </div>
+          <div class="stack">
+            <div class="mono">secondary evidence</div>
+            ${{evidenceBlock(story.secondary_evidence || [], "No secondary evidence captured.")}}
+          </div>
+        </div>
+        <div class="stack">
+          <div class="mono">contradiction markers</div>
+          ${{contradictionBlock}}
+        </div>
+        <div class="stack">
+          <div class="mono">timeline</div>
+          ${{timelineBlock}}
+        </div>
+        ${{markdownPreview}}
+      `;
+
+      root.querySelectorAll("[data-story-markdown]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          button.disabled = true;
+          try {{
+            await previewStoryMarkdown(button.dataset.storyMarkdown);
+          }} catch (error) {{
+            alert(error.message);
+          }} finally {{
+            button.disabled = false;
+          }}
+        }});
+      }});
+    }}
+
+    function renderStories() {{
+      const root = $("story-list");
+      const inlineStats = $("story-stats-inline");
+      const contradictions = state.stories.reduce((count, story) => count + ((story.contradictions || []).length ? 1 : 0), 0);
+      const totalEvidence = state.stories.reduce((count, story) => count + (story.item_count || 0), 0);
+      inlineStats.innerHTML = `
+        <span>stories=${{state.stories.length}}</span>
+        <span>evidence=${{totalEvidence}}</span>
+        <span>contradicted=${{contradictions}}</span>
+        <span>selected=${{state.selectedStoryId || "-"}}</span>
+      `;
+      if (!state.stories.length) {{
+        root.innerHTML = `<div class="empty">No story snapshot yet. Run datapulse --story-build or the MCP story tools first.</div>`;
+        renderStoryDetail();
+        return;
+      }}
+      root.innerHTML = state.stories.map((story) => {{
+        const selected = story.id === state.selectedStoryId ? "selected" : "";
+        const primary = (story.primary_evidence || [])[0];
+        return `
+          <div class="card ${{selected}}">
+            <div class="card-top">
+              <div>
+                <h3 class="card-title">${{story.title}}</h3>
+                <div class="meta">
+                  <span>${{story.id}}</span>
+                  <span>items=${{story.item_count || 0}}</span>
+                  <span>sources=${{story.source_count || 0}}</span>
+                  <span>score=${{Number(story.score || 0).toFixed(1)}}</span>
+                </div>
+              </div>
+              <span class="chip ${{(story.contradictions || []).length ? "hot" : "ok"}}">${{(story.contradictions || []).length ? "mixed" : "aligned"}}</span>
+            </div>
+            <div class="panel-sub">${{story.summary || "No summary captured."}}</div>
+            <div class="entity-row">
+              ${{(story.entities || []).slice(0, 4).map((entity) => `<span class="chip">${{entity}}</span>`).join("") || '<span class="chip">no entities</span>'}}
+            </div>
+            <div class="meta">
+              <span>primary=${{primary ? primary.title : "-"}}</span>
+              <span>timeline=${{(story.timeline || []).length}}</span>
+              <span>conflicts=${{(story.contradictions || []).length}}</span>
+            </div>
+            <div class="actions">
+              <button class="btn-secondary" data-story-open="${{story.id}}">Open Story</button>
+              <button class="btn-secondary" data-story-preview="${{story.id}}">Preview MD</button>
+            </div>
+          </div>
+        `;
+      }}).join("");
+
+      root.querySelectorAll("[data-story-open]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          button.disabled = true;
+          try {{
+            await loadStory(button.dataset.storyOpen);
+          }} catch (error) {{
+            alert(error.message);
+          }} finally {{
+            button.disabled = false;
+          }}
+        }});
+      }});
+
+      root.querySelectorAll("[data-story-preview]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          button.disabled = true;
+          try {{
+            await previewStoryMarkdown(button.dataset.storyPreview);
+          }} catch (error) {{
+            alert(error.message);
+          }} finally {{
+            button.disabled = false;
+          }}
+        }});
+      }});
+
+      renderStoryDetail();
+    }}
+
     async function refreshBoard() {{
-      const [overview, watches, alerts, routes, status, triage, triageStats] = await Promise.all([
+      const [overview, watches, alerts, routes, status, triage, triageStats, stories] = await Promise.all([
         api("/api/overview"),
         api("/api/watches?include_disabled=true"),
         api("/api/alerts?limit=8"),
@@ -731,6 +1061,7 @@ def _console_html() -> str:
         api("/api/watch-status"),
         api("/api/triage?limit=6"),
         api("/api/triage/stats"),
+        api("/api/stories?limit=6&min_items=2"),
       ]);
       state.overview = overview;
       state.watches = watches;
@@ -739,12 +1070,28 @@ def _console_html() -> str:
       state.status = status;
       state.triage = triage;
       state.triageStats = triageStats;
+      state.stories = stories;
+      if (state.stories.length) {{
+        const selected = state.stories.some((story) => story.id === state.selectedStoryId)
+          ? state.selectedStoryId
+          : state.stories[0].id;
+        state.selectedStoryId = selected;
+        if (!state.storyDetails[selected]) {{
+          const seeded = state.stories.find((story) => story.id === selected);
+          if (seeded) {{
+            state.storyDetails[selected] = seeded;
+          }}
+        }}
+      }} else {{
+        state.selectedStoryId = "";
+      }}
       renderOverview();
       renderWatches();
       renderAlerts();
       renderRoutes();
       renderStatus();
       renderTriage();
+      renderStories();
     }}
 
     $("refresh-all").addEventListener("click", refreshBoard);
@@ -846,10 +1193,12 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
         alerts = reader.list_alerts(limit=20)
         routes = reader.list_alert_routes()
         status = reader.watch_status_snapshot()
+        stories = reader.list_stories(limit=5000, min_items=2)
         return {
             "enabled_watches": sum(1 for watch in watches if watch.get("enabled", True)),
             "disabled_watches": sum(1 for watch in watches if not watch.get("enabled", True)),
             "due_watches": sum(1 for watch in watches if watch.get("is_due")),
+            "story_count": len(stories),
             "alert_count": len(alerts),
             "route_count": len(routes),
             "triage_open_count": reader.triage_stats().get("open_count", 0),
@@ -894,6 +1243,28 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     @app.get("/api/watch-status")
     def watch_status() -> dict[str, Any]:
         return reader_factory().watch_status_snapshot()
+
+    @app.get("/api/stories")
+    def list_stories(limit: int = 8, min_items: int = 2) -> list[dict[str, Any]]:
+        return reader_factory().list_stories(limit=limit, min_items=min_items)
+
+    @app.get("/api/stories/{identifier}")
+    def show_story(identifier: str) -> dict[str, Any]:
+        story = reader_factory().show_story(identifier)
+        if story is None:
+            raise HTTPException(status_code=404, detail=f"Story not found: {identifier}")
+        return story
+
+    @app.get("/api/stories/{identifier}/export")
+    def export_story(identifier: str, format: str = "markdown") -> Response:
+        output_format = str(format or "markdown").strip().lower() or "markdown"
+        if output_format not in {"markdown", "md", "json"}:
+            raise HTTPException(status_code=400, detail=f"Unsupported story export format: {format}")
+        payload = reader_factory().export_story(identifier, output_format=output_format)
+        if payload is None:
+            raise HTTPException(status_code=404, detail=f"Story not found: {identifier}")
+        media_type = "application/json" if output_format == "json" else "text/markdown"
+        return Response(content=payload, media_type=media_type)
 
     @app.get("/api/triage")
     def triage_list(limit: int = 20, state: list[str] | None = None, include_closed: bool = False) -> list[dict[str, Any]]:

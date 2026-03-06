@@ -42,7 +42,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Story workspace (initial support):
   - story clustering, primary/secondary evidence, timelines, contradiction hints, and entity rollups
   - `--story-build / --story-list / --story-show / --story-export`
-  - shared story semantics across Reader and MCP
+  - shared story semantics across Reader, MCP, and the browser console
 - Alerts and scheduling (initial support):
   - threshold alert rules, due-runner polling, daemon single-instance lock
   - keyword / tag / domain / source-type / freshness filters for alert matching
@@ -50,9 +50,10 @@ for MCP, Skill, Agent, and bot workflows.
   - named route config with `--alert-route-list`
   - `watch_status` for daemon heartbeat, metrics, and last error
   - JSON + HTML static status outputs
-- Browser console (G0):
+- Browser console (G0/G3):
   - local `datapulse-console` browser shell
-  - unified watch / triage / alert / route / status operating surface
+  - unified watch / triage / story / alert / route / status operating surface
+  - includes a read-only Story Workspace board with evidence stacks, timeline, contradiction markers, and Markdown pack preview
 - Reliability:
   - centralized parse error handling with narrowed exceptions
   - `retry_with_backoff` decorator + `CircuitBreaker` for fault tolerance
@@ -76,7 +77,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 616 tests across 41 modules
+  - 617 tests across 41 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -247,7 +248,7 @@ datapulse --story-list
 datapulse --story-show story-openai-launch
 datapulse --story-export story-openai-launch --story-format markdown
 
-# Launch the local browser console (G0)
+# Launch the local browser console (G0/G3)
 datapulse-console --port 8765
 
 # collector health check

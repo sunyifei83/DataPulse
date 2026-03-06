@@ -71,7 +71,8 @@
 - `DataPulseReader` 支持 `story_build / list_stories / show_story / export_story`。
 - CLI 新增：`--story-build / --story-list / --story-show / --story-export`。
 - MCP 新增：`story_build / story_list / story_show / story_export`。
-- 当前范围为“只读证据组织层 + 持久化 story snapshot”；人工编辑、故事合并、GUI story board 留待下一阶段。
+- `datapulse-console` 已补入首版只读 story board：story 列表、证据栈、时间线、冲突标记、Markdown 证据包预览。
+- 当前范围为“只读证据组织层 + 持久化 story snapshot + GUI read-only board”；人工编辑、故事合并、entity graph 留待下一阶段。
 
 ## 与现网能力映射
 
@@ -86,7 +87,7 @@
 | Web 搜索 | ✅ 多源网关（Jina/Tavily）CLI/MCP | ✅ v0.5.0 完成 |
 | 任务化 | 🚧 `WatchMission` 首版（CLI/Reader/MCP + due runner + daemon + richer alert sink + status page） | 后续: 自动重跑 / 故障恢复 / 聚合面板 |
 | 处置化 | 🚧 `TriageQueue` 首版（state/note/action + duplicate explain + CLI/MCP/Console + digest gate） | 后续: keyboard workflow / reviewer SLA |
-| 证据化 | 🚧 `Story Workspace` 首版（story cluster + evidence/timeline/conflict + CLI/MCP + persisted snapshot） | 后续: story merge / editor / GUI board |
+| 证据化 | 🚧 `Story Workspace` 首版（story cluster + evidence/timeline/conflict + CLI/MCP + persisted snapshot + console board） | 后续: story merge / editor / entity graph |
 
 ## 验收建议（本项目）
 
@@ -107,8 +108,8 @@
 
 - GUI 已进入合理建设窗口，但不应独立于领域模型先行。
 - 推荐顺序：先补 HTTP API 适配层，再做本地单用户浏览器控制台。
-- 第一阶段只承接当前 `P6`：watch、alerts、routes、status。
-- `G0` 壳层已落地：`FastAPI` + `datapulse-console` + `/api/overview` / `/api/watches` / `/api/alerts` / `/api/alert-routes` / `/api/watch-status` / `/api/triage` / `/api/triage/{id}/explain`。
-- `P8` backend 已起步，但 GUI 仍未开放 story board；当前 story workspace 先通过 CLI / MCP / store 验证 schema。
+- 当前浏览器控制台已承接 `P6 + P7 + P8 first cut`：watch、alerts、routes、status、triage、story board。
+- `G0/G3` 壳层已落地：`FastAPI` + `datapulse-console` + `/api/overview` / `/api/watches` / `/api/alerts` / `/api/alert-routes` / `/api/watch-status` / `/api/triage` / `/api/triage/{id}/explain` / `/api/stories` / `/api/stories/{id}` / `/api/stories/{id}/export`。
+- `P8` backend 与首版 GUI story board 已打通，当前仍保持只读证据板策略，后续再进入编辑与图谱视图。
 - GUI 增量应随仓内提交进入 GitHub Actions，至少通过 `ruff` / `mypy` / `pytest` 与 `datapulse-console --help` 烟测。
 - 详细方案见 [gui_intelligence_console_plan.md](/Users/sunyifei/DataPulse/docs/gui_intelligence_console_plan.md)。
