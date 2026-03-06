@@ -28,6 +28,7 @@ def _default_weights() -> dict[str, float]:
         "source_diversity": _env_float("DATAPULSE_SOURCE_DIVERSITY_WEIGHT", 0.07),
         "cross_validation": _env_float("DATAPULSE_CROSS_VALIDATION_WEIGHT", 0.06),
         "recency_bonus": _env_float("DATAPULSE_RECENCY_BONUS_WEIGHT", 0.00),
+        "engagement": _env_float("DATAPULSE_ENGAGEMENT_WEIGHT", 0.08),
     }
 
 
@@ -159,6 +160,45 @@ def cross_validation_score(item: DataPulseItem) -> float:
     return 0.0
 
 
+def _to_nonnegative_float(value: object) -> float:
+    try:
+        parsed = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0.0
+    return max(0.0, parsed)
+
+
+def engagement_score(item: DataPulseItem) -> float:
+    """Source-native engagement score for sorting differentiation.
+
+    Uses Reddit-native metrics when present and falls back to 0 for items
+    without engagement metadata.
+    """
+    score_raw = _to_nonnegative_float(item.extra.get("score"))
+    comments_raw = _to_nonnegative_float(item.extra.get("num_comments"))
+    upvote_ratio_raw = item.extra.get("upvote_ratio")
+
+    has_any = bool(score_raw or comments_raw or upvote_ratio_raw is not None)
+    if not has_any:
+        return 0.0
+
+    # Saturating normalization to avoid outliers dominating rank.
+    score_norm = min(score_raw / 2000.0, 1.0)
+    comments_norm = min(comments_raw / 500.0, 1.0)
+
+    upvote_ratio = _to_nonnegative_float(upvote_ratio_raw)
+    upvote_ratio_norm = min(upvote_ratio, 1.0)
+
+    # Score/comments are stronger discussion intensity signals; upvote ratio
+    # provides quality directionality when available.
+    return round(
+        (score_norm * 0.5)
+        + (comments_norm * 0.35)
+        + (upvote_ratio_norm * 0.15),
+        4,
+    )
+
+
 def compute_composite_score(
     item: DataPulseItem,
     *,
@@ -185,6 +225,8 @@ def compute_composite_score(
     w_source_diversity = w.get("source_diversity", 0.0)
     dim_cross_validation = cross_validation_score(item)
     w_cross_validation = w.get("cross_validation", 0.0)
+    dim_engagement = engagement_score(item)
+    w_engagement = w.get("engagement", 0.0)
     # Backward-compatible alias to satisfy acceptance docs using "recency_bonus" naming.
     recency_bonus = dim_recency * w.get("recency_bonus", 0.0)
 
@@ -196,6 +238,7 @@ def compute_composite_score(
         + w.get("recency", 0.20) * dim_recency
         + w_source_diversity * dim_source_diversity
         + w_cross_validation * dim_cross_validation
+        + w_engagement * dim_engagement
         + recency_bonus
     )
 
@@ -212,6 +255,8 @@ def compute_composite_score(
         "source_diversity_weight": round(w_source_diversity, 4),
         "cross_validation": round(dim_cross_validation, 4),
         "cross_validation_weight": round(w_cross_validation, 4),
+        "engagement": round(dim_engagement, 4),
+        "engagement_weight": round(w_engagement, 4),
         "recency_bonus": round(dim_recency * w.get("recency_bonus", 0.0), 4),
     }
 
@@ -253,8 +298,15 @@ def rank_items(
         item.score = score
         item.extra["score_breakdown"] = breakdown
 
-    # Sort by score descending, then by confidence as tiebreaker
-    items.sort(key=lambda it: (it.score, it.confidence), reverse=True)
+    # Sort by score descending, then source-native engagement, then confidence.
+    items.sort(
+        key=lambda it: (
+            it.score,
+            float(it.extra.get("score_breakdown", {}).get("engagement", 0.0)),
+            it.confidence,
+        ),
+        reverse=True,
+    )
 
     # Assign quality_rank (1-based)
     for rank, item in enumerate(items, 1):

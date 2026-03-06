@@ -9,6 +9,7 @@ from datapulse.core.scoring import (
     authority_score,
     compute_composite_score,
     corroboration_score,
+    engagement_score,
     rank_items,
     recency_score,
 )
@@ -112,6 +113,21 @@ class TestCorroborationScore:
         assert corroboration_score(item, {}) == 0.0
 
 
+class TestEngagementScore:
+    def test_empty_metadata_returns_zero(self):
+        item = _make_item()
+        assert engagement_score(item) == 0.0
+
+    def test_reddit_metrics_increase_engagement(self):
+        low = _make_item(source_type=SourceType.REDDIT)
+        low.extra = {"score": 8, "num_comments": 5, "upvote_ratio": 0.61}
+
+        high = _make_item(source_type=SourceType.REDDIT)
+        high.extra = {"score": 320, "num_comments": 96, "upvote_ratio": 0.93}
+
+        assert engagement_score(high) > engagement_score(low)
+
+
 class TestCompositeScore:
     def test_all_dimensions_contribute(self):
         now = datetime.utcnow()
@@ -189,6 +205,7 @@ class TestRankItems:
         assert "authority" in breakdown
         assert "corroboration" in breakdown
         assert "recency" in breakdown
+        assert "engagement" in breakdown
 
     def test_empty_list(self):
         assert rank_items([]) == []
@@ -216,3 +233,37 @@ class TestRankItems:
         items = [_make_item()]
         ranked = rank_items(items)
         assert isinstance(ranked[0].score, int)
+
+    def test_tie_breaks_by_engagement_signal(self):
+        items = [
+            _make_item(
+                title="Higher engagement",
+                confidence=0.7,
+                source_type=SourceType.REDDIT,
+                source_name="reddit.com",
+                url="https://reddit.com/r/test/comments/1/high",
+            ),
+            _make_item(
+                title="Lower engagement",
+                confidence=0.7,
+                source_type=SourceType.REDDIT,
+                source_name="reddit.com",
+                url="https://reddit.com/r/test/comments/1/low",
+            ),
+        ]
+        items[0].extra = {"score": 300, "num_comments": 80, "upvote_ratio": 0.92}
+        items[1].extra = {"score": 10, "num_comments": 5, "upvote_ratio": 0.6}
+
+        zero_weights = {
+            "confidence": 0.0,
+            "authority": 0.0,
+            "corroboration": 0.0,
+            "entity_corroboration": 0.0,
+            "recency": 0.0,
+            "source_diversity": 0.0,
+            "cross_validation": 0.0,
+            "recency_bonus": 0.0,
+            "engagement": 0.0,
+        }
+        ranked = rank_items(items, weights=zero_weights)
+        assert ranked[0].title == "Higher engagement"
