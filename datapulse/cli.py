@@ -86,6 +86,22 @@ def _print_alert_routes(routes):
         print(f"{name}: channel={channel}")
 
 
+def _print_alert_route_health(routes):
+    for route in routes:
+        print(
+            f"{route.get('name', '-')}: channel={route.get('channel', '-')}"
+            f" | status={route.get('status', 'idle')}"
+            f" | events={route.get('event_count', 0)}"
+            f" | delivered={route.get('delivered_count', 0)}"
+            f" | failed={route.get('failure_count', 0)}"
+        )
+        success_rate = route.get("success_rate")
+        if success_rate is not None:
+            print(f"    success_rate: {float(success_rate) * 100:.1f}%")
+        print(f"    last_event_at: {route.get('last_event_at', '-') or '-'}")
+        print(f"    last_error: {route.get('last_error', '-') or '-'}")
+
+
 def _print_watch_status(payload):
     metrics = payload.get("metrics", {}) if isinstance(payload, dict) else {}
     print(f"state: {payload.get('state', 'idle')}")
@@ -94,6 +110,184 @@ def _print_watch_status(payload):
     print(f"cycles_total: {metrics.get('cycles_total', 0)}")
     print(f"runs_total: {metrics.get('runs_total', 0)}")
     print(f"alerts_total: {metrics.get('alerts_total', 0)}")
+
+
+def _print_ops_overview(payload):
+    collector_summary = payload.get("collector_summary", {}) if isinstance(payload, dict) else {}
+    watch_metrics = payload.get("watch_metrics", {}) if isinstance(payload, dict) else {}
+    route_summary = payload.get("route_summary", {}) if isinstance(payload, dict) else {}
+    degraded_collectors = payload.get("degraded_collectors", []) if isinstance(payload, dict) else []
+    recent_failures = payload.get("recent_failures", []) if isinstance(payload, dict) else []
+
+    print("collector_health:")
+    print(f"  total: {collector_summary.get('total', 0)}")
+    print(f"  ok: {collector_summary.get('ok', 0)}")
+    print(f"  warn: {collector_summary.get('warn', 0)}")
+    print(f"  error: {collector_summary.get('error', 0)}")
+    print(f"  unavailable: {collector_summary.get('unavailable', 0)}")
+    if degraded_collectors:
+        print("  degraded_collectors:")
+        for collector in degraded_collectors[:5]:
+            print(
+                f"    - {collector.get('name', '-')}"
+                f" [{collector.get('tier', '-')}]"
+                f" status={collector.get('status', '-')}"
+                f" available={collector.get('available', True)}"
+            )
+            message = str(collector.get("message", "") or "").strip()
+            if message:
+                print(f"      message: {message}")
+
+    print("watch_metrics:")
+    print(f"  state: {watch_metrics.get('state', 'idle')}")
+    print(f"  heartbeat_at: {watch_metrics.get('heartbeat_at', '-') or '-'}")
+    print(f"  cycles_total: {watch_metrics.get('cycles_total', 0)}")
+    print(f"  runs_total: {watch_metrics.get('runs_total', 0)}")
+    print(f"  success_total: {watch_metrics.get('success_total', 0)}")
+    print(f"  error_total: {watch_metrics.get('error_total', 0)}")
+    print(f"  alerts_total: {watch_metrics.get('alerts_total', 0)}")
+    success_rate = watch_metrics.get("success_rate")
+    if success_rate is not None:
+        print(f"  success_rate: {float(success_rate) * 100:.1f}%")
+    print(f"  last_error: {watch_metrics.get('last_error', '-') or '-'}")
+
+    print("route_health:")
+    print(f"  total: {route_summary.get('total', 0)}")
+    print(f"  healthy: {route_summary.get('healthy', 0)}")
+    print(f"  degraded: {route_summary.get('degraded', 0)}")
+    print(f"  missing: {route_summary.get('missing', 0)}")
+    print(f"  idle: {route_summary.get('idle', 0)}")
+
+    if recent_failures:
+        print("recent_failures:")
+        for failure in recent_failures[:5]:
+            if failure.get("kind") == "watch_run":
+                print(
+                    f"  - watch_run {failure.get('mission_name', failure.get('mission_id', '-'))}"
+                    f" | status={failure.get('status', 'error')}"
+                    f" | attempts={failure.get('attempts', 0)}"
+                )
+            else:
+                print(
+                    f"  - route_delivery {failure.get('name', '-')}"
+                    f" | channel={failure.get('channel', '-')}"
+                    f" | status={failure.get('status', 'degraded')}"
+                )
+            print(f"    error: {failure.get('error', '-') or '-'}")
+
+
+def _print_watch_detail(payload):
+    run_stats = payload.get("run_stats", {}) if isinstance(payload, dict) else {}
+    delivery_stats = payload.get("delivery_stats", {}) if isinstance(payload, dict) else {}
+    last_failure = payload.get("last_failure") if isinstance(payload, dict) else None
+    retry_advice = payload.get("retry_advice") if isinstance(payload, dict) else None
+    print(f"id: {payload.get('id', '-')}")
+    print(f"name: {payload.get('name', '')}")
+    print(f"query: {payload.get('query', '')}")
+    print(f"enabled: {payload.get('enabled', True)}")
+    print(f"schedule: {payload.get('schedule_label') or payload.get('schedule') or 'manual'}")
+    print(f"is_due: {payload.get('is_due', False)}")
+    print(f"next_run_at: {payload.get('next_run_at', '-') or '-'}")
+    print(f"last_run_at: {payload.get('last_run_at', '-') or '-'}")
+    print(f"last_run_status: {payload.get('last_run_status', '-') or '-'}")
+    print(f"last_run_error: {payload.get('last_run_error', '-') or '-'}")
+    print(f"run_total: {run_stats.get('total', 0)}")
+    print(f"run_success: {run_stats.get('success', 0)}")
+    print(f"run_error: {run_stats.get('error', 0)}")
+    print(f"avg_items: {run_stats.get('average_items', 0)}")
+    print(f"recent_alert_count: {delivery_stats.get('recent_alert_count', 0)}")
+    print(f"recent_delivery_error_count: {delivery_stats.get('recent_error_count', 0)}")
+
+    if isinstance(last_failure, dict) and last_failure:
+        print("last_failure:")
+        print(
+            f"  - {last_failure.get('id', '-')}"
+            f" | status={last_failure.get('status', 'error')}"
+            f" | trigger={last_failure.get('trigger', 'manual')}"
+            f" | finished_at={last_failure.get('finished_at', '-')}"
+        )
+        print(f"    error: {last_failure.get('error', '-') or '-'}")
+
+    if isinstance(retry_advice, dict) and retry_advice:
+        print("retry_advice:")
+        print(f"  failure_class: {retry_advice.get('failure_class', '-') or '-'}")
+        print(f"  summary: {retry_advice.get('summary', '')}")
+        print(f"  retry_command: {retry_advice.get('retry_command', '-') or '-'}")
+        daemon_retry = str(retry_advice.get("daemon_retry_command", "") or "").strip()
+        if daemon_retry:
+            print(f"  daemon_retry_command: {daemon_retry}")
+        suspected_collectors = retry_advice.get("suspected_collectors", [])
+        if suspected_collectors:
+            print("  suspected_collectors:")
+            for collector in suspected_collectors:
+                print(
+                    f"    - {collector.get('name', '-')}"
+                    f" | tier={collector.get('tier', '-')}"
+                    f" | status={collector.get('status', '-')}"
+                    f" | available={collector.get('available', True)}"
+                )
+                if collector.get("message"):
+                    print(f"      message: {collector.get('message')}")
+                if collector.get("setup_hint"):
+                    print(f"      setup_hint: {collector.get('setup_hint')}")
+        notes = retry_advice.get("notes", [])
+        if notes:
+            print("  notes:")
+            for note in notes:
+                print(f"    - {note}")
+
+    runs = payload.get("runs", []) if isinstance(payload, dict) else []
+    if runs:
+        print("recent_runs:")
+        for run in runs[:5]:
+            print(
+                f"  - {run.get('id', '-')}"
+                f" | status={run.get('status', '-')}"
+                f" | trigger={run.get('trigger', 'manual')}"
+                f" | items={run.get('item_count', 0)}"
+                f" | finished_at={run.get('finished_at', '-')}"
+            )
+            error = str(run.get("error", "") or "").strip()
+            if error:
+                print(f"    error: {error}")
+
+    alerts = payload.get("recent_alerts", []) if isinstance(payload, dict) else []
+    if alerts:
+        print("recent_alerts:")
+        for alert in alerts[:5]:
+            delivered = ",".join(alert.get("delivered_channels", [])) or "json"
+            print(
+                f"  - {alert.get('id', '-')}"
+                f" | rule={alert.get('rule_name', '-')}"
+                f" | channels={delivered}"
+                f" | created_at={alert.get('created_at', '-')}"
+            )
+            print(f"    summary: {alert.get('summary', '')}")
+
+    results = payload.get("recent_results", []) if isinstance(payload, dict) else []
+    if results:
+        print("recent_results:")
+        for item in results[:8]:
+            print(
+                f"  - {item.get('id', '-')}"
+                f" | score={item.get('score', 0)}"
+                f" | confidence={float(item.get('confidence', 0.0)):.3f}"
+                f" | state={item.get('review_state', 'new')}"
+            )
+            print(f"    {item.get('title', '')}")
+            print(f"    {item.get('url', '-')}")
+
+
+def _print_watch_results(items):
+    for item in items:
+        print(
+            f"{item.get('id', '-')}: score={item.get('score', 0)}"
+            f" | confidence={float(item.get('confidence', 0.0)):.3f}"
+            f" | state={item.get('review_state', 'new')}"
+            f" | source={item.get('source_name') or item.get('source_type') or '-'}"
+        )
+        print(f"    {item.get('title', '')}")
+        print(f"    {item.get('url', '-')}")
 
 
 def _print_triage_items(items):
@@ -544,12 +738,16 @@ def _print_skill_contract() -> None:
                 "--entities",
                 "--watch-create",
                 "--watch-list",
+                "--watch-show",
+                "--watch-results",
                 "--watch-run",
                 "--watch-run-due",
                 "--watch-daemon",
                 "--alert-list",
                 "--alert-route-list",
+                "--alert-route-health",
                 "--watch-status",
+                "--ops-overview",
                 "--triage-list",
                 "--triage-explain",
                 "--triage-update",
@@ -668,11 +866,12 @@ def main() -> None:
             "D) Trending topics:         datapulse --trending [us|uk|jp]\n"
             "E) Entity workflow:         datapulse <url> --entities --entity-mode fast\n"
             "F) Watch mission:           datapulse --watch-create --watch-name <name> --watch-query <query>\n"
-            "G) Watch scheduler:         datapulse --watch-run-due\n"
-            "H) Watch daemon:            datapulse --watch-daemon --watch-daemon-once\n"
-            "I) Watch status:            datapulse --watch-status\n"
-            "J) Triage queue:            datapulse --triage-list / --triage-update <item_id> --triage-state verified\n"
-            "K) Story workspace:         datapulse --story-build / --story-list / --story-show <story_id> / --story-graph <story_id>\n"
+            "G) Watch cockpit:           datapulse --watch-show <watch_id>\n"
+            "H) Watch scheduler:         datapulse --watch-run-due\n"
+            "I) Watch daemon:            datapulse --watch-daemon --watch-daemon-once\n"
+            "J) Watch status:            datapulse --watch-status / --alert-route-health / --ops-overview\n"
+            "K) Triage queue:            datapulse --triage-list / --triage-update <item_id> --triage-state verified\n"
+            "L) Story workspace:         datapulse --story-build / --story-list / --story-show <story_id> / --story-graph <story_id>\n"
             "Diagnostics: datapulse --config-check / --doctor / --troubleshoot / --skill-contract / --check-update / --self-update / --version"
         ),
     )
@@ -793,6 +992,12 @@ def main() -> None:
     management_group.add_argument("--entity-stats", action="store_true", help="Show entity store stats")
     management_group.add_argument("--watch-create", action="store_true", help="Create a recurring watch mission")
     management_group.add_argument("--watch-list", action="store_true", help="List watch missions")
+    management_group.add_argument(
+        "--watch-show",
+        metavar="WATCH",
+        help="Show one watch mission with run history, persisted results, alert history, and retry advice",
+    )
+    management_group.add_argument("--watch-results", metavar="WATCH", help="Show recent persisted results for one watch mission")
     management_group.add_argument("--watch-run", metavar="WATCH", help="Run one watch mission by id or name")
     management_group.add_argument("--watch-run-due", action="store_true", help="Run all due watch missions once")
     management_group.add_argument("--watch-daemon", action="store_true", help="Run the watch scheduler daemon loop")
@@ -810,6 +1015,7 @@ def main() -> None:
     management_group.add_argument("--watch-site", action="append", metavar="DOMAIN", help="Restrict watch mission to domain (repeatable)")
     management_group.add_argument("--watch-schedule", default="manual", help="Mission schedule label (default manual)")
     management_group.add_argument("--watch-top-n", type=int, default=5, help="Max watch results to keep (default 5)")
+    management_group.add_argument("--watch-results-limit", type=int, default=10, help="Max persisted watch results to show")
     management_group.add_argument("--watch-min-confidence", type=float, default=0.0, help="Stored watch confidence threshold")
     management_group.add_argument("--watch-include-disabled", action="store_true", help="Include disabled watch missions in --watch-list")
     management_group.add_argument("--watch-due-limit", type=int, default=0, help="Max due watch missions to run (0 = all due)")
@@ -835,8 +1041,11 @@ def main() -> None:
     )
     management_group.add_argument("--alert-list", action="store_true", help="List stored watch alert events")
     management_group.add_argument("--alert-route-list", action="store_true", help="List configured named alert routes")
+    management_group.add_argument("--alert-route-health", action="store_true", help="Show delivery health for named alert routes")
     management_group.add_argument("--alert-limit", type=int, default=20, help="Max alert events to print")
+    management_group.add_argument("--alert-route-health-limit", type=int, default=100, help="Max alert events to aggregate for route health")
     management_group.add_argument("--alert-mission", help="Filter alert list by mission id")
+    management_group.add_argument("--ops-overview", action="store_true", help="Show unified ops snapshot across collectors, watches, and route delivery")
     management_group.add_argument("--watch-daemon-poll-seconds", type=float, default=60.0, help="Daemon poll interval in seconds")
     management_group.add_argument("--watch-daemon-cycles", type=int, default=0, help="Stop daemon after N cycles (0 = run forever)")
     management_group.add_argument("--watch-daemon-retry-attempts", type=int, default=1, help="Retry attempts per scheduled mission")
@@ -1083,6 +1292,29 @@ def main() -> None:
             _print_watches(watches)
         return
 
+    if args.watch_show:
+        mission = reader.show_watch(args.watch_show)
+        if mission is None:
+            print(f"⚠️ watch mission not found: {args.watch_show}")
+        else:
+            _print_watch_detail(mission)
+        return
+
+    if args.watch_results:
+        items = reader.list_watch_results(
+            args.watch_results,
+            limit=args.watch_results_limit,
+            min_confidence=args.min_confidence,
+        )
+        if items is None:
+            print(f"⚠️ watch mission not found: {args.watch_results}")
+        elif not items:
+            print("No persisted watch result matched.")
+        else:
+            print(f"📡 Watch results: {len(items)}")
+            _print_watch_results(items)
+        return
+
     if args.watch_disable:
         disabled_mission = reader.disable_watch(args.watch_disable)
         if disabled_mission is None:
@@ -1109,8 +1341,21 @@ def main() -> None:
             _print_alert_routes(routes)
         return
 
+    if args.alert_route_health:
+        routes = reader.alert_route_health(limit=args.alert_route_health_limit)
+        if not routes:
+            print("No alert route health signal yet.")
+        else:
+            print(f"🩺 Alert route health: {len(routes)}")
+            _print_alert_route_health(routes)
+        return
+
     if args.watch_status:
         _print_watch_status(reader.watch_status_snapshot())
+        return
+
+    if args.ops_overview:
+        _print_ops_overview(reader.ops_snapshot())
         return
 
     if args.triage_list:

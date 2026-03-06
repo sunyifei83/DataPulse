@@ -44,6 +44,77 @@ class _WatchMCPReader:
             )
         return payload
 
+    def show_watch(self, identifier):
+        if identifier != "ai-radar":
+            return None
+        return {
+            "id": "ai-radar",
+            "name": "AI Radar",
+            "query": "OpenAI agents",
+            "enabled": True,
+            "schedule_label": "hourly",
+            "is_due": True,
+            "next_run_at": "2026-03-06T01:00:00+00:00",
+            "run_stats": {"total": 2, "success": 1, "error": 1},
+            "last_failure": {
+                "id": "ai-radar:2026-03-05T23:00:00+00:00",
+                "status": "error",
+                "trigger": "scheduled",
+                "item_count": 0,
+                "finished_at": "2026-03-05T23:00:03+00:00",
+                "error": "temporary upstream failure",
+            },
+            "retry_advice": {
+                "failure_class": "transient",
+                "summary": "The last failed run looks like a transient upstream or network failure.",
+                "retry_command": "datapulse --watch-run ai-radar",
+                "daemon_retry_command": "datapulse --watch-daemon --watch-daemon-once",
+                "suspected_collectors": [
+                    {
+                        "name": "twitter",
+                        "tier": "tier_1",
+                        "status": "warn",
+                        "available": True,
+                        "message": "credentials missing",
+                        "setup_hint": "set API key",
+                    }
+                ],
+                "notes": [
+                    "A manual rerun is usually safe once the upstream recovers.",
+                    "Fix the degraded collector setup below before rerunning the mission.",
+                ],
+            },
+            "recent_results": self.list_watch_results(identifier),
+            "result_stats": {
+                "stored_result_count": 1,
+                "returned_result_count": 1,
+                "latest_result_at": "2026-03-06T00:00:00+00:00",
+            },
+            "recent_alerts": [
+                {
+                    "id": "alert-1",
+                    "rule_name": "threshold",
+                    "created_at": "2026-03-06T00:00:10+00:00",
+                }
+            ],
+        }
+
+    def list_watch_results(self, identifier, limit=10, min_confidence=0.0):
+        if identifier != "ai-radar":
+            return None
+        return [
+            {
+                "id": "item-1",
+                "title": "OpenAI agents result",
+                "url": "https://example.com/openai-agents",
+                "score": 73,
+                "confidence": 0.91,
+                "review_state": "new",
+                "source_name": "search",
+                "source_type": "generic",
+            }
+        ][:limit]
+
     async def run_watch(self, identifier):
         return {
             "mission": {"id": identifier, "name": "AI Radar", "query": "OpenAI agents"},
@@ -93,11 +164,32 @@ class _WatchMCPReader:
             }
         ]
 
+    def alert_route_health(self, limit=100):
+        return [
+            {
+                "name": "ops-webhook",
+                "channel": "webhook",
+                "status": "healthy",
+                "event_count": 1,
+                "delivered_count": 1,
+                "failure_count": 0,
+                "success_rate": 1.0,
+            }
+        ]
+
     def watch_status_snapshot(self):
         return {
             "state": "idle",
             "heartbeat_at": "2026-03-06T00:00:00+00:00",
             "metrics": {"cycles_total": 3},
+        }
+
+    def ops_snapshot(self, **kwargs):
+        return {
+            "collector_summary": {"total": 4, "ok": 2, "warn": 1, "error": 1, "available": 3, "unavailable": 1},
+            "watch_metrics": {"state": "idle", "runs_total": 2, "success_total": 1, "error_total": 1, "success_rate": 0.5},
+            "route_summary": {"total": 1, "healthy": 1, "degraded": 0, "missing": 0, "idle": 0},
+            "recent_failures": [{"kind": "watch_run", "mission_name": "AI Radar", "status": "error", "error": "temporary failure"}],
         }
 
     def triage_list(self, **kwargs):
@@ -214,12 +306,16 @@ def test_mcp_registers_watch_tools():
     assert {
         "create_watch",
         "list_watches",
+        "watch_show",
+        "watch_results",
         "run_watch",
         "disable_watch",
         "run_due_watches",
         "list_alerts",
         "list_alert_routes",
+        "alert_route_health",
         "watch_status",
+        "ops_overview",
         "triage_list",
         "triage_explain",
         "triage_update",
@@ -267,6 +363,34 @@ async def test_mcp_run_watch_tool(monkeypatch):
     assert payload["mission"]["id"] == "ai-radar"
     assert payload["run"]["status"] == "success"
     assert payload["items"][0]["title"] == "OpenAI agents result"
+
+
+@pytest.mark.asyncio
+async def test_mcp_watch_show_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool("watch_show", {"identifier": "ai-radar"})
+    payload = json.loads(raw)
+
+    assert payload["ok"] is True
+    assert payload["mission"]["id"] == "ai-radar"
+    assert payload["mission"]["run_stats"]["error"] == 1
+    assert payload["mission"]["recent_results"][0]["id"] == "item-1"
+    assert payload["mission"]["retry_advice"]["retry_command"] == "datapulse --watch-run ai-radar"
+
+
+@pytest.mark.asyncio
+async def test_mcp_watch_results_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool("watch_results", {"identifier": "ai-radar", "limit": 5})
+    payload = json.loads(raw)
+
+    assert payload["ok"] is True
+    assert payload["results"][0]["id"] == "item-1"
+    assert payload["results"][0]["title"] == "OpenAI agents result"
 
 
 @pytest.mark.asyncio
@@ -319,6 +443,19 @@ async def test_mcp_list_alert_routes_tool(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_mcp_alert_route_health_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool("alert_route_health", {"limit": 20})
+    payload = json.loads(raw)
+
+    assert payload[0]["name"] == "ops-webhook"
+    assert payload[0]["status"] == "healthy"
+    assert payload[0]["success_rate"] == 1.0
+
+
+@pytest.mark.asyncio
 async def test_mcp_watch_status_tool(monkeypatch):
     monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
     app = _make_app()
@@ -328,6 +465,19 @@ async def test_mcp_watch_status_tool(monkeypatch):
 
     assert payload["state"] == "idle"
     assert payload["metrics"]["cycles_total"] == 3
+
+
+@pytest.mark.asyncio
+async def test_mcp_ops_overview_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool("ops_overview", {"alert_limit": 5})
+    payload = json.loads(raw)
+
+    assert payload["collector_summary"]["warn"] == 1
+    assert payload["watch_metrics"]["success_rate"] == 0.5
+    assert payload["recent_failures"][0]["mission_name"] == "AI Radar"
 
 
 @pytest.mark.asyncio

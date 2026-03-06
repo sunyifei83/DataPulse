@@ -57,12 +57,14 @@
   - 支持 threshold alert rule、到期任务轮询、daemon 单实例锁
   - 支持关键词 / 标签 / 域名 / source_type / 时效过滤
   - 支持 JSON / Markdown / Webhook / 飞书 / Telegram 五类告警分发
-  - 支持命名 route 配置与 `--alert-route-list`
+  - 支持命名 route 配置与 `--alert-route-list / --alert-route-health`
+  - 支持 `--watch-show / --watch-results` 查看单个 mission 的近期运行、结果流、告警历史与最近失败重试建议
   - 支持 `watch_status` 读取 daemon 心跳、指标与最近错误
   - 支持 JSON + HTML 静态状态页输出
 - 浏览器控制台（G0/G3）：
   - 提供 `datapulse-console` 本地浏览器控制台
-  - 汇总 watch / triage / story / alert / route / status 六块工作台能力
+  - 汇总 watch / mission cockpit / triage / story / alert / route / route health / status 八块工作台能力
+  - `Mission Cockpit` 已补入持久化 result stream，可直接回看某个 mission 的最近命中结果
   - 已包含 Story Workspace 只读证据板：story 卡片、证据栈、时间线、冲突标记、entity graph、Markdown 证据包预览
 - 稳定性：
   - 统一失败处理，异常窄化（精确捕获 `RequestException`/`TimeoutError` 等）
@@ -154,6 +156,8 @@ datapulse --trending uk --trending-store     # 英国热搜，存入 inbox
 # Watch Mission
 datapulse --watch-create --watch-name "AI Radar" --watch-query "OpenAI agents" --watch-platform twitter
 datapulse --watch-list
+datapulse --watch-show ai-radar
+datapulse --watch-results ai-radar
 datapulse --watch-run ai-radar
 datapulse --watch-disable ai-radar
 
@@ -168,6 +172,7 @@ datapulse --alert-list
 # richer alert rule + 命名 route
 datapulse --watch-create --watch-name "Launch Ops" --watch-query "OpenAI launch" --watch-alert-route ops-webhook --watch-alert-keyword launch --watch-alert-domain openai.com
 datapulse --alert-route-list
+datapulse --alert-route-health
 
 # daemon 单轮执行
 datapulse --watch-daemon --watch-daemon-once
@@ -189,8 +194,21 @@ datapulse --story-show story-openai-launch
 datapulse --story-graph story-openai-launch
 datapulse --story-export story-openai-launch --story-format markdown
 
-# 启动浏览器控制台（G0/G3）
+# 启动浏览器控制台（仓内直接运行，推荐）
+bash scripts/datapulse_console.sh --port 8765
+
+# 或使用模块入口
+uv run python -m datapulse.console_server --port 8765
+
+# 若已安装到 PATH
 datapulse-console --port 8765
+
+# 控制台入口 smoke
+bash scripts/datapulse_console_smoke.sh
+
+![DataPulse 浏览器控制台预览](docs/datapulse_console.png)
+
+参数填写说明见：[docs/datapulse_console_parameter_guide.md](docs/datapulse_console_parameter_guide.md)
 
 # 采集器健康自检
 datapulse --doctor
@@ -251,12 +269,15 @@ E. 实体:
   - `datapulse https://x.com/xxxx/status/123 --entities --entity-mode fast`
 F. Watch:
   - `datapulse --watch-create --watch-name "AI Radar" --watch-query "OpenAI agents"`
+  - `datapulse --watch-show ai-radar`
+  - `datapulse --watch-results ai-radar`
   - `datapulse --watch-run ai-radar`
 G. Watch 调度:
   - `datapulse --watch-run-due`
 H. Alert:
   - `datapulse --alert-list`
   - `datapulse --alert-route-list`
+  - `datapulse --alert-route-health`
 I. Daemon:
   - `datapulse --watch-daemon --watch-daemon-once`
 J. Triage:
@@ -406,11 +427,14 @@ python -m datapulse.mcp_server --call health
 **任务化（Watch Mission）：**
 - `create_watch(name, query, platforms=None, sites=None, schedule='manual', min_confidence=0.0, top_n=5)` — 创建任务
 - `list_watches(include_disabled=False)` — 列出任务
+- `watch_show(identifier)` — 查看单个任务的近期运行与告警概况
+- `watch_results(identifier, limit=10, min_confidence=0.0)` — 查看单个任务的持久化结果流
 - `run_watch(identifier)` — 手动执行任务
 - `disable_watch(identifier)` — 禁用任务
 - `run_due_watches(limit=0)` — 执行当前全部到期任务
 - `list_alerts(limit=20, mission_id='')` — 列出告警事件
 - `list_alert_routes()` — 列出已配置的命名告警路由
+- `alert_route_health()` — 查看命名告警路由的投递健康状态
 - `watch_status()` — 查看 daemon 心跳、指标与最近错误
 
 **信源管理：**

@@ -58,12 +58,14 @@ for MCP, Skill, Agent, and bot workflows.
   - threshold alert rules, due-runner polling, daemon single-instance lock
   - keyword / tag / domain / source-type / freshness filters for alert matching
   - JSON / Markdown / Webhook / Feishu / Telegram alert sinks for auto-distribution
-  - named route config with `--alert-route-list`
+  - named route config with `--alert-route-list / --alert-route-health`
+  - `--watch-show / --watch-results` for one mission's recent runs, persisted result stream, recent alert outcomes, and latest failure retry guidance
   - `watch_status` for daemon heartbeat, metrics, and last error
   - JSON + HTML static status outputs
 - Browser console (G0/G3):
   - local `datapulse-console` browser shell
-  - unified watch / triage / story / alert / route / status operating surface
+  - unified watch / mission cockpit / triage / story / alert / route / route health / status operating surface
+  - `Mission Cockpit` now includes a persisted result stream for each mission
   - includes a read-only Story Workspace board with evidence stacks, timeline, contradiction markers, entity graph, and Markdown pack preview
 - Reliability:
   - centralized parse error handling with narrowed exceptions
@@ -159,12 +161,15 @@ E. Entity flow:
   - `datapulse https://x.com/xxxx/status/123 --entities --entity-mode fast`
 F. Watch mission:
   - `datapulse --watch-create --watch-name "AI Radar" --watch-query "OpenAI agents"`
+  - `datapulse --watch-show ai-radar`
+  - `datapulse --watch-results ai-radar`
   - `datapulse --watch-run ai-radar`
 G. Watch scheduler:
   - `datapulse --watch-run-due`
 H. Alerts:
   - `datapulse --alert-list`
   - `datapulse --alert-route-list`
+  - `datapulse --alert-route-health`
 I. Daemon:
   - `datapulse --watch-daemon --watch-daemon-once`
 J. Triage queue:
@@ -226,6 +231,8 @@ datapulse --trending uk --trending-store     # UK, save to inbox
 # Watch Mission
 datapulse --watch-create --watch-name "AI Radar" --watch-query "OpenAI agents" --watch-platform twitter
 datapulse --watch-list
+datapulse --watch-show ai-radar
+datapulse --watch-results ai-radar
 datapulse --watch-run ai-radar
 datapulse --watch-disable ai-radar
 
@@ -240,6 +247,7 @@ datapulse --alert-list
 # Richer alert rule + named route
 datapulse --watch-create --watch-name "Launch Ops" --watch-query "OpenAI launch" --watch-alert-route ops-webhook --watch-alert-keyword launch --watch-alert-domain openai.com
 datapulse --alert-route-list
+datapulse --alert-route-health
 
 # Run daemon for one polling cycle
 datapulse --watch-daemon --watch-daemon-once
@@ -261,8 +269,21 @@ datapulse --story-show story-openai-launch
 datapulse --story-graph story-openai-launch
 datapulse --story-export story-openai-launch --story-format markdown
 
-# Launch the local browser console (G0/G3)
+# Launch the local browser console from the repo (recommended)
+bash scripts/datapulse_console.sh --port 8765
+
+# Or use the module entrypoint
+uv run python -m datapulse.console_server --port 8765
+
+# If installed into PATH
 datapulse-console --port 8765
+
+# Console entry smoke
+bash scripts/datapulse_console_smoke.sh
+
+![DataPulse Console Preview](docs/datapulse_console.png)
+
+Field guide: [docs/datapulse_console_parameter_guide.md](docs/datapulse_console_parameter_guide.md)
 
 # collector health check
 datapulse --doctor
@@ -349,11 +370,14 @@ python -m datapulse.mcp_server --call health
 **Watch Mission:**
 - `create_watch(name, query, platforms=None, sites=None, schedule='manual', min_confidence=0.0, top_n=5)` — create a saved recurring mission
 - `list_watches(include_disabled=False)` — list missions
+- `watch_show(identifier)` — inspect one mission with recent runs and recent alerts
+- `watch_results(identifier, limit=10, min_confidence=0.0)` — inspect the persisted result stream for one mission
 - `run_watch(identifier)` — run one mission by id or name
 - `disable_watch(identifier)` — disable one mission
 - `run_due_watches(limit=0)` — run all currently due missions
 - `list_alerts(limit=20, mission_id='')` — list stored alert events
 - `list_alert_routes()` — list configured named alert routes
+- `alert_route_health(limit=100)` — inspect delivery health for named alert routes
 - `watch_status()` — inspect daemon heartbeat, metrics, and last error
 
 **Source management:**

@@ -167,6 +167,8 @@ check_required_file "docs/search_gateway_config.md"
 check_required_file "docs/release_rollback_guide.md"
 check_required_file "scripts/release_publish.sh"
 check_required_file "scripts/datapulse_local_smoke.sh"
+check_required_file "scripts/datapulse_console.sh"
+check_required_file "scripts/datapulse_console_smoke.sh"
 check_required_file "scripts/datapulse_remote_openclaw_smoke.sh"
 
 if python3 -m json.tool docs/contracts/openclaw_datapulse_tool_contract.json >/dev/null; then

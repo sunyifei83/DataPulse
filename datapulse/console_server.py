@@ -28,7 +28,7 @@ def _console_html() -> str:
     initial_state = _json_blob(
         {
             "title": CONSOLE_TITLE,
-            "sections": ["overview", "missions", "alerts", "routes", "status", "triage", "stories"],
+            "sections": ["overview", "missions", "cockpit", "alerts", "routes", "status", "triage", "stories"],
         }
     )
     return f"""<!doctype html>
@@ -405,6 +405,13 @@ def _console_html() -> str:
       animation: rise .7s ease-out both;
       animation-delay: .08s;
     }}
+    .dual-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      animation: rise .76s ease-out both;
+      animation-delay: .12s;
+    }}
     .panel {{
       padding: 22px;
       display: grid;
@@ -566,6 +573,14 @@ def _console_html() -> str:
       box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.16);
       background: rgba(15, 26, 41, 0.9);
     }}
+    .card.selectable {{
+      cursor: pointer;
+      transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }}
+    .card.selectable:hover {{
+      transform: translateY(-1px);
+      border-color: rgba(127, 228, 255, 0.24);
+    }}
     .entity-row {{
       display: flex;
       flex-wrap: wrap;
@@ -637,7 +652,7 @@ def _console_html() -> str:
       to {{ opacity: 1; transform: translateY(0); }}
     }}
     @media (max-width: 1100px) {{
-      .hero, .grid {{ grid-template-columns: 1fr; }}
+      .hero, .grid, .dual-grid {{ grid-template-columns: 1fr; }}
       .story-grid, .story-columns {{ grid-template-columns: 1fr; }}
     }}
     @media (max-width: 760px) {{
@@ -685,22 +700,22 @@ def _console_html() -> str:
         <div class="panel-head">
           <div>
             <div class="panel-title">Deploy Mission</div>
-            <div class="panel-sub">Create one watch, one route, and one threshold from the chamber.</div>
+            <div class="panel-sub">Create one watch and optionally attach one alert route, keyword, domain, or threshold.</div>
           </div>
         </div>
         <form id="create-watch-form">
           <div class="field-grid">
             <label>Name<input name="name" placeholder="Launch Ops" required></label>
-            <label>Schedule<input name="schedule" placeholder="@hourly"></label>
+            <label>Schedule<input name="schedule" placeholder="@hourly / interval:15m"></label>
           </div>
           <label>Query<input name="query" placeholder="OpenAI launch" required></label>
           <div class="field-grid">
             <label>Platform<input name="platform" placeholder="twitter"></label>
-            <label>Domain<input name="domain" placeholder="openai.com"></label>
+            <label>Alert Domain<input name="domain" placeholder="openai.com"></label>
           </div>
           <div class="field-grid">
             <label>Alert Route<input name="route" placeholder="ops-webhook"></label>
-            <label>Keyword<input name="keyword" placeholder="launch"></label>
+            <label>Alert Keyword<input name="keyword" placeholder="launch"></label>
           </div>
           <div class="field-grid">
             <label>Min Score<input name="min_score" placeholder="70" type="number"></label>
@@ -737,10 +752,32 @@ def _console_html() -> str:
         <div class="panel-head">
           <div>
             <h2 class="panel-title">Daemon State</h2>
-            <div class="panel-sub">Heartbeat, metrics, and latest scheduler state.</div>
+            <div class="panel-sub">Collector health, watch metrics, route delivery, and latest scheduler failures.</div>
           </div>
         </div>
         <div class="status-shell" id="status-card"></div>
+      </article>
+    </section>
+
+    <section class="dual-grid">
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Mission Cockpit</h2>
+            <div class="panel-sub">Inspect one mission, recent runs, result stream, next schedule, and recent alert outcomes.</div>
+          </div>
+        </div>
+        <div class="stack" id="watch-detail"></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Distribution Health</h2>
+            <div class="panel-sub">Track named route delivery quality and surface degraded sinks before they become silent failures.</div>
+          </div>
+        </div>
+        <div class="stack" id="route-health"></div>
       </article>
     </section>
 
@@ -776,9 +813,13 @@ def _console_html() -> str:
     const initial = {initial_state};
     const state = {{
       watches: [],
+      watchDetails: {{}},
+      selectedWatchId: "",
       alerts: [],
       routes: [],
+      routeHealth: [],
       status: null,
+      ops: null,
       overview: null,
       triage: [],
       triageStats: null,
@@ -821,6 +862,13 @@ def _console_html() -> str:
       return `<div class="metric"><div class="metric-label">${{label}}</div><div class="metric-value ${{tone}}">${{value}}</div></div>`;
     }}
 
+    function formatRate(value) {{
+      if (value === null || value === undefined || Number.isNaN(Number(value))) {{
+        return "-";
+      }}
+      return `${{Math.round(Number(value) * 100)}}%`;
+    }}
+
     function renderOverview() {{
       const metrics = state.overview || {{}};
       $("overview-metrics").innerHTML = [
@@ -844,8 +892,9 @@ def _console_html() -> str:
         const sites = (watch.sites || []).join(", ") || "-";
         const stateChip = watch.enabled ? "ok" : "";
         const dueChip = watch.is_due ? "hot" : "";
+        const selected = watch.id === state.selectedWatchId ? "selected" : "";
         return `
-          <div class="card">
+          <div class="card selectable ${{selected}}">
             <div class="card-top">
               <div>
                 <h3 class="card-title">${{watch.name}}</h3>
@@ -865,13 +914,28 @@ def _console_html() -> str:
               <span>alert_rules=${{watch.alert_rule_count || 0}}</span>
               <span>last_run=${{watch.last_run_at || "-"}}</span>
               <span>status=${{watch.last_run_status || "-"}}</span>
+              <span>next=${{watch.next_run_at || "-"}}</span>
             </div>
             <div class="actions">
+              <button class="btn-secondary" data-watch-open="${{watch.id}}">Open Cockpit</button>
               <button class="btn-secondary" data-run-watch="${{watch.id}}">Run Mission</button>
               <button class="btn-secondary" data-disable-watch="${{watch.id}}">Disable</button>
             </div>
           </div>`;
       }}).join("");
+
+      root.querySelectorAll("[data-watch-open]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          button.disabled = true;
+          try {{
+            await loadWatch(button.dataset.watchOpen);
+          }} catch (error) {{
+            alert(error.message);
+          }} finally {{
+            button.disabled = false;
+          }}
+        }});
+      }});
 
       root.querySelectorAll("[data-run-watch]").forEach((button) => {{
         button.addEventListener("click", async () => {{
@@ -902,6 +966,179 @@ def _console_html() -> str:
       }});
     }}
 
+    async function loadWatch(identifier) {{
+      state.selectedWatchId = identifier;
+      state.watchDetails[identifier] = await api(`/api/watches/${{identifier}}`);
+      renderWatches();
+      renderWatchDetail();
+    }}
+
+    function renderWatchDetail() {{
+      const root = $("watch-detail");
+      const selected = state.selectedWatchId;
+      const watch = state.watchDetails[selected] || state.watches.find((candidate) => candidate.id === selected);
+      if (!watch) {{
+        root.innerHTML = `<div class="empty">Select one mission from the board to inspect schedule, run history, and alert output.</div>`;
+        return;
+      }}
+      const recentRuns = Array.isArray(watch.runs) ? watch.runs : [];
+      const recentResults = Array.isArray(watch.recent_results) ? watch.recent_results : [];
+      const recentAlerts = Array.isArray(watch.recent_alerts) ? watch.recent_alerts : [];
+      const lastFailure = watch.last_failure || null;
+      const retryAdvice = watch.retry_advice || null;
+      const runStats = watch.run_stats || {{}};
+      const resultStats = watch.result_stats || {{}};
+      const deliveryStats = watch.delivery_stats || {{}};
+      const runsBlock = recentRuns.length
+        ? recentRuns.map((run) => `
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{run.status || "success"}}</h3>
+                  <div class="meta">
+                    <span>${{run.id || "-"}}</span>
+                    <span>trigger=${{run.trigger || "manual"}}</span>
+                    <span>items=${{run.item_count || 0}}</span>
+                  </div>
+                </div>
+                <span class="chip ${{run.status === "success" ? "ok" : "hot"}}">${{run.status || "unknown"}}</span>
+              </div>
+              <div class="meta">
+                <span>started=${{run.started_at || "-"}}</span>
+                <span>finished=${{run.finished_at || "-"}}</span>
+              </div>
+              <div class="panel-sub">${{run.error || "No recorded error."}}</div>
+            </div>
+          `).join("")
+        : `<div class="empty">No mission run recorded yet.</div>`;
+      const alertsBlock = recentAlerts.length
+        ? recentAlerts.map((alert) => `
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{alert.rule_name}}</h3>
+                  <div class="meta">
+                    <span>${{alert.created_at || "-"}}</span>
+                    <span>items=${{(alert.item_ids || []).length}}</span>
+                  </div>
+                </div>
+                <span class="chip ${{alert.extra && alert.extra.delivery_errors ? "hot" : "ok"}}">${{(alert.delivered_channels || ["json"]).join(",")}}</span>
+              </div>
+              <div class="panel-sub">${{alert.summary || "No alert summary captured."}}</div>
+            </div>
+          `).join("")
+        : `<div class="empty">No recent alert event for this mission.</div>`;
+      const resultsBlock = recentResults.length
+        ? recentResults.map((item) => `
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{item.title}}</h3>
+                  <div class="meta">
+                    <span>${{item.id}}</span>
+                    <span>score=${{item.score || 0}}</span>
+                    <span>confidence=${{Number(item.confidence || 0).toFixed(2)}}</span>
+                    <span>${{item.source_name || item.source_type || "-"}}</span>
+                  </div>
+                </div>
+                <span class="chip">${{item.review_state || "new"}}</span>
+              </div>
+              <div class="panel-sub">${{item.url || "-"}}</div>
+            </div>
+          `).join("")
+        : `<div class="empty">No persisted result captured for this mission yet.</div>`;
+      const retryCollectors = retryAdvice && Array.isArray(retryAdvice.suspected_collectors)
+        ? retryAdvice.suspected_collectors
+        : [];
+      const retryNotes = retryAdvice && Array.isArray(retryAdvice.notes) ? retryAdvice.notes : [];
+      const failureBlock = lastFailure
+        ? `
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">latest failure</h3>
+                  <div class="meta">
+                    <span>${{lastFailure.id || "-"}}</span>
+                    <span>status=${{lastFailure.status || "error"}}</span>
+                    <span>trigger=${{lastFailure.trigger || "manual"}}</span>
+                    <span>finished=${{lastFailure.finished_at || "-"}}</span>
+                  </div>
+                </div>
+                <span class="chip hot">${{retryAdvice && retryAdvice.failure_class ? retryAdvice.failure_class : "error"}}</span>
+              </div>
+              <div class="panel-sub">${{lastFailure.error || "No failure message captured."}}</div>
+            </div>
+          `
+        : "";
+      const retryAdviceBlock = retryAdvice
+        ? `
+            <div class="card">
+              <div class="mono">retry advice</div>
+              <div class="meta">
+                <span>retry=${{retryAdvice.retry_command || "-"}}</span>
+                <span>daemon=${{retryAdvice.daemon_retry_command || "-"}}</span>
+              </div>
+              <div class="panel-sub">${{retryAdvice.summary || "No retry guidance recorded."}}</div>
+              ${{
+                retryCollectors.length
+                  ? `<div class="stack" style="margin-top:12px;">${{retryCollectors.map((collector) => `
+                      <div class="mini-item">${{collector.name}} | ${{collector.tier || "-"}} | ${{collector.status || "-"}} | available=${{collector.available}} | ${{collector.setup_hint || collector.message || "-"}}</div>
+                    `).join("")}}</div>`
+                  : ""
+              }}
+              ${{
+                retryNotes.length
+                  ? `<div class="stack" style="margin-top:12px;">${{retryNotes.map((note) => `<div class="mini-item">${{note}}</div>`).join("")}}</div>`
+                  : ""
+              }}
+            </div>
+          `
+        : "";
+
+      root.innerHTML = `
+        <div class="card">
+          <div class="card-top">
+            <div>
+              <h3 class="card-title">${{watch.name}}</h3>
+              <div class="meta">
+                <span>${{watch.id}}</span>
+                <span>schedule=${{watch.schedule_label || watch.schedule || "manual"}}</span>
+                <span>next=${{watch.next_run_at || "-"}}</span>
+                <span>query=${{watch.query || "-"}}</span>
+              </div>
+            </div>
+            <span class="chip ${{watch.enabled ? "ok" : "hot"}}">${{watch.enabled ? "enabled" : "disabled"}}</span>
+          </div>
+          <div class="meta">
+            <span>due=${{watch.is_due ? "yes" : "no"}}</span>
+            <span>alert_rules=${{watch.alert_rule_count || 0}}</span>
+            <span>runs=${{runStats.total || 0}}</span>
+            <span>success=${{runStats.success || 0}}</span>
+            <span>errors=${{runStats.error || 0}}</span>
+            <span>results=${{resultStats.stored_result_count || 0}}</span>
+            <span>alerts=${{deliveryStats.recent_alert_count || 0}}</span>
+          </div>
+          <div class="panel-sub">${{watch.last_run_error || "Mission history and recent delivery outcomes are visible below."}}</div>
+        </div>
+        ${{failureBlock}}
+        ${{retryAdviceBlock}}
+        <div class="story-columns">
+          <div class="stack">
+            <div class="mono">recent runs</div>
+            ${{runsBlock}}
+          </div>
+          <div class="stack">
+            <div class="mono">recent alerts</div>
+            ${{alertsBlock}}
+          </div>
+        </div>
+        <div class="stack">
+          <div class="mono">result stream</div>
+          ${{resultsBlock}}
+        </div>
+      `;
+    }}
+
     function renderAlerts() {{
       const root = $("alert-list");
       if (!state.alerts.length) {{
@@ -921,6 +1158,36 @@ def _console_html() -> str:
             <span class="chip hot">${{(alert.delivered_channels || ["json"]).join(",")}}</span>
           </div>
           <div class="panel-sub">${{alert.summary || ""}}</div>
+        </div>
+      `).join("");
+    }}
+
+    function renderRouteHealth() {{
+      const root = $("route-health");
+      if (!state.routeHealth.length) {{
+        root.innerHTML = `<div class="empty">No route health signal yet. Trigger named-route alerts to populate delivery quality.</div>`;
+        return;
+      }}
+      root.innerHTML = state.routeHealth.map((route) => `
+        <div class="card">
+          <div class="card-top">
+            <div>
+              <h3 class="card-title">${{route.name}}</h3>
+              <div class="meta">
+                <span>channel=${{route.channel || "unknown"}}</span>
+                <span>status=${{route.status || "idle"}}</span>
+                <span>rate=${{formatRate(route.success_rate)}}</span>
+              </div>
+            </div>
+            <span class="chip ${{route.status === "healthy" ? "ok" : route.status === "idle" ? "" : "hot"}}">${{route.status || "idle"}}</span>
+          </div>
+          <div class="meta">
+            <span>events=${{route.event_count || 0}}</span>
+            <span>delivered=${{route.delivered_count || 0}}</span>
+            <span>failed=${{route.failure_count || 0}}</span>
+            <span>last=${{route.last_event_at || "-"}}</span>
+          </div>
+          <div class="panel-sub">${{route.last_error || route.last_summary || "No recent route delivery attempt recorded."}}</div>
         </div>
       `).join("");
     }}
@@ -946,9 +1213,24 @@ def _console_html() -> str:
 
     function renderStatus() {{
       const root = $("status-card");
-      const status = state.status || {{}};
+      const ops = state.ops || {{}};
+      const status = ops.daemon || state.status || {{}};
       const metrics = status.metrics || {{}};
+      const collectorSummary = ops.collector_summary || {{}};
+      const routeSummary = ops.route_summary || {{}};
+      const degradedCollectors = ops.degraded_collectors || [];
+      const recentFailures = ops.recent_failures || [];
       const isError = status.state === "error";
+      const collectorBlock = degradedCollectors.length
+        ? degradedCollectors.slice(0, 4).map((collector) => `
+            <div class="mini-item">${{collector.name}} | ${{collector.tier}} | ${{collector.status}} | available=${{collector.available}}</div>
+          `).join("")
+        : '<div class="empty">No degraded collector currently reported.</div>';
+      const failureBlock = recentFailures.length
+        ? recentFailures.slice(0, 4).map((failure) => `
+            <div class="mini-item">${{failure.kind}} | ${{failure.mission_name || failure.name || "-"}} | ${{failure.status || "error"}} | ${{failure.error || "-"}}</div>
+          `).join("")
+        : '<div class="empty">No recent failure captured.</div>';
       root.innerHTML = `
         <div class="state-banner ${{isError ? "error" : ""}}">
           <div class="eyebrow"><span class="dot"></span> daemon / ${{status.state || "idle"}}</div>
@@ -958,11 +1240,41 @@ def _console_html() -> str:
             <span>runs=${{metrics.runs_total || 0}}</span>
             <span>alerts=${{metrics.alerts_total || 0}}</span>
             <span>errors=${{metrics.error_total || 0}}</span>
+            <span>success=${{metrics.success_total || 0}}</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="mono">collector health</div>
+          <div class="meta">
+            <span>total=${{collectorSummary.total || 0}}</span>
+            <span>ok=${{collectorSummary.ok || 0}}</span>
+            <span>warn=${{collectorSummary.warn || 0}}</span>
+            <span>error=${{collectorSummary.error || 0}}</span>
+            <span>unavailable=${{collectorSummary.unavailable || 0}}</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="mono">route health</div>
+          <div class="meta">
+            <span>healthy=${{routeSummary.healthy || 0}}</span>
+            <span>degraded=${{routeSummary.degraded || 0}}</span>
+            <span>missing=${{routeSummary.missing || 0}}</span>
+            <span>idle=${{routeSummary.idle || 0}}</span>
           </div>
         </div>
         <div class="card">
           <div class="mono">last_error</div>
           <div>${{status.last_error || "-"}}</div>
+        </div>
+        <div class="graph-meta">
+          <div class="mini-list">
+            <div class="mono">degraded collectors</div>
+            ${{collectorBlock}}
+          </div>
+          <div class="mini-list">
+            <div class="mono">recent failures</div>
+            ${{failureBlock}}
+          </div>
         </div>`;
     }}
 
@@ -1410,12 +1722,14 @@ def _console_html() -> str:
     }}
 
     async function refreshBoard() {{
-      const [overview, watches, alerts, routes, status, triage, triageStats, stories] = await Promise.all([
+      const [overview, watches, alerts, routes, routeHealth, status, ops, triage, triageStats, stories] = await Promise.all([
         api("/api/overview"),
         api("/api/watches?include_disabled=true"),
         api("/api/alerts?limit=8"),
         api("/api/alert-routes"),
+        api("/api/alert-routes/health?limit=60"),
         api("/api/watch-status"),
+        api("/api/ops"),
         api("/api/triage?limit=6"),
         api("/api/triage/stats"),
         api("/api/stories?limit=6&min_items=2"),
@@ -1424,10 +1738,21 @@ def _console_html() -> str:
       state.watches = watches;
       state.alerts = alerts;
       state.routes = routes;
+      state.routeHealth = routeHealth;
       state.status = status;
+      state.ops = ops;
       state.triage = triage;
       state.triageStats = triageStats;
       state.stories = stories;
+      if (state.watches.length) {{
+        const selectedWatch = state.watches.some((watch) => watch.id === state.selectedWatchId)
+          ? state.selectedWatchId
+          : state.watches[0].id;
+        state.selectedWatchId = selectedWatch;
+        state.watchDetails[selectedWatch] = await api(`/api/watches/${{selectedWatch}}`);
+      }} else {{
+        state.selectedWatchId = "";
+      }}
       if (state.stories.length) {{
         const selected = state.stories.some((story) => story.id === state.selectedStoryId)
           ? state.selectedStoryId
@@ -1447,8 +1772,10 @@ def _console_html() -> str:
       }}
       renderOverview();
       renderWatches();
+      renderWatchDetail();
       renderAlerts();
       renderRoutes();
+      renderRouteHealth();
       renderStatus();
       renderTriage();
       renderStories();
@@ -1467,24 +1794,31 @@ def _console_html() -> str:
     $("create-watch-form").addEventListener("submit", async (event) => {{
       event.preventDefault();
       const form = new FormData(event.target);
-      const alertRule = {{
-        name: "console-threshold",
-        min_score: Number(form.get("min_score") || 0),
-        min_confidence: Number(form.get("min_confidence") || 0),
-        channels: ["json"],
-      }};
       const route = String(form.get("route") || "").trim();
       const keyword = String(form.get("keyword") || "").trim();
       const domain = String(form.get("domain") || "").trim();
-      if (route) alertRule.routes = [route];
-      if (keyword) alertRule.keyword_any = [keyword];
-      if (domain) alertRule.domains = [domain];
+      const minScore = Number(form.get("min_score") || 0);
+      const minConfidence = Number(form.get("min_confidence") || 0);
+      const shouldCreateAlertRule = Boolean(route || keyword || domain || minScore > 0 || minConfidence > 0);
+      let alertRules = null;
+      if (shouldCreateAlertRule) {{
+        const alertRule = {{
+          name: "console-threshold",
+          min_score: minScore,
+          min_confidence: minConfidence,
+          channels: ["json"],
+        }};
+        if (route) alertRule.routes = [route];
+        if (keyword) alertRule.keyword_any = [keyword];
+        if (domain) alertRule.domains = [domain];
+        alertRules = [alertRule];
+      }}
       const payload = {{
         name: String(form.get("name") || "").trim(),
         query: String(form.get("query") || "").trim(),
         schedule: String(form.get("schedule") || "manual").trim() || "manual",
         platforms: String(form.get("platform") || "").trim() ? [String(form.get("platform")).trim()] : null,
-        alert_rules: [alertRule],
+        alert_rules: alertRules,
       }};
       try {{
         await api("/api/watches", {{ method: "POST", headers: jsonHeaders, body: JSON.stringify(payload) }});
@@ -1594,6 +1928,20 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     def list_watches(include_disabled: bool = False) -> list[dict[str, Any]]:
         return reader_factory().list_watches(include_disabled=include_disabled)
 
+    @app.get("/api/watches/{identifier}")
+    def show_watch(identifier: str) -> dict[str, Any]:
+        payload = reader_factory().show_watch(identifier)
+        if payload is None:
+            raise HTTPException(status_code=404, detail=f"Watch mission not found: {identifier}")
+        return payload
+
+    @app.get("/api/watches/{identifier}/results")
+    def watch_results(identifier: str, limit: int = 10, min_confidence: float = 0.0) -> list[dict[str, Any]]:
+        payload = reader_factory().list_watch_results(identifier, limit=limit, min_confidence=min_confidence)
+        if payload is None:
+            raise HTTPException(status_code=404, detail=f"Watch mission not found: {identifier}")
+        return payload
+
     @app.post("/api/watches")
     def create_watch(payload: WatchCreateRequest) -> dict[str, Any]:
         return reader_factory().create_watch(**payload.model_dump())
@@ -1624,9 +1972,17 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     def list_alert_routes() -> list[dict[str, Any]]:
         return reader_factory().list_alert_routes()
 
+    @app.get("/api/alert-routes/health")
+    def alert_route_health(limit: int = 100) -> list[dict[str, Any]]:
+        return reader_factory().alert_route_health(limit=limit)
+
     @app.get("/api/watch-status")
     def watch_status() -> dict[str, Any]:
         return reader_factory().watch_status_snapshot()
+
+    @app.get("/api/ops")
+    def ops_snapshot() -> dict[str, Any]:
+        return reader_factory().ops_snapshot()
 
     @app.get("/api/stories")
     def list_stories(limit: int = 8, min_items: int = 2) -> list[dict[str, Any]]:
@@ -1706,3 +2062,7 @@ def main() -> None:
     import uvicorn
 
     uvicorn.run("datapulse.console_server:create_app", host=args.host, port=args.port, reload=args.reload, factory=True)
+
+
+if __name__ == "__main__":
+    main()

@@ -298,3 +298,62 @@ def test_alert_route_store_redacts_sensitive_fields(tmp_path, monkeypatch):
 
     assert routes[0]["name"] == "ops-webhook"
     assert routes[0]["authorization"] == "***"
+
+
+@pytest.mark.asyncio
+async def test_alert_route_health_reports_degraded_named_route(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
+    monkeypatch.setenv("DATAPULSE_ALERTS_PATH", str(tmp_path / "alerts.json"))
+    monkeypatch.setenv("DATAPULSE_ALERT_ROUTING_PATH", str(tmp_path / "alert-routes.json"))
+
+    (tmp_path / "alert-routes.json").write_text(
+        json.dumps(
+            {
+                "routes": {
+                    "ops-webhook": {
+                        "channel": "webhook",
+                    }
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    mission = reader.create_watch(
+        name="Launch Radar",
+        query="OpenAI launch",
+        alert_rules=[
+            {
+                "name": "route-alert",
+                "min_score": 70,
+                "min_confidence": 0.8,
+                "routes": ["ops-webhook"],
+            }
+        ],
+    )
+
+    async def fake_search(query, **kwargs):
+        item = DataPulseItem(
+            source_type=SourceType.GENERIC,
+            source_name="search",
+            title="OpenAI launch confirmed",
+            content="OpenAI launch details are live now.",
+            url="https://openai.com/blog/openai-launch",
+            confidence=0.95,
+            score=86,
+        )
+        return [item]
+
+    monkeypatch.setattr(reader, "search", fake_search)
+
+    await reader.run_watch(mission["id"])
+    health = reader.alert_route_health(limit=10)
+
+    assert len(health) == 1
+    assert health[0]["name"] == "ops-webhook"
+    assert health[0]["status"] == "degraded"
+    assert health[0]["delivered_count"] == 0
+    assert health[0]["failure_count"] == 1
+    assert "webhook_url is required" in health[0]["last_error"]

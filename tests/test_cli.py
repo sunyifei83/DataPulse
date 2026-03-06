@@ -93,6 +93,105 @@ class _WatchReader:
             )
         return items
 
+    def show_watch(self, identifier):
+        if identifier != "ai-radar":
+            return None
+        return {
+            "id": "ai-radar",
+            "name": "AI Radar",
+            "query": "OpenAI agents",
+            "enabled": True,
+            "schedule": "@hourly",
+            "schedule_label": "hourly",
+            "is_due": True,
+            "next_run_at": "2026-03-06T01:00:00+00:00",
+            "last_run_at": "2026-03-06T00:00:00+00:00",
+            "last_run_status": "success",
+            "last_run_error": "",
+            "run_stats": {
+                "total": 2,
+                "success": 1,
+                "error": 1,
+                "average_items": 1.5,
+            },
+            "delivery_stats": {
+                "recent_alert_count": 1,
+                "recent_error_count": 1,
+            },
+            "runs": [
+                {
+                    "id": "ai-radar:2026-03-06T00:00:00+00:00",
+                    "status": "success",
+                    "trigger": "scheduled",
+                    "item_count": 1,
+                    "finished_at": "2026-03-06T00:00:05+00:00",
+                    "error": "",
+                },
+                {
+                    "id": "ai-radar:2026-03-05T23:00:00+00:00",
+                    "status": "error",
+                    "trigger": "scheduled",
+                    "item_count": 0,
+                    "finished_at": "2026-03-05T23:00:03+00:00",
+                    "error": "temporary upstream failure",
+                },
+            ],
+            "last_failure": {
+                "id": "ai-radar:2026-03-05T23:00:00+00:00",
+                "status": "error",
+                "trigger": "scheduled",
+                "item_count": 0,
+                "finished_at": "2026-03-05T23:00:03+00:00",
+                "error": "temporary upstream failure",
+            },
+            "retry_advice": {
+                "failure_class": "transient",
+                "summary": "The last failed run looks like a transient upstream or network failure.",
+                "retry_command": "datapulse --watch-run ai-radar",
+                "daemon_retry_command": "datapulse --watch-daemon --watch-daemon-once",
+                "suspected_collectors": [
+                    {
+                        "name": "twitter",
+                        "tier": "tier_1",
+                        "status": "warn",
+                        "available": True,
+                        "message": "credentials missing",
+                        "setup_hint": "set API key",
+                    }
+                ],
+                "notes": [
+                    "A manual rerun is usually safe once the upstream recovers.",
+                    "Fix the degraded collector setup below before rerunning the mission.",
+                ],
+            },
+            "recent_alerts": [
+                {
+                    "id": "alert-1",
+                    "rule_name": "threshold",
+                    "delivered_channels": ["json", "webhook:ops-webhook"],
+                    "created_at": "2026-03-06T00:00:10+00:00",
+                    "summary": "AI Radar triggered threshold",
+                }
+            ],
+            "recent_results": self.list_watch_results(identifier),
+        }
+
+    def list_watch_results(self, identifier, limit=10, min_confidence=0.0):
+        if identifier != "ai-radar":
+            return None
+        return [
+            {
+                "id": "item-1",
+                "title": "OpenAI agents result",
+                "url": "https://example.com/openai-agents",
+                "score": 73,
+                "confidence": 0.91,
+                "review_state": "new",
+                "source_name": "search",
+                "source_type": "generic",
+            }
+        ][:limit]
+
     async def run_watch(self, identifier):
         return {
             "mission": {
@@ -162,6 +261,21 @@ class _WatchReader:
             }
         ]
 
+    def alert_route_health(self, limit=100):
+        return [
+            {
+                "name": "ops-webhook",
+                "channel": "webhook",
+                "status": "degraded",
+                "event_count": 2,
+                "delivered_count": 1,
+                "failure_count": 1,
+                "success_rate": 0.5,
+                "last_event_at": "2026-03-06T00:00:10+00:00",
+                "last_error": "webhook_url is required",
+            }
+        ]
+
     async def run_watch_daemon(self, **kwargs):
         return {
             "cycles": 1,
@@ -181,6 +295,54 @@ class _WatchReader:
                 "runs_total": 2,
                 "alerts_total": 1,
             },
+        }
+
+    def ops_snapshot(self, **kwargs):
+        return {
+            "collector_summary": {
+                "total": 4,
+                "ok": 2,
+                "warn": 1,
+                "error": 1,
+                "available": 3,
+                "unavailable": 1,
+            },
+            "degraded_collectors": [
+                {
+                    "name": "telegram",
+                    "tier": "tier_2",
+                    "status": "error",
+                    "available": False,
+                    "message": "missing credentials",
+                }
+            ],
+            "watch_metrics": {
+                "state": "idle",
+                "heartbeat_at": "2026-03-06T00:00:00+00:00",
+                "cycles_total": 3,
+                "runs_total": 2,
+                "success_total": 1,
+                "error_total": 1,
+                "alerts_total": 1,
+                "success_rate": 0.5,
+                "last_error": "",
+            },
+            "route_summary": {
+                "total": 1,
+                "healthy": 0,
+                "degraded": 1,
+                "missing": 0,
+                "idle": 0,
+            },
+            "recent_failures": [
+                {
+                    "kind": "watch_run",
+                    "mission_name": "AI Radar",
+                    "status": "error",
+                    "attempts": 2,
+                    "error": "temporary failure",
+                }
+            ],
         }
 
     def triage_list(self, **kwargs):
@@ -494,6 +656,38 @@ def test_watch_run_due_prints_summary(monkeypatch, capsys):
     assert "- AI Radar [success] items=2 attempts=1 alerts=1" in out
 
 
+def test_watch_show_prints_cockpit_detail(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--watch-show", "ai-radar"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "id: ai-radar" in out
+    assert "next_run_at: 2026-03-06T01:00:00+00:00" in out
+    assert "run_total: 2" in out
+    assert "recent_runs:" in out
+    assert "temporary upstream failure" in out
+    assert "retry_advice:" in out
+    assert "retry_command: datapulse --watch-run ai-radar" in out
+    assert "setup_hint: set API key" in out
+    assert "recent_alerts:" in out
+    assert "recent_results:" in out
+    assert "OpenAI agents result" in out
+
+
+def test_watch_results_prints_rows(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--watch-results", "ai-radar"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "Watch results: 1" in out
+    assert "item-1: score=73 | confidence=0.910 | state=new | source=search" in out
+    assert "OpenAI agents result" in out
+
+
 def test_alert_list_prints_rows(monkeypatch, capsys):
     monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
     monkeypatch.setattr(sys, "argv", ["datapulse", "--alert-list"])
@@ -514,6 +708,19 @@ def test_alert_route_list_prints_rows(monkeypatch, capsys):
 
     assert "Alert routes: 1" in out
     assert "ops-webhook: channel=webhook" in out
+
+
+def test_alert_route_health_prints_rows(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--alert-route-health"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "Alert route health: 1" in out
+    assert "ops-webhook: channel=webhook | status=degraded | events=2 | delivered=1 | failed=1" in out
+    assert "success_rate: 50.0%" in out
+    assert "last_error: webhook_url is required" in out
 
 
 def test_watch_daemon_once_prints_summary(monkeypatch, capsys):
@@ -537,6 +744,23 @@ def test_watch_status_prints_metrics(monkeypatch, capsys):
     assert "state: idle" in out
     assert "cycles_total: 3" in out
     assert "alerts_total: 1" in out
+
+
+def test_ops_overview_prints_summary(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--ops-overview"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "collector_health:" in out
+    assert "warn: 1" in out
+    assert "error: 1" in out
+    assert "watch_metrics:" in out
+    assert "success_rate: 50.0%" in out
+    assert "route_health:" in out
+    assert "recent_failures:" in out
+    assert "temporary failure" in out
 
 
 def test_triage_list_prints_rows(monkeypatch, capsys):
@@ -646,10 +870,18 @@ def test_skill_contract_lists_watch_status_and_alert_envs(monkeypatch, capsys):
     assert "triage_explain" in out
     assert "story_build" in out
     assert "story_graph" in out
+    assert "watch_show" in out
+    assert "watch_results" in out
+    assert "alert_route_health" in out
+    assert "ops_overview" in out
     assert "--triage-list" in out
     assert "--triage-explain" in out
     assert "--story-build" in out
     assert "--story-graph" in out
+    assert "--watch-show" in out
+    assert "--watch-results" in out
+    assert "--alert-route-health" in out
+    assert "--ops-overview" in out
     assert "DATAPULSE_WATCH_STATUS_PATH" in out
     assert "DATAPULSE_STORIES_PATH" in out
     assert "DATAPULSE_WATCH_STATUS_HTML" in out

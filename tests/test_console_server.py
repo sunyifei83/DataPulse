@@ -21,6 +21,7 @@ class _ConsoleReader:
                 "sites": ["openai.com"],
                 "schedule_label": "hourly",
                 "is_due": True,
+                "next_run_at": "2026-03-06T01:00:00+00:00",
                 "alert_rule_count": 1,
                 "last_run_at": "2026-03-06T00:00:00+00:00",
                 "last_run_status": "success",
@@ -37,12 +38,123 @@ class _ConsoleReader:
                     "sites": [],
                     "schedule_label": "manual",
                     "is_due": False,
+                    "next_run_at": "",
                     "alert_rule_count": 0,
                     "last_run_at": "",
                     "last_run_status": "",
                 }
             )
         return rows
+
+    def show_watch(self, identifier):
+        if identifier != "launch-ops":
+            return None
+        return {
+            "id": "launch-ops",
+            "name": "Launch Ops",
+            "query": "OpenAI launch",
+            "enabled": True,
+            "platforms": ["twitter"],
+            "sites": ["openai.com"],
+            "schedule": "@hourly",
+            "schedule_label": "hourly",
+            "is_due": True,
+            "next_run_at": "2026-03-06T01:00:00+00:00",
+            "alert_rule_count": 1,
+            "last_run_at": "2026-03-06T00:00:00+00:00",
+            "last_run_status": "success",
+            "last_run_error": "",
+            "runs": [
+                {
+                    "id": "launch-ops:2026-03-06T00:00:00+00:00",
+                    "mission_id": "launch-ops",
+                    "status": "success",
+                    "item_count": 2,
+                    "trigger": "scheduled",
+                    "started_at": "2026-03-06T00:00:00+00:00",
+                    "finished_at": "2026-03-06T00:00:05+00:00",
+                    "error": "",
+                }
+            ],
+            "run_stats": {
+                "total": 1,
+                "success": 1,
+                "error": 0,
+                "average_items": 2.0,
+                "last_status": "success",
+                "last_error": "",
+            },
+            "last_failure": {
+                "id": "launch-ops:2026-03-05T23:00:00+00:00",
+                "mission_id": "launch-ops",
+                "status": "error",
+                "item_count": 0,
+                "trigger": "scheduled",
+                "started_at": "2026-03-05T23:00:00+00:00",
+                "finished_at": "2026-03-05T23:00:03+00:00",
+                "error": "credentials missing",
+            },
+            "retry_advice": {
+                "failure_class": "credentials",
+                "summary": "The last failed run looks blocked by missing credentials or an expired session.",
+                "retry_command": "datapulse --watch-run launch-ops",
+                "daemon_retry_command": "datapulse --watch-daemon --watch-daemon-once",
+                "suspected_collectors": [
+                    {
+                        "name": "twitter",
+                        "tier": "tier_1",
+                        "status": "warn",
+                        "available": True,
+                        "message": "credentials missing",
+                        "setup_hint": "set API key",
+                    }
+                ],
+                "notes": [
+                    "Validate upstream API keys or platform login state before rerunning.",
+                    "Fix the degraded collector setup below before rerunning the mission.",
+                ],
+            },
+            "recent_results": [
+                {
+                    "id": "item-1",
+                    "title": "OpenAI launch post",
+                    "url": "https://example.com/openai-launch",
+                    "score": 91,
+                    "confidence": 0.96,
+                    "review_state": "verified",
+                    "source_name": "OpenAI Blog",
+                    "source_type": "generic",
+                }
+            ],
+            "result_stats": {
+                "stored_result_count": 1,
+                "returned_result_count": 1,
+                "latest_result_at": "2026-03-06T00:00:00+00:00",
+            },
+            "recent_alerts": [
+                {
+                    "id": "alert-1",
+                    "mission_id": "launch-ops",
+                    "mission_name": "Launch Ops",
+                    "rule_name": "console-threshold",
+                    "summary": "Launch Ops triggered console-threshold",
+                    "created_at": "2026-03-06T00:00:10+00:00",
+                    "item_ids": ["item-1", "item-2"],
+                    "delivered_channels": ["json", "webhook:ops-webhook"],
+                    "extra": {},
+                }
+            ],
+            "delivery_stats": {
+                "recent_alert_count": 1,
+                "recent_error_count": 0,
+                "last_alert_at": "2026-03-06T00:00:10+00:00",
+            },
+        }
+
+    def list_watch_results(self, identifier, limit=10, min_confidence=0.0):
+        if identifier != "launch-ops":
+            return None
+        return self.show_watch(identifier)["recent_results"][:limit]
 
     def create_watch(self, **kwargs):
         return {
@@ -87,12 +199,83 @@ class _ConsoleReader:
     def list_alert_routes(self):
         return [{"name": "ops-webhook", "channel": "webhook"}]
 
+    def alert_route_health(self, limit=100):
+        return [
+            {
+                "name": "ops-webhook",
+                "channel": "webhook",
+                "configured": True,
+                "status": "healthy",
+                "event_count": 1,
+                "delivered_count": 1,
+                "failure_count": 0,
+                "success_rate": 1.0,
+                "last_event_at": "2026-03-06T00:00:10+00:00",
+                "last_delivered_at": "2026-03-06T00:00:10+00:00",
+                "last_failed_at": "",
+                "last_error": "",
+                "last_summary": "Launch Ops triggered console-threshold",
+                "mission_ids": ["launch-ops"],
+                "rule_names": ["console-threshold"],
+            }
+        ]
+
     def watch_status_snapshot(self):
         return {
             "state": "running",
             "heartbeat_at": "2026-03-06T00:00:00+00:00",
             "metrics": {"cycles_total": 3, "runs_total": 2, "alerts_total": 1, "error_total": 0},
             "last_error": "",
+        }
+
+    def ops_snapshot(self):
+        return {
+            "collector_summary": {
+                "total": 4,
+                "ok": 3,
+                "warn": 1,
+                "error": 0,
+                "available": 4,
+                "unavailable": 0,
+            },
+            "collector_tiers": {
+                "tier_0": {"total": 2, "ok": 2, "warn": 0, "error": 0, "available": 2, "unavailable": 0},
+                "tier_1": {"total": 1, "ok": 0, "warn": 1, "error": 0, "available": 1, "unavailable": 0},
+            },
+            "degraded_collectors": [
+                {
+                    "tier": "tier_1",
+                    "name": "twitter",
+                    "status": "warn",
+                    "available": True,
+                    "message": "credentials missing",
+                    "setup_hint": "set API key",
+                }
+            ],
+            "watch_metrics": {
+                "state": "running",
+                "heartbeat_at": "2026-03-06T00:00:00+00:00",
+                "cycles_total": 3,
+                "runs_total": 2,
+                "success_total": 2,
+                "error_total": 0,
+                "alerts_total": 1,
+                "success_rate": 1.0,
+                "last_error": "",
+            },
+            "route_summary": {"total": 1, "healthy": 1, "degraded": 0, "missing": 0, "idle": 0},
+            "route_health": self.alert_route_health(),
+            "recent_failures": [
+                {
+                    "kind": "route_delivery",
+                    "name": "ops-webhook",
+                    "channel": "webhook",
+                    "status": "degraded",
+                    "error": "timeout",
+                }
+            ],
+            "recent_alerts": self.list_alerts(),
+            "daemon": self.watch_status_snapshot(),
         }
 
     def triage_list(self, **kwargs):
@@ -259,6 +442,9 @@ def test_console_index_serves_shell():
     assert "/brand/icon" in response.text
     assert "/brand/square" in response.text
     assert "create-watch-form" in response.text
+    assert "Mission Cockpit" in response.text
+    assert "retry advice" in response.text
+    assert "Distribution Health" in response.text
     assert "Triage Queue" in response.text
     assert "Story Workspace" in response.text
 
@@ -347,12 +533,44 @@ def test_console_routes_and_status():
     client = _client()
 
     routes = client.get("/api/alert-routes")
+    health = client.get("/api/alert-routes/health?limit=20")
     status = client.get("/api/watch-status")
+    ops = client.get("/api/ops")
 
     assert routes.status_code == 200
     assert routes.json()[0]["name"] == "ops-webhook"
+    assert health.status_code == 200
+    assert health.json()[0]["status"] == "healthy"
+    assert health.json()[0]["success_rate"] == 1.0
     assert status.status_code == 200
     assert status.json()["metrics"]["cycles_total"] == 3
+    assert ops.status_code == 200
+    assert ops.json()["collector_summary"]["warn"] == 1
+    assert ops.json()["degraded_collectors"][0]["name"] == "twitter"
+
+
+def test_console_watch_detail_route():
+    client = _client()
+    response = client.get("/api/watches/launch-ops")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == "launch-ops"
+    assert payload["run_stats"]["success"] == 1
+    assert payload["last_failure"]["status"] == "error"
+    assert payload["retry_advice"]["retry_command"] == "datapulse --watch-run launch-ops"
+    assert payload["recent_results"][0]["id"] == "item-1"
+    assert payload["recent_alerts"][0]["rule_name"] == "console-threshold"
+
+
+def test_console_watch_results_route():
+    client = _client()
+    response = client.get("/api/watches/launch-ops/results?limit=5")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload[0]["id"] == "item-1"
+    assert payload[0]["title"] == "OpenAI launch post"
 
 
 def test_console_triage_routes():

@@ -436,6 +436,18 @@ async def _run_list_watches(include_disabled: bool = False) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
+async def _run_watch_show(identifier: str) -> str:
+    reader = DataPulseReader()
+    payload = reader.show_watch(identifier)
+    return json.dumps({"ok": payload is not None, "mission": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_watch_results(identifier: str, limit: int = 10, min_confidence: float = 0.0) -> str:
+    reader = DataPulseReader()
+    payload = reader.list_watch_results(identifier, limit=limit, min_confidence=min_confidence)
+    return json.dumps({"ok": payload is not None, "results": payload or []}, ensure_ascii=False, indent=2)
+
+
 async def _run_run_watch(identifier: str) -> str:
     reader = DataPulseReader()
     payload = await reader.run_watch(identifier)
@@ -470,9 +482,25 @@ async def _run_list_alert_routes() -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
+async def _run_alert_route_health(limit: int = 100) -> str:
+    reader = DataPulseReader()
+    payload = reader.alert_route_health(limit=limit)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
 async def _run_watch_status() -> str:
     reader = DataPulseReader()
     payload = reader.watch_status_snapshot()
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_ops_overview(alert_limit: int = 8, route_limit: int = 100, recent_failure_limit: int = 5) -> str:
+    reader = DataPulseReader()
+    payload = reader.ops_snapshot(
+        alert_limit=alert_limit,
+        route_limit=route_limit,
+        recent_failure_limit=recent_failure_limit,
+    )
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
@@ -784,6 +812,16 @@ def _register_tools(app: Any) -> None:
         return await _run_list_watches(include_disabled=include_disabled)
 
     @app.tool()
+    async def watch_show(identifier: str) -> str:
+        """Show one watch mission with recent runs, persisted results, recent alerts, and retry advice."""
+        return await _run_watch_show(identifier=identifier)
+
+    @app.tool()
+    async def watch_results(identifier: str, limit: int = 10, min_confidence: float = 0.0) -> str:
+        """Show recent persisted results for one watch mission."""
+        return await _run_watch_results(identifier=identifier, limit=limit, min_confidence=min_confidence)
+
+    @app.tool()
     async def run_watch(identifier: str) -> str:
         """Run one watch mission by id or name."""
         return await _run_run_watch(identifier=identifier)
@@ -809,9 +847,23 @@ def _register_tools(app: Any) -> None:
         return await _run_list_alert_routes()
 
     @app.tool()
+    async def alert_route_health(limit: int = 100) -> str:
+        """Show delivery health for named alert routes."""
+        return await _run_alert_route_health(limit=limit)
+
+    @app.tool()
     async def watch_status() -> str:
         """Show watch daemon heartbeat and metrics."""
         return await _run_watch_status()
+
+    @app.tool()
+    async def ops_overview(alert_limit: int = 8, route_limit: int = 100, recent_failure_limit: int = 5) -> str:
+        """Show a unified ops snapshot across collector health, watch metrics, route delivery, and recent failures."""
+        return await _run_ops_overview(
+            alert_limit=alert_limit,
+            route_limit=route_limit,
+            recent_failure_limit=recent_failure_limit,
+        )
 
     @app.tool()
     async def query_feed(profile: str = "default", source_ids: list[str] | None = None,

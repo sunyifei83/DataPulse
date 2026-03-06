@@ -38,25 +38,30 @@ if ! command -v datapulse-smoke >/dev/null 2>&1; then
   DATAPULSE_SMOKE=("${PYTHON_CMD[@]}" -m datapulse.tools.smoke)
 fi
 
-echo "[1/6] Env check"
+DATAPULSE_CONSOLE_SMOKE=(bash scripts/datapulse_console_smoke.sh)
+
+echo "[1/7] Env check"
 printf '%s\n' "  Python: $(${PYTHON_CMD[@]} --version 2>&1 || true)"
 printf '%s\n' "  Pip package: datapulse -> $(run_python -c 'import datapulse,sys; print(datapulse.__name__)' 2>/dev/null || echo unavailable)"
 
-echo "[2/6] CLI smoke list (safe)"
+echo "[2/7] CLI smoke list (safe)"
 if [[ ${#DATAPULSE_SMOKE[@]} -gt 0 ]]; then
   "${DATAPULSE_SMOKE[@]}" --list || true
 else
   echo "  ⚠️ datapulse-smoke not installed in PATH."
 fi
 
-echo "[3/6] CLI single URL (if URL_1 is set)"
+echo "[3/7] Console smoke"
+"${DATAPULSE_CONSOLE_SMOKE[@]}"
+
+echo "[4/7] CLI single URL (if URL_1 is set)"
 if [[ -n "${URL_1:-}" ]]; then
   "${DATAPULSE_CLI[@]}" "$URL_1" --min-confidence "${MIN_CONFIDENCE:-0.0}"
 else
   echo "  ⚪ Skip: set URL_1 for a real URL test."
 fi
 
-echo "[4/6] CLI batch URL (if URL_BATCH is set)"
+echo "[5/7] CLI batch URL (if URL_BATCH is set)"
 if [[ -n "${URL_BATCH:-}" ]]; then
   IFS=' ' read -r -a batch_urls <<< "${URL_BATCH}"
   "${DATAPULSE_CLI[@]}" --batch "${batch_urls[@]}" --min-confidence "${MIN_CONFIDENCE:-0.0}"
@@ -64,11 +69,11 @@ else
   echo "  ⚪ Skip: set URL_BATCH for one-line batch test."
 fi
 
-echo "[5/6] Memory lifecycle"
+echo "[6/7] Memory lifecycle"
 ${DATAPULSE_CLI[@]} --list --limit 5 --min-confidence 0.0 || true
 ${DATAPULSE_CLI[@]} --clear
 
-echo "[6/6] Agent quick call (if URL_BATCH or URL_1 set)"
+echo "[7/7] Agent quick call (if URL_BATCH or URL_1 set)"
 if [[ -n "${URL_1:-}${URL_BATCH:-}" ]]; then
   run_python - <<'PY'
 import asyncio

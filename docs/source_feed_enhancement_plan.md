@@ -51,8 +51,8 @@
 - `DataPulseReader` 支持 `run_due_watches` 执行当前到期任务。
 - `DataPulseReader` 支持 `run_watch_daemon`，带单实例锁。
 - `DataPulseReader` 支持 `watch_status_snapshot` 输出 daemon 心跳、指标与最近错误。
-- CLI 支持 `--watch-create / --watch-list / --watch-run / --watch-run-due / --watch-daemon / --watch-status / --alert-list / --alert-route-list / --watch-disable`。
-- MCP 首版开放：`create_watch / list_watches / run_watch / run_due_watches / list_alerts / list_alert_routes / watch_status / disable_watch`。
+- CLI 支持 `--watch-create / --watch-list / --watch-show / --watch-results / --watch-run / --watch-run-due / --watch-daemon / --watch-status / --alert-list / --alert-route-list / --alert-route-health / --watch-disable`。
+- MCP 首版开放：`create_watch / list_watches / watch_show / watch_results / run_watch / run_due_watches / list_alerts / list_alert_routes / alert_route_health / watch_status / disable_watch`。
 - 当前范围为“保存搜索 + 手动执行 + 轻量 due runner + daemon 轮询 + richer alert rule + named routing + 状态页”；自动恢复与更复杂编排留待下一阶段。
 
 ### P7：Triage Queue 处置层 🚧 (v0.8.0 进行中)
@@ -95,22 +95,26 @@
 - `datapulse --list-sources`、`--list-packs`、`--resolve-source` 基本通过。
 - `datapulse --query-feed` 与 `--query-rss` 可生成可读 Feed。
 - `datapulse --watch-create`、`--watch-list`、`--watch-run`、`--watch-disable` 可完成首版任务闭环。
+- `datapulse --watch-show` 可查看单个任务的近期运行、近期结果流、近期告警，以及最近一次失败原因与重试建议。
+- `datapulse --watch-results` 可单独读取某个任务的持久化结果流。
 - `datapulse --watch-run-due` 可执行所有到期任务。
 - `datapulse --watch-daemon --watch-daemon-once` 可执行单轮 daemon 周期并受锁保护。
 - `datapulse --watch-status` 可查看 daemon 心跳、指标与最近错误。
 - `datapulse --alert-list` 可查看阈值告警落库结果。
 - `datapulse --alert-route-list` 可审计命名路由配置。
+- `datapulse --alert-route-health` 可查看命名路由的投递健康状态。
 - `datapulse --triage-list / --triage-explain / --triage-update / --triage-note / --triage-stats` 可完成首版处置闭环。
 - `datapulse --story-build / --story-list / --story-show / --story-export` 可完成首版证据组织闭环。
-- MCP 包含新增工具：`resolve_source/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed/create_watch/list_watches/run_watch/run_due_watches/triage_list/triage_explain/triage_update/triage_note/triage_stats/story_build/story_list/story_show/story_graph/story_export/list_alerts/list_alert_routes/watch_status/disable_watch`。
+- MCP 包含新增工具：`resolve_source/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed/create_watch/list_watches/watch_show/watch_results/run_watch/run_due_watches/triage_list/triage_explain/triage_update/triage_note/triage_stats/story_build/story_list/story_show/story_graph/story_export/list_alerts/list_alert_routes/alert_route_health/watch_status/disable_watch`。
 - 远端 OpenClaw 入口可通过 `read_url/read_batch` 与 feed 查询联调。
 
 ## 横向蓝图：GUI Intelligence Console
 
 - GUI 已进入合理建设窗口，但不应独立于领域模型先行。
 - 推荐顺序：先补 HTTP API 适配层，再做本地单用户浏览器控制台。
-- 当前浏览器控制台已承接 `P6 + P7 + P8 first cut`：watch、alerts、routes、status、triage、story board。
-- `G0/G3` 壳层已落地：`FastAPI` + `datapulse-console` + `/api/overview` / `/api/watches` / `/api/alerts` / `/api/alert-routes` / `/api/watch-status` / `/api/triage` / `/api/triage/{id}/explain` / `/api/stories` / `/api/stories/{id}` / `/api/stories/{id}/graph` / `/api/stories/{id}/export`。
+- 当前浏览器控制台已承接 `P6 + P7 + P8 first cut`，并补入 `G1/G4 read-only slice`：watch、mission cockpit、result stream、retry advice、alerts、routes、route health、status、triage、story board。
+- `G0/G3` 壳层已落地，且已补入 `mission detail + result stream` 与 `route health` 首版：`FastAPI` + `datapulse-console` + `/api/overview` / `/api/watches` / `/api/watches/{id}` / `/api/watches/{id}/results` / `/api/alerts` / `/api/alert-routes` / `/api/alert-routes/health` / `/api/watch-status` / `/api/triage` / `/api/triage/{id}/explain` / `/api/stories` / `/api/stories/{id}` / `/api/stories/{id}/graph` / `/api/stories/{id}/export`。
+- console 启动入口已补齐：`datapulse-console`、`python -m datapulse.console_server` 与 `scripts/datapulse_console.sh`；仓内附带 `scripts/datapulse_console_smoke.sh` 做入口烟测。
 - `P8` backend 与首版 GUI story board 已打通，当前已补入 story-aware entity graph；后续再进入编辑能力。
 - GUI 增量应随仓内提交进入 GitHub Actions，至少通过 `ruff` / `mypy` / `pytest` 与 `datapulse-console --help` 烟测。
 - 详细方案见 [gui_intelligence_console_plan.md](/Users/sunyifei/DataPulse/docs/gui_intelligence_console_plan.md)。

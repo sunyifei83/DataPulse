@@ -87,9 +87,12 @@ Current implementation status:
 
 - `FastAPI` adapter shipped in `datapulse/console_server.py`
 - browser shell shipped as a local-first single-file UI with `/api/overview`
-- current endpoints implemented: `GET /api/overview`, `GET /api/watches`, `POST /api/watches`, `POST /api/watches/{id}/run`, `POST /api/watches/{id}/disable`, `POST /api/watches/run-due`, `GET /api/alerts`, `GET /api/alert-routes`, `GET /api/watch-status`, `GET /api/triage`, `GET /api/triage/{id}/explain`, `POST /api/triage/{id}/state`, `GET /api/triage/stats`
-- launch entry point: `datapulse-console --port 8765`
+- current endpoints implemented: `GET /api/overview`, `GET /api/watches`, `GET /api/watches/{id}`, `POST /api/watches`, `POST /api/watches/{id}/run`, `POST /api/watches/{id}/disable`, `POST /api/watches/run-due`, `GET /api/alerts`, `GET /api/alert-routes`, `GET /api/alert-routes/health`, `GET /api/watch-status`, `GET /api/triage`, `GET /api/triage/{id}/explain`, `POST /api/triage/{id}/state`, `GET /api/triage/stats`
+- launch entry points: `datapulse-console --port 8765`, `python -m datapulse.console_server --port 8765`, `bash scripts/datapulse_console.sh --port 8765`
+- console smoke script shipped: `bash scripts/datapulse_console_smoke.sh`
 - a lightweight triage queue panel is now available inside the G0 shell, including duplicate explain cards; full keyboard-first analyst workflow still belongs to G2
+- mission detail is now available as a first-cut cockpit slice inside the shell, including next run, recent runs, recent alert outcomes, a persisted result stream, and retry guidance for the latest failed run
+- route health is now available as a read-only ops slice for named delivery targets, surfacing healthy/degraded/missing delivery states
 
 ### G1: Mission Cockpit
 
@@ -109,6 +112,13 @@ Scope:
 Exit criteria:
 
 - one mission can be reviewed, run, tuned, and audited from a single screen
+
+Current implementation status:
+
+- first-cut mission cockpit shipped inside the existing shell via `GET /api/watches/{id}` and `GET /api/watches/{id}/results`
+- current cockpit scope: schedule context, recent run history, recent alert outcomes, persisted result stream, and latest-failure retry guidance
+- current parity outside the browser: `datapulse --watch-show`, `datapulse --watch-results`, `watch_show(identifier)`, and `watch_results(identifier)`
+- remaining G1 scope still open: filter chips, timeline strip, alert rule editor
 
 ### G2: Triage Workspace
 

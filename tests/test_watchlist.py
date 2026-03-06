@@ -100,6 +100,145 @@ async def test_reader_run_watch_records_metadata(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_reader_show_watch_returns_cockpit_detail(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
+    monkeypatch.setenv("DATAPULSE_ALERTS_PATH", str(tmp_path / "alerts.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    mission = reader.create_watch(
+        name="Launch Ops",
+        query="OpenAI launch",
+        alert_rules=[
+            {
+                "name": "threshold",
+                "min_score": 70,
+                "min_confidence": 0.8,
+            }
+        ],
+    )
+
+    async def fake_search(query, **kwargs):
+        item = DataPulseItem(
+            source_type=SourceType.GENERIC,
+            source_name="search",
+            title=f"{query} result",
+            content="Synthetic search result content",
+            url="https://example.com/openai-launch",
+            confidence=0.92,
+            score=78,
+        )
+        reader.inbox.add(item, fingerprint_dedup=False)
+        reader.inbox.save()
+        return [item]
+
+    monkeypatch.setattr(reader, "search", fake_search)
+
+    await reader.run_watch(mission["id"])
+    payload = reader.show_watch(mission["id"])
+
+    assert payload is not None
+    assert payload["id"] == mission["id"]
+    assert payload["run_stats"]["total"] == 1
+    assert payload["run_stats"]["success"] == 1
+    assert payload["recent_results"][0]["title"] == "OpenAI launch result"
+    assert payload["recent_results"][0]["extra"]["watch_mission_id"] == mission["id"]
+    assert payload["result_stats"]["stored_result_count"] == 1
+    assert payload["result_stats"]["returned_result_count"] == 1
+    assert payload["recent_alerts"][0]["rule_name"] == "threshold"
+    assert payload["delivery_stats"]["recent_alert_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_reader_list_watch_results_filters_by_mission(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    mission = reader.create_watch(name="AI Radar", query="OpenAI agents")
+
+    matched = DataPulseItem(
+        source_type=SourceType.GENERIC,
+        source_name="search",
+        title="OpenAI agents result",
+        content="Synthetic search result content",
+        url="https://example.com/openai-agents",
+        fetched_at="2026-03-06T00:00:00+00:00",
+        confidence=0.91,
+        score=73,
+        extra={"watch_mission_id": mission["id"], "watch_mission_name": mission["name"]},
+    )
+    unrelated = DataPulseItem(
+        source_type=SourceType.GENERIC,
+        source_name="search",
+        title="Infra result",
+        content="Synthetic unrelated result",
+        url="https://example.com/infra",
+        fetched_at="2026-03-06T00:01:00+00:00",
+        confidence=0.95,
+        score=88,
+    )
+
+    reader.inbox.add(matched, fingerprint_dedup=False)
+    reader.inbox.add(unrelated, fingerprint_dedup=False)
+    reader.inbox.save()
+
+    payload = reader.list_watch_results(mission["id"], limit=5)
+
+    assert payload is not None
+    assert len(payload) == 1
+    assert payload[0]["title"] == "OpenAI agents result"
+    assert payload[0]["extra"]["watch_mission_id"] == mission["id"]
+
+
+@pytest.mark.asyncio
+async def test_reader_show_watch_includes_retry_advice_for_last_failure(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    mission = reader.create_watch(
+        name="AI Radar",
+        query="OpenAI agents",
+        platforms=["twitter"],
+        schedule="@hourly",
+    )
+
+    async def failing_search(query, **kwargs):
+        raise RuntimeError("temporary upstream failure")
+
+    monkeypatch.setattr(reader, "search", failing_search)
+    monkeypatch.setattr(
+        reader,
+        "doctor",
+        lambda: {
+            "tier_0": [],
+            "tier_1": [
+                {
+                    "name": "twitter",
+                    "status": "warn",
+                    "message": "credentials missing",
+                    "available": True,
+                    "setup_hint": "set API key",
+                }
+            ],
+            "tier_2": [],
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="temporary upstream failure"):
+        await reader.run_watch(mission["id"])
+
+    payload = reader.show_watch(mission["id"])
+
+    assert payload is not None
+    assert payload["last_failure"]["status"] == "error"
+    assert payload["last_failure"]["error"] == "temporary upstream failure"
+    assert payload["retry_advice"]["failure_class"] == "transient"
+    assert payload["retry_advice"]["retry_command"] == "datapulse --watch-run ai-radar"
+    assert payload["retry_advice"]["daemon_retry_command"] == "datapulse --watch-daemon --watch-daemon-once"
+    assert payload["retry_advice"]["suspected_collectors"][0]["name"] == "twitter"
+    assert payload["retry_advice"]["suspected_collectors"][0]["setup_hint"] == "set API key"
+
+
+@pytest.mark.asyncio
 async def test_reader_run_watch_rejects_disabled(tmp_path, monkeypatch):
     watch_path = tmp_path / "watchlist.json"
     monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(watch_path))

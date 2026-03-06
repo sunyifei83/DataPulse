@@ -70,6 +70,8 @@ run_cmd() {
 step "1) 环境与入口"
 run_cmd "datapulse CLI 可用（入口）" "${DATAPULSE_CLI[@]}" --help
 run_cmd "datapulse-smoke 可用（入口）" "${DATAPULSE_SMOKE[@]}" --list
+run_cmd "datapulse console 可用（模块）" "$PYTHON_BIN" -m datapulse.console_server --help
+run_cmd "datapulse console 包装脚本" bash scripts/datapulse_console.sh --help
 run_cmd "Python 加载 datapulse" "$PYTHON_BIN" - <<'PY'
 import datapulse
 print(datapulse.__name__)
