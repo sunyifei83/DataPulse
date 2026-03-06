@@ -4,7 +4,7 @@ import math
 import os
 import re
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .models import DataPulseItem
 from .utils import content_fingerprint, get_domain
@@ -47,17 +47,19 @@ def recency_score(fetched_at: str, now: datetime | None = None) -> float:
     Returns 1.0 for brand new, decays with half-life from DATAPULSE_RECENCY_HALF_LIFE env (default 24h).
     """
     if now is None:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    else:
+        now = now.astimezone(timezone.utc)
     try:
-        raw = fetched_at.replace("Z", "+00:00").replace("+00:00", "")
-        # Strip any remaining timezone offset (e.g. +05:30, -08:00)
-        if len(raw) > 19 and (raw[-6] == "+" or raw[-6] == "-"):
-            raw = raw[:-6]
-        elif len(raw) > 19 and (raw[-5] == "+" or raw[-5] == "-"):
-            raw = raw[:-5]
-        ts = datetime.fromisoformat(raw)
+        ts = datetime.fromisoformat(fetched_at.replace("Z", "+00:00"))
     except (ValueError, AttributeError, TypeError):
         return 0.5  # fallback for unparseable timestamps
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    else:
+        ts = ts.astimezone(timezone.utc)
 
     age_hours = max(0.0, (now - ts).total_seconds() / 3600.0)
     half_life = float(os.getenv("DATAPULSE_RECENCY_HALF_LIFE", str(_DEFAULT_HALF_LIFE_HOURS)))
@@ -77,7 +79,7 @@ def _parse_timestamp_candidate(value: object) -> datetime | None:
         if ts <= 0:
             return None
         try:
-            return datetime.utcfromtimestamp(ts)
+            return datetime.fromtimestamp(ts, timezone.utc)
         except (ValueError, OSError):
             return None
 
@@ -92,9 +94,9 @@ def _parse_timestamp_candidate(value: object) -> datetime | None:
         parsed = datetime.fromisoformat(normalized)
     except ValueError:
         return None
-    if parsed.tzinfo is not None:
-        return parsed.astimezone(tz=None).replace(tzinfo=None)
-    return parsed
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _tweet_time_from_url(url: str) -> datetime | None:
@@ -109,7 +111,7 @@ def _tweet_time_from_url(url: str) -> datetime | None:
     if ms <= 0:
         return None
     try:
-        return datetime.utcfromtimestamp(ms / 1000.0)
+        return datetime.fromtimestamp(ms / 1000.0, timezone.utc)
     except (ValueError, OSError):
         return None
 
@@ -382,7 +384,7 @@ def compute_composite_score(
 
     score = max(0, min(100, round(raw * 100)))
 
-    breakdown = {
+    breakdown: dict[str, float | str] = {
         "confidence": round(dim_confidence, 4),
         "authority": round(dim_authority, 4),
         "corroboration": round(dim_corroboration, 4),

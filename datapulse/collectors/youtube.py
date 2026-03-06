@@ -175,7 +175,8 @@ class YouTubeCollector(BaseCollector):
         try:
             from youtube_transcript_api import YouTubeTranscriptApi
 
-            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+            api = YouTubeTranscriptApi()
+            transcript_list = api.list(video_id)
             transcript = None
             lang = ""
             for candidate in self.preferred_languages:
@@ -203,7 +204,7 @@ class YouTubeCollector(BaseCollector):
                 return "", ""
 
             segments = transcript.fetch()
-            lines = [s.get("text", "") for s in segments]
+            lines = [getattr(s, "text", "") for s in segments]
             text = " ".join(line for line in lines if line)
             return (clean_text(text), lang)
         except Exception as exc:

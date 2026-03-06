@@ -1,0 +1,552 @@
+"""Alert evaluation, storage, and simple distribution for watch missions."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
+
+import requests
+
+from .models import DataPulseItem
+from .utils import alert_routing_path_from_env, alerts_markdown_path_from_env, alerts_path_from_env
+from .watchlist import WatchMission
+
+
+def _utcnow() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _parse_dt(value: str) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+@dataclass
+class AlertEvent:
+    mission_id: str
+    mission_name: str
+    rule_name: str
+    channels: list[str] = field(default_factory=lambda: ["json"])
+    item_ids: list[str] = field(default_factory=list)
+    summary: str = ""
+    created_at: str = ""
+    delivered_channels: list[str] = field(default_factory=list)
+    id: str = ""
+    extra: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.created_at:
+            self.created_at = _utcnow()
+        self.channels = [str(channel).strip().lower() for channel in self.channels if str(channel).strip()]
+        if not self.channels:
+            self.channels = ["json"]
+        if not self.id:
+            seed = f"{self.mission_id}:{self.rule_name}:{self.created_at}:{','.join(self.item_ids[:3])}"
+            self.id = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:12]
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "AlertEvent":
+        valid = {f.name for f in cls.__dataclass_fields__.values()}
+        return cls(**{k: v for k, v in data.items() if k in valid})
+
+
+class AlertStore:
+    """File-backed store for watch alert events."""
+
+    def __init__(self, path: str | None = None):
+        self.path = Path(path or alerts_path_from_env()).expanduser()
+        self.events: list[AlertEvent] = []
+        self.max_items = int(os.getenv("DATAPULSE_MAX_ALERTS", "500"))
+        self._load()
+
+    def _load(self) -> None:
+        if not self.path.exists():
+            self.events = []
+            return
+        try:
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            self.events = []
+            return
+        rows = raw if isinstance(raw, list) else raw.get("events", []) if isinstance(raw, dict) else []
+        loaded: list[AlertEvent] = []
+        for row in rows if isinstance(rows, list) else []:
+            if not isinstance(row, dict):
+                continue
+            try:
+                loaded.append(AlertEvent.from_dict(row))
+            except (TypeError, ValueError):
+                continue
+        self.events = sorted(loaded, key=lambda event: event.created_at, reverse=True)[: self.max_items]
+
+    def save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        payload = [event.to_dict() for event in self.events[: self.max_items]]
+        self.path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def list_events(self, *, limit: int = 20, mission_id: str | None = None) -> list[AlertEvent]:
+        events = self.events
+        if mission_id:
+            events = [event for event in events if event.mission_id == mission_id]
+        return events[: max(0, limit)]
+
+    def should_emit(self, event: AlertEvent, *, cooldown_seconds: int = 0) -> bool:
+        if cooldown_seconds <= 0:
+            return True
+        current = _parse_dt(event.created_at)
+        if current is None:
+            return True
+        for existing in self.events:
+            if existing.mission_id != event.mission_id:
+                continue
+            if existing.rule_name != event.rule_name:
+                continue
+            seen_at = _parse_dt(existing.created_at)
+            if seen_at is None:
+                continue
+            if current - seen_at < timedelta(seconds=cooldown_seconds):
+                return False
+        return True
+
+    def add(self, event: AlertEvent, *, cooldown_seconds: int = 0) -> bool:
+        if not self.should_emit(event, cooldown_seconds=cooldown_seconds):
+            return False
+        self.events.insert(0, event)
+        self.events = sorted(self.events, key=lambda row: row.created_at, reverse=True)[: self.max_items]
+        self.save()
+        return True
+
+
+class AlertRouteStore:
+    """File-backed named delivery routes for alert sinks."""
+
+    def __init__(self, path: str | None = None):
+        self.path = Path(path or alert_routing_path_from_env()).expanduser()
+        self.routes: dict[str, dict[str, Any]] = {}
+        self._load()
+
+    def _load(self) -> None:
+        if not self.path.exists():
+            self.routes = {}
+            return
+        try:
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            self.routes = {}
+            return
+        rows = raw.get("routes", raw) if isinstance(raw, dict) else {}
+        if not isinstance(rows, dict):
+            self.routes = {}
+            return
+        normalized: dict[str, dict[str, Any]] = {}
+        for name, value in rows.items():
+            if not isinstance(value, dict):
+                continue
+            route_name = str(name or "").strip().lower()
+            channel = str(value.get("channel", "")).strip().lower()
+            if not route_name or not channel:
+                continue
+            payload = dict(value)
+            payload["channel"] = channel
+            normalized[route_name] = payload
+        self.routes = normalized
+
+    @staticmethod
+    def _redact_route(route: dict[str, Any]) -> dict[str, Any]:
+        redacted: dict[str, Any] = {}
+        for key, value in route.items():
+            lowered = str(key).strip().lower()
+            if any(token in lowered for token in ("token", "secret", "authorization", "password")):
+                redacted[key] = "***"
+            elif lowered == "headers" and isinstance(value, dict):
+                header_map: dict[str, Any] = {}
+                for header_key, header_value in value.items():
+                    header_lowered = str(header_key).strip().lower()
+                    if any(token in header_lowered for token in ("authorization", "token", "secret", "password")):
+                        header_map[header_key] = "***"
+                    else:
+                        header_map[header_key] = header_value
+                redacted[key] = header_map
+            else:
+                redacted[key] = value
+        return redacted
+
+    def get(self, name: str) -> dict[str, Any] | None:
+        route_name = str(name or "").strip().lower()
+        if not route_name:
+            return None
+        payload = self.routes.get(route_name)
+        if payload is None:
+            return None
+        return dict(payload)
+
+    def list_routes(self) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        for name, route in sorted(self.routes.items()):
+            payload = self._redact_route(route)
+            payload["name"] = name
+            rows.append(payload)
+        return rows
+
+
+def append_alert_markdown(event: AlertEvent, items: list[DataPulseItem], *, path: str | None = None) -> str:
+    target = Path(path or alerts_markdown_path_from_env()).expanduser()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("a", encoding="utf-8") as handle:
+        handle.write(f"\n## {event.mission_name} | {event.rule_name}\n")
+        handle.write(f"- created_at: {event.created_at}\n")
+        handle.write(f"- mission_id: {event.mission_id}\n")
+        handle.write(f"- alert_id: {event.id}\n")
+        handle.write(f"- summary: {event.summary}\n")
+        for item in items[:5]:
+            handle.write(f"- [{item.title}]({item.url}) | score={item.score} confidence={item.confidence:.3f}\n")
+        handle.write("\n---\n")
+    return str(target)
+
+
+def _alert_text(event: AlertEvent, items: list[DataPulseItem]) -> str:
+    lines = [
+        f"[DataPulse] {event.mission_name} / {event.rule_name}",
+        event.summary,
+    ]
+    for item in items[:5]:
+        lines.append(f"- {item.title} | score={item.score} confidence={item.confidence:.3f} | {item.url}")
+    return "\n".join(lines)
+
+
+def _post_json(url: str, payload: dict[str, Any], *, timeout: float = 10.0, headers: dict[str, str] | None = None) -> None:
+    response = requests.post(url, json=payload, headers=headers or {}, timeout=timeout)
+    response.raise_for_status()
+
+
+def _resolve_webhook_url(rule: dict[str, Any]) -> str:
+    return str(
+        rule.get("webhook_url")
+        or os.getenv("DATAPULSE_ALERT_WEBHOOK_URL", "")
+    ).strip()
+
+
+def _resolve_feishu_url(rule: dict[str, Any]) -> str:
+    return str(
+        rule.get("feishu_webhook")
+        or os.getenv("DATAPULSE_FEISHU_WEBHOOK_URL", "")
+    ).strip()
+
+
+def _resolve_telegram_bot_token(rule: dict[str, Any]) -> str:
+    return str(
+        rule.get("telegram_bot_token")
+        or os.getenv("DATAPULSE_TELEGRAM_BOT_TOKEN", "")
+    ).strip()
+
+
+def _resolve_telegram_chat_id(rule: dict[str, Any]) -> str:
+    return str(
+        rule.get("telegram_chat_id")
+        or os.getenv("DATAPULSE_TELEGRAM_CHAT_ID", "")
+    ).strip()
+
+
+def _normalize_string_list(values: Any) -> list[str]:
+    if values is None:
+        return []
+    if isinstance(values, str):
+        values = [values]
+    if not isinstance(values, list):
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        value = str(raw or "").strip().lower()
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        normalized.append(value)
+    return normalized
+
+
+def _normalize_route_names(rule: dict[str, Any]) -> list[str]:
+    names = _normalize_string_list(rule.get("routes"))
+    if names:
+        return names
+    return _normalize_string_list(rule.get("route"))
+
+
+def _resolve_delivery_targets(rule: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    targets: list[dict[str, Any]] = []
+    errors: dict[str, str] = {}
+
+    for channel in _normalize_rule_channels(rule):
+        if channel == "json":
+            continue
+        targets.append(
+            {
+                "label": channel,
+                "channel": channel,
+                "config": dict(rule),
+            }
+        )
+
+    route_names = _normalize_route_names(rule)
+    if route_names:
+        routing = AlertRouteStore()
+        for route_name in route_names:
+            route = routing.get(route_name)
+            label = f"route:{route_name}"
+            if route is None:
+                errors[label] = "alert route not found"
+                continue
+            channel = str(route.get("channel", "")).strip().lower()
+            if not channel:
+                errors[label] = "route channel is required"
+                continue
+            merged = dict(route)
+            if "timeout_seconds" in rule:
+                merged["timeout_seconds"] = rule["timeout_seconds"]
+            targets.append(
+                {
+                    "label": f"{channel}:{route_name}",
+                    "channel": channel,
+                    "config": merged,
+                }
+            )
+    return targets, errors
+
+
+def dispatch_alert_event(
+    event: AlertEvent,
+    items: list[DataPulseItem],
+    *,
+    markdown_path: str | None = None,
+) -> tuple[list[str], dict[str, str]]:
+    rule = event.extra.get("rule", {}) if isinstance(event.extra, dict) else {}
+    targets, errors = _resolve_delivery_targets(rule)
+    delivered = ["json"]
+    text = _alert_text(event, items)
+    timeout = float(rule.get("timeout_seconds", 10.0) or 10.0)
+
+    for target in targets:
+        label = str(target.get("label", "")).strip() or str(target.get("channel", "")).strip().lower()
+        channel = str(target.get("channel", "")).strip().lower()
+        config = target.get("config", rule)
+        if not isinstance(config, dict):
+            config = rule
+        try:
+            if channel == "markdown":
+                append_alert_markdown(event, items, path=markdown_path)
+            elif channel == "webhook":
+                url = _resolve_webhook_url(config)
+                if not url:
+                    raise ValueError("webhook_url is required")
+                _post_json(
+                    url,
+                    {
+                        "alert": event.to_dict(),
+                        "items": [item.to_dict() for item in items[:10]],
+                    },
+                    timeout=float(config.get("timeout_seconds", timeout) or timeout),
+                    headers=config.get("headers") if isinstance(config.get("headers"), dict) else None,
+                )
+            elif channel == "feishu":
+                url = _resolve_feishu_url(config)
+                if not url:
+                    raise ValueError("feishu_webhook is required")
+                _post_json(
+                    url,
+                    {"msg_type": "text", "content": {"text": text}},
+                    timeout=float(config.get("timeout_seconds", timeout) or timeout),
+                )
+            elif channel == "telegram":
+                bot_token = _resolve_telegram_bot_token(config)
+                chat_id = _resolve_telegram_chat_id(config)
+                if not bot_token or not chat_id:
+                    raise ValueError("telegram_bot_token and telegram_chat_id are required")
+                _post_json(
+                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                    {"chat_id": chat_id, "text": text, "disable_web_page_preview": True},
+                    timeout=float(config.get("timeout_seconds", timeout) or timeout),
+                )
+            else:
+                raise ValueError(f"unsupported alert channel: {channel}")
+        except Exception as exc:  # noqa: BLE001
+            errors[label or channel] = str(exc)
+            continue
+        delivered.append(label or channel)
+    return delivered, errors
+
+
+def _normalize_rule_channels(rule: dict[str, Any]) -> list[str]:
+    raw = rule.get("channels", ["json"])
+    if isinstance(raw, str):
+        raw = [raw]
+    channels = [str(channel).strip().lower() for channel in raw if str(channel).strip()]
+    return channels or ["json"]
+
+
+def _normalize_rule_source_types(rule: dict[str, Any]) -> list[str]:
+    source_types = _normalize_string_list(rule.get("source_types"))
+    if source_types:
+        return source_types
+    return _normalize_string_list(rule.get("source_type"))
+
+
+def _normalize_rule_required_tags(rule: dict[str, Any]) -> list[str]:
+    tags = _normalize_string_list(rule.get("required_tags"))
+    single = str(rule.get("required_tag", "")).strip().lower()
+    if single and single not in tags:
+        tags.append(single)
+    return tags
+
+
+def _item_domain(item: DataPulseItem) -> str:
+    parsed = urlparse(item.url or "")
+    return str(parsed.netloc or "").strip().lower()
+
+
+def _item_search_text(item: DataPulseItem) -> str:
+    tags = " ".join(item.tags)
+    return " ".join(
+        part for part in (
+            item.title,
+            item.content,
+            item.url,
+            item.source_name,
+            tags,
+        )
+        if str(part or "").strip()
+    ).lower()
+
+
+def _item_age_minutes(item: DataPulseItem) -> float | None:
+    fetched_at = _parse_dt(item.fetched_at)
+    if fetched_at is None:
+        return None
+    return max(0.0, (datetime.now(timezone.utc) - fetched_at).total_seconds() / 60.0)
+
+
+def _matches_alert_rule(item: DataPulseItem, rule: dict[str, Any]) -> bool:
+    if item.score < int(rule.get("min_score", 0) or 0):
+        return False
+    if item.confidence < float(rule.get("min_confidence", 0.0) or 0.0):
+        return False
+
+    item_tags = {str(tag).strip().lower() for tag in item.tags if str(tag).strip()}
+    required_tags = _normalize_rule_required_tags(rule)
+    if required_tags and not set(required_tags).issubset(item_tags):
+        return False
+
+    excluded_tags = set(_normalize_string_list(rule.get("excluded_tags")))
+    if excluded_tags and item_tags.intersection(excluded_tags):
+        return False
+
+    source_types = set(_normalize_rule_source_types(rule))
+    if source_types and item.source_type.value not in source_types:
+        return False
+
+    domains = _normalize_string_list(rule.get("domains"))
+    if domains:
+        domain = _item_domain(item)
+        if not any(domain == candidate or domain.endswith(f".{candidate}") for candidate in domains):
+            return False
+
+    search_text = _item_search_text(item)
+    keyword_any = _normalize_string_list(rule.get("keyword_any"))
+    if keyword_any and not any(token in search_text for token in keyword_any):
+        return False
+
+    keyword_all = _normalize_string_list(rule.get("keyword_all"))
+    if keyword_all and not all(token in search_text for token in keyword_all):
+        return False
+
+    exclude_keywords = _normalize_string_list(rule.get("exclude_keywords"))
+    if exclude_keywords and any(token in search_text for token in exclude_keywords):
+        return False
+
+    max_age_minutes = int(rule.get("max_age_minutes", 0) or 0)
+    if max_age_minutes > 0:
+        age_minutes = _item_age_minutes(item)
+        if age_minutes is None or age_minutes > max_age_minutes:
+            return False
+
+    return True
+
+
+def _rule_summary(mission: WatchMission, rule_name: str, rule: dict[str, Any], match_count: int) -> str:
+    criteria: list[str] = []
+    if int(rule.get("min_score", 0) or 0) > 0:
+        criteria.append(f"score>={int(rule.get('min_score', 0) or 0)}")
+    if float(rule.get("min_confidence", 0.0) or 0.0) > 0:
+        criteria.append(f"confidence>={float(rule.get('min_confidence', 0.0) or 0.0):.2f}")
+    required_tags = _normalize_rule_required_tags(rule)
+    if required_tags:
+        criteria.append(f"tags={','.join(required_tags[:3])}")
+    domains = _normalize_string_list(rule.get("domains"))
+    if domains:
+        criteria.append(f"domains={','.join(domains[:3])}")
+    keyword_any = _normalize_string_list(rule.get("keyword_any"))
+    if keyword_any:
+        criteria.append(f"keywords(any)={','.join(keyword_any[:3])}")
+    keyword_all = _normalize_string_list(rule.get("keyword_all"))
+    if keyword_all:
+        criteria.append(f"keywords(all)={','.join(keyword_all[:3])}")
+    source_types = _normalize_rule_source_types(rule)
+    if source_types:
+        criteria.append(f"source_types={','.join(source_types[:3])}")
+    max_age_minutes = int(rule.get("max_age_minutes", 0) or 0)
+    if max_age_minutes > 0:
+        criteria.append(f"age<={max_age_minutes}m")
+    suffix = ", ".join(criteria[:4]) if criteria else "configured filters"
+    return f"{mission.name} triggered {rule_name}: {match_count} item(s) matched {suffix}"
+
+
+def evaluate_watch_alerts(
+    mission: WatchMission,
+    items: list[DataPulseItem],
+) -> list[tuple[AlertEvent, list[DataPulseItem], int]]:
+    """Evaluate alert rules for one mission run."""
+    events: list[tuple[AlertEvent, list[DataPulseItem], int]] = []
+    for index, raw_rule in enumerate(mission.alert_rules, start=1):
+        if not isinstance(raw_rule, dict) or raw_rule.get("enabled", True) is False:
+            continue
+        min_results = max(1, int(raw_rule.get("min_results", 1) or 1))
+        matches: list[DataPulseItem] = []
+        for item in items:
+            if _matches_alert_rule(item, raw_rule):
+                matches.append(item)
+        if len(matches) < min_results:
+            continue
+        rule_name = str(raw_rule.get("name", "")).strip() or f"rule-{index}"
+        summary = _rule_summary(mission, rule_name, raw_rule, len(matches))
+        event = AlertEvent(
+            mission_id=mission.id,
+            mission_name=mission.name,
+            rule_name=rule_name,
+            channels=_normalize_rule_channels(raw_rule),
+            item_ids=[item.id for item in matches],
+            summary=summary,
+            extra={
+                "rule": raw_rule,
+                "match_count": len(matches),
+                "top_item_title": matches[0].title if matches else "",
+            },
+        )
+        cooldown_seconds = int(raw_rule.get("cooldown_seconds", 0) or 0)
+        events.append((event, matches, cooldown_seconds))
+    return events

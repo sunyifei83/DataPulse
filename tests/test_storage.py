@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from datapulse.core.models import DataPulseItem, SourceType
@@ -50,8 +50,8 @@ class TestUnifiedInbox:
     def test_prune_by_age(self, tmp_inbox: Path, monkeypatch):
         monkeypatch.setenv("DATAPULSE_KEEP_DAYS", "7")
         inbox = UnifiedInbox(str(tmp_inbox))
-        old_date = (datetime.utcnow() - timedelta(days=10)).isoformat()
-        recent_date = datetime.utcnow().isoformat()
+        old_date = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+        recent_date = datetime.now(timezone.utc).isoformat()
         inbox.add(self._make_item(url="https://old.com", title="Old", fetched_at=old_date))
         inbox.add(self._make_item(url="https://new.com", title="New", fetched_at=recent_date))
         inbox.save()
@@ -96,7 +96,7 @@ class TestUnifiedInbox:
     def test_sorted_by_fetched_at_desc(self, tmp_inbox: Path):
         inbox = UnifiedInbox(str(tmp_inbox))
         for i in range(3):
-            ts = (datetime.utcnow() - timedelta(hours=i)).isoformat()
+            ts = (datetime.now(timezone.utc) - timedelta(hours=i)).isoformat()
             inbox.add(self._make_item(url=f"https://e.com/{i}", title=f"I{i}", fetched_at=ts))
         # Most recent first
         assert inbox.items[0].title == "I0"

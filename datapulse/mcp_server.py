@@ -308,6 +308,76 @@ async def _run_install_pack(profile: str, slug: str) -> str:
     return json.dumps({"ok": added > 0, "added": added, "slug": slug, "profile": profile}, ensure_ascii=False, indent=2)
 
 
+async def _run_create_watch(
+    name: str,
+    query: str,
+    platforms: list[str] | None = None,
+    sites: list[str] | None = None,
+    schedule: str = "manual",
+    min_confidence: float = 0.0,
+    top_n: int = 5,
+    alert_rules: list[dict[str, Any]] | None = None,
+) -> str:
+    reader = DataPulseReader()
+    payload = reader.create_watch(
+        name=name,
+        query=query,
+        platforms=platforms,
+        sites=sites,
+        schedule=schedule,
+        min_confidence=min_confidence,
+        top_n=top_n,
+        alert_rules=alert_rules,
+    )
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_list_watches(include_disabled: bool = False) -> str:
+    reader = DataPulseReader()
+    payload = reader.list_watches(include_disabled=include_disabled)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_run_watch(identifier: str) -> str:
+    reader = DataPulseReader()
+    payload = await reader.run_watch(identifier)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_disable_watch(identifier: str) -> str:
+    reader = DataPulseReader()
+    payload = reader.disable_watch(identifier)
+    return json.dumps(
+        {"ok": payload is not None, "mission": payload, "identifier": identifier},
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+async def _run_run_due_watches(limit: int = 0) -> str:
+    reader = DataPulseReader()
+    payload = await reader.run_due_watches(limit=limit or None)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_list_alerts(limit: int = 20, mission_id: str = "") -> str:
+    reader = DataPulseReader()
+    payload = reader.list_alerts(limit=limit, mission_id=mission_id or None)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_list_alert_routes() -> str:
+    reader = DataPulseReader()
+    payload = reader.list_alert_routes()
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_watch_status() -> str:
+    reader = DataPulseReader()
+    payload = reader.watch_status_snapshot()
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
 class _LocalMCP:
     """Minimal stdlib MCP-compatible runtime fallback."""
 
@@ -586,6 +656,64 @@ def _register_tools(app: Any) -> None:
     @app.tool()
     async def install_pack(profile: str, slug: str) -> str:  # noqa: ANN001
         return await _run_install_pack(profile=profile, slug=slug)
+
+    @app.tool()
+    async def create_watch(
+        name: str,
+        query: str,
+        platforms: list[str] | None = None,
+        sites: list[str] | None = None,
+        schedule: str = "manual",
+        min_confidence: float = 0.0,
+        top_n: int = 5,
+        alert_rules: list[dict[str, Any]] | None = None,
+    ) -> str:
+        """Create a recurring watch mission for a saved query."""
+        return await _run_create_watch(
+            name=name,
+            query=query,
+            platforms=platforms,
+            sites=sites,
+            schedule=schedule,
+            min_confidence=min_confidence,
+            top_n=top_n,
+            alert_rules=alert_rules,
+        )
+
+    @app.tool()
+    async def list_watches(include_disabled: bool = False) -> str:
+        """List configured watch missions."""
+        return await _run_list_watches(include_disabled=include_disabled)
+
+    @app.tool()
+    async def run_watch(identifier: str) -> str:
+        """Run one watch mission by id or name."""
+        return await _run_run_watch(identifier=identifier)
+
+    @app.tool()
+    async def disable_watch(identifier: str) -> str:
+        """Disable one watch mission by id or name."""
+        return await _run_disable_watch(identifier=identifier)
+
+    @app.tool()
+    async def run_due_watches(limit: int = 0) -> str:
+        """Run all currently due watch missions once."""
+        return await _run_run_due_watches(limit=limit)
+
+    @app.tool()
+    async def list_alerts(limit: int = 20, mission_id: str = "") -> str:
+        """List stored watch alert events."""
+        return await _run_list_alerts(limit=limit, mission_id=mission_id)
+
+    @app.tool()
+    async def list_alert_routes() -> str:
+        """List configured named alert delivery routes."""
+        return await _run_list_alert_routes()
+
+    @app.tool()
+    async def watch_status() -> str:
+        """Show watch daemon heartbeat and metrics."""
+        return await _run_watch_status()
 
     @app.tool()
     async def query_feed(profile: str = "default", source_ids: list[str] | None = None,

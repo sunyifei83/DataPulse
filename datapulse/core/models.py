@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
@@ -63,7 +63,7 @@ class DataPulseItem:
         if not self.id:
             self.id = hashlib.md5(f"{self.url}:{self.title}".encode("utf-8")).hexdigest()[:12]
         if not self.fetched_at:
-            self.fetched_at = datetime.utcnow().isoformat()
+            self.fetched_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)

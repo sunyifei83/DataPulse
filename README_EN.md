@@ -31,6 +31,19 @@ for MCP, Skill, Agent, and bot workflows.
   - optional Markdown inbox output (`datapulse-inbox.md` / custom path)
 - Multi-dimensional scoring: 4 dimensions weighted (confidence 0.25 / authority 0.30 / corroboration 0.25 / recency 0.20), outputs 0-100 composite score + 0.01~0.99 confidence score
 - Digest builder: auto-generates digest envelopes with primary/secondary stories, fingerprint dedup, diverse source selection
+- Task layer (initial Watch Mission support):
+  - save recurring search missions, list them, run them manually, disable them
+  - shared mission/run object model across CLI, Reader, and MCP
+- Alerts and scheduling (initial support):
+  - threshold alert rules, due-runner polling, daemon single-instance lock
+  - keyword / tag / domain / source-type / freshness filters for alert matching
+  - JSON / Markdown / Webhook / Feishu / Telegram alert sinks for auto-distribution
+  - named route config with `--alert-route-list`
+  - `watch_status` for daemon heartbeat, metrics, and last error
+  - JSON + HTML static status outputs
+- Browser console (G0):
+  - local `datapulse-console` browser shell
+  - unified watch / alert / route / status operating surface
 - Reliability:
   - centralized parse error handling with narrowed exceptions
   - `retry_with_backoff` decorator + `CircuitBreaker` for fault tolerance
@@ -54,7 +67,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 496 tests across 25 modules
+  - 591 tests across 39 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -66,7 +79,7 @@ pip install -e ".[all]"   # enable all optional capabilities
 
 Optional groups:
 
-- `.[trafilatura]`, `.[youtube]`, `.[telegram]`, `.[browser]`, `.[mcp]`, `.[notebooklm]`  
+- `.[console]`, `.[trafilatura]`, `.[youtube]`, `.[telegram]`, `.[browser]`, `.[mcp]`, `.[notebooklm]`  
   Note: `.[mcp]` enables native MCP transport; when missing, `python -m datapulse.mcp_server` falls back to an internal stdio-compatible runtime.
 
 ## Development
@@ -123,7 +136,19 @@ D. Trending:
   - Short form: `datapulse -T us --trending-limit 10`
 E. Entity flow:
   - `datapulse https://x.com/xxxx/status/123 --entities --entity-mode fast`
-F. Diagnostics:
+F. Watch mission:
+  - `datapulse --watch-create --watch-name "AI Radar" --watch-query "OpenAI agents"`
+  - `datapulse --watch-run ai-radar`
+G. Watch scheduler:
+  - `datapulse --watch-run-due`
+H. Alerts:
+  - `datapulse --alert-list`
+  - `datapulse --alert-route-list`
+I. Daemon:
+  - `datapulse --watch-daemon --watch-daemon-once`
+J. Browser console:
+  - `datapulse-console --port 8765`
+K. Diagnostics:
   - `datapulse --config-check`
   - `datapulse --doctor`
   - `datapulse --troubleshoot`
@@ -167,6 +192,33 @@ datapulse --trending              # worldwide
 datapulse --trending us           # United States
 datapulse --trending jp --trending-limit 10  # Japan top 10
 datapulse --trending uk --trending-store     # UK, save to inbox
+
+# Watch Mission
+datapulse --watch-create --watch-name "AI Radar" --watch-query "OpenAI agents" --watch-platform twitter
+datapulse --watch-list
+datapulse --watch-run ai-radar
+datapulse --watch-disable ai-radar
+
+# Run due watch missions from schedule
+datapulse --watch-create --watch-name "Infra Radar" --watch-query "LLM inference infra" --watch-schedule @hourly
+datapulse --watch-run-due
+
+# Configure one threshold alert rule and inspect alert events
+datapulse --watch-create --watch-name "Launch Radar" --watch-query "OpenAI launch" --watch-alert-min-score 70 --watch-alert-channel markdown
+datapulse --alert-list
+
+# Richer alert rule + named route
+datapulse --watch-create --watch-name "Launch Ops" --watch-query "OpenAI launch" --watch-alert-route ops-webhook --watch-alert-keyword launch --watch-alert-domain openai.com
+datapulse --alert-route-list
+
+# Run daemon for one polling cycle
+datapulse --watch-daemon --watch-daemon-once
+
+# Show daemon heartbeat and metrics
+datapulse --watch-status
+
+# Launch the local browser console (G0)
+datapulse-console --port 8765
 
 # collector health check
 datapulse --doctor
@@ -222,7 +274,7 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-28 tools available:
+36 tools available:
 
 **Intake & reading:**
 - `read_url(url, min_confidence)` — parse a single URL
@@ -235,6 +287,16 @@ python -m datapulse.mcp_server --call health
 - `query_inbox(limit, min_confidence)` — query inbox
 - `mark_processed(item_id, processed)` — mark as processed
 - `query_unprocessed(limit, min_confidence)` — query unprocessed items
+
+**Watch Mission:**
+- `create_watch(name, query, platforms=None, sites=None, schedule='manual', min_confidence=0.0, top_n=5)` — create a saved recurring mission
+- `list_watches(include_disabled=False)` — list missions
+- `run_watch(identifier)` — run one mission by id or name
+- `disable_watch(identifier)` — disable one mission
+- `run_due_watches(limit=0)` — run all currently due missions
+- `list_alerts(limit=20, mission_id='')` — list stored alert events
+- `list_alert_routes()` — list configured named alert routes
+- `watch_status()` — inspect daemon heartbeat, metrics, and last error
 
 **Source management:**
 - `list_sources(include_inactive, public_only)` — list source catalog
@@ -288,6 +350,17 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_MARKDOWN_PATH`
 - `OBSIDIAN_VAULT`
 - `DATAPULSE_SESSION_DIR` (default `~/.datapulse/sessions`)
+- `DATAPULSE_WATCHLIST_PATH` (watch mission storage file)
+- `DATAPULSE_ALERTS_PATH` (alert JSON store)
+- `DATAPULSE_ALERTS_MARKDOWN_PATH` (alert Markdown sink)
+- `DATAPULSE_ALERT_ROUTING_PATH` (named alert route config file)
+- `DATAPULSE_ALERT_WEBHOOK_URL` (default webhook alert sink)
+- `DATAPULSE_FEISHU_WEBHOOK_URL` (default Feishu webhook)
+- `DATAPULSE_TELEGRAM_BOT_TOKEN` (Telegram alert bot token)
+- `DATAPULSE_TELEGRAM_CHAT_ID` (Telegram alert chat id)
+- `DATAPULSE_WATCH_DAEMON_LOCK` (daemon lock file)
+- `DATAPULSE_WATCH_STATUS_PATH` (daemon JSON status file)
+- `DATAPULSE_WATCH_STATUS_HTML` (daemon HTML status page)
 - `TG_API_ID` / `TG_API_HASH`
 - `NITTER_INSTANCES`
 - `FXTWITTER_API_URL`
@@ -311,6 +384,12 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 2. Run platform smoke tests before promotion (`datapulse-smoke --platforms ...`).
 3. For MCP/Skill/Agent orchestration, pass through `DataPulseItem.to_dict()` to keep schema stable.
 4. Keep sensitive secrets and model endpoints out of repository history and inject them through your secret management path.
+
+## Development and CI gate
+
+- Blueprint work should land as repository commits, not remain as long-lived local workspace drift.
+- After push, GitHub Actions is the default gate: `ruff check datapulse/`, `mypy datapulse/`, and `pytest tests/`.
+- The G0 browser console adds a lightweight smoke check through `datapulse-console --help` so packaging and console dependencies are validated in CI.
 
 ## Safety
 

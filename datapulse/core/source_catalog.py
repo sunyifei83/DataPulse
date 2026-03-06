@@ -7,7 +7,7 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -335,7 +335,7 @@ class SourceCatalog:
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def _touch_timestamps(self, source: SourceRecord, create: bool = False) -> None:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
         if create:
             source.created_at = source.created_at or now
         source.updated_at = now

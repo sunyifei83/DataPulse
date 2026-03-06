@@ -27,6 +27,10 @@ DataPulse 提供一个统一入口，用于：
 | 平台采集 | `twitter/x`、`reddit`、`youtube`、`bilibili`、`telegram`、`wechat`、`xhs`、`rss`、`arxiv`、`hackernews`、`generic web` |
 | 热点趋势 | `trending`（X/Twitter 趋势页抓取） |
 | 搜索 | `Jina` / `Tavily` / `auto` / `multi`，支持 `--platform`、`--site`、时间窗参数 |
+| 任务化 | 首版 watch mission：`--watch-create`、`--watch-list`、`--watch-run`、`--watch-run-due`、`--watch-daemon`、`--watch-status` |
+| 告警分发 | threshold alert rule、关键词/标签/域名/时效过滤、JSON/Markdown/Webhook/Feishu/Telegram sink、`--alert-list`、`--alert-route-list` |
+| 运行状态 | daemon 单实例锁、heartbeat JSON/HTML 状态页、MCP `watch_status` |
+| 浏览器控制台 | `datapulse-console` 本地 G0 GUI，统一 watch / alert / route / status 工作台 |
 | 输出模型 | 统一 `DataPulseItem`（`title/content/url/confidence/score/tags/extra`） |
 | 评分排序 | 置信度 + 权威度 + 互证 + 时效性 |
 | 实体增强 | `--entities` 抽取，`--entity-query` / `--entity-graph` / `--entity-stats` |
@@ -50,7 +54,7 @@ pip install -e .
 
 ```bash
 pip install -e ".[all]"
-# 或按需安装：.[telegram] / .[browser] / .[mcp] / .[youtube] ...
+# 或按需安装：.[console] / .[telegram] / .[browser] / .[mcp] / .[youtube] ...
 ```
 
 ### 2) 环境自检
@@ -71,6 +75,31 @@ datapulse --search "data governance" --search-limit 5
 
 # 趋势
 datapulse --trending us --trending-limit 10
+
+# 保存并运行 watch mission
+datapulse --watch-create --watch-name "AI Radar" --watch-query "OpenAI agents" --watch-platform twitter
+datapulse --watch-run ai-radar
+
+# 按调度执行到期 watch mission
+datapulse --watch-create --watch-name "Infra Radar" --watch-query "LLM inference infra" --watch-schedule @hourly
+datapulse --watch-run-due
+
+# 配置 threshold alert rule 并查看告警
+datapulse --watch-create --watch-name "Launch Radar" --watch-query "OpenAI launch" --watch-alert-min-score 70 --watch-alert-channel markdown
+datapulse --alert-list
+
+# richer alert rule + 命名 route
+datapulse --watch-create --watch-name "Launch Ops" --watch-query "OpenAI launch" --watch-alert-route ops-webhook --watch-alert-keyword launch --watch-alert-domain openai.com
+datapulse --alert-route-list
+
+# 启动 daemon 单轮执行
+datapulse --watch-daemon --watch-daemon-once
+
+# 查看 daemon 心跳与指标
+datapulse --watch-status
+
+# 启动浏览器控制台（G0）
+datapulse-console --port 8765
 ```
 
 ### 4) 查看落库结果
@@ -89,6 +118,13 @@ datapulse --list --limit 10
 | 指定 provider | `datapulse --search "关键词" --search-provider tavily` |
 | 指定时间窗 | `datapulse --search "关键词" --search-freshness week` |
 | 趋势抓取 | `datapulse --trending [us|uk|jp|...] --trending-limit 20` |
+| 持续主题跟踪 | `datapulse --watch-create --watch-name "AI Radar" --watch-query "OpenAI agents"` |
+| 按调度执行任务 | `datapulse --watch-run-due` |
+| 查看告警事件 | `datapulse --alert-list` |
+| 查看告警路由 | `datapulse --alert-route-list` |
+| daemon 调度轮询 | `datapulse --watch-daemon --watch-daemon-once` |
+| daemon 状态快照 | `datapulse --watch-status` |
+| 浏览器控制台 | `datapulse-console --port 8765` |
 | 实体抽取 | `datapulse <url> --entities --entity-mode fast` |
 | 查询实体 | `datapulse --entity-query OPENAI --entity-limit 20` |
 | 生成摘要 | `datapulse --digest --top-n 3 --secondary-n 7` |
@@ -107,7 +143,7 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-常用工具：`read_url`、`read_batch`、`search_web`、`trending`、`query_inbox`、`build_digest`、`doctor`。
+常用工具：`read_url`、`read_batch`、`search_web`、`create_watch`、`list_watches`、`run_watch`、`run_due_watches`、`list_alerts`、`list_alert_routes`、`watch_status`、`trending`、`query_inbox`、`build_digest`、`doctor`。
 
 ### Skill 调用
 
@@ -142,6 +178,23 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_KEEP_DAYS`
 - `DATAPULSE_MAX_INBOX`
 - `DATAPULSE_LOG_LEVEL`
+- `DATAPULSE_WATCHLIST_PATH`
+- `DATAPULSE_ALERTS_PATH`
+- `DATAPULSE_ALERTS_MARKDOWN_PATH`
+- `DATAPULSE_ALERT_ROUTING_PATH`
+- `DATAPULSE_ALERT_WEBHOOK_URL`
+- `DATAPULSE_FEISHU_WEBHOOK_URL`
+- `DATAPULSE_TELEGRAM_BOT_TOKEN`
+- `DATAPULSE_TELEGRAM_CHAT_ID`
+- `DATAPULSE_WATCH_DAEMON_LOCK`
+- `DATAPULSE_WATCH_STATUS_PATH`
+- `DATAPULSE_WATCH_STATUS_HTML`
+
+## 开发与入库
+
+- 蓝图计划内的代码变更应按逻辑单元提交入库，不长期停留在脏工作区。
+- 推送到 GitHub 后应触发 Actions，当前默认闸门包括 `ruff check datapulse/`、`mypy datapulse/`、`pytest tests/`。
+- GUI/G0 相关变更额外通过 `datapulse-console --help` 入口烟测，确保 console 包装和依赖在 CI 中可安装。
 
 ## 安全与边界
 

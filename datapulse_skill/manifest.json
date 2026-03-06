@@ -24,6 +24,16 @@
     },
     {
       "type": "message",
+      "pattern": "(?i)\\b(?:watch|monitor|track|follow|监控|跟踪)\\b.*(?:topic|company|person|trend|theme|议题|主题|公司|人物)?",
+      "description": "Triggered for recurring monitoring and watch mission requests."
+    },
+    {
+      "type": "message",
+      "pattern": "(?i)\\b(?:alert|notify|alarm|route|webhook|telegram|feishu|告警|提醒|路由|飞书)\\b.*(?:watch|monitor|track|topic|trend|主题|热搜|监控)?",
+      "description": "Triggered for watch alert, route, and notification setup requests."
+    },
+    {
+      "type": "message",
       "pattern": "(?i)\\b(datapulse|skill|agent)\\b.*\\b(health|doctor|config|diagnose|update|version|upgrade|troubleshoot)\\b",
       "description": "Triggered for maintenance and capability introspection tasks."
     },
@@ -40,6 +50,9 @@
     "confidence-scoring",
     "json-memory",
     "markdown-memory",
+    "watch-missions",
+    "watch-alerts",
+    "watch-alert-routing",
     "assistant-ready",
     "mcp-tools"
   ],

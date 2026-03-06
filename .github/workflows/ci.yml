@@ -50,4 +50,5 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
+      - run: datapulse-console --help
       - run: pytest tests/ -v --tb=short

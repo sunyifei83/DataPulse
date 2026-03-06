@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -55,7 +55,7 @@ def _cleanup_env():
 
 class TestBuildDigest:
     def test_basic_structure(self, tmp_path):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         items = [
             _make_item(title=f"Item {i}", url=f"https://example.com/{i}",
                        source_name=f"source_{i}",
@@ -75,7 +75,7 @@ class TestBuildDigest:
         assert "provenance" in digest
 
     def test_primary_secondary_counts(self, tmp_path):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         items = [
             _make_item(title=f"Item {i}", url=f"https://example.com/{i}",
                        source_name=f"source_{i}",
@@ -91,7 +91,7 @@ class TestBuildDigest:
 
     def test_diversity_max_per_source(self, tmp_path):
         """No source should appear more than max_per_source times."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         items = [
             _make_item(title=f"Same Source {i}", url=f"https://same.com/{i}",
                        source_name="same_source",
@@ -107,7 +107,7 @@ class TestBuildDigest:
         assert same_source_count <= 2
 
     def test_provenance_metadata(self, tmp_path):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         items = [
             _make_item(title=f"Item {i}", url=f"https://ex.com/{i}",
                        source_name=f"src_{i}",
@@ -123,7 +123,7 @@ class TestBuildDigest:
 
     def test_fingerprint_dedup(self, tmp_path):
         """Duplicate content should be deduped, keeping only the highest scored."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         shared_content = "identical article about machine learning breakthroughs in twenty twenty six"
         items = [
             _make_item(title="Copy 1", url="https://a.com/1", source_name="src_a",
@@ -148,7 +148,7 @@ class TestBuildDigest:
         assert digest["secondary"] == []
 
     def test_since_filter(self, tmp_path):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         old = (now - timedelta(days=7)).isoformat()
         recent = now.isoformat()
         items = [
@@ -164,7 +164,7 @@ class TestBuildDigest:
         assert digest["stats"]["candidates_total"] == 1
 
     def test_min_confidence_filter(self, tmp_path):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         items = [
             _make_item(title="Low Conf", url="https://low.com/1",
                        content="low confidence content for testing",
@@ -179,7 +179,7 @@ class TestBuildDigest:
         assert digest["stats"]["candidates_total"] == 1
 
     def test_digest_date_set(self, tmp_path):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         items = [
             _make_item(title="Item 1", url="https://ex.com/1",
                        content="content for digest date test item one",

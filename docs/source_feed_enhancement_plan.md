@@ -41,6 +41,20 @@
 - 入库指纹去重：`UnifiedInbox.add()` 对 ≥50 字符内容计算指纹拒绝近似重复。
 - 平台三级分级体系：tier 0 (零配置) / tier 1 (网络) / tier 2 (需配置)。
 
+### P6：Watch / Mission 任务层 🚧 (v0.7.0 进行中)
+- 新增任务对象模型：`WatchMission` / `MissionRun` / `WatchlistStore`。
+- 新增轻量调度语义：`@hourly` / `@daily` / `@weekly` / `interval:15m`。
+- 新增首版阈值告警：`alert_rules` + 关键词 / 标签 / 域名 / source_type / 时效过滤。
+- 新增命名 route：`DATAPULSE_ALERT_ROUTING_PATH` + `list_alert_routes`。
+- 新增分发落点：JSON / Markdown / Webhook / 飞书 / Telegram。
+- `DataPulseReader` 支持 `create_watch / list_watches / run_watch / disable_watch`。
+- `DataPulseReader` 支持 `run_due_watches` 执行当前到期任务。
+- `DataPulseReader` 支持 `run_watch_daemon`，带单实例锁。
+- `DataPulseReader` 支持 `watch_status_snapshot` 输出 daemon 心跳、指标与最近错误。
+- CLI 支持 `--watch-create / --watch-list / --watch-run / --watch-run-due / --watch-daemon / --watch-status / --alert-list / --alert-route-list / --watch-disable`。
+- MCP 首版开放：`create_watch / list_watches / run_watch / run_due_watches / list_alerts / list_alert_routes / watch_status / disable_watch`。
+- 当前范围为“保存搜索 + 手动执行 + 轻量 due runner + daemon 轮询 + richer alert rule + named routing + 状态页”；自动恢复与更复杂编排留待下一阶段。
+
 ## 与现网能力映射
 
 | 目标 | 目前落地状态 | 下一步 |
@@ -52,10 +66,26 @@
 | 运维安全 | ✅ 健康检查 + SSRF 防护 + 配置化路径 | ✅ v0.3.0: processed 状态管理 |
 | 多维评分 | ✅ 四维度加权 + Source Authority Tiers | ✅ v0.4.0 完成 |
 | Web 搜索 | ✅ 多源网关（Jina/Tavily）CLI/MCP | ✅ v0.5.0 完成 |
+| 任务化 | 🚧 `WatchMission` 首版（CLI/Reader/MCP + due runner + daemon + richer alert sink + status page） | 后续: 自动重跑 / 故障恢复 / 聚合面板 |
 
 ## 验收建议（本项目）
 
 - `datapulse --list-sources`、`--list-packs`、`--resolve-source` 基本通过。
 - `datapulse --query-feed` 与 `--query-rss` 可生成可读 Feed。
-- MCP 包含新增工具：`resolve_source/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed`。
+- `datapulse --watch-create`、`--watch-list`、`--watch-run`、`--watch-disable` 可完成首版任务闭环。
+- `datapulse --watch-run-due` 可执行所有到期任务。
+- `datapulse --watch-daemon --watch-daemon-once` 可执行单轮 daemon 周期并受锁保护。
+- `datapulse --watch-status` 可查看 daemon 心跳、指标与最近错误。
+- `datapulse --alert-list` 可查看阈值告警落库结果。
+- `datapulse --alert-route-list` 可审计命名路由配置。
+- MCP 包含新增工具：`resolve_source/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed/create_watch/list_watches/run_watch/run_due_watches/list_alerts/list_alert_routes/watch_status/disable_watch`。
 - 远端 OpenClaw 入口可通过 `read_url/read_batch` 与 feed 查询联调。
+
+## 横向蓝图：GUI Intelligence Console
+
+- GUI 已进入合理建设窗口，但不应独立于领域模型先行。
+- 推荐顺序：先补 HTTP API 适配层，再做本地单用户浏览器控制台。
+- 第一阶段只承接当前 `P6`：watch、alerts、routes、status。
+- `G0` 壳层已落地：`FastAPI` + `datapulse-console` + `/api/overview` / `/api/watches` / `/api/alerts` / `/api/alert-routes` / `/api/watch-status`。
+- GUI 增量应随仓内提交进入 GitHub Actions，至少通过 `ruff` / `mypy` / `pytest` 与 `datapulse-console --help` 烟测。
+- 详细方案见 [gui_intelligence_console_plan.md](/Users/sunyifei/DataPulse/docs/gui_intelligence_console_plan.md)。

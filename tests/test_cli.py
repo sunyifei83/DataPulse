@@ -42,6 +42,148 @@ class _TrendingEmptyReader:
         }
 
 
+class _WatchReader:
+    def create_watch(self, **kwargs):
+        return {
+            "id": "ai-radar",
+            "name": kwargs["name"],
+            "query": kwargs["query"],
+            "platforms": kwargs.get("platforms", []) or [],
+            "sites": kwargs.get("sites", []) or [],
+            "top_n": kwargs.get("top_n", 5),
+            "alert_rules": kwargs.get("alert_rules", []) or [],
+            "schedule_label": "manual",
+            "is_due": False,
+            "enabled": True,
+        }
+
+    def list_watches(self, include_disabled=False):
+        items = [
+            {
+                "id": "ai-radar",
+                "name": "AI Radar",
+                "query": "OpenAI agents",
+                "platforms": ["twitter"],
+                "sites": ["openai.com"],
+                "top_n": 5,
+                "schedule_label": "hourly",
+                "is_due": True,
+                "alert_rule_count": 1,
+                "enabled": True,
+                "last_run_at": "2026-03-06T00:00:00",
+                "last_run_status": "success",
+            }
+        ]
+        if include_disabled:
+            items.append(
+                {
+                    "id": "old-watch",
+                    "name": "Old Watch",
+                    "query": "legacy",
+                    "platforms": [],
+                    "sites": [],
+                    "top_n": 5,
+                    "schedule_label": "manual",
+                    "is_due": False,
+                    "alert_rule_count": 0,
+                    "enabled": False,
+                    "last_run_at": "",
+                    "last_run_status": "",
+                }
+            )
+        return items
+
+    async def run_watch(self, identifier):
+        return {
+            "mission": {
+                "id": identifier,
+                "name": "AI Radar",
+                "query": "OpenAI agents",
+            },
+            "run": {
+                "status": "success",
+                "item_count": 1,
+            },
+            "alert_events": [
+                {
+                    "id": "alert-1",
+                    "mission_name": "AI Radar",
+                    "rule_name": "threshold",
+                }
+            ],
+            "items": [
+                {
+                    "title": "OpenAI agents result",
+                    "confidence": 0.91,
+                    "score": 73,
+                    "url": "https://example.com/openai-agents",
+                    "content": "Synthetic search result snippet",
+                }
+            ],
+        }
+
+    def disable_watch(self, identifier):
+        return {"id": identifier, "enabled": False}
+
+    async def run_due_watches(self, limit=None, **kwargs):
+        return {
+            "due_count": 1,
+            "run_count": 1,
+            "results": [
+                {
+                    "mission_id": "ai-radar",
+                    "mission_name": "AI Radar",
+                    "status": "success",
+                    "item_count": 2,
+                    "attempts": 1,
+                    "alert_count": 1,
+                }
+            ],
+        }
+
+    def list_alerts(self, limit=20, mission_id=None):
+        return [
+            {
+                "id": "alert-1",
+                "mission_name": "AI Radar",
+                "rule_name": "threshold",
+                "summary": "AI Radar triggered threshold",
+                "created_at": "2026-03-06T00:00:00+00:00",
+                "delivered_channels": ["json", "markdown"],
+                "extra": {},
+            }
+        ]
+
+    def list_alert_routes(self):
+        return [
+            {
+                "name": "ops-webhook",
+                "channel": "webhook",
+            }
+        ]
+
+    async def run_watch_daemon(self, **kwargs):
+        return {
+            "cycles": 1,
+            "last_result": {
+                "due_count": 1,
+                "run_count": 1,
+            },
+        }
+
+    def watch_status_snapshot(self):
+        return {
+            "state": "idle",
+            "heartbeat_at": "2026-03-06T00:00:00+00:00",
+            "last_error": "",
+            "metrics": {
+                "cycles_total": 3,
+                "runs_total": 2,
+                "alerts_total": 1,
+            },
+        }
+
+
 def test_trending_prints_fallback_context(monkeypatch, capsys):
     monkeypatch.setattr(cli, "DataPulseReader", lambda: _TrendingReader())
     monkeypatch.setattr(
@@ -112,3 +254,173 @@ def test_search_empty_with_positive_threshold_message(monkeypatch, capsys):
     out = capsys.readouterr().out
 
     assert "No search results above confidence threshold" in out
+
+
+def test_watch_create_prints_summary(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "datapulse",
+            "--watch-create",
+            "--watch-name",
+            "AI Radar",
+            "--watch-query",
+            "OpenAI agents",
+            "--watch-platform",
+            "twitter",
+        ],
+    )
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "created watch mission: ai-radar" in out
+    assert "name: AI Radar" in out
+    assert "platforms: twitter" in out
+
+
+def test_watch_create_passes_rich_alert_rule(monkeypatch, capsys):
+    captured: dict[str, object] = {}
+
+    class _CaptureWatchReader(_WatchReader):
+        def create_watch(self, **kwargs):
+            captured.update(kwargs)
+            return super().create_watch(**kwargs)
+
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _CaptureWatchReader())
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "datapulse",
+            "--watch-create",
+            "--watch-name",
+            "Launch Radar",
+            "--watch-query",
+            "OpenAI launch",
+            "--watch-alert-route",
+            "ops-webhook",
+            "--watch-alert-keyword",
+            "launch",
+            "--watch-alert-exclude-keyword",
+            "rumor",
+            "--watch-alert-required-tag",
+            "watch",
+            "--watch-alert-domain",
+            "openai.com",
+            "--watch-alert-max-age-minutes",
+            "60",
+        ],
+    )
+
+    cli.main()
+    capsys.readouterr()
+
+    alert_rules = captured["alert_rules"]
+    assert isinstance(alert_rules, list)
+    assert alert_rules[0]["routes"] == ["ops-webhook"]
+    assert alert_rules[0]["keyword_any"] == ["launch"]
+    assert alert_rules[0]["exclude_keywords"] == ["rumor"]
+    assert alert_rules[0]["required_tags"] == ["watch"]
+    assert alert_rules[0]["domains"] == ["openai.com"]
+    assert alert_rules[0]["max_age_minutes"] == 60
+
+
+def test_watch_list_prints_rows(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--watch-list", "--watch-include-disabled"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "Watch missions: 2" in out
+    assert "ai-radar: AI Radar | enabled" in out
+    assert "schedule=hourly | due=yes | alerts=1" in out
+    assert "old-watch: Old Watch | disabled" in out
+
+
+def test_watch_run_prints_results(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--watch-run", "ai-radar"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "Watch mission: AI Radar (ai-radar)" in out
+    assert "Results: 1" in out
+    assert "Alerts: 1" in out
+    assert "OpenAI agents result" in out
+
+
+def test_watch_run_due_prints_summary(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--watch-run-due"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "Due watch missions: 1" in out
+    assert "Executed: 1" in out
+    assert "- AI Radar [success] items=2 attempts=1 alerts=1" in out
+
+
+def test_alert_list_prints_rows(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--alert-list"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "Alert events: 1" in out
+    assert "alert-1: AI Radar | threshold | channels=json,markdown" in out
+
+
+def test_alert_route_list_prints_rows(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--alert-route-list"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "Alert routes: 1" in out
+    assert "ops-webhook: channel=webhook" in out
+
+
+def test_watch_daemon_once_prints_summary(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--watch-daemon", "--watch-daemon-once"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "Watch daemon cycles: 1" in out
+    assert "Last due count: 1" in out
+
+
+def test_watch_status_prints_metrics(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--watch-status"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "state: idle" in out
+    assert "cycles_total: 3" in out
+    assert "alerts_total: 1" in out
+
+
+def test_skill_contract_lists_watch_status_and_alert_envs(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--skill-contract"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "watch_status" in out
+    assert "DATAPULSE_WATCH_STATUS_PATH" in out
+    assert "DATAPULSE_WATCH_STATUS_HTML" in out
+    assert "DATAPULSE_ALERT_ROUTING_PATH" in out
+    assert "DATAPULSE_ALERT_WEBHOOK_URL" in out
+    assert "DATAPULSE_FEISHU_WEBHOOK_URL" in out
+    assert "DATAPULSE_TELEGRAM_BOT_TOKEN" in out

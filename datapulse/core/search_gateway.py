@@ -11,7 +11,7 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from time import monotonic
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
@@ -112,7 +112,7 @@ class SearchGateway:
             "provider_count": 0,
         }
 
-        sampled_at = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+        sampled_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         if mode == "multi":
             hits, attempts = self._search_multi(
                 query,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from datapulse.core.models import DataPulseItem, SourceType
 from datapulse.core.scoring import (
@@ -40,26 +40,26 @@ def _make_item(
 
 class TestRecencyScore:
     def test_fresh_item_high_score(self):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         item = _make_item(fetched_at=now.isoformat())
         score = recency_score(item.fetched_at, now=now)
         assert score > 0.95
 
     def test_old_item_low_score(self):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         old = (now - timedelta(hours=72)).isoformat()
         score = recency_score(old, now=now)
         assert score < 0.2
 
     def test_half_life_precision(self):
         """After exactly one half-life, score should be ~0.5."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         one_half_life_ago = (now - timedelta(hours=24)).isoformat()
         score = recency_score(one_half_life_ago, now=now)
         assert abs(score - 0.5) < 0.01
 
     def test_zero_age(self):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         score = recency_score(now.isoformat(), now=now)
         assert abs(score - 1.0) < 0.01
 
@@ -130,7 +130,7 @@ class TestEngagementScore:
 
 class TestCompositeScore:
     def test_all_dimensions_contribute(self):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         item = _make_item(
             confidence=0.9,
             source_name="trusted",
@@ -159,7 +159,7 @@ class TestCompositeScore:
         assert item.confidence == original_confidence
 
     def test_custom_weights(self):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         item = _make_item(confidence=1.0, fetched_at=now.isoformat())
         # Weight only confidence
         weights = {"confidence": 1.0, "authority": 0.0, "corroboration": 0.0, "recency": 0.0}
@@ -174,7 +174,7 @@ class TestCompositeScore:
         assert score >= 0
 
     def test_recency_uses_search_raw_published_date(self):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         old = (now - timedelta(days=7)).isoformat()
         item = _make_item(confidence=0.8, fetched_at=now.isoformat())
         item.extra = {"search_raw": {"published_date": old}}
@@ -183,7 +183,7 @@ class TestCompositeScore:
         assert breakdown["recency_source"] == "search_raw.published_date"
 
     def test_recency_can_use_twitter_status_time_proxy(self):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         tw_epoch = 1288834974657
         old = now - timedelta(days=10)
         status_id = ((int(old.timestamp() * 1000) - tw_epoch) << 22) + 1
@@ -198,7 +198,7 @@ class TestCompositeScore:
         assert breakdown["recency_source"] == "twitter_status_id"
 
     def test_search_noise_penalty_reduces_listicle_score(self):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         listicle = _make_item(
             title="Top 20 Best Data Governance Tools",
             content="Curated list for buyers.",
@@ -238,7 +238,7 @@ class TestCompositeScore:
 
 class TestRankItems:
     def test_sorted_order(self):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         items = [
             _make_item(title="Low", confidence=0.3, content="low quality content here now",
                        fetched_at=(now - timedelta(hours=48)).isoformat()),
@@ -274,7 +274,7 @@ class TestRankItems:
 
     def test_corroboration_grouping(self):
         """Items with same content fingerprint should get corroboration boost."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         shared = "breaking news about artificial intelligence regulation in europe"
         items = [
             _make_item(title="A", content=shared, source_name="s1",

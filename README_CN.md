@@ -30,6 +30,19 @@
   - 可选 Markdown 记忆输出（`datapulse-inbox.md` 或自定义路径）
 - 多维评分：四维度加权（置信度/来源权威/跨源互证/时效性），输出 0-100 综合分 + 0.01~0.99 置信分
 - Digest 构建：自动生成包含 primary/secondary 故事的摘要信封，支持指纹去重与多样性选择
+- 任务化（首版 Watch Mission）：
+  - 支持保存搜索任务、列出任务、手动执行、禁用任务
+  - CLI / Reader / MCP 共用同一套任务对象与运行记录模型
+- 告警与调度（首版）：
+  - 支持 threshold alert rule、到期任务轮询、daemon 单实例锁
+  - 支持关键词 / 标签 / 域名 / source_type / 时效过滤
+  - 支持 JSON / Markdown / Webhook / 飞书 / Telegram 五类告警分发
+  - 支持命名 route 配置与 `--alert-route-list`
+  - 支持 `watch_status` 读取 daemon 心跳、指标与最近错误
+  - 支持 JSON + HTML 静态状态页输出
+- 浏览器控制台（G0）：
+  - 提供 `datapulse-console` 本地浏览器控制台
+  - 汇总 watch / alert / route / status 四块首版工作台能力
 - 稳定性：
   - 统一失败处理，异常窄化（精确捕获 `RequestException`/`TimeoutError` 等）
   - `retry_with_backoff` 重试装饰器 + `CircuitBreaker` 熔断器
@@ -53,7 +66,7 @@
   - `--entity-query` / `--entity-graph` / `--entity-stats` 支持实体存储与查询
   - 评分链路可通过 `DATAPULSE_ENTITY_CORROBORATION_WEIGHT` 引入实体跨源互证加分（默认 `0`）
 - 测试基建：
-  - 496 个测试，覆盖 25 个测试模块
+  - 591 个测试，覆盖 39 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -65,7 +78,7 @@ pip install -e ".[all]"   # 启用全部可选能力
 
 可选安装组：
 
-- `.[trafilatura]`、`.[youtube]`、`.[telegram]`、`.[browser]`、`.[mcp]`、`.[notebooklm]`  
+- `.[console]`、`.[trafilatura]`、`.[youtube]`、`.[telegram]`、`.[browser]`、`.[mcp]`、`.[notebooklm]`  
   说明：`.[mcp]` 为原生 MCP 能力；未安装时，`python -m datapulse.mcp_server` 自动切到本地 fallback。
 
 ## 开发环境
@@ -116,6 +129,33 @@ datapulse --trending              # 全球热搜
 datapulse --trending us           # 美国热搜
 datapulse --trending jp --trending-limit 10  # 日本 Top 10
 datapulse --trending uk --trending-store     # 英国热搜，存入 inbox
+
+# Watch Mission
+datapulse --watch-create --watch-name "AI Radar" --watch-query "OpenAI agents" --watch-platform twitter
+datapulse --watch-list
+datapulse --watch-run ai-radar
+datapulse --watch-disable ai-radar
+
+# 按调度执行到期任务
+datapulse --watch-create --watch-name "Infra Radar" --watch-query "LLM inference infra" --watch-schedule @hourly
+datapulse --watch-run-due
+
+# 配置 threshold alert rule 并查看告警
+datapulse --watch-create --watch-name "Launch Radar" --watch-query "OpenAI launch" --watch-alert-min-score 70 --watch-alert-channel markdown
+datapulse --alert-list
+
+# richer alert rule + 命名 route
+datapulse --watch-create --watch-name "Launch Ops" --watch-query "OpenAI launch" --watch-alert-route ops-webhook --watch-alert-keyword launch --watch-alert-domain openai.com
+datapulse --alert-route-list
+
+# daemon 单轮执行
+datapulse --watch-daemon --watch-daemon-once
+
+# 查看 daemon 心跳与指标
+datapulse --watch-status
+
+# 启动浏览器控制台（G0）
+datapulse-console --port 8765
 
 # 采集器健康自检
 datapulse --doctor
@@ -174,7 +214,19 @@ D. 热搜:
   - 短参数：`datapulse -T us --trending-limit 10`
 E. 实体:
   - `datapulse https://x.com/xxxx/status/123 --entities --entity-mode fast`
-F. 诊断:
+F. Watch:
+  - `datapulse --watch-create --watch-name "AI Radar" --watch-query "OpenAI agents"`
+  - `datapulse --watch-run ai-radar`
+G. Watch 调度:
+  - `datapulse --watch-run-due`
+H. Alert:
+  - `datapulse --alert-list`
+  - `datapulse --alert-route-list`
+I. Daemon:
+  - `datapulse --watch-daemon --watch-daemon-once`
+J. GUI 控制台:
+  - `datapulse-console --port 8765`
+K. 诊断:
   - `datapulse --config-check`
   - `datapulse --doctor`
   - `datapulse --troubleshoot`
@@ -279,7 +331,7 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-28 个可用工具：
+36 个可用工具：
 
 **采集与读取：**
 - `read_url(url, min_confidence)` — 解析单条 URL
@@ -292,6 +344,16 @@ python -m datapulse.mcp_server --call health
 - `query_inbox(limit, min_confidence)` — 查询收件箱
 - `mark_processed(item_id, processed)` — 标记已处理
 - `query_unprocessed(limit, min_confidence)` — 查询未处理条目
+
+**任务化（Watch Mission）：**
+- `create_watch(name, query, platforms=None, sites=None, schedule='manual', min_confidence=0.0, top_n=5)` — 创建任务
+- `list_watches(include_disabled=False)` — 列出任务
+- `run_watch(identifier)` — 手动执行任务
+- `disable_watch(identifier)` — 禁用任务
+- `run_due_watches(limit=0)` — 执行当前全部到期任务
+- `list_alerts(limit=20, mission_id='')` — 列出告警事件
+- `list_alert_routes()` — 列出已配置的命名告警路由
+- `watch_status()` — 查看 daemon 心跳、指标与最近错误
 
 **信源管理：**
 - `list_sources(include_inactive, public_only)` — 列出信源目录
@@ -345,6 +407,17 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_MARKDOWN_PATH`
 - `OBSIDIAN_VAULT`
 - `DATAPULSE_SESSION_DIR`（默认 `~/.datapulse/sessions`）
+- `DATAPULSE_WATCHLIST_PATH`（watch mission 存储文件）
+- `DATAPULSE_ALERTS_PATH`（告警 JSON 存储文件）
+- `DATAPULSE_ALERTS_MARKDOWN_PATH`（告警 Markdown 输出文件）
+- `DATAPULSE_ALERT_ROUTING_PATH`（命名告警路由配置文件）
+- `DATAPULSE_ALERT_WEBHOOK_URL`（默认 webhook 告警地址）
+- `DATAPULSE_FEISHU_WEBHOOK_URL`（默认飞书 webhook 地址）
+- `DATAPULSE_TELEGRAM_BOT_TOKEN`（Telegram 告警 bot token）
+- `DATAPULSE_TELEGRAM_CHAT_ID`（Telegram 告警 chat id）
+- `DATAPULSE_WATCH_DAEMON_LOCK`（daemon 锁文件）
+- `DATAPULSE_WATCH_STATUS_PATH`（daemon JSON 状态文件）
+- `DATAPULSE_WATCH_STATUS_HTML`（daemon HTML 状态页）
 - `TG_API_ID` / `TG_API_HASH`
 - `NITTER_INSTANCES`
 - `FXTWITTER_API_URL`
@@ -372,6 +445,12 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_XHS_MEDIUM_CONFIDENCE`（默认 `0.65`）
 - `DATAPULSE_XHS_HIGH_SCORE`（默认 `70`）
 - `DATAPULSE_XHS_MEDIUM_SCORE`（默认 `50`）
+
+## 开发与入库约束
+
+- 蓝图计划内的变更按逻辑单元提交入库，不长期停留在本地脏工作区。
+- 提交推送后默认触发 GitHub Actions，当前闸门为 `ruff check datapulse/`、`mypy datapulse/`、`pytest tests/`。
+- `G0` 浏览器控制台额外通过 `datapulse-console --help` 做入口烟测，确保 console 依赖和脚本包装在 CI 可安装。
 
 ## 测试与功能使用建议
 

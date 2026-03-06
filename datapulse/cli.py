@@ -49,6 +49,53 @@ def _print_packs(packs):
         print(f"{pack.get('slug')}: {pack.get('name')} | {count} source(s)")
 
 
+def _print_watches(watches):
+    for watch in watches:
+        status = "enabled" if watch.get("enabled", True) else "disabled"
+        platforms = ",".join(watch.get("platforms", [])) or "any"
+        sites = ",".join(watch.get("sites", [])) or "-"
+        query = str(watch.get("query", "")).strip()
+        last_run = watch.get("last_run_at") or "-"
+        last_status = watch.get("last_run_status") or "-"
+        schedule = watch.get("schedule_label") or watch.get("schedule") or "manual"
+        due = "yes" if watch.get("is_due") else "no"
+        print(
+            f"{watch.get('id')}: {watch.get('name')} | {status} | "
+            f"platforms={platforms} | sites={sites} | top_n={watch.get('top_n', 5)} | "
+            f"schedule={schedule} | due={due} | alerts={watch.get('alert_rule_count', 0)}"
+        )
+        print(f"    query: {query}")
+        print(f"    last_run: {last_run} | status: {last_status}")
+
+
+def _print_alerts(alerts):
+    for alert in alerts:
+        delivered = ",".join(alert.get("delivered_channels", [])) or "json"
+        print(f"{alert.get('id')}: {alert.get('mission_name')} | {alert.get('rule_name')} | channels={delivered}")
+        print(f"    summary: {alert.get('summary', '')}")
+        print(f"    created_at: {alert.get('created_at', '-')}")
+        delivery_errors = alert.get("extra", {}).get("delivery_errors", {}) if isinstance(alert.get("extra"), dict) else {}
+        if delivery_errors:
+            print(f"    delivery_errors: {delivery_errors}")
+
+
+def _print_alert_routes(routes):
+    for route in routes:
+        name = route.get("name", "-")
+        channel = route.get("channel", "-")
+        print(f"{name}: channel={channel}")
+
+
+def _print_watch_status(payload):
+    metrics = payload.get("metrics", {}) if isinstance(payload, dict) else {}
+    print(f"state: {payload.get('state', 'idle')}")
+    print(f"heartbeat_at: {payload.get('heartbeat_at', '-')}")
+    print(f"last_error: {payload.get('last_error', '-') or '-'}")
+    print(f"cycles_total: {metrics.get('cycles_total', 0)}")
+    print(f"runs_total: {metrics.get('runs_total', 0)}")
+    print(f"alerts_total: {metrics.get('alerts_total', 0)}")
+
+
 _FIX_COMMANDS_BY_COLLECTOR = {
     "xhs": ["datapulse --login xhs"],
     "wechat": ["datapulse --login wechat"],
@@ -414,6 +461,14 @@ def _print_skill_contract() -> None:
                 "--trending / -T",
                 "--batch / -b",
                 "--entities",
+                "--watch-create",
+                "--watch-list",
+                "--watch-run",
+                "--watch-run-due",
+                "--watch-daemon",
+                "--alert-list",
+                "--alert-route-list",
+                "--watch-status",
                 "--doctor",
                 "--config-check",
                 "--troubleshoot",
@@ -426,12 +481,29 @@ def _print_skill_contract() -> None:
                 "DATAPULSE_MIN_CONFIDENCE": "Global minimum confidence",
                 "DATAPULSE_BATCH_CONCURRENCY": "Read concurrency override",
                 "DATAPULSE_LOG_LEVEL": "Log verbosity",
+                "DATAPULSE_WATCHLIST_PATH": "Watch mission storage file",
+                "DATAPULSE_ALERTS_PATH": "Alert event storage file",
+                "DATAPULSE_ALERTS_MARKDOWN_PATH": "Alert markdown sink",
+                "DATAPULSE_ALERT_ROUTING_PATH": "Named alert route config file",
+                "DATAPULSE_ALERT_WEBHOOK_URL": "Default webhook alert sink",
+                "DATAPULSE_FEISHU_WEBHOOK_URL": "Default Feishu webhook",
+                "DATAPULSE_TELEGRAM_BOT_TOKEN": "Telegram bot token for alerts",
+                "DATAPULSE_TELEGRAM_CHAT_ID": "Telegram chat id for alerts",
+                "DATAPULSE_WATCH_DAEMON_LOCK": "Single-instance daemon lock file",
+                "DATAPULSE_WATCH_STATUS_PATH": "Daemon JSON heartbeat file",
+                "DATAPULSE_WATCH_STATUS_HTML": "Daemon HTML status page",
             },
         },
         "mcp_tools": mcp_tools,
         "recommended_workflows": [
             "for ingestion of URLs: datapulse --batch",
             "for discovery: datapulse --search",
+            "for recurring themes: --watch-create/--watch-list/--watch-run",
+            "for scheduled recurring themes: --watch-run-due",
+            "for daemon polling: --watch-daemon --watch-daemon-once",
+            "for alert review: --alert-list",
+            "for route audit: --alert-route-list",
+            "for daemon status: --watch-status",
             "for source governance: --list-sources/--list-packs/--query-feed",
             "for health checks: --doctor / --troubleshoot",
         ],
@@ -501,6 +573,10 @@ def main() -> None:
             "C) Web search:              datapulse --search <query> [--search-limit N]\n"
             "D) Trending topics:         datapulse --trending [us|uk|jp]\n"
             "E) Entity workflow:         datapulse <url> --entities --entity-mode fast\n"
+            "F) Watch mission:           datapulse --watch-create --watch-name <name> --watch-query <query>\n"
+            "G) Watch scheduler:         datapulse --watch-run-due\n"
+            "H) Watch daemon:            datapulse --watch-daemon --watch-daemon-once\n"
+            "I) Watch status:            datapulse --watch-status\n"
             "Diagnostics: datapulse --config-check / --doctor / --troubleshoot / --skill-contract / --check-update / --self-update / --version"
         ),
     )
@@ -619,6 +695,58 @@ def main() -> None:
     management_group.add_argument("--entity-min-sources", type=int, default=1, help="Minimum source count for entity query")
     management_group.add_argument("--entity-graph", help="Show related entities for one entity name")
     management_group.add_argument("--entity-stats", action="store_true", help="Show entity store stats")
+    management_group.add_argument("--watch-create", action="store_true", help="Create a recurring watch mission")
+    management_group.add_argument("--watch-list", action="store_true", help="List watch missions")
+    management_group.add_argument("--watch-run", metavar="WATCH", help="Run one watch mission by id or name")
+    management_group.add_argument("--watch-run-due", action="store_true", help="Run all due watch missions once")
+    management_group.add_argument("--watch-daemon", action="store_true", help="Run the watch scheduler daemon loop")
+    management_group.add_argument("--watch-daemon-once", action="store_true", help="Run one daemon cycle and exit")
+    management_group.add_argument("--watch-status", action="store_true", help="Show watch daemon heartbeat and metrics")
+    management_group.add_argument("--watch-disable", metavar="WATCH", help="Disable one watch mission by id or name")
+    management_group.add_argument("--watch-name", help="Watch mission name (used with --watch-create)")
+    management_group.add_argument("--watch-query", help="Watch mission query (used with --watch-create)")
+    management_group.add_argument(
+        "--watch-platform",
+        action="append",
+        choices=["xhs", "twitter", "reddit", "hackernews", "arxiv", "bilibili"],
+        help="Restrict watch mission to platform (repeatable)",
+    )
+    management_group.add_argument("--watch-site", action="append", metavar="DOMAIN", help="Restrict watch mission to domain (repeatable)")
+    management_group.add_argument("--watch-schedule", default="manual", help="Mission schedule label (default manual)")
+    management_group.add_argument("--watch-top-n", type=int, default=5, help="Max watch results to keep (default 5)")
+    management_group.add_argument("--watch-min-confidence", type=float, default=0.0, help="Stored watch confidence threshold")
+    management_group.add_argument("--watch-include-disabled", action="store_true", help="Include disabled watch missions in --watch-list")
+    management_group.add_argument("--watch-due-limit", type=int, default=0, help="Max due watch missions to run (0 = all due)")
+    management_group.add_argument("--watch-alert-name", help="Threshold alert rule name for one watch mission")
+    management_group.add_argument("--watch-alert-min-score", type=int, help="Trigger alert when score >= N")
+    management_group.add_argument("--watch-alert-min-confidence", type=float, help="Trigger alert when confidence >= N")
+    management_group.add_argument("--watch-alert-min-results", type=int, default=1, help="Trigger alert when at least N items match")
+    management_group.add_argument("--watch-alert-cooldown", type=int, default=0, help="Suppress duplicate alert for N seconds")
+    management_group.add_argument("--watch-alert-route", action="append", help="Named delivery route from DATAPULSE_ALERT_ROUTING_PATH (repeatable)")
+    management_group.add_argument("--watch-alert-keyword", action="append", help="Alert only when any keyword is present (repeatable)")
+    management_group.add_argument("--watch-alert-keyword-all", action="append", help="Alert only when all keywords are present (repeatable)")
+    management_group.add_argument("--watch-alert-exclude-keyword", action="append", help="Suppress alert when keyword is present (repeatable)")
+    management_group.add_argument("--watch-alert-required-tag", action="append", help="Require item tags for alert match (repeatable)")
+    management_group.add_argument("--watch-alert-excluded-tag", action="append", help="Block alert when item tags are present (repeatable)")
+    management_group.add_argument("--watch-alert-domain", action="append", help="Restrict alert match to domains (repeatable)")
+    management_group.add_argument("--watch-alert-source-type", action="append", help="Restrict alert match to source types (repeatable)")
+    management_group.add_argument("--watch-alert-max-age-minutes", type=int, help="Only alert on items newer than N minutes")
+    management_group.add_argument(
+        "--watch-alert-channel",
+        action="append",
+        choices=["json", "markdown", "webhook", "feishu", "telegram"],
+        help="Alert delivery channel for one watch mission rule",
+    )
+    management_group.add_argument("--alert-list", action="store_true", help="List stored watch alert events")
+    management_group.add_argument("--alert-route-list", action="store_true", help="List configured named alert routes")
+    management_group.add_argument("--alert-limit", type=int, default=20, help="Max alert events to print")
+    management_group.add_argument("--alert-mission", help="Filter alert list by mission id")
+    management_group.add_argument("--watch-daemon-poll-seconds", type=float, default=60.0, help="Daemon poll interval in seconds")
+    management_group.add_argument("--watch-daemon-cycles", type=int, default=0, help="Stop daemon after N cycles (0 = run forever)")
+    management_group.add_argument("--watch-daemon-retry-attempts", type=int, default=1, help="Retry attempts per scheduled mission")
+    management_group.add_argument("--watch-daemon-retry-base-delay", type=float, default=1.0, help="Retry base delay in seconds")
+    management_group.add_argument("--watch-daemon-retry-max-delay", type=float, default=30.0, help="Retry max delay in seconds")
+    management_group.add_argument("--watch-daemon-retry-backoff", type=float, default=2.0, help="Retry backoff factor")
     management_group.add_argument(
         "-i",
         "--login",
@@ -754,6 +882,163 @@ def main() -> None:
     if args.install_pack:
         count = reader.install_pack(args.install_pack, profile=args.source_profile)
         print(f"✅ installed {count} source(s) from pack")
+        return
+
+    if args.watch_create:
+        if not args.watch_name or not args.watch_query:
+            parser.error("--watch-create requires --watch-name and --watch-query")
+        alert_rules = None
+        if any(
+            value is not None and value != []
+            for value in (
+                args.watch_alert_name,
+                args.watch_alert_min_score,
+                args.watch_alert_min_confidence,
+                args.watch_alert_channel,
+                args.watch_alert_route,
+                args.watch_alert_keyword,
+                args.watch_alert_keyword_all,
+                args.watch_alert_exclude_keyword,
+                args.watch_alert_required_tag,
+                args.watch_alert_excluded_tag,
+                args.watch_alert_domain,
+                args.watch_alert_source_type,
+                args.watch_alert_max_age_minutes,
+            )
+        ):
+            alert_rule: dict[str, Any] = {
+                "name": args.watch_alert_name or "threshold",
+                "min_score": args.watch_alert_min_score or 0,
+                "min_confidence": args.watch_alert_min_confidence or 0.0,
+                "min_results": max(1, args.watch_alert_min_results),
+                "cooldown_seconds": max(0, args.watch_alert_cooldown),
+                "channels": args.watch_alert_channel or ["json"],
+            }
+            if args.watch_alert_route:
+                alert_rule["routes"] = args.watch_alert_route
+            if args.watch_alert_keyword:
+                alert_rule["keyword_any"] = args.watch_alert_keyword
+            if args.watch_alert_keyword_all:
+                alert_rule["keyword_all"] = args.watch_alert_keyword_all
+            if args.watch_alert_exclude_keyword:
+                alert_rule["exclude_keywords"] = args.watch_alert_exclude_keyword
+            if args.watch_alert_required_tag:
+                alert_rule["required_tags"] = args.watch_alert_required_tag
+            if args.watch_alert_excluded_tag:
+                alert_rule["excluded_tags"] = args.watch_alert_excluded_tag
+            if args.watch_alert_domain:
+                alert_rule["domains"] = args.watch_alert_domain
+            if args.watch_alert_source_type:
+                alert_rule["source_types"] = args.watch_alert_source_type
+            if args.watch_alert_max_age_minutes:
+                alert_rule["max_age_minutes"] = max(1, args.watch_alert_max_age_minutes)
+            alert_rules = [alert_rule]
+        mission = reader.create_watch(
+            name=args.watch_name,
+            query=args.watch_query,
+            platforms=args.watch_platform or None,
+            sites=args.watch_site or None,
+            schedule=args.watch_schedule,
+            min_confidence=args.watch_min_confidence,
+            top_n=args.watch_top_n,
+            alert_rules=alert_rules,
+        )
+        print(f"✅ created watch mission: {mission['id']}")
+        print(f"   name: {mission['name']}")
+        print(f"   query: {mission['query']}")
+        print(f"   platforms: {', '.join(mission.get('platforms', [])) or 'any'}")
+        print(f"   sites: {', '.join(mission.get('sites', [])) or '-'}")
+        print(f"   alert_rules: {len(mission.get('alert_rules', []))}")
+        return
+
+    if args.watch_list:
+        watches = reader.list_watches(include_disabled=args.watch_include_disabled)
+        if not watches:
+            print("No watch mission configured.")
+        else:
+            print(f"🛰️ Watch missions: {len(watches)}")
+            _print_watches(watches)
+        return
+
+    if args.watch_disable:
+        disabled_mission = reader.disable_watch(args.watch_disable)
+        if disabled_mission is None:
+            print(f"⚠️ watch mission not found: {args.watch_disable}")
+        else:
+            print(f"✅ disabled watch mission: {disabled_mission['id']}")
+        return
+
+    if args.alert_list:
+        alerts = reader.list_alerts(limit=args.alert_limit, mission_id=args.alert_mission)
+        if not alerts:
+            print("No alert event stored.")
+        else:
+            print(f"🚨 Alert events: {len(alerts)}")
+            _print_alerts(alerts)
+        return
+
+    if args.alert_route_list:
+        routes = reader.list_alert_routes()
+        if not routes:
+            print("No alert route configured.")
+        else:
+            print(f"🧭 Alert routes: {len(routes)}")
+            _print_alert_routes(routes)
+        return
+
+    if args.watch_status:
+        _print_watch_status(reader.watch_status_snapshot())
+        return
+
+    if args.watch_run_due:
+        async def run_due() -> None:
+            payload = await reader.run_due_watches(
+                limit=args.watch_due_limit or None,
+                retry_attempts=args.watch_daemon_retry_attempts,
+                retry_base_delay=args.watch_daemon_retry_base_delay,
+                retry_max_delay=args.watch_daemon_retry_max_delay,
+                retry_backoff_factor=args.watch_daemon_retry_backoff,
+            )
+            print(f"Due watch missions: {payload['due_count']}")
+            print(f"Executed: {payload['run_count']}")
+            if not payload["results"]:
+                return
+            print()
+            for result in payload["results"]:
+                status = result.get("status", "unknown")
+                mission_name = result.get("mission_name", result.get("mission_id", "watch"))
+                item_count = result.get("item_count", 0)
+                print(
+                    f"- {mission_name} [{status}] items={item_count} "
+                    f"attempts={result.get('attempts', 1)} alerts={result.get('alert_count', 0)}"
+                )
+                if result.get("error"):
+                    print(f"  error: {result['error']}")
+
+        asyncio.run(run_due())
+        return
+
+    if args.watch_daemon:
+        async def run_daemon() -> None:
+            payload = await reader.run_watch_daemon(
+                poll_seconds=args.watch_daemon_poll_seconds,
+                max_cycles=1 if args.watch_daemon_once else (args.watch_daemon_cycles or None),
+                due_limit=args.watch_due_limit or None,
+                retry_attempts=args.watch_daemon_retry_attempts,
+                retry_base_delay=args.watch_daemon_retry_base_delay,
+                retry_max_delay=args.watch_daemon_retry_max_delay,
+                retry_backoff_factor=args.watch_daemon_retry_backoff,
+            )
+            print(f"Watch daemon cycles: {payload.get('cycles', 0)}")
+            last_result = payload.get("last_result", {})
+            if isinstance(last_result, dict):
+                print(f"Last due count: {last_result.get('due_count', 0)}")
+                print(f"Last run count: {last_result.get('run_count', 0)}")
+
+        try:
+            asyncio.run(run_daemon())
+        except RuntimeError as exc:
+            print(f"❌ {exc}")
         return
 
     if args.entity_stats:
@@ -900,6 +1185,32 @@ def main() -> None:
                 print(f"   sample: {sample}\n")
 
         asyncio.run(run_search())
+        return
+
+    if args.watch_run:
+        async def run_watch() -> None:
+            payload = await reader.run_watch(args.watch_run)
+            mission = payload["mission"]
+            items = payload["items"]
+            alert_events = payload.get("alert_events", [])
+            print(f"Watch mission: {mission['name']} ({mission['id']})")
+            print(f"Query: {mission['query']}")
+            print(f"Results: {len(items)}")
+            print(f"Alerts: {len(alert_events) if isinstance(alert_events, list) else 0}")
+            if not items:
+                return
+            print()
+            for idx, item in enumerate(items, 1):
+                sample = str(item.get("content", ""))[:140].replace("\n", " ")
+                print(f"{idx}. {item.get('title', 'Untitled')}")
+                print(f"   confidence: {float(item.get('confidence', 0.0)):.3f}  score: {int(item.get('score', 0) or 0)}")
+                print(f"   url: {item.get('url', '')}")
+                print(f"   sample: {sample}\n")
+
+        try:
+            asyncio.run(run_watch())
+        except ValueError as exc:
+            print(f"❌ {exc}")
         return
 
     # Apply Jina reader options if provided

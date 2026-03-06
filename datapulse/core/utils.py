@@ -11,6 +11,7 @@ import re
 import socket
 import threading
 import unicodedata
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Awaitable, TypeVar
 from urllib.parse import urlparse, urlunparse
@@ -138,7 +139,7 @@ def generate_slug(text: str, max_length: int = 70) -> str:
 
 
 def build_filename(text: str, url: str) -> str:
-    date_prefix = __import__("datetime").datetime.utcnow().strftime("%Y-%m-%d")
+    date_prefix = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return f"{date_prefix}_{generate_slug(text)[:40]}.{hashlib.sha1(url.encode()).hexdigest()[:10]}.md"
 
 
@@ -284,6 +285,111 @@ def inbox_path_from_env() -> str:
         return str(candidate / "unified_inbox.json")
 
     return "unified_inbox.json"
+
+
+def watchlist_path_from_env() -> str:
+    explicit_file = os.getenv("DATAPULSE_WATCHLIST_PATH", "").strip()
+    if explicit_file:
+        return explicit_file
+
+    memory_path = os.getenv("DATAPULSE_MEMORY_DIR", "").strip()
+    if memory_path:
+        candidate = Path(memory_path)
+        if candidate.suffix == ".json":
+            return str(candidate.with_name("datapulse_watchlist.json"))
+        return str(candidate / "datapulse_watchlist.json")
+
+    return "datapulse_watchlist.json"
+
+
+def alerts_path_from_env() -> str:
+    explicit_file = os.getenv("DATAPULSE_ALERTS_PATH", "").strip()
+    if explicit_file:
+        return explicit_file
+
+    memory_path = os.getenv("DATAPULSE_MEMORY_DIR", "").strip()
+    if memory_path:
+        candidate = Path(memory_path)
+        if candidate.suffix == ".json":
+            return str(candidate.with_name("datapulse_alerts.json"))
+        return str(candidate / "datapulse_alerts.json")
+
+    return "datapulse_alerts.json"
+
+
+def alerts_markdown_path_from_env() -> str:
+    explicit_file = os.getenv("DATAPULSE_ALERTS_MARKDOWN_PATH", "").strip()
+    if explicit_file:
+        return explicit_file
+
+    memory_path = os.getenv("DATAPULSE_MEMORY_DIR", "").strip()
+    if memory_path:
+        candidate = Path(memory_path)
+        if candidate.suffix == ".json":
+            return str(candidate.with_name("datapulse_alerts.md"))
+        return str(candidate / "datapulse_alerts.md")
+
+    return "datapulse_alerts.md"
+
+
+def alert_routing_path_from_env() -> str:
+    explicit_file = os.getenv("DATAPULSE_ALERT_ROUTING_PATH", "").strip()
+    if explicit_file:
+        return explicit_file
+
+    memory_path = os.getenv("DATAPULSE_MEMORY_DIR", "").strip()
+    if memory_path:
+        candidate = Path(memory_path)
+        if candidate.suffix == ".json":
+            return str(candidate.with_name("datapulse_alert_routes.json"))
+        return str(candidate / "datapulse_alert_routes.json")
+
+    return "datapulse_alert_routes.json"
+
+
+def watch_daemon_lock_path_from_env() -> str:
+    explicit_file = os.getenv("DATAPULSE_WATCH_DAEMON_LOCK", "").strip()
+    if explicit_file:
+        return explicit_file
+
+    memory_path = os.getenv("DATAPULSE_MEMORY_DIR", "").strip()
+    if memory_path:
+        candidate = Path(memory_path)
+        if candidate.suffix:
+            return str(candidate.with_name("datapulse_watch_daemon.lock"))
+        return str(candidate / "datapulse_watch_daemon.lock")
+
+    return "datapulse_watch_daemon.lock"
+
+
+def watch_status_path_from_env() -> str:
+    explicit_file = os.getenv("DATAPULSE_WATCH_STATUS_PATH", "").strip()
+    if explicit_file:
+        return explicit_file
+
+    memory_path = os.getenv("DATAPULSE_MEMORY_DIR", "").strip()
+    if memory_path:
+        candidate = Path(memory_path)
+        if candidate.suffix == ".json":
+            return str(candidate.with_name("datapulse_watch_status.json"))
+        return str(candidate / "datapulse_watch_status.json")
+
+    return "datapulse_watch_status.json"
+
+
+def watch_status_html_path_from_env() -> str:
+    explicit_file = os.getenv("DATAPULSE_WATCH_STATUS_HTML", "").strip()
+    if explicit_file:
+        return explicit_file
+
+    memory_path = os.getenv("DATAPULSE_MEMORY_DIR", "").strip()
+    if memory_path:
+        candidate = Path(memory_path)
+        if candidate.suffix:
+            return str(candidate.with_name("datapulse_watch_status.html"))
+        return str(candidate / "datapulse_watch_status.html")
+
+    return "datapulse_watch_status.html"
 
 
 def output_path_from_env():

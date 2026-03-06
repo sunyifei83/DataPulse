@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .models import DataPulseItem
@@ -44,7 +44,7 @@ class UnifiedInbox:
         self._rebuild_fingerprints()
 
     def _prune(self) -> None:
-        cutoff = datetime.utcnow() - timedelta(days=max(0, self.max_days))
+        cutoff = datetime.now(timezone.utc) - timedelta(days=max(0, self.max_days))
         retained: list[DataPulseItem] = []
         for item in self.items:
             try:
@@ -52,6 +52,10 @@ class UnifiedInbox:
             except Exception:
                 retained.append(item)
                 continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            else:
+                ts = ts.astimezone(timezone.utc)
             if ts >= cutoff:
                 retained.append(item)
 

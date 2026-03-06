@@ -203,12 +203,14 @@ class TestBuildAtomFeed:
 
     def test_atom_xml_escaping(self, reader_with_items):
         xml_str = reader_with_items.build_atom_feed()
+        assert "&lt;" in xml_str
+        assert "&amp;" in xml_str
         # Should parse without error (valid XML)
         root = ET.fromstring(xml_str)
         ns = {"atom": "http://www.w3.org/2005/Atom"}
         entry = root.find("atom:entry", ns)
         title = entry.find("atom:title", ns).text
-        assert "<" not in title  # properly escaped
+        assert title == "Atom Test <Item> & More"
 
     def test_atom_limit(self, reader_with_items):
         xml_str = reader_with_items.build_atom_feed(limit=1)

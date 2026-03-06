@@ -6,24 +6,36 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, cast
 
 from datapulse.collectors.trending import TrendingCollector, build_trending_url
+from datapulse.core.alerts import AlertRouteStore, AlertStore, dispatch_alert_event, evaluate_watch_alerts
 from datapulse.core.confidence import compute_confidence
 from datapulse.core.entities import Entity, Relation
 from datapulse.core.entities import extract_entities as extract_entities_text
 from datapulse.core.entity_store import EntityStore
 from datapulse.core.jina_client import JinaSearchOptions
 from datapulse.core.models import DataPulseItem, SourceType
+from datapulse.core.ops import WatchStatusStore
 from datapulse.core.router import ParsePipeline
+from datapulse.core.scheduler import WatchDaemon, WatchScheduler, describe_schedule, is_watch_due, next_run_at
 from datapulse.core.scoring import rank_items
 from datapulse.core.search_gateway import SearchGateway, SearchHit
 from datapulse.core.source_catalog import SourceCatalog
 from datapulse.core.storage import UnifiedInbox, output_record_md, save_markdown
 from datapulse.core.utils import content_fingerprint, inbox_path_from_env, normalize_language
+from datapulse.core.watchlist import MissionRun, WatchlistStore, WatchMission
 
 logger = logging.getLogger("datapulse.reader")
+
+
+def _utcnow_z() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _utc_today() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 PLATFORM_SEARCH_SITES: dict[str, list[str]] = {
     "xhs": ["xiaohongshu.com", "xhslink.com"],
@@ -42,6 +54,11 @@ class DataPulseReader:
         self.router = ParsePipeline()
         self.inbox = UnifiedInbox(inbox_path or inbox_path_from_env())
         self.catalog = SourceCatalog()
+        self.watchlist = WatchlistStore()
+        self.watch_scheduler = WatchScheduler(self.watchlist)
+        self.alert_store = AlertStore()
+        self.alert_routes = AlertRouteStore()
+        self.watch_status = WatchStatusStore()
         self._search_gateway = SearchGateway()
         self._jina_client = self._search_gateway._jina_client
         self._entity_store: EntityStore | None = None
@@ -102,7 +119,7 @@ class DataPulseReader:
             "providers_with_hit": 1 if hits else 0,
             "source_count": 1 if hits else 0,
             "provider_count": 1,
-            "sampled_at": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            "sampled_at": _utcnow_z(),
         }
         return hits, search_audit
 
@@ -889,7 +906,7 @@ class DataPulseReader:
         package: dict[str, Any] = {
             "summary": {
                 "title": f"DataPulse Digest Package | {profile}",
-                "generated_at": datetime.utcnow().isoformat() + "Z",
+                "generated_at": _utcnow_z(),
                 "high_confidence_count": high_confidence_hits,
                 "item_count": len(all_items),
                 "stats": payload.get("stats", {}),
@@ -1010,6 +1027,251 @@ class DataPulseReader:
     def list_memory(self, limit: int = 20, min_confidence: float = 0.0) -> list[DataPulseItem]:
         return self.inbox.query(limit=limit, min_confidence=min_confidence)
 
+    def create_watch(
+        self,
+        *,
+        name: str,
+        query: str,
+        platforms: list[str] | None = None,
+        sites: list[str] | None = None,
+        schedule: str = "manual",
+        min_confidence: float = 0.0,
+        top_n: int = 5,
+        alert_rules: list[dict[str, Any]] | None = None,
+        enabled: bool = True,
+    ) -> dict[str, Any]:
+        mission = self.watchlist.create_mission(
+            name=name,
+            query=query,
+            platforms=platforms,
+            sites=sites,
+            schedule=schedule,
+            min_confidence=min_confidence,
+            top_n=top_n,
+            alert_rules=alert_rules,
+            enabled=enabled,
+        )
+        return mission.to_dict()
+
+    def list_watches(self, *, include_disabled: bool = False) -> list[dict[str, Any]]:
+        payloads: list[dict[str, Any]] = []
+        for mission in self.watchlist.list_missions(include_disabled=include_disabled):
+            payload = mission.to_dict()
+            payload["schedule_label"] = describe_schedule(mission.schedule)
+            payload["is_due"] = is_watch_due(mission)
+            payload["next_run_at"] = next_run_at(mission)
+            payload["alert_rule_count"] = len(mission.alert_rules)
+            payloads.append(payload)
+        return payloads
+
+    def disable_watch(self, identifier: str) -> dict[str, Any] | None:
+        mission = self.watchlist.disable(identifier)
+        if mission is None:
+            return None
+        return mission.to_dict()
+
+    def _tag_items_with_watch(self, mission: WatchMission, items: list[DataPulseItem]) -> None:
+        if not items:
+            return
+        changed = False
+        for item in items:
+            item.extra["watch_mission_id"] = mission.id
+            item.extra["watch_mission_name"] = mission.name
+            item.extra["watch_query"] = mission.query
+            if "watch" not in item.tags:
+                item.tags.append("watch")
+
+            for stored in self.inbox.items:
+                if stored.id != item.id:
+                    continue
+                stored.extra["watch_mission_id"] = mission.id
+                stored.extra["watch_mission_name"] = mission.name
+                stored.extra["watch_query"] = mission.query
+                if "watch" not in stored.tags:
+                    stored.tags.append("watch")
+                changed = True
+                break
+        if changed:
+            self.inbox.save()
+
+    def list_alerts(self, *, limit: int = 20, mission_id: str | None = None) -> list[dict[str, Any]]:
+        return [
+            event.to_dict()
+            for event in self.alert_store.list_events(limit=limit, mission_id=mission_id)
+        ]
+
+    def list_alert_routes(self) -> list[dict[str, Any]]:
+        return self.alert_routes.list_routes()
+
+    def watch_status_snapshot(self) -> dict[str, Any]:
+        return self.watch_status.snapshot()
+
+    def _evaluate_and_dispatch_watch_alerts(
+        self,
+        mission: WatchMission,
+        items: list[DataPulseItem],
+    ) -> list[dict[str, Any]]:
+        outputs: list[dict[str, Any]] = []
+        for event, matches, cooldown_seconds in evaluate_watch_alerts(mission, items):
+            if not self.alert_store.add(event, cooldown_seconds=cooldown_seconds):
+                continue
+            delivered, errors = dispatch_alert_event(event, matches)
+            event.delivered_channels = delivered
+            if errors:
+                event.extra["delivery_errors"] = errors
+            self.alert_store.save()
+            outputs.append(event.to_dict())
+        return outputs
+
+    async def run_watch(self, identifier: str, *, trigger: str = "manual") -> dict[str, Any]:
+        mission = self.watchlist.get(identifier)
+        if mission is None:
+            raise ValueError(f"Watch mission not found: {identifier}")
+        if not mission.enabled:
+            raise ValueError(f"Watch mission is disabled: {identifier}")
+
+        started_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+        try:
+            if mission.platforms:
+                batches = await asyncio.gather(*[
+                    self.search(
+                        mission.query,
+                        sites=mission.sites or None,
+                        platform=platform,
+                        limit=mission.top_n,
+                        min_confidence=mission.min_confidence,
+                    )
+                    for platform in mission.platforms
+                ])
+                merged: dict[str, DataPulseItem] = {}
+                for batch in batches:
+                    for item in batch:
+                        merged[item.id] = item
+                items = sorted(
+                    merged.values(),
+                    key=lambda item: (item.score, item.confidence, item.fetched_at),
+                    reverse=True,
+                )[: mission.top_n]
+            else:
+                items = await self.search(
+                    mission.query,
+                    sites=mission.sites or None,
+                    limit=mission.top_n,
+                    min_confidence=mission.min_confidence,
+                )
+
+            self._tag_items_with_watch(mission, items)
+            alert_events = self._evaluate_and_dispatch_watch_alerts(mission, items)
+            run = MissionRun(
+                mission_id=mission.id,
+                status="success",
+                item_count=len(items),
+                trigger=trigger,
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+            )
+            updated = self.watchlist.record_run(mission.id, run) or mission
+            return {
+                "mission": updated.to_dict(),
+                "run": run.to_dict(),
+                "items": [item.to_dict() for item in items],
+                "alert_events": alert_events,
+            }
+        except Exception as exc:
+            run = MissionRun(
+                mission_id=mission.id,
+                status="error",
+                item_count=0,
+                trigger=trigger,
+                error=str(exc),
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+            )
+            self.watchlist.record_run(mission.id, run)
+            raise
+
+    async def run_due_watches(
+        self,
+        limit: int | None = None,
+        *,
+        retry_attempts: int = 1,
+        retry_base_delay: float = 1.0,
+        retry_max_delay: float = 30.0,
+        retry_backoff_factor: float = 2.0,
+    ) -> dict[str, Any]:
+        scheduled_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+        due_missions = self.watch_scheduler.due_missions(limit=limit)
+        results: list[dict[str, Any]] = []
+
+        for mission in due_missions:
+            attempt = 1
+            delay = max(0.1, float(retry_base_delay))
+            while True:
+                try:
+                    payload = await self.run_watch(mission.id, trigger="scheduled")
+                    run_payload = payload.get("run", {})
+                    alert_events = payload.get("alert_events", [])
+                    results.append(
+                        {
+                            "mission_id": mission.id,
+                            "mission_name": mission.name,
+                            "status": run_payload.get("status", "success"),
+                            "item_count": run_payload.get("item_count", 0),
+                            "attempts": attempt,
+                            "retry_count": max(0, attempt - 1),
+                            "alert_count": len(alert_events) if isinstance(alert_events, list) else 0,
+                        }
+                    )
+                    break
+                except Exception as exc:
+                    if attempt >= max(1, int(retry_attempts)):
+                        results.append(
+                            {
+                                "mission_id": mission.id,
+                                "mission_name": mission.name,
+                                "status": "error",
+                                "item_count": 0,
+                                "attempts": attempt,
+                                "retry_count": max(0, attempt - 1),
+                                "error": str(exc),
+                            }
+                        )
+                        break
+                    await asyncio.sleep(min(delay, retry_max_delay))
+                    delay = min(delay * retry_backoff_factor, retry_max_delay)
+                    attempt += 1
+
+        return {
+            "scheduled_at": scheduled_at,
+            "due_count": len(due_missions),
+            "run_count": len(results),
+            "results": results,
+        }
+
+    async def run_watch_daemon(
+        self,
+        *,
+        poll_seconds: float = 60.0,
+        max_cycles: int | None = None,
+        due_limit: int | None = None,
+        retry_attempts: int = 1,
+        retry_base_delay: float = 1.0,
+        retry_max_delay: float = 30.0,
+        retry_backoff_factor: float = 2.0,
+        lock_path: str | None = None,
+    ) -> dict[str, Any]:
+        daemon = WatchDaemon(self, lock_path=lock_path, status_store=self.watch_status)
+        payload = await daemon.run_forever(
+            poll_seconds=poll_seconds,
+            max_cycles=max_cycles,
+            due_limit=due_limit,
+            retry_attempts=retry_attempts,
+            retry_base_delay=retry_base_delay,
+            retry_max_delay=retry_max_delay,
+            retry_backoff_factor=retry_backoff_factor,
+        )
+        return payload
+
     def resolve_source(self, url: str) -> dict[str, Any]:
         return self.catalog.resolve_source(url)
 
@@ -1084,7 +1346,7 @@ class DataPulseReader:
             since=since,
         )
         base = "https://datapulse.local"
-        now = datetime.utcnow().isoformat() + "Z"
+        now = _utcnow_z()
         return {
             "version": "https://jsonfeed.org/version/1.1",
             "title": f"DataPulse Feed ({profile})",
@@ -1184,10 +1446,10 @@ class DataPulseReader:
         candidates_total = len(candidates)
 
         if not candidates:
-            today = datetime.utcnow().strftime("%Y-%m-%d")
+            today = _utc_today()
             return {
                 "version": "1.0",
-                "generated_at": datetime.utcnow().isoformat() + "Z",
+                "generated_at": _utcnow_z(),
                 "digest_date": today,
                 "stats": {
                     "candidates_total": 0,
@@ -1232,7 +1494,7 @@ class DataPulseReader:
         primary = selected[:top_n]
         secondary = selected[top_n:top_n + secondary_n]
 
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = _utc_today()
         for item in primary + secondary:
             item.digest_date = today
 
@@ -1240,7 +1502,7 @@ class DataPulseReader:
 
         return {
             "version": "1.0",
-            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "generated_at": _utcnow_z(),
             "digest_date": today,
             "stats": {
                 "candidates_total": candidates_total,
@@ -1351,7 +1613,7 @@ class DataPulseReader:
         def _xml_escape(value: str) -> str:
             return (value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;"))
 
-        now = datetime.utcnow().isoformat() + "Z"
+        now = _utcnow_z()
         base = "https://datapulse.local"
 
         entries = []
