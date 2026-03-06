@@ -405,7 +405,10 @@ class DataPulseReader:
         # Provider-level orchestration (single provider + fallback, or multi-source fusion).
         requested_time_range = time_range or freshness
 
-        if provider in {"jina", "auto"}:
+        requested_query = query
+        effective_query = self._search_gateway._with_sites(query, merged_sites)
+
+        if provider == "jina":
             try:
                 search_hits, search_audit = self._run_jina_search(
                     query,
@@ -413,8 +416,58 @@ class DataPulseReader:
                     limit=limit,
                 )
             except Exception as exc:
-                if provider == "jina":
-                    raise
+                logger.warning(
+                    "Jina search failed: provider=jina query=%r sites=%s error=%s",
+                    query,
+                    merged_sites,
+                    exc,
+                )
+                return []
+        elif provider == "auto":
+            fallback_applied = False
+            fallback_reason = ""
+            primary_attempt: dict[str, Any] | None = None
+            try:
+                search_hits, search_audit = self._run_jina_search(
+                    query,
+                    sites=merged_sites,
+                    limit=limit,
+                )
+                if not search_hits:
+                    fallback_applied = True
+                    fallback_reason = "jina_empty_result"
+                    primary_attempt = {
+                        "provider": "jina",
+                        "status": "ok",
+                        "count": 0,
+                        "latency_ms": 0.0,
+                        "retry_count": 0,
+                        "attempts": 0,
+                        "error": "",
+                        "fallback_trigger": "empty_result",
+                        "circuit_state_before": None,
+                        "circuit_state_after": None,
+                    }
+                    raise RuntimeError(fallback_reason)
+                search_audit["requested_provider"] = "auto"
+                search_audit["effective_provider"] = "jina"
+                search_audit["fallback_applied"] = False
+            except Exception as exc:
+                fallback_applied = True
+                fallback_reason = fallback_reason or str(exc)
+                if primary_attempt is None:
+                    primary_attempt = {
+                        "provider": "jina",
+                        "status": "error",
+                        "count": 0,
+                        "latency_ms": 0.0,
+                        "retry_count": 0,
+                        "attempts": 0,
+                        "error": str(exc),
+                        "fallback_trigger": "exception",
+                        "circuit_state_before": None,
+                        "circuit_state_after": None,
+                    }
                 logger.warning("Auto search fallback triggered: %s", exc)
                 try:
                     search_hits, search_audit = self._search_gateway.search(
@@ -432,6 +485,18 @@ class DataPulseReader:
                         logger.warning("Search unavailable due to missing API key(s): %s", fallback_exc)
                         return []
                     raise
+
+                attempts = list(search_audit.get("attempts", [])) if isinstance(search_audit, dict) else []
+                attempts.insert(0, primary_attempt)
+                if not isinstance(search_audit, dict):
+                    search_audit = {}
+                search_audit["attempts"] = attempts
+                search_audit["fallback_applied"] = fallback_applied
+                search_audit["fallback_reason"] = fallback_reason
+                search_audit["initial_provider"] = "jina"
+                effective_provider = search_hits[0].provider if search_hits else ""
+                search_audit["fallback_provider"] = effective_provider
+                search_audit["effective_provider"] = effective_provider
         else:
             search_hits, search_audit = self._search_gateway.search(
                 query,
@@ -443,9 +508,20 @@ class DataPulseReader:
                 news=news,
                 time_range=requested_time_range,
             )
+        if not isinstance(search_audit, dict):
+            search_audit = {}
+        search_audit.setdefault("requested_provider", provider)
+        search_audit.setdefault("requested_query", requested_query)
+        search_audit.setdefault("effective_query", effective_query)
+        if merged_sites:
+            search_audit.setdefault("constraints_preserved", True)
+        search_audit.setdefault("fallback_applied", False)
+        search_audit.setdefault("effective_provider", "")
 
         if not search_hits:
             return []
+        if not search_audit.get("effective_provider"):
+            search_audit["effective_provider"] = search_hits[0].provider if search_hits else ""
 
         items: list[DataPulseItem] = []
         for sr in search_hits:
@@ -617,9 +693,25 @@ class DataPulseReader:
                 "trend_count": 0,
                 "trends": [],
                 "fallback_reason": fallback_reason,
+                "degraded": bool(fallback_reason),
             }
 
         latest = snapshots[0]
+        if collector._is_low_signal_snapshot(latest):
+            low_signal_reason = "Low-signal trending snapshot (placeholder topics)"
+            combined_reason = fallback_reason or low_signal_reason
+            if fallback_reason and low_signal_reason not in fallback_reason:
+                combined_reason = f"{fallback_reason}; {low_signal_reason}"
+            return {
+                "location": resolved_location or "worldwide",
+                "requested_location": requested_location or "worldwide",
+                "snapshot_time": latest.timestamp_utc or latest.timestamp,
+                "trend_count": 0,
+                "trends": [],
+                "fallback_reason": combined_reason,
+                "degraded": True,
+            }
+
         loc_slug = resolved_location or "worldwide"
         from urllib.parse import quote
         trends_out = [
@@ -639,6 +731,7 @@ class DataPulseReader:
             "snapshot_time": latest.timestamp_utc or latest.timestamp,
             "trend_count": len(latest.trends),
             "trends": trends_out,
+            "degraded": bool(fallback_reason),
         }
         if fallback_reason:
             result["fallback_reason"] = fallback_reason
@@ -863,6 +956,10 @@ class DataPulseReader:
             media_hint=getattr(parse_result, "media_type", "text") or "text",
             extra_flags=conf_flags,
         )
+        merged_factors = list(dict.fromkeys([
+            *reasons,
+            *[str(flag).strip() for flag in conf_flags if str(flag).strip()],
+        ]))
 
         return DataPulseItem(
             source_type=source_type,
@@ -872,7 +969,7 @@ class DataPulseReader:
             url=parse_result.url,
             parser=parser_name,
             confidence=confidence,
-            confidence_factors=reasons,
+            confidence_factors=merged_factors,
             quality_rank=0,
             language=lang,
             tags=list(dict.fromkeys([

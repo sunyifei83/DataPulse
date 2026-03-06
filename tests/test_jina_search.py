@@ -165,11 +165,107 @@ class TestReaderSearch:
         assert len(items) == 1
         assert items[0].title == "Fallback"
         assert items[0].extra["search_provider"] == "auto"
+        audit = items[0].extra["search_audit"]
+        assert audit["fallback_applied"] is True
+        assert audit["attempts"][0]["provider"] == "jina"
+        assert audit["attempts"][0]["status"] == "error"
+
+    def test_search_auto_fallback_on_jina_empty_results(self, reader):
+        fallback_hits = [
+            SearchHit(
+                title="Tavily Result",
+                url="https://example.com/tavily",
+                snippet="From tavily fallback",
+                provider="tavily",
+                source="tavily",
+                score=0.2,
+                raw={},
+                extra={"sources": ["tavily"]},
+            )
+        ]
+        fallback_audit = {
+            "query": "test",
+            "mode": "single",
+            "requested_provider": "auto",
+            "provider_chain": ["tavily", "jina"],
+            "attempts": [],
+            "timeout_seconds": 3.0,
+            "providers_selected": 2,
+            "providers_with_hit": 1,
+            "source_count": 1,
+            "provider_count": 2,
+            "sampled_at": "now",
+        }
+
+        with patch.object(reader, "_jina_client") as mock_client:
+            mock_client.search.return_value = []
+            with patch.object(reader._search_gateway, "search", return_value=(fallback_hits, fallback_audit)):
+                items = _run(reader.search("test", fetch_content=False, provider="auto", mode="single"))
+
+        assert len(items) == 1
+        audit = items[0].extra["search_audit"]
+        assert audit["fallback_applied"] is True
+        assert audit["fallback_reason"] == "jina_empty_result"
+        assert audit["attempts"][0]["provider"] == "jina"
+        assert audit["attempts"][0]["fallback_trigger"] == "empty_result"
+        assert audit["effective_provider"] == "tavily"
+
+    def test_search_jina_exception_returns_empty(self, reader):
+        with patch.object(reader, "_jina_client") as mock_client:
+            mock_client.search.side_effect = TimeoutError("read timeout")
+            items = _run(reader.search("test", provider="jina", fetch_content=False))
+        assert items == []
+
+    def test_search_audit_exposes_effective_query_and_constraints(self, reader):
+        fallback_hits = [
+            SearchHit(
+                title="Twitter Result",
+                url="https://x.com/user/status/1",
+                snippet="fallback result",
+                provider="tavily",
+                source="tavily",
+                score=0.2,
+                raw={},
+                extra={"sources": ["tavily"]},
+            )
+        ]
+        fallback_audit = {
+            "query": "data governance",
+            "mode": "single",
+            "requested_provider": "auto",
+            "provider_chain": ["tavily", "jina"],
+            "attempts": [],
+            "timeout_seconds": 3.0,
+            "providers_selected": 2,
+            "providers_with_hit": 1,
+            "source_count": 1,
+            "provider_count": 2,
+            "sampled_at": "now",
+        }
+        with patch.object(reader, "_jina_client") as mock_client:
+            mock_client.search.side_effect = RuntimeError("422 Client Error")
+            with patch.object(reader._search_gateway, "search", return_value=(fallback_hits, fallback_audit)):
+                items = _run(
+                    reader.search(
+                        "data governance",
+                        platform="twitter",
+                        sites=["twitter.com"],
+                        provider="auto",
+                        fetch_content=False,
+                    )
+                )
+
+        assert len(items) == 1
+        audit = items[0].extra["search_audit"]
+        assert audit["requested_query"] == "data governance"
+        assert "site:x.com" in audit["effective_query"]
+        assert "site:twitter.com" in audit["effective_query"]
+        assert audit["constraints_preserved"] is True
 
     def test_search_empty_results(self, reader):
         with patch.object(reader, "_jina_client") as mock_client:
             mock_client.search.return_value = []
-            items = _run(reader.search("obscure query", fetch_content=False))
+            items = _run(reader.search("obscure query", fetch_content=False, provider="jina"))
             assert items == []
 
     def test_search_results_scored(self, reader):

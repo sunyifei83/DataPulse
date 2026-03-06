@@ -17,8 +17,9 @@ import requests
 from bs4 import BeautifulSoup
 
 from datapulse.core.config import read_env_bool, read_env_int
-from datapulse.core.jina_client import JinaAPIClient, JinaReadOptions
+from datapulse.core.jina_client import JinaAPIClient, JinaBlockedByPolicyError, JinaReadOptions
 from datapulse.core.models import MediaType, SourceType
+from datapulse.core.security import get_secret
 from datapulse.core.utils import clean_text, generate_excerpt
 
 from .base import BaseCollector, ParseResult
@@ -114,9 +115,10 @@ class TwitterCollector(BaseCollector):
                 created_at = tweet.get("created_at", "")
                 stats = tweet.get("stats") or {}
 
-                likes = stats.get("likes", 0)
-                retweets = stats.get("retweets", 0)
-                views = stats.get("views", 0)
+                likes = self._to_nonnegative_int(stats.get("likes", 0))
+                retweets = self._to_nonnegative_int(stats.get("retweets", 0))
+                views = self._to_nonnegative_int(stats.get("views", 0))
+                has_engagement = any(metric > 0 for metric in (likes, retweets, views))
                 quotes = []
 
                 if tweet.get("is_article"):
@@ -172,7 +174,11 @@ class TwitterCollector(BaseCollector):
 
                 content = clean_text(f"{body}  \n\n👍 {likes}  🔁 {retweets}  👁️ {views}")
                 excerpt = generate_excerpt(content)
-                confidence_flags = ["fxtwitter", "engagement"]
+                confidence_flags = ["fxtwitter"]
+                if has_engagement:
+                    confidence_flags.append("engagement")
+                else:
+                    confidence_flags.append("engagement_unavailable")
                 if media_extraction.get("status") == "degraded":
                     confidence_flags.append("media_extraction_degraded")
                 if media_extraction.get("items"):
@@ -194,6 +200,7 @@ class TwitterCollector(BaseCollector):
                         "likes": likes,
                         "retweets": retweets,
                         "views": views,
+                        "engagement_available": has_engagement,
                         "is_article": bool(tweet.get("is_article")),
                         "features": quotes,
                         "media_urls": [str(item.get("url", "")).strip() for item in media_items if str(item.get("url", "")).strip()],
@@ -220,16 +227,21 @@ class TwitterCollector(BaseCollector):
                 "confidence": 0.0,
                 "attempted": 0,
                 "failed": 0,
+                "error_code": "",
+                "error_hint": "",
             }
 
         enable_generated_alt = read_env_bool(self.twitter_media_extract_env, False)
         max_items = read_env_int(self.twitter_media_max_items_env, 4, min_value=1, max_value=12)
         timeout = read_env_int(self.twitter_media_timeout_env, 20, min_value=5, max_value=90)
+        has_jina_api_key = bool(get_secret("JINA_API_KEY").strip()) if enable_generated_alt else False
 
         items: list[dict[str, Any]] = []
         methods_used: set[str] = set()
         attempted = 0
         failed = 0
+        error_code = ""
+        error_hint = ""
 
         for index, media in enumerate(media_items[:max_items], 1):
             media_url = str(media.get("url", "")).strip()
@@ -242,6 +254,11 @@ class TwitterCollector(BaseCollector):
             confidence = 0.78
 
             if not text and enable_generated_alt and media_type in {"photo", "image"}:
+                if not has_jina_api_key:
+                    if not error_code:
+                        error_code = "auth_missing"
+                        error_hint = "JINA_API_KEY is required when DATAPULSE_TWITTER_MEDIA_EXTRACT=1"
+                    continue
                 attempted += 1
                 try:
                     text = self._extract_media_text_via_jina(media_url, timeout=timeout)
@@ -250,6 +267,8 @@ class TwitterCollector(BaseCollector):
                         confidence = 0.55
                 except Exception as exc:  # noqa: BLE001
                     failed += 1
+                    if not error_code:
+                        error_code, error_hint = self._classify_media_extraction_error(exc)
                     logger.info("Twitter media extraction degraded for %s: %s", media_url, exc)
 
             if not text:
@@ -265,7 +284,7 @@ class TwitterCollector(BaseCollector):
                 "confidence": round(confidence, 2),
             })
 
-        if failed > 0:
+        if error_code or failed > 0:
             status = "degraded"
         elif items:
             status = "ok"
@@ -290,6 +309,8 @@ class TwitterCollector(BaseCollector):
             "confidence": avg_confidence,
             "attempted": attempted,
             "failed": failed,
+            "error_code": error_code,
+            "error_hint": error_hint,
         }
 
     def _extract_media_text_via_jina(self, media_url: str, *, timeout: int) -> str:
@@ -303,6 +324,38 @@ class TwitterCollector(BaseCollector):
             ),
         )
         return self._normalize_generated_alt_text(result.content)
+
+    @staticmethod
+    def _classify_media_extraction_error(exc: Exception) -> tuple[str, str]:
+        hint = clean_text(str(exc) or exc.__class__.__name__).strip()[:300]
+        if isinstance(exc, JinaBlockedByPolicyError):
+            return "policy_blocked", hint or "Jina blocked by policy"
+
+        if isinstance(exc, requests.Timeout):
+            return "network_timeout", hint or "Request timed out"
+
+        if isinstance(exc, requests.HTTPError):
+            status_code = exc.response.status_code if exc.response is not None else 0
+            if status_code in {401, 403}:
+                return "auth_unauthorized", hint or f"HTTP {status_code}"
+            if status_code == 451:
+                return "policy_blocked", hint or "HTTP 451"
+            if status_code == 429:
+                return "rate_limited", hint or "HTTP 429"
+            return "http_error", hint or f"HTTP {status_code}"
+
+        if isinstance(exc, requests.RequestException):
+            return "network_error", hint or exc.__class__.__name__
+
+        return "unknown_error", hint or exc.__class__.__name__
+
+    @staticmethod
+    def _to_nonnegative_int(value: Any) -> int:
+        try:
+            parsed = int(float(str(value).strip()))
+        except (TypeError, ValueError):
+            return 0
+        return max(0, parsed)
 
     @staticmethod
     def _extract_media_text_from_metadata(media_item: dict[str, Any]) -> str:

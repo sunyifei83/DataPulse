@@ -114,3 +114,21 @@
   - `#23`：API 兼容参数与 async 包装器补齐
   - `#24`：新增首版语义审阅模块并接入 digest
 - 当前状态：`DONE`
+
+## WQ-2026-03-05-03（Open issue #26/#27 HA 闭环交付）
+
+- 触发时间：`2026-03-05`
+- 阶段：`issue 事实复核` → `实现级修复` → `Decisive 判定`
+- 触发分支：`main`
+- 责任人：`@sunyifei83`
+- 目标范围：GitHub `open` issue `#26 #27`
+- 交付事实：
+  - 文档：`/Users/sunyifei/DataPulse/docs/openclaw_issue_26_27_ha_delivery_2026-03-05.md`
+  - 实现：`reader/twitter collector` 与对应测试补齐
+- 修复摘要：
+  - `#26`：`reader._to_item()` 保留 collector 侧 `confidence_flags`，修复降级信号丢失
+  - `#27`：媒体增强新增 `JINA_API_KEY` 前置校验与 `error_code/error_hint` 机读归因
+- 复验：
+  - `uv run pytest tests/test_twitter_collector.py tests/test_reader_confidence_flags.py tests/test_integration.py tests/test_confidence.py -q` → `27 passed`
+  - 实链复现（目标 X URL）确认：`media_extraction_degraded` 透传、`error_code=auth_missing`
+- 当前状态：`DONE`

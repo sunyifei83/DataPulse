@@ -29,6 +29,19 @@ class _SearchReader:
         return self._results
 
 
+class _TrendingEmptyReader:
+    async def trending(self, **kwargs):
+        return {
+            "location": "worldwide",
+            "requested_location": "us",
+            "fallback_reason": "Low-signal trending snapshot (placeholder topics)",
+            "snapshot_time": "",
+            "trend_count": 0,
+            "trends": [],
+            "degraded": True,
+        }
+
+
 def test_trending_prints_fallback_context(monkeypatch, capsys):
     monkeypatch.setattr(cli, "DataPulseReader", lambda: _TrendingReader())
     monkeypatch.setattr(
@@ -43,6 +56,22 @@ def test_trending_prints_fallback_context(monkeypatch, capsys):
     assert "Trending Topics on X (worldwide)" in out
     assert "Requested location: china" in out
     assert "Fallback reason: 404 Client Error: Not Found" in out
+
+
+def test_trending_empty_prints_reason(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _TrendingEmptyReader())
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["datapulse", "--trending", "us", "--trending-limit", "20"],
+    )
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "No trending data found" in out
+    assert "Requested location: us" in out
+    assert "Fallback reason: Low-signal trending snapshot" in out
 
 
 def test_search_empty_with_zero_threshold_message(monkeypatch, capsys):

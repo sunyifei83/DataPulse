@@ -840,6 +840,12 @@ def main() -> None:
             )
             if not result["trends"]:
                 print("No trending data found")
+                requested_loc = result.get("requested_location")
+                fallback_reason = result.get("fallback_reason")
+                if requested_loc:
+                    print(f"Requested location: {requested_loc}")
+                if fallback_reason:
+                    print(f"Fallback reason: {fallback_reason}")
                 return
             loc = result["location"]
             print(f"Trending Topics on X ({loc}) — {result['snapshot_time']}\n")
