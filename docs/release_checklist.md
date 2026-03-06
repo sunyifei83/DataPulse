@@ -22,6 +22,7 @@
 ## C. 资产构建
 - [ ] `python -m build --sdist --wheel .`
 - [ ] 产物目录包含 `.whl` 与 `.tar.gz`
+- [ ] 若 `docs/形象.jpg` 更新，执行 `bash scripts/build_brand_assets.sh` 并确认 hero / square / icon 已同步刷新
 
 ## D. 发布动作
 - [ ] 创建/更新 release tag（`vX.Y.Z`）

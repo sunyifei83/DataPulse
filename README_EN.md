@@ -4,6 +4,17 @@
 
 [🔙 Back to Main README](./README.md) | [🇨🇳 中文版本](./README_CN.md) | [⬆️ Back to top](#top)
 
+<p align="center">
+  <img src="./docs/assets/datapulse-command-chamber-hero.jpg" alt="DataPulse command chamber key visual" width="960">
+</p>
+
+<p align="center">
+  <strong>DataPulse Command Chamber</strong><br>
+  The repository now uses a steel-blue command room, red containment rings, and a central evidence globe as its core brand language.
+</p>
+
+Brand baseline: [`docs/brand_identity.md`](./docs/brand_identity.md)
+
 ## Core goal
 
 DataPulse provides one shared intake path for URL extraction, confidence scoring, and memory output
@@ -395,6 +406,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_MAX_INBOX` (default 500)
 - `OUTPUT_DIR`
 - `DATAPULSE_MARKDOWN_PATH`
+- `DATAPULSE_MARKDOWN_PROJECTION` (`auto`/`disabled`/`obsidian`/`storage`/`hybrid`)
 - `OBSIDIAN_VAULT`
 - `DATAPULSE_SESSION_DIR` (default `~/.datapulse/sessions`)
 - `DATAPULSE_WATCHLIST_PATH` (watch mission storage file)
@@ -425,6 +437,13 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_ENTITY_CORROBORATION_WEIGHT` (entity corroboration weight, default `0`)
 - `JINA_API_KEY` (Jina API Key for enhanced reading and web search)
 - `TAVILY_API_KEY` (Tavily API Key for web search)
+
+Markdown projection notes:
+
+- Structured inbox JSON remains the system of record.
+- Markdown/Obsidian output is a projection layer and runs fail-open.
+- `auto` keeps the legacy priority: `DATAPULSE_MARKDOWN_PATH` -> `OBSIDIAN_VAULT` -> `OUTPUT_DIR`.
+- `hybrid` mirrors records to both Obsidian and storage targets when configured.
 
 ## Functional validation guide
 

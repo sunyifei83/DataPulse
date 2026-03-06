@@ -4,15 +4,20 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 from datapulse.reader import DataPulseReader
 
-CONSOLE_TITLE = "DataPulse Intelligence Console"
+CONSOLE_TITLE = "DataPulse Command Chamber"
+BRAND_SOURCE_PATH = Path(__file__).resolve().parent.parent / "docs" / "形象.jpg"
+BRAND_HERO_PATH = Path(__file__).resolve().parent.parent / "docs" / "assets" / "datapulse-command-chamber-hero.jpg"
+BRAND_SQUARE_PATH = Path(__file__).resolve().parent.parent / "docs" / "assets" / "datapulse-command-chamber-square.jpg"
+BRAND_ICON_PATH = Path(__file__).resolve().parent.parent / "docs" / "assets" / "datapulse-command-chamber-icon.png"
 
 
 def _json_blob(payload: Any) -> str:
@@ -32,21 +37,23 @@ def _console_html() -> str:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{CONSOLE_TITLE}</title>
+  <link rel="icon" type="image/png" href="/brand/icon">
+  <link rel="apple-touch-icon" href="/brand/square">
   <style>
     :root {{
-      --paper: #f4efe2;
-      --mist: #e4dbc8;
-      --panel: rgba(255, 249, 237, 0.82);
-      --panel-strong: rgba(255, 247, 230, 0.94);
-      --ink: #14231c;
-      --muted: #56655e;
-      --accent: #b04b2d;
-      --accent-2: #0d7b61;
-      --line: rgba(20, 35, 28, 0.14);
-      --warn: #8f2318;
-      --shadow: 0 24px 70px rgba(41, 33, 16, 0.12);
-      --headline: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
-      --body: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      --paper: #08111c;
+      --mist: #112033;
+      --panel: rgba(10, 18, 31, 0.76);
+      --panel-strong: rgba(9, 15, 28, 0.9);
+      --ink: #eaf4ff;
+      --muted: #9fb3ca;
+      --accent: #ff6a82;
+      --accent-2: #7fe4ff;
+      --line: rgba(146, 175, 210, 0.18);
+      --warn: #ff6a82;
+      --shadow: 0 28px 90px rgba(3, 8, 18, 0.5);
+      --headline: "Eurostile Extended", "Avenir Next Condensed", "Arial Narrow", sans-serif;
+      --body: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
       --mono: "SF Mono", "IBM Plex Mono", "Menlo", monospace;
     }}
     * {{ box-sizing: border-box; }}
@@ -55,9 +62,11 @@ def _console_html() -> str:
       min-height: 100vh;
       color: var(--ink);
       background:
-        radial-gradient(circle at 20% 20%, rgba(176, 75, 45, 0.16), transparent 28%),
-        radial-gradient(circle at 80% 10%, rgba(13, 123, 97, 0.18), transparent 32%),
-        linear-gradient(180deg, #efe5d2 0%, var(--paper) 100%);
+        radial-gradient(circle at 50% 24%, rgba(255, 106, 130, 0.16), transparent 18%),
+        radial-gradient(circle at 50% 26%, rgba(127, 228, 255, 0.14), transparent 24%),
+        radial-gradient(circle at 10% 10%, rgba(255, 106, 130, 0.14), transparent 26%),
+        radial-gradient(circle at 90% 8%, rgba(127, 228, 255, 0.12), transparent 22%),
+        linear-gradient(180deg, #101a2c 0%, #0a111c 52%, var(--paper) 100%);
       font-family: var(--body);
     }}
     body::before {{
@@ -66,10 +75,24 @@ def _console_html() -> str:
       inset: 0;
       pointer-events: none;
       background-image:
-        linear-gradient(rgba(20, 35, 28, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(20, 35, 28, 0.04) 1px, transparent 1px);
+        linear-gradient(rgba(148, 176, 209, 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 176, 209, 0.07) 1px, transparent 1px);
       background-size: 28px 28px;
       mask-image: linear-gradient(180deg, rgba(0,0,0,0.55), transparent 92%);
+    }}
+    body::after {{
+      content: "";
+      position: fixed;
+      right: 44px;
+      bottom: 34px;
+      width: 32px;
+      height: 32px;
+      transform: rotate(45deg);
+      border: 1px solid rgba(234, 244, 255, 0.32);
+      box-shadow:
+        0 0 22px rgba(255, 106, 130, 0.14),
+        0 0 32px rgba(127, 228, 255, 0.12);
+      pointer-events: none;
     }}
     .shell {{
       max-width: 1440px;
@@ -96,19 +119,79 @@ def _console_html() -> str:
       overflow: hidden;
       position: relative;
       padding: 28px;
+      background:
+        linear-gradient(160deg, rgba(20, 34, 53, 0.94), rgba(8, 14, 24, 0.92)),
+        var(--panel);
+    }}
+    .hero-main::before {{
+      content: "";
+      position: absolute;
+      inset: -12% 22% 26% 22%;
+      border-radius: 999px;
+      background:
+        radial-gradient(circle, rgba(127, 228, 255, 0.16), transparent 46%),
+        radial-gradient(circle, rgba(255, 106, 130, 0.12), transparent 58%);
+      filter: blur(6px);
+      pointer-events: none;
     }}
     .hero-main::after {{
       content: "";
       position: absolute;
-      inset: auto -8% -35% 30%;
+      inset: 54px 54px auto auto;
+      width: 240px;
       height: 240px;
-      background: radial-gradient(circle, rgba(176, 75, 45, 0.22), transparent 62%);
+      border-radius: 999px;
+      border: 1px solid rgba(255, 136, 154, 0.28);
+      box-shadow:
+        inset 0 0 0 16px rgba(255, 106, 130, 0.06),
+        0 0 48px rgba(255, 106, 130, 0.18);
+      opacity: 0.7;
+      pointer-events: none;
     }}
     .hero-side {{
       padding: 24px;
       display: grid;
       gap: 12px;
       align-content: start;
+      background:
+        linear-gradient(180deg, rgba(18, 28, 45, 0.92), rgba(9, 14, 24, 0.9)),
+        var(--panel);
+    }}
+    .brand-tile {{
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 14px;
+      align-items: center;
+      padding: 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(147, 181, 215, 0.18);
+      background: linear-gradient(180deg, rgba(14, 24, 39, 0.9), rgba(9, 14, 24, 0.94));
+      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.05);
+    }}
+    .brand-image {{
+      width: 88px;
+      height: 88px;
+      border-radius: 20px;
+      object-fit: cover;
+      border: 1px solid rgba(147, 181, 215, 0.24);
+      box-shadow:
+        0 0 24px rgba(127, 228, 255, 0.08),
+        0 0 18px rgba(255, 106, 130, 0.1);
+    }}
+    .brand-copy {{
+      display: grid;
+      gap: 4px;
+    }}
+    .brand-copy strong {{
+      font-family: var(--headline);
+      font-size: 1.08rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }}
+    .brand-copy span {{
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.35;
     }}
     .eyebrow {{
       display: inline-flex;
@@ -123,8 +206,10 @@ def _console_html() -> str:
       width: 10px;
       height: 10px;
       border-radius: 999px;
-      background: linear-gradient(180deg, var(--accent), #d57e4f);
-      box-shadow: 0 0 0 5px rgba(176, 75, 45, 0.1);
+      background: linear-gradient(180deg, #ffa1b0, var(--accent));
+      box-shadow:
+        0 0 0 5px rgba(255, 106, 130, 0.12),
+        0 0 18px rgba(255, 106, 130, 0.45);
     }}
     h1 {{
       margin: 12px 0 8px;
@@ -157,12 +242,12 @@ def _console_html() -> str:
     }}
     button:hover {{ transform: translateY(-1px); }}
     .btn-primary {{
-      background: linear-gradient(135deg, var(--accent), #d6844f);
-      color: #fff9ee;
-      box-shadow: 0 10px 24px rgba(176, 75, 45, 0.26);
+      background: linear-gradient(135deg, #ff8c9f, var(--accent));
+      color: #fff7fb;
+      box-shadow: 0 10px 28px rgba(255, 106, 130, 0.3);
     }}
     .btn-secondary {{
-      background: rgba(20, 35, 28, 0.08);
+      background: rgba(127, 228, 255, 0.08);
       color: var(--ink);
     }}
     .hero-metrics {{
@@ -175,11 +260,131 @@ def _console_html() -> str:
       gap: 12px;
       margin-top: 22px;
     }}
+    .hero-stage {{
+      position: relative;
+      height: 220px;
+      margin: 18px 0 10px;
+      border-radius: 24px;
+      border: 1px solid rgba(147, 181, 215, 0.16);
+      background:
+        radial-gradient(circle at 50% 42%, rgba(127, 228, 255, 0.12), transparent 18%),
+        radial-gradient(circle at 50% 46%, rgba(255, 106, 130, 0.14), transparent 24%),
+        linear-gradient(180deg, rgba(15, 24, 39, 0.82), rgba(7, 11, 18, 0.94));
+      overflow: hidden;
+    }}
+    .hero-stage::after {{
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(8, 14, 24, 0.08), rgba(8, 14, 24, 0.44)),
+        radial-gradient(circle at 50% 42%, rgba(127, 228, 255, 0.1), transparent 30%);
+      pointer-events: none;
+    }}
+    .hero-stage::before {{
+      content: "";
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 68px;
+      background:
+        linear-gradient(rgba(147, 181, 215, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(147, 181, 215, 0.08) 1px, transparent 1px);
+      background-size: 30px 30px;
+      opacity: 0.85;
+    }}
+    .hero-visual {{
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      opacity: 0.92;
+      filter: saturate(1.02) contrast(1.03);
+    }}
+    .stage-ring {{
+      position: absolute;
+      top: 22px;
+      bottom: 34px;
+      width: 186px;
+      border: 2px solid rgba(255, 125, 145, 0.44);
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255, 124, 144, 0.1), rgba(255, 124, 144, 0.04));
+      box-shadow:
+        inset 0 0 0 10px rgba(255, 106, 130, 0.06),
+        0 0 36px rgba(255, 106, 130, 0.18);
+    }}
+    .stage-ring-left {{ left: -24px; }}
+    .stage-ring-right {{ right: -24px; }}
+    .stage-ring::after {{
+      content: "";
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      top: 18px;
+      bottom: 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 175, 186, 0.28);
+    }}
+    .stage-globe {{
+      position: absolute;
+      left: 50%;
+      top: 44px;
+      width: 168px;
+      height: 168px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      border: 2px solid rgba(167, 238, 255, 0.48);
+      background:
+        radial-gradient(circle at 50% 46%, rgba(127, 228, 255, 0.14), transparent 58%),
+        radial-gradient(circle at 42% 40%, rgba(255, 122, 143, 0.18), transparent 48%);
+      box-shadow:
+        inset 0 0 42px rgba(127, 228, 255, 0.12),
+        0 0 42px rgba(127, 228, 255, 0.12);
+    }}
+    .stage-globe::before,
+    .stage-globe::after {{
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      inset: 18px;
+      border: 1px solid rgba(167, 238, 255, 0.22);
+    }}
+    .stage-globe::after {{
+      inset: 48% 8px auto 8px;
+      height: 1px;
+      border: 0;
+      background: rgba(167, 238, 255, 0.28);
+    }}
+    .stage-console {{
+      position: absolute;
+      bottom: 34px;
+      width: 126px;
+      height: 58px;
+      border-radius: 16px;
+      border: 1px solid rgba(147, 181, 215, 0.24);
+      background:
+        linear-gradient(180deg, rgba(16, 26, 41, 0.94), rgba(9, 14, 24, 0.98));
+      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.06);
+    }}
+    .stage-console-left {{ left: 22%; }}
+    .stage-console-right {{ right: 22%; }}
+    .stage-console::before {{
+      content: "";
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      top: 16px;
+      height: 4px;
+      background:
+        linear-gradient(90deg, rgba(127, 228, 255, 0.54), rgba(255, 106, 130, 0.72));
+      border-radius: 999px;
+    }}
     .metric {{
       padding: 16px;
       border-radius: 18px;
       border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.44);
+      background: rgba(17, 28, 45, 0.72);
     }}
     .metric-label {{
       font: 700 11px/1 var(--mono);
@@ -231,7 +436,7 @@ def _console_html() -> str:
       border: 1px solid var(--line);
       border-radius: 18px;
       padding: 14px 16px;
-      background: rgba(255, 255, 255, 0.52);
+      background: rgba(16, 27, 43, 0.76);
     }}
     .card-top {{
       display: flex;
@@ -252,11 +457,11 @@ def _console_html() -> str:
       padding: 5px 9px;
       font: 700 11px/1 var(--mono);
       text-transform: uppercase;
-      background: rgba(20, 35, 28, 0.08);
+      background: rgba(127, 228, 255, 0.08);
       color: var(--muted);
     }}
-    .chip.hot {{ background: rgba(176, 75, 45, 0.12); color: var(--accent); }}
-    .chip.ok {{ background: rgba(13, 123, 97, 0.12); color: var(--accent-2); }}
+    .chip.hot {{ background: rgba(255, 106, 130, 0.14); color: var(--accent); }}
+    .chip.ok {{ background: rgba(127, 228, 255, 0.14); color: var(--accent-2); }}
     .meta {{
       margin-top: 10px;
       display: flex;
@@ -283,7 +488,7 @@ def _console_html() -> str:
       padding: 9px 12px;
       font: 700 0.76rem/1 var(--mono);
       letter-spacing: 0.02em;
-      background: rgba(20, 35, 28, 0.08);
+      background: rgba(127, 228, 255, 0.08);
       color: var(--ink);
       text-decoration: none;
       transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
@@ -310,9 +515,9 @@ def _console_html() -> str:
     }}
     input, select {{
       width: 100%;
-      border: 1px solid rgba(20, 35, 28, 0.12);
+      border: 1px solid rgba(147, 181, 215, 0.16);
       border-radius: 14px;
-      background: rgba(255,255,255,0.72);
+      background: rgba(11, 18, 30, 0.86);
       color: var(--ink);
       padding: 13px 14px;
       font: 500 0.96rem/1.2 var(--body);
@@ -324,12 +529,12 @@ def _console_html() -> str:
     .state-banner {{
       border-radius: 18px;
       padding: 16px;
-      background: linear-gradient(135deg, rgba(13, 123, 97, 0.16), rgba(255,255,255,0.4));
-      border: 1px solid rgba(13, 123, 97, 0.18);
+      background: linear-gradient(135deg, rgba(127, 228, 255, 0.12), rgba(10, 18, 31, 0.74));
+      border: 1px solid rgba(127, 228, 255, 0.16);
     }}
     .state-banner.error {{
-      background: linear-gradient(135deg, rgba(143, 35, 24, 0.16), rgba(255,255,255,0.4));
-      border-color: rgba(143, 35, 24, 0.18);
+      background: linear-gradient(135deg, rgba(255, 106, 130, 0.16), rgba(10, 18, 31, 0.72));
+      border-color: rgba(255, 106, 130, 0.18);
     }}
     .mono {{
       font-family: var(--mono);
@@ -339,7 +544,7 @@ def _console_html() -> str:
     .empty {{
       padding: 24px;
       border-radius: 16px;
-      border: 1px dashed rgba(20, 35, 28, 0.18);
+      border: 1px dashed rgba(147, 181, 215, 0.24);
       color: var(--muted);
       text-align: center;
     }}
@@ -357,9 +562,9 @@ def _console_html() -> str:
       padding-right: 4px;
     }}
     .card.selected {{
-      border-color: rgba(13, 123, 97, 0.34);
-      box-shadow: inset 0 0 0 1px rgba(13, 123, 97, 0.16);
-      background: rgba(252, 255, 249, 0.72);
+      border-color: rgba(127, 228, 255, 0.3);
+      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.16);
+      background: rgba(15, 26, 41, 0.9);
     }}
     .entity-row {{
       display: flex;
@@ -384,8 +589,8 @@ def _console_html() -> str:
       border-radius: 18px;
       border: 1px solid var(--line);
       background:
-        radial-gradient(circle at 50% 45%, rgba(13, 123, 97, 0.09), transparent 42%),
-        linear-gradient(180deg, rgba(255,255,255,0.56), rgba(255,255,255,0.34));
+        radial-gradient(circle at 50% 45%, rgba(127, 228, 255, 0.12), transparent 42%),
+        linear-gradient(180deg, rgba(17, 27, 43, 0.92), rgba(9, 14, 24, 0.94));
       overflow: hidden;
     }}
     .graph-canvas svg {{
@@ -406,7 +611,7 @@ def _console_html() -> str:
       border-radius: 14px;
       border: 1px solid var(--line);
       padding: 10px 12px;
-      background: rgba(255,255,255,0.42);
+      background: rgba(16, 27, 43, 0.72);
       font: 700 12px/1.4 var(--mono);
       color: var(--muted);
     }}
@@ -415,7 +620,7 @@ def _console_html() -> str:
       padding: 14px;
       border-radius: 14px;
       border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.48);
+      background: rgba(16, 27, 43, 0.74);
       white-space: pre-wrap;
       overflow: auto;
       font: 500 12px/1.55 var(--mono);
@@ -451,20 +656,36 @@ def _console_html() -> str:
   <div class="shell">
     <section class="hero">
       <div class="hero-main">
-        <div class="eyebrow"><span class="dot"></span> Intelligence Center / G0 Console Shell</div>
-        <h1>Mission Control For Signal Work</h1>
-        <p class="hero-copy">DataPulse now runs as a local-first intelligence console. Track recurring missions, audit alert routes, inspect daemon state, and operate the watch layer without dropping back to CLI.</p>
+        <div class="eyebrow"><span class="dot"></span> Command Chamber / Local-first Intelligence Surface</div>
+        <h1>Command Chamber For Signal Operations</h1>
+        <p class="hero-copy">DataPulse now presents itself as a steel-blue intelligence chamber: recurring missions on the edge, evidence at the core, and alert telemetry under visible containment.</p>
         <div class="toolbar">
-          <button class="btn-primary" id="refresh-all">Refresh Board</button>
+          <button class="btn-primary" id="refresh-all">Refresh Chamber</button>
           <button class="btn-secondary" id="run-due">Run Due Missions</button>
+        </div>
+        <div class="hero-stage" aria-hidden="true">
+          <img class="hero-visual" src="/brand/hero" alt="DataPulse command chamber brand visual">
+          <div class="stage-ring stage-ring-left"></div>
+          <div class="stage-ring stage-ring-right"></div>
+          <div class="stage-globe"></div>
+          <div class="stage-console stage-console-left"></div>
+          <div class="stage-console stage-console-right"></div>
         </div>
         <div class="signal-strip" id="overview-metrics"></div>
       </div>
       <aside class="hero-side">
+        <div class="brand-tile">
+          <img class="brand-image" src="/brand/square" alt="DataPulse compact brand mark">
+          <div class="brand-copy">
+            <div class="mono">Brand Frame</div>
+            <strong>Command Chamber</strong>
+            <span>Wide hero for primary surfaces. Square crop for compact brand placements.</span>
+          </div>
+        </div>
         <div class="panel-head">
           <div>
-            <div class="panel-title">Launch Mission</div>
-            <div class="panel-sub">Create a watch with an alert rule from the browser.</div>
+            <div class="panel-title">Deploy Mission</div>
+            <div class="panel-sub">Create one watch, one route, and one threshold from the chamber.</div>
           </div>
         </div>
         <form id="create-watch-form">
@@ -548,7 +769,7 @@ def _console_html() -> str:
       </div>
     </section>
 
-    <div class="footer-note">Local-first console shell. CLI and MCP remain first-class control planes.</div>
+    <div class="footer-note">Command chamber is the primary visual surface. CLI and MCP remain first-class control planes.</div>
   </div>
 
     <script>
@@ -904,7 +1125,7 @@ def _console_html() -> str:
         if (!source || !target) {{
           return "";
         }}
-        const stroke = edge.kind === "entity_relation" ? "rgba(176, 75, 45, 0.72)" : "rgba(13, 123, 97, 0.4)";
+        const stroke = edge.kind === "entity_relation" ? "rgba(255, 106, 130, 0.78)" : "rgba(127, 228, 255, 0.42)";
         const dash = edge.kind === "entity_relation" ? "0" : "6 6";
         return `<line x1="${{source.x}}" y1="${{source.y}}" x2="${{target.x}}" y2="${{target.y}}" stroke="${{stroke}}" stroke-width="2.5" stroke-dasharray="${{dash}}" />`;
       }}).join("");
@@ -916,9 +1137,9 @@ def _console_html() -> str:
         }}
         const isStory = node.kind === "story";
         const radiusValue = isStory ? 34 : 22 + Math.min(10, (Number(node.in_story_source_count || 0) * 2));
-        const fill = isStory ? "#14231c" : "#fff6e8";
-        const stroke = isStory ? "rgba(20, 35, 28, 0.9)" : "rgba(13, 123, 97, 0.28)";
-        const textFill = isStory ? "#fff9ee" : "#14231c";
+        const fill = isStory ? "#07111d" : "#102031";
+        const stroke = isStory ? "rgba(234, 244, 255, 0.76)" : "rgba(127, 228, 255, 0.32)";
+        const textFill = "#eaf4ff";
         const label = escapeHtml(node.label || node.id);
         const subtitle = isStory
           ? `${{node.item_count || 0}} items`
@@ -1316,6 +1537,30 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
         return _console_html()
+
+    @app.get("/brand/source")
+    def brand_source() -> FileResponse:
+        if not BRAND_SOURCE_PATH.exists():
+            raise HTTPException(status_code=404, detail="brand source not found")
+        return FileResponse(BRAND_SOURCE_PATH, media_type="image/jpeg")
+
+    @app.get("/brand/hero")
+    def brand_hero() -> FileResponse:
+        if not BRAND_HERO_PATH.exists():
+            raise HTTPException(status_code=404, detail="brand hero not found")
+        return FileResponse(BRAND_HERO_PATH, media_type="image/jpeg")
+
+    @app.get("/brand/square")
+    def brand_square() -> FileResponse:
+        if not BRAND_SQUARE_PATH.exists():
+            raise HTTPException(status_code=404, detail="brand square not found")
+        return FileResponse(BRAND_SQUARE_PATH, media_type="image/jpeg")
+
+    @app.get("/brand/icon")
+    def brand_icon() -> FileResponse:
+        if not BRAND_ICON_PATH.exists():
+            raise HTTPException(status_code=404, detail="brand icon not found")
+        return FileResponse(BRAND_ICON_PATH, media_type="image/png")
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

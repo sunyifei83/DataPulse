@@ -2,8 +2,18 @@
 
 跨平台内容采集与事实筛选工具，面向 CLI / MCP / Skill / Agent 工作流。
 
+<p align="center">
+  <img src="./docs/assets/datapulse-command-chamber-hero.jpg" alt="DataPulse Command Chamber key visual" width="960">
+</p>
+
+<p align="center">
+  <strong>DataPulse Command Chamber</strong><br>
+  以钢蓝指挥舱、红色约束环和中央证据球为主视觉的本地优先情报操作面。
+</p>
+
 - 中文文档：[`README_CN.md`](./README_CN.md)
 - English docs: [`README_EN.md`](./README_EN.md)
+- 品牌基线：[`docs/brand_identity.md`](./docs/brand_identity.md)
 - 许可证：`DataPulse Non-Commercial License v1.0`
 
 ## 这是什么

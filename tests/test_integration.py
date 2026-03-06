@@ -47,11 +47,13 @@ class TestReadUrlPipeline:
         os.environ["DATAPULSE_SOURCE_CATALOG"] = catalog_path
         # Suppress markdown output
         os.environ.pop("DATAPULSE_MARKDOWN_PATH", None)
+        os.environ.pop("DATAPULSE_MARKDOWN_PROJECTION", None)
         os.environ.pop("OBSIDIAN_VAULT", None)
         os.environ.pop("OUTPUT_DIR", None)
         r = DataPulseReader(inbox_path=inbox_path)
         yield r
         os.environ.pop("DATAPULSE_SOURCE_CATALOG", None)
+        os.environ.pop("DATAPULSE_MARKDOWN_PROJECTION", None)
 
     @patch("datapulse.collectors.generic.requests.get")
     def test_read_url_produces_item(self, mock_get, reader):
@@ -128,3 +130,59 @@ class TestReadUrlPipeline:
         reader._read_sync("https://example.com/dup-test")
 
         assert len(reader.inbox.items) == 1
+
+    @patch("datapulse.collectors.generic.requests.get")
+    def test_markdown_projection_failure_does_not_block_read(self, mock_get, reader, tmp_path):
+        """Projection sink failures should not break the structured inbox write."""
+        import os
+
+        blocked_parent = tmp_path / "blocked"
+        blocked_parent.write_text("not a directory", encoding="utf-8")
+        os.environ["DATAPULSE_MARKDOWN_PROJECTION"] = "storage"
+        os.environ["DATAPULSE_MARKDOWN_PATH"] = str(blocked_parent / "datapulse.md")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"Content-Type": "text/html"}
+        mock_response.content = SAMPLE_HTML.encode("utf-8")
+        mock_response.text = SAMPLE_HTML
+        mock_response.encoding = "utf-8"
+        mock_response.apparent_encoding = "utf-8"
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_response.iter_content = MagicMock(return_value=[SAMPLE_HTML.encode("utf-8")])
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        item = reader._read_sync("https://example.com/projection-failure")
+
+        assert item.id == reader.inbox.items[0].id
+        assert reader.inbox.items[0].extra["markdown_projection"]["status"] == "degraded"
+
+    @patch("datapulse.collectors.generic.requests.get")
+    def test_duplicate_read_does_not_duplicate_markdown_projection(self, mock_get, reader, tmp_path):
+        """Duplicate reads should not append the same markdown projection twice."""
+        import os
+
+        output_dir = tmp_path / "out"
+        os.environ["DATAPULSE_MARKDOWN_PROJECTION"] = "storage"
+        os.environ["OUTPUT_DIR"] = str(output_dir)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"Content-Type": "text/html"}
+        mock_response.content = SAMPLE_HTML.encode("utf-8")
+        mock_response.text = SAMPLE_HTML
+        mock_response.encoding = "utf-8"
+        mock_response.apparent_encoding = "utf-8"
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_response.iter_content = MagicMock(return_value=[SAMPLE_HTML.encode("utf-8")])
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        reader._read_sync("https://example.com/dup-projection")
+        reader._read_sync("https://example.com/dup-projection")
+
+        markdown = (output_dir / "datapulse-hub.md").read_text(encoding="utf-8")
+        assert markdown.count("https://example.com/dup-projection") == 1

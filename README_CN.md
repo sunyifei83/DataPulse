@@ -4,6 +4,17 @@
 
 [🔙 返回主 README](./README.md) | [🇺🇸 English version](./README_EN.md) | [⬆️ 回到顶部](#top)
 
+<p align="center">
+  <img src="./docs/assets/datapulse-command-chamber-hero.jpg" alt="DataPulse 指挥舱主视觉" width="960">
+</p>
+
+<p align="center">
+  <strong>DataPulse Command Chamber</strong><br>
+  本仓主视觉切换为钢蓝指挥舱、红色约束环与中央证据球的情报室语言。
+</p>
+
+品牌基线：[`docs/brand_identity.md`](./docs/brand_identity.md)
+
 ## 数据脉搏（DataPulse）核心目标
 
 建立统一的跨平台情报入口：对 URL 做采集、解析、置信评分、去重归档并输出结构化结果，服务于 MCP、Skill、Agent、Bot 等编排场景。
@@ -452,6 +463,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_MAX_INBOX`（默认 500）
 - `OUTPUT_DIR`
 - `DATAPULSE_MARKDOWN_PATH`
+- `DATAPULSE_MARKDOWN_PROJECTION`（`auto`/`disabled`/`obsidian`/`storage`/`hybrid`）
 - `OBSIDIAN_VAULT`
 - `DATAPULSE_SESSION_DIR`（默认 `~/.datapulse/sessions`）
 - `DATAPULSE_WATCHLIST_PATH`（watch mission 存储文件）
@@ -493,6 +505,13 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_XHS_MEDIUM_CONFIDENCE`（默认 `0.65`）
 - `DATAPULSE_XHS_HIGH_SCORE`（默认 `70`）
 - `DATAPULSE_XHS_MEDIUM_SCORE`（默认 `50`）
+
+Markdown 投影说明：
+
+- 结构化 inbox JSON 仍然是真源。
+- Markdown / Obsidian 输出是投影层，失败不会阻断主采集写入。
+- `auto` 保持原有优先级：`DATAPULSE_MARKDOWN_PATH` -> `OBSIDIAN_VAULT` -> `OUTPUT_DIR`。
+- `hybrid` 会在配置存在时同时镜像到 Obsidian 与本地存储目标。
 
 ## 开发与入库约束
 

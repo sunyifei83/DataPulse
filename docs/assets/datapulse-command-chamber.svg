@@ -1,0 +1,125 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">DataPulse Command Chamber</title>
+  <desc id="desc">A steel-blue intelligence chamber with twin containment rings, a central evidence globe, and operator consoles.</desc>
+  <defs>
+    <linearGradient id="bg" x1="800" y1="0" x2="800" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0E1625"/>
+      <stop offset="1" stop-color="#050B14"/>
+    </linearGradient>
+    <radialGradient id="glowRed" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(800 400) rotate(90) scale(340 620)">
+      <stop stop-color="#FF6C84" stop-opacity="0.36"/>
+      <stop offset="1" stop-color="#FF6C84" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowCyan" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(800 390) rotate(90) scale(300 420)">
+      <stop stop-color="#7FE4FF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#7FE4FF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ringStroke" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFA0B0"/>
+      <stop offset="1" stop-color="#FF556F"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#9FE9FF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#9FE9FF" stop-opacity="0.04"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#101B2E"/>
+      <stop offset="1" stop-color="#16253B"/>
+    </linearGradient>
+    <pattern id="floorGrid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0V44" stroke="#8AB0D6" stroke-opacity="0.14" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect width="1600" height="900" fill="url(#glowRed)"/>
+  <rect width="1600" height="900" fill="url(#glowCyan)"/>
+
+  <g opacity="0.38" stroke="#93B5D7" stroke-width="4">
+    <path d="M0 140H1600"/>
+    <path d="M0 236H1600"/>
+    <path d="M0 332H1600"/>
+    <path d="M0 428H1600"/>
+    <path d="M0 524H1600"/>
+  </g>
+
+  <g opacity="0.38" stroke="#89A6C8" stroke-width="8">
+    <path d="M112 0V674"/>
+    <path d="M314 0V674"/>
+    <path d="M1286 0V674"/>
+    <path d="M1488 0V674"/>
+  </g>
+
+  <g opacity="0.9">
+    <rect x="110" y="170" width="260" height="470" rx="130" fill="url(#glass)"/>
+    <rect x="1230" y="170" width="260" height="470" rx="130" fill="url(#glass)"/>
+    <rect x="114" y="174" width="252" height="462" rx="126" stroke="url(#ringStroke)" stroke-width="5"/>
+    <rect x="1234" y="174" width="252" height="462" rx="126" stroke="url(#ringStroke)" stroke-width="5"/>
+    <path d="M126 216C268 184 527 168 800 168C1073 168 1332 184 1474 216" stroke="url(#ringStroke)" stroke-width="8" stroke-linecap="round"/>
+    <path d="M126 598C268 630 527 646 800 646C1073 646 1332 630 1474 598" stroke="url(#ringStroke)" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <g>
+    <circle cx="800" cy="398" r="142" fill="#6FD5FF" fill-opacity="0.08" stroke="#A5EEFF" stroke-opacity="0.56" stroke-width="3"/>
+    <circle cx="800" cy="398" r="118" fill="#8EE9FF" fill-opacity="0.08" stroke="#A7EEFF" stroke-opacity="0.36" stroke-width="2"/>
+    <path d="M692 356C742 334 865 334 907 356C948 377 950 420 909 442C868 463 739 463 693 442C648 421 644 378 692 356Z" fill="#FF6A82" fill-opacity="0.42"/>
+    <path d="M755 310C777 298 827 300 848 317C870 334 859 353 833 365C808 376 765 376 745 361C725 346 731 324 755 310Z" fill="#FF91A1" fill-opacity="0.48"/>
+    <path d="M692 356C742 334 865 334 907 356C948 377 950 420 909 442C868 463 739 463 693 442C648 421 644 378 692 356Z" stroke="#FFA5B4" stroke-opacity="0.52"/>
+    <g opacity="0.34" stroke="#B5F4FF" stroke-width="2">
+      <path d="M678 398H922"/>
+      <path d="M800 256V540"/>
+      <path d="M700 324C756 350 844 350 900 324"/>
+      <path d="M700 472C756 446 844 446 900 472"/>
+    </g>
+  </g>
+
+  <g>
+    <ellipse cx="800" cy="620" rx="216" ry="44" fill="#0A101B" stroke="#6989B0" stroke-opacity="0.6" stroke-width="3"/>
+    <ellipse cx="800" cy="620" rx="166" ry="26" fill="#111E30" stroke="#9BEAFF" stroke-opacity="0.34" stroke-width="2"/>
+  </g>
+
+  <g>
+    <path d="M0 640H1600V900H0V640Z" fill="url(#floorGrid)" opacity="0.52"/>
+    <path d="M0 654C256 690 520 708 800 708C1080 708 1344 690 1600 654V900H0V654Z" fill="#09111C" fill-opacity="0.92"/>
+    <path d="M208 752H624V832H208V752Z" stroke="#92B6D8" stroke-opacity="0.4" stroke-width="3"/>
+    <path d="M976 752H1392V832H976V752Z" stroke="#92B6D8" stroke-opacity="0.4" stroke-width="3"/>
+    <path d="M546 712H1054" stroke="#87A7CB" stroke-opacity="0.4" stroke-width="4"/>
+  </g>
+
+  <g>
+    <path d="M296 520C330 478 392 470 428 508L482 564C496 578 493 600 477 610L396 660C378 672 356 668 342 650L296 596C278 574 278 542 296 520Z" fill="url(#panel)" stroke="#8CB0D4" stroke-opacity="0.38" stroke-width="3"/>
+    <path d="M1118 520C1152 478 1214 470 1250 508L1304 564C1318 578 1315 600 1299 610L1218 660C1200 672 1178 668 1164 650L1118 596C1100 574 1100 542 1118 520Z" fill="url(#panel)" stroke="#8CB0D4" stroke-opacity="0.38" stroke-width="3"/>
+    <rect x="342" y="514" width="128" height="78" rx="16" fill="#0C1523" stroke="#93B4D4" stroke-opacity="0.36"/>
+    <rect x="1138" y="514" width="128" height="78" rx="16" fill="#0C1523" stroke="#93B4D4" stroke-opacity="0.36"/>
+    <path d="M356 530H454" stroke="#7CE6FF" stroke-opacity="0.45" stroke-width="4"/>
+    <path d="M1152 530H1250" stroke="#7CE6FF" stroke-opacity="0.45" stroke-width="4"/>
+    <path d="M356 548H430" stroke="#FF8DA1" stroke-opacity="0.55" stroke-width="4"/>
+    <path d="M1152 548H1226" stroke="#FF8DA1" stroke-opacity="0.55" stroke-width="4"/>
+  </g>
+
+  <g opacity="0.82" fill="#DDEBFF">
+    <circle cx="404" cy="506" r="16"/>
+    <circle cx="1196" cy="506" r="16"/>
+    <circle cx="698" cy="488" r="17"/>
+    <circle cx="902" cy="488" r="17"/>
+    <circle cx="800" cy="524" r="18"/>
+  </g>
+
+  <g opacity="0.42">
+    <rect x="618" y="250" width="160" height="104" rx="14" fill="#101A29" stroke="#9FC2E4" stroke-opacity="0.46" stroke-width="2"/>
+    <rect x="824" y="270" width="176" height="118" rx="14" fill="#101A29" stroke="#9FC2E4" stroke-opacity="0.46" stroke-width="2"/>
+    <rect x="980" y="334" width="144" height="90" rx="14" fill="#101A29" stroke="#9FC2E4" stroke-opacity="0.46" stroke-width="2"/>
+    <path d="M638 280H754" stroke="#7FE4FF" stroke-opacity="0.55" stroke-width="4"/>
+    <path d="M842 302H978" stroke="#FF7A8F" stroke-opacity="0.55" stroke-width="4"/>
+    <path d="M996 360H1108" stroke="#FF7A8F" stroke-opacity="0.55" stroke-width="4"/>
+  </g>
+
+  <g opacity="0.28" fill="#EAF6FF">
+    <circle cx="1504" cy="822" r="6"/>
+    <circle cx="1524" cy="842" r="3"/>
+    <circle cx="1514" cy="856" r="4"/>
+  </g>
+
+  <text x="800" y="112" fill="#EAF6FF" fill-opacity="0.92" font-family="Eurostile Extended, Avenir Next Condensed, Arial Narrow, sans-serif" font-size="48" font-weight="700" letter-spacing="8" text-anchor="middle">DATAPULSE COMMAND CHAMBER</text>
+  <text x="800" y="150" fill="#9EB4CD" font-family="IBM Plex Sans, Avenir Next, Segoe UI, sans-serif" font-size="22" text-anchor="middle">Local-first signal operations, evidence review, and intelligence replay</text>
+</svg>

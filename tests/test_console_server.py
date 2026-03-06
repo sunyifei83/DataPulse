@@ -255,10 +255,48 @@ def test_console_index_serves_shell():
 
     assert response.status_code == 200
     assert CONSOLE_TITLE in response.text
-    assert "Mission Control For Signal Work" in response.text
+    assert "Command Chamber For Signal Operations" in response.text
+    assert "/brand/icon" in response.text
+    assert "/brand/square" in response.text
     assert "create-watch-form" in response.text
     assert "Triage Queue" in response.text
     assert "Story Workspace" in response.text
+
+
+def test_console_brand_hero_serves_jpeg():
+    client = _client()
+    response = client.get("/brand/hero")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.content
+
+
+def test_console_brand_source_serves_jpeg():
+    client = _client()
+    response = client.get("/brand/source")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.content
+
+
+def test_console_brand_square_serves_jpeg():
+    client = _client()
+    response = client.get("/brand/square")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.content
+
+
+def test_console_brand_icon_serves_png():
+    client = _client()
+    response = client.get("/brand/icon")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content
 
 
 def test_console_overview_returns_aggregates():

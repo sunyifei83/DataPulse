@@ -23,7 +23,7 @@ from datapulse.core.scheduler import WatchDaemon, WatchScheduler, describe_sched
 from datapulse.core.scoring import rank_items
 from datapulse.core.search_gateway import SearchGateway, SearchHit
 from datapulse.core.source_catalog import SourceCatalog
-from datapulse.core.storage import UnifiedInbox, output_record_md, save_markdown
+from datapulse.core.storage import UnifiedInbox, output_record_md, project_markdown
 from datapulse.core.story import StoryStore, build_story_clusters, build_story_graph, render_story_markdown
 from datapulse.core.triage import TriageQueue, is_digest_candidate
 from datapulse.core.utils import content_fingerprint, inbox_path_from_env, normalize_language
@@ -250,13 +250,19 @@ class DataPulseReader:
             )
 
         if self.inbox.add(item):
+            projection = project_markdown(item)
+            item.extra["markdown_projection"] = projection.to_dict()
             self.inbox.save()
+            if projection.primary_path:
+                logger.info("Projected markdown: %s", projection.primary_path)
+            if projection.status == "degraded":
+                logger.warning(
+                    "Markdown projection degraded for %s: %s",
+                    item.id,
+                    projection.reason,
+                )
         else:
             logger.info("Item already exists in inbox: %s", item.id)
-
-        md_path = save_markdown(item)
-        if md_path:
-            logger.info("Saved markdown: %s", md_path)
         return item
 
     async def read_batch(

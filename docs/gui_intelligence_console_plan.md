@@ -46,7 +46,8 @@ This is not a decorative dashboard. The UI should become the operating surface f
 ## UX Direction
 
 - Avoid CRUD dashboard aesthetics.
-- Visual direction: "signal room / newsroom ops board", not default SaaS admin.
+- Visual direction: "signal room / command chamber / newsroom ops board", not default SaaS admin.
+- Brand baseline: use the command chamber key visual and palette defined in `docs/brand_identity.md`.
 - Use a strong typography system, layered backgrounds, signal colors, and a few purposeful transitions.
 - Optimize for desktop first, but keep mobile review capability for alerts and status.
 

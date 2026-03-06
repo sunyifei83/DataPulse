@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from datapulse.core.models import DataPulseItem, SourceType
-from datapulse.core.storage import UnifiedInbox
+from datapulse.core.storage import UnifiedInbox, project_markdown
 
 
 class TestUnifiedInbox:
@@ -226,3 +226,73 @@ class TestFingerprintDedup:
         assert item1.id == item2.id
         assert inbox.add(item1) is True
         assert inbox.add(item2) is False
+
+
+class TestMarkdownProjection:
+    def _make_item(self) -> DataPulseItem:
+        return DataPulseItem(
+            source_type=SourceType.GENERIC,
+            source_name="test",
+            title="Projection Sample",
+            content="Projection sample content " * 10,
+            url="https://example.com/projection",
+            confidence=0.88,
+            confidence_factors=["title", "content"],
+        )
+
+    def test_project_markdown_disabled_without_targets(self, monkeypatch):
+        monkeypatch.delenv("DATAPULSE_MARKDOWN_PROJECTION", raising=False)
+        monkeypatch.delenv("DATAPULSE_MARKDOWN_PATH", raising=False)
+        monkeypatch.delenv("OBSIDIAN_VAULT", raising=False)
+        monkeypatch.delenv("OUTPUT_DIR", raising=False)
+
+        result = project_markdown(self._make_item())
+
+        assert result.status == "disabled"
+        assert result.reason == "no_projection_target_configured"
+        assert result.target_paths == []
+        assert result.written_paths == []
+
+    def test_project_markdown_storage_mode_writes_output_dir(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DATAPULSE_MARKDOWN_PROJECTION", "storage")
+        monkeypatch.delenv("DATAPULSE_MARKDOWN_PATH", raising=False)
+        monkeypatch.delenv("OBSIDIAN_VAULT", raising=False)
+        monkeypatch.setenv("OUTPUT_DIR", str(tmp_path / "out"))
+
+        result = project_markdown(self._make_item())
+        target = tmp_path / "out" / "datapulse-hub.md"
+
+        assert result.status == "projected"
+        assert result.primary_path == str(target)
+        assert target.exists()
+        assert "Projection Sample" in target.read_text(encoding="utf-8")
+
+    def test_project_markdown_hybrid_writes_obsidian_and_storage(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DATAPULSE_MARKDOWN_PROJECTION", "hybrid")
+        monkeypatch.delenv("DATAPULSE_MARKDOWN_PATH", raising=False)
+        monkeypatch.setenv("OBSIDIAN_VAULT", str(tmp_path / "vault"))
+        monkeypatch.setenv("OUTPUT_DIR", str(tmp_path / "out"))
+
+        result = project_markdown(self._make_item())
+        obsidian_target = tmp_path / "vault" / "01-收集箱" / "datapulse-inbox.md"
+        storage_target = tmp_path / "out" / "datapulse-hub.md"
+
+        assert result.status == "projected"
+        assert sorted(result.written_paths) == sorted([str(obsidian_target), str(storage_target)])
+        assert obsidian_target.exists()
+        assert storage_target.exists()
+
+    def test_project_markdown_degrades_when_sink_unavailable(self, tmp_path, monkeypatch):
+        blocked_parent = tmp_path / "blocked"
+        blocked_parent.write_text("not a directory", encoding="utf-8")
+        monkeypatch.setenv("DATAPULSE_MARKDOWN_PROJECTION", "storage")
+        monkeypatch.setenv("DATAPULSE_MARKDOWN_PATH", str(blocked_parent / "datapulse.md"))
+        monkeypatch.delenv("OBSIDIAN_VAULT", raising=False)
+        monkeypatch.delenv("OUTPUT_DIR", raising=False)
+
+        result = project_markdown(self._make_item())
+
+        assert result.status == "degraded"
+        assert result.reason == "projection_write_failed"
+        assert result.written_paths == []
+        assert result.failures
