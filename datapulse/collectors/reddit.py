@@ -10,6 +10,7 @@ import urllib.request
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
+from datapulse.core.config import read_env_int
 from datapulse.core.models import SourceType
 from datapulse.core.utils import clean_text, generate_excerpt
 
@@ -25,10 +26,13 @@ class RedditCollector(BaseCollector):
     tier = 1
     setup_hint = ""
     max_comments = 15
+    max_reply_depth = 3
+    reddit_max_comments_env = "DATAPULSE_REDDIT_MAX_COMMENTS"
+    reddit_max_reply_depth_env = "DATAPULSE_REDDIT_MAX_REPLY_DEPTH"
 
     def check(self) -> dict[str, str | bool]:
         return {"status": "ok", "message": "public JSON API (no auth)", "available": True}
-    max_reply_depth = 3
+
     reddit_user_agent = "DataPulse/0.1 (+https://github.com/sunyifei83/DataPulse)"
 
     def can_handle(self, url: str) -> bool:
@@ -84,10 +88,14 @@ class RedditCollector(BaseCollector):
         score = post.get("score", 0)
         created_utc = post.get("created_utc", 0)
         num_comments = post.get("num_comments", 0)
+        upvote_ratio = post.get("upvote_ratio")
+        subreddit_name = post.get("subreddit", "")
         selftext = post.get("selftext", "")
         link = post.get("url", "")
         is_self = post.get("is_self", True)
         flair = post.get("link_flair_text", "")
+        max_comments = read_env_int(self.reddit_max_comments_env, self.max_comments, min_value=1, max_value=100)
+        max_reply_depth = read_env_int(self.reddit_max_reply_depth_env, self.max_reply_depth, min_value=0, max_value=8)
 
         ts = ""
         if created_utc:
@@ -106,7 +114,7 @@ class RedditCollector(BaseCollector):
         elif link and not is_self:
             parts.append(f"\n🔗 {link}")
 
-        comments = self._extract_comments(comments_tree)
+        comments = self._extract_comments(comments_tree, max_comments=max_comments, max_reply_depth=max_reply_depth)
         if comments:
             parts.append("\n---\n## Top Comments")
             parts.extend(comments)
@@ -132,6 +140,14 @@ class RedditCollector(BaseCollector):
                 "num_comments": num_comments,
                 "created_utc": created_utc,
                 "flair": flair,
+                "subreddit": subreddit_name,
+                "subreddit_name_prefixed": subreddit,
+                "upvote_ratio": upvote_ratio,
+                "comments_captured": len(comments),
+                "comments_available": num_comments,
+                "comments_truncated": bool(num_comments and len(comments) < num_comments),
+                "max_comments": max_comments,
+                "max_reply_depth": max_reply_depth,
             },
         )
 
@@ -143,7 +159,7 @@ class RedditCollector(BaseCollector):
             return normalized
         return f"{normalized}/.json"
 
-    def _extract_comments(self, comment_listing: dict) -> list[str]:
+    def _extract_comments(self, comment_listing: dict, *, max_comments: int, max_reply_depth: int) -> list[str]:
         children = []
         try:
             children = comment_listing.get("data", {}).get("children", [])
@@ -154,7 +170,7 @@ class RedditCollector(BaseCollector):
         filtered.sort(key=lambda c: c.get("data", {}).get("score", 0), reverse=True)
         formatted: list[str] = []
 
-        for entry in filtered[: self.max_comments]:
+        for entry in filtered[:max_comments]:
             data = entry.get("data", {})
             body = clean_text(data.get("body", "")).replace("\n", "\n> ")
             if not body or body in {"[deleted]", "[removed]"}:
@@ -164,14 +180,18 @@ class RedditCollector(BaseCollector):
             formatted.append(f"\n### u/{author} (⬆️ {score:,})\n> {body}")
             replies = data.get("replies")
             if isinstance(replies, dict):
-                nested = self._extract_nested(replies.get("data", {}).get("children", []), depth=1)
+                nested = self._extract_nested(
+                    replies.get("data", {}).get("children", []),
+                    depth=1,
+                    max_reply_depth=max_reply_depth,
+                )
                 if nested:
                     formatted.append("\n" + "\n".join(nested))
 
         return formatted
 
-    def _extract_nested(self, nodes: list[dict], depth: int) -> list[str]:
-        if depth > self.max_reply_depth or not nodes:
+    def _extract_nested(self, nodes: list[dict], depth: int, *, max_reply_depth: int) -> list[str]:
+        if depth > max_reply_depth or not nodes:
             return []
         out: list[str] = []
         for item in nodes[:3]:
@@ -185,5 +205,11 @@ class RedditCollector(BaseCollector):
             out.append(f"> u/{author}: {body}")
             child = data.get("replies")
             if isinstance(child, dict):
-                out.extend(self._extract_nested(child.get("data", {}).get("children", []), depth + 1))
+                out.extend(
+                    self._extract_nested(
+                        child.get("data", {}).get("children", []),
+                        depth + 1,
+                        max_reply_depth=max_reply_depth,
+                    )
+                )
         return out
