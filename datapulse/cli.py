@@ -843,6 +843,13 @@ def main() -> None:
                 return
             loc = result["location"]
             print(f"Trending Topics on X ({loc}) — {result['snapshot_time']}\n")
+            requested_loc = result.get("requested_location")
+            fallback_reason = result.get("fallback_reason")
+            if requested_loc and requested_loc != loc:
+                print(f"Requested location: {requested_loc}")
+                if fallback_reason:
+                    print(f"Fallback reason: {fallback_reason}")
+                print()
             for t in result["trends"]:
                 vol = f" ({t['volume']})" if t.get("volume") else ""
                 print(f"  {t['rank']:2d}. {t['name']}{vol}")
@@ -873,7 +880,10 @@ def main() -> None:
                 freshness=args.search_freshness,
             )
             if not results:
-                print("No search results above confidence threshold")
+                if args.min_confidence > 0:
+                    print("No search results above confidence threshold")
+                else:
+                    print("No search results returned")
                 return
             print(f"Found {len(results)} result(s) for: {args.search}\n")
             for idx, item in enumerate(results, 1):
