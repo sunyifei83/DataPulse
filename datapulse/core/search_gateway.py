@@ -22,6 +22,7 @@ from datapulse.core.config import SearchGatewayConfig
 from datapulse.core.jina_client import JinaAPIClient, JinaSearchOptions
 from datapulse.core.retry import CircuitBreaker, CircuitBreakerOpen, RateLimitError, retry
 from datapulse.core.security import get_secret
+from datapulse.core.utils import get_domain
 
 logger = logging.getLogger("datapulse.search_gateway")
 
@@ -641,7 +642,15 @@ class SearchGateway:
     def _normalize_url(url: str) -> str:
         parsed = urlparse(url.strip())
         scheme = parsed.scheme.lower() or "https"
-        netloc = parsed.netloc.lower()
+        host = (parsed.hostname or "").lower()
+        if not host:
+            return ""
+        root_domain = get_domain(url)
+        collapse_prefix = ("www.", "m.", "mobile.", "research.")
+        canonical_host = root_domain if host.startswith(collapse_prefix) else host
+        netloc = canonical_host
+        if parsed.port:
+            netloc = f"{netloc}:{parsed.port}"
         path = parsed.path.rstrip("/") or "/"
         params = parsed.params
         fragment = ""
