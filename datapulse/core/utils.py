@@ -392,6 +392,21 @@ def watch_status_html_path_from_env() -> str:
     return "datapulse_watch_status.html"
 
 
+def stories_path_from_env() -> str:
+    explicit_file = os.getenv("DATAPULSE_STORIES_PATH", "").strip()
+    if explicit_file:
+        return explicit_file
+
+    memory_path = os.getenv("DATAPULSE_MEMORY_DIR", "").strip()
+    if memory_path:
+        candidate = Path(memory_path)
+        if candidate.suffix == ".json":
+            return str(candidate.with_name("datapulse_stories.json"))
+        return str(candidate / "datapulse_stories.json")
+
+    return "datapulse_stories.json"
+
+
 def output_path_from_env():
     vault = os.getenv("OBSIDIAN_VAULT", "").strip()
     if vault:

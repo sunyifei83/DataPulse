@@ -65,6 +65,14 @@
 - Digest 现在默认排除 `duplicate / ignored`，`verified` 状态进入评分链路获得稳定加权。
 - `datapulse-console` 已在 G0 壳层中加入 triage queue 面板、状态更新入口和 duplicate explain 视图。
 
+### P8：Story Workspace 证据层 🚧 (v0.8.0 进行中)
+- 新增 `core/story.py`，提供 `Story / StoryEvidence / StoryTimelineEvent / StoryConflict / StoryStore`。
+- 新增首版 story 聚合构建器：基于标题/正文/实体/域名/指纹相似度聚类，生成主次证据、时间线、冲突提示与实体聚合。
+- `DataPulseReader` 支持 `story_build / list_stories / show_story / export_story`。
+- CLI 新增：`--story-build / --story-list / --story-show / --story-export`。
+- MCP 新增：`story_build / story_list / story_show / story_export`。
+- 当前范围为“只读证据组织层 + 持久化 story snapshot”；人工编辑、故事合并、GUI story board 留待下一阶段。
+
 ## 与现网能力映射
 
 | 目标 | 目前落地状态 | 下一步 |
@@ -78,6 +86,7 @@
 | Web 搜索 | ✅ 多源网关（Jina/Tavily）CLI/MCP | ✅ v0.5.0 完成 |
 | 任务化 | 🚧 `WatchMission` 首版（CLI/Reader/MCP + due runner + daemon + richer alert sink + status page） | 后续: 自动重跑 / 故障恢复 / 聚合面板 |
 | 处置化 | 🚧 `TriageQueue` 首版（state/note/action + duplicate explain + CLI/MCP/Console + digest gate） | 后续: keyboard workflow / reviewer SLA |
+| 证据化 | 🚧 `Story Workspace` 首版（story cluster + evidence/timeline/conflict + CLI/MCP + persisted snapshot） | 后续: story merge / editor / GUI board |
 
 ## 验收建议（本项目）
 
@@ -90,7 +99,8 @@
 - `datapulse --alert-list` 可查看阈值告警落库结果。
 - `datapulse --alert-route-list` 可审计命名路由配置。
 - `datapulse --triage-list / --triage-explain / --triage-update / --triage-note / --triage-stats` 可完成首版处置闭环。
-- MCP 包含新增工具：`resolve_source/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed/create_watch/list_watches/run_watch/run_due_watches/triage_list/triage_explain/triage_update/triage_note/triage_stats/list_alerts/list_alert_routes/watch_status/disable_watch`。
+- `datapulse --story-build / --story-list / --story-show / --story-export` 可完成首版证据组织闭环。
+- MCP 包含新增工具：`resolve_source/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed/create_watch/list_watches/run_watch/run_due_watches/triage_list/triage_explain/triage_update/triage_note/triage_stats/story_build/story_list/story_show/story_export/list_alerts/list_alert_routes/watch_status/disable_watch`。
 - 远端 OpenClaw 入口可通过 `read_url/read_batch` 与 feed 查询联调。
 
 ## 横向蓝图：GUI Intelligence Console
@@ -99,5 +109,6 @@
 - 推荐顺序：先补 HTTP API 适配层，再做本地单用户浏览器控制台。
 - 第一阶段只承接当前 `P6`：watch、alerts、routes、status。
 - `G0` 壳层已落地：`FastAPI` + `datapulse-console` + `/api/overview` / `/api/watches` / `/api/alerts` / `/api/alert-routes` / `/api/watch-status` / `/api/triage` / `/api/triage/{id}/explain`。
+- `P8` backend 已起步，但 GUI 仍未开放 story board；当前 story workspace 先通过 CLI / MCP / store 验证 schema。
 - GUI 增量应随仓内提交进入 GitHub Actions，至少通过 `ruff` / `mypy` / `pytest` 与 `datapulse-console --help` 烟测。
 - 详细方案见 [gui_intelligence_console_plan.md](/Users/sunyifei/DataPulse/docs/gui_intelligence_console_plan.md)。

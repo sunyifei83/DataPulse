@@ -38,6 +38,10 @@
   - 支持 review note、状态变更记录、`duplicate_of` 归并标记
   - 支持 CLI / Reader / MCP / Console 共用同一套 triage 语义
   - 支持重复项解释（duplicate explain），给出候选条目、相似信号和建议保留主条目
+- 证据化（首版 Story Workspace）：
+  - 支持 story 聚类、主次证据、时间线、冲突提示、实体聚合
+  - 支持 `--story-build / --story-list / --story-show / --story-export`
+  - 支持 Reader / MCP 共用同一套 story 语义
 - 告警与调度（首版）：
   - 支持 threshold alert rule、到期任务轮询、daemon 单实例锁
   - 支持关键词 / 标签 / 域名 / source_type / 时效过滤
@@ -71,7 +75,7 @@
   - `--entity-query` / `--entity-graph` / `--entity-stats` 支持实体存储与查询
   - 评分链路可通过 `DATAPULSE_ENTITY_CORROBORATION_WEIGHT` 引入实体跨源互证加分（默认 `0`）
 - 测试基建：
-  - 609 个测试，覆盖 40 个测试模块
+  - 616 个测试，覆盖 41 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -166,6 +170,12 @@ datapulse --triage-update item-123 --triage-state verified --triage-note-text "c
 datapulse --triage-note item-123 --triage-note-text "need follow-up"
 datapulse --triage-stats
 
+# Story Workspace
+datapulse --story-build
+datapulse --story-list
+datapulse --story-show story-openai-launch
+datapulse --story-export story-openai-launch --story-format markdown
+
 # 启动浏览器控制台（G0）
 datapulse-console --port 8765
 
@@ -240,9 +250,13 @@ J. Triage:
   - `datapulse --triage-list`
   - `datapulse --triage-explain <item_id>`
   - `datapulse --triage-update <item_id> --triage-state verified`
-K. GUI 控制台:
+K. Story Workspace:
+  - `datapulse --story-build`
+  - `datapulse --story-list`
+  - `datapulse --story-show <story_id>`
+L. GUI 控制台:
   - `datapulse-console --port 8765`
-L. 诊断:
+M. 诊断:
   - `datapulse --config-check`
   - `datapulse --doctor`
   - `datapulse --troubleshoot`
@@ -347,7 +361,7 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-40 个可用工具：
+45 个可用工具：
 
 **采集与读取：**
 - `read_url(url, min_confidence)` — 解析单条 URL
@@ -367,6 +381,12 @@ python -m datapulse.mcp_server --call health
 - `triage_update(item_id, state, note='', actor='mcp', duplicate_of='')` — 更新处置状态
 - `triage_note(item_id, note, author='mcp')` — 追加处置备注
 - `triage_stats(min_confidence=0.0)` — 查看队列统计
+
+**证据层（Story Workspace）：**
+- `story_build(profile='default', source_ids=None, max_stories=10, evidence_limit=6, min_confidence=0.0, since=None)` — 构建并持久化 story 聚类快照
+- `story_list(limit=20, min_items=1)` — 列出已持久化的 story
+- `story_show(identifier)` — 查看单个 story
+- `story_export(identifier, output_format='json')` — 导出 story（`json` / `markdown`）
 
 **任务化（Watch Mission）：**
 - `create_watch(name, query, platforms=None, sites=None, schedule='manual', min_confidence=0.0, top_n=5)` — 创建任务
@@ -441,6 +461,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_WATCH_DAEMON_LOCK`（daemon 锁文件）
 - `DATAPULSE_WATCH_STATUS_PATH`（daemon JSON 状态文件）
 - `DATAPULSE_WATCH_STATUS_HTML`（daemon HTML 状态页）
+- `DATAPULSE_STORIES_PATH`（story workspace 存储文件）
 - `TG_API_ID` / `TG_API_HASH`
 - `NITTER_INSTANCES`
 - `FXTWITTER_API_URL`

@@ -39,6 +39,11 @@
     },
     {
       "type": "message",
+      "pattern": "(?i)\\b(?:story|timeline|evidence|case|narrative|故事|证据|时间线|案例)\\b.*(?:build|show|export|workspace|board|构建|查看|导出|工作台)?",
+      "description": "Triggered for story workspace, evidence clustering, timeline, and export requests."
+    },
+    {
+      "type": "message",
       "pattern": "(?i)\\b(datapulse|skill|agent)\\b.*\\b(health|doctor|config|diagnose|update|version|upgrade|troubleshoot)\\b",
       "description": "Triggered for maintenance and capability introspection tasks."
     },
@@ -59,6 +64,7 @@
     "watch-alerts",
     "watch-alert-routing",
     "triage-queue",
+    "story-workspace",
     "assistant-ready",
     "mcp-tools"
   ],

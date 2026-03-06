@@ -140,6 +140,16 @@ def _print_triage_explain(payload):
         print(f"    {candidate.get('title', '')}")
 
 
+def _print_story_list(stories):
+    for story in stories:
+        print(
+            f"{story.get('id')}: items={story.get('item_count', 0)} | "
+            f"sources={story.get('source_count', 0)} | score={float(story.get('score', 0.0)):.1f} | "
+            f"status={story.get('status', 'active')}"
+        )
+        print(f"    {story.get('title', '')}")
+
+
 _FIX_COMMANDS_BY_COLLECTOR = {
     "xhs": ["datapulse --login xhs"],
     "wechat": ["datapulse --login wechat"],
@@ -518,6 +528,10 @@ def _print_skill_contract() -> None:
                 "--triage-update",
                 "--triage-note",
                 "--triage-stats",
+                "--story-build",
+                "--story-list",
+                "--story-show",
+                "--story-export",
                 "--doctor",
                 "--config-check",
                 "--troubleshoot",
@@ -541,6 +555,7 @@ def _print_skill_contract() -> None:
                 "DATAPULSE_WATCH_DAEMON_LOCK": "Single-instance daemon lock file",
                 "DATAPULSE_WATCH_STATUS_PATH": "Daemon JSON heartbeat file",
                 "DATAPULSE_WATCH_STATUS_HTML": "Daemon HTML status page",
+                "DATAPULSE_STORIES_PATH": "Story workspace storage file",
             },
         },
         "mcp_tools": mcp_tools,
@@ -554,6 +569,7 @@ def _print_skill_contract() -> None:
             "for route audit: --alert-route-list",
             "for daemon status: --watch-status",
             "for analyst queue operations: --triage-list/--triage-explain/--triage-update/--triage-note/--triage-stats",
+            "for story workspace: --story-build/--story-list/--story-show/--story-export",
             "for source governance: --list-sources/--list-packs/--query-feed",
             "for health checks: --doctor / --troubleshoot",
         ],
@@ -628,6 +644,7 @@ def main() -> None:
             "H) Watch daemon:            datapulse --watch-daemon --watch-daemon-once\n"
             "I) Watch status:            datapulse --watch-status\n"
             "J) Triage queue:            datapulse --triage-list / --triage-update <item_id> --triage-state verified\n"
+            "K) Story workspace:         datapulse --story-build / --story-list / --story-show <story_id>\n"
             "Diagnostics: datapulse --config-check / --doctor / --troubleshoot / --skill-contract / --check-update / --self-update / --version"
         ),
     )
@@ -814,6 +831,14 @@ def main() -> None:
     management_group.add_argument("--triage-author", default="cli", help="Actor label for triage updates")
     management_group.add_argument("--triage-duplicate-of", metavar="ITEM_ID", help="Canonical item id when state=duplicate")
     management_group.add_argument("--triage-include-closed", action="store_true", help="Include verified/duplicate/ignored in --triage-list")
+    management_group.add_argument("--story-build", action="store_true", help="Build and persist clustered story workspace snapshot")
+    management_group.add_argument("--story-list", action="store_true", help="List persisted stories")
+    management_group.add_argument("--story-show", metavar="STORY", help="Show one persisted story by id or title")
+    management_group.add_argument("--story-export", metavar="STORY", help="Export one story as json or markdown")
+    management_group.add_argument("--story-limit", type=int, default=10, help="Max stories to build or list")
+    management_group.add_argument("--story-evidence-limit", type=int, default=6, help="Evidence items to keep per story")
+    management_group.add_argument("--story-min-items", type=int, default=1, help="Minimum clustered items when listing stories")
+    management_group.add_argument("--story-format", default="json", choices=["json", "markdown", "md"], help="Output format for --story-export")
     management_group.add_argument(
         "-i",
         "--login",
@@ -1118,6 +1143,46 @@ def main() -> None:
 
     if args.triage_stats:
         _print_triage_stats(reader.triage_stats(min_confidence=args.min_confidence))
+        return
+
+    if args.story_build:
+        payload = reader.story_build(
+            profile=args.source_profile,
+            source_ids=_normalize_csv_ids(args.source_ids),
+            max_stories=args.story_limit,
+            evidence_limit=args.story_evidence_limit,
+            min_confidence=args.min_confidence,
+        )
+        print(f"Stories built: {payload['stats']['stories_built']}")
+        print(f"Stories saved: {payload['stats']['stories_saved']}")
+        if payload["stories"]:
+            print()
+            _print_story_list(payload["stories"])
+        return
+
+    if args.story_list:
+        stories = reader.list_stories(limit=args.story_limit, min_items=args.story_min_items)
+        if not stories:
+            print("No story available.")
+        else:
+            print(f"📚 Stories: {len(stories)}")
+            _print_story_list(stories)
+        return
+
+    if args.story_show:
+        story_payload = reader.show_story(args.story_show)
+        if story_payload is None:
+            print(f"⚠️ story not found: {args.story_show}")
+        else:
+            print(json.dumps(story_payload, ensure_ascii=False, indent=2))
+        return
+
+    if args.story_export:
+        story_export_payload = reader.export_story(args.story_export, output_format=args.story_format)
+        if story_export_payload is None:
+            print(f"⚠️ story not found: {args.story_export}")
+        else:
+            print(story_export_payload)
         return
 
     if args.watch_run_due:

@@ -149,6 +149,39 @@ class _WatchMCPReader:
             ],
         }
 
+    def story_build(self, **kwargs):
+        return {
+            "stats": {"stories_built": 1, "stories_saved": 1},
+            "stories": [
+                {
+                    "id": "story-openai-launch",
+                    "title": "OpenAI Launch Story",
+                    "item_count": 2,
+                }
+            ],
+        }
+
+    def list_stories(self, **kwargs):
+        return [
+            {
+                "id": "story-openai-launch",
+                "title": "OpenAI Launch Story",
+                "item_count": 2,
+            }
+        ]
+
+    def show_story(self, identifier):
+        return {
+            "id": identifier,
+            "title": "OpenAI Launch Story",
+            "item_count": 2,
+        }
+
+    def export_story(self, identifier, **kwargs):
+        if kwargs.get("output_format") == "markdown":
+            return "# OpenAI Launch Story\n\n## Timeline"
+        return '{\n  "id": "story-openai-launch"\n}'
+
 
 def _make_app() -> mcp_server._LocalMCP:
     app = mcp_server._LocalMCP("datapulse")
@@ -174,6 +207,10 @@ def test_mcp_registers_watch_tools():
         "triage_update",
         "triage_note",
         "triage_stats",
+        "story_build",
+        "story_list",
+        "story_show",
+        "story_export",
     } <= tool_names
 
 
@@ -320,3 +357,28 @@ async def test_mcp_triage_explain_tool(monkeypatch):
 
     assert payload["ok"] is True
     assert payload["explanation"]["candidates"][0]["id"] == "item-2"
+
+
+@pytest.mark.asyncio
+async def test_mcp_story_build_and_show_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool("story_build", {"max_stories": 5})
+    payload = json.loads(raw)
+    assert payload["stats"]["stories_built"] == 1
+
+    raw_show = await app._run_tool("story_show", {"identifier": "story-openai-launch"})
+    shown = json.loads(raw_show)
+    assert shown["ok"] is True
+    assert shown["story"]["id"] == "story-openai-launch"
+
+
+@pytest.mark.asyncio
+async def test_mcp_story_export_markdown_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool("story_export", {"identifier": "story-openai-launch", "output_format": "markdown"})
+
+    assert raw.startswith("# OpenAI Launch Story")

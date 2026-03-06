@@ -39,6 +39,10 @@ for MCP, Skill, Agent, and bot workflows.
   - review notes, review actions, and `duplicate_of` linking
   - shared triage semantics across CLI, Reader, MCP, and the browser console
   - duplicate explain workflow with candidate ranking, signals, and suggested primary item
+- Story workspace (initial support):
+  - story clustering, primary/secondary evidence, timelines, contradiction hints, and entity rollups
+  - `--story-build / --story-list / --story-show / --story-export`
+  - shared story semantics across Reader and MCP
 - Alerts and scheduling (initial support):
   - threshold alert rules, due-runner polling, daemon single-instance lock
   - keyword / tag / domain / source-type / freshness filters for alert matching
@@ -72,7 +76,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 609 tests across 40 modules
+  - 616 tests across 41 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -155,9 +159,13 @@ J. Triage queue:
   - `datapulse --triage-list`
   - `datapulse --triage-explain <item_id>`
   - `datapulse --triage-update <item_id> --triage-state verified`
-K. Browser console:
+K. Story workspace:
+  - `datapulse --story-build`
+  - `datapulse --story-list`
+  - `datapulse --story-show <story_id>`
+L. Browser console:
   - `datapulse-console --port 8765`
-L. Diagnostics:
+M. Diagnostics:
   - `datapulse --config-check`
   - `datapulse --doctor`
   - `datapulse --troubleshoot`
@@ -233,6 +241,12 @@ datapulse --triage-update item-123 --triage-state verified --triage-note-text "c
 datapulse --triage-note item-123 --triage-note-text "needs follow-up"
 datapulse --triage-stats
 
+# Story workspace
+datapulse --story-build
+datapulse --story-list
+datapulse --story-show story-openai-launch
+datapulse --story-export story-openai-launch --story-format markdown
+
 # Launch the local browser console (G0)
 datapulse-console --port 8765
 
@@ -290,7 +304,7 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-40 tools available:
+45 tools available:
 
 **Intake & reading:**
 - `read_url(url, min_confidence)` — parse a single URL
@@ -310,6 +324,12 @@ python -m datapulse.mcp_server --call health
 - `triage_update(item_id, state, note='', actor='mcp', duplicate_of='')` — update one triage state
 - `triage_note(item_id, note, author='mcp')` — append one review note
 - `triage_stats(min_confidence=0.0)` — show queue counts by state
+
+**Story workspace:**
+- `story_build(profile='default', source_ids=None, max_stories=10, evidence_limit=6, min_confidence=0.0, since=None)` — build and persist a clustered story snapshot
+- `story_list(limit=20, min_items=1)` — list persisted stories
+- `story_show(identifier)` — inspect one story
+- `story_export(identifier, output_format='json')` — export one story as `json` or `markdown`
 
 **Watch Mission:**
 - `create_watch(name, query, platforms=None, sites=None, schedule='manual', min_confidence=0.0, top_n=5)` — create a saved recurring mission
@@ -384,6 +404,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_WATCH_DAEMON_LOCK` (daemon lock file)
 - `DATAPULSE_WATCH_STATUS_PATH` (daemon JSON status file)
 - `DATAPULSE_WATCH_STATUS_HTML` (daemon HTML status page)
+- `DATAPULSE_STORIES_PATH` (story workspace storage file)
 - `TG_API_ID` / `TG_API_HASH`
 - `NITTER_INSTANCES`
 - `FXTWITTER_API_URL`

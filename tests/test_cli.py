@@ -248,6 +248,48 @@ class _WatchReader:
             ],
         }
 
+    def story_build(self, **kwargs):
+        return {
+            "stats": {
+                "stories_built": 1,
+                "stories_saved": 1,
+            },
+            "stories": [
+                {
+                    "id": "story-openai-launch",
+                    "title": "OpenAI Launch Story",
+                    "item_count": 2,
+                    "source_count": 2,
+                    "score": 82.0,
+                    "status": "active",
+                }
+            ],
+        }
+
+    def list_stories(self, **kwargs):
+        return [
+            {
+                "id": "story-openai-launch",
+                "title": "OpenAI Launch Story",
+                "item_count": 2,
+                "source_count": 2,
+                "score": 82.0,
+                "status": "active",
+            }
+        ]
+
+    def show_story(self, identifier):
+        return {
+            "id": identifier,
+            "title": "OpenAI Launch Story",
+            "item_count": 2,
+        }
+
+    def export_story(self, identifier, **kwargs):
+        if kwargs.get("output_format") == "markdown":
+            return "# OpenAI Launch Story\n\n## Timeline"
+        return '{\n  "id": "story-openai-launch"\n}'
+
 
 def test_trending_prints_fallback_context(monkeypatch, capsys):
     monkeypatch.setattr(cli, "DataPulseReader", lambda: _TrendingReader())
@@ -539,6 +581,31 @@ def test_triage_explain_prints_candidates(monkeypatch, capsys):
     assert "item-2: similarity=0.840 | state=triaged | signals=same_domain,title_overlap" in out
 
 
+def test_story_build_prints_summary(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--story-build"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "Stories built: 1" in out
+    assert "story-openai-launch: items=2 | sources=2 | score=82.0 | status=active" in out
+
+
+def test_story_list_and_export(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--story-list"])
+
+    cli.main()
+    out = capsys.readouterr().out
+    assert "📚 Stories: 1" in out
+
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--story-export", "story-openai-launch", "--story-format", "markdown"])
+    cli.main()
+    out = capsys.readouterr().out
+    assert "# OpenAI Launch Story" in out
+
+
 def test_skill_contract_lists_watch_status_and_alert_envs(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["datapulse", "--skill-contract"])
 
@@ -548,9 +615,12 @@ def test_skill_contract_lists_watch_status_and_alert_envs(monkeypatch, capsys):
     assert "watch_status" in out
     assert "triage_list" in out
     assert "triage_explain" in out
+    assert "story_build" in out
     assert "--triage-list" in out
     assert "--triage-explain" in out
+    assert "--story-build" in out
     assert "DATAPULSE_WATCH_STATUS_PATH" in out
+    assert "DATAPULSE_STORIES_PATH" in out
     assert "DATAPULSE_WATCH_STATUS_HTML" in out
     assert "DATAPULSE_ALERT_ROUTING_PATH" in out
     assert "DATAPULSE_ALERT_WEBHOOK_URL" in out

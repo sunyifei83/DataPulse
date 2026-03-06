@@ -24,6 +24,7 @@ from datapulse.core.scoring import rank_items
 from datapulse.core.search_gateway import SearchGateway, SearchHit
 from datapulse.core.source_catalog import SourceCatalog
 from datapulse.core.storage import UnifiedInbox, output_record_md, save_markdown
+from datapulse.core.story import StoryStore, build_story_clusters, render_story_markdown
 from datapulse.core.triage import TriageQueue, is_digest_candidate
 from datapulse.core.utils import content_fingerprint, inbox_path_from_env, normalize_language
 from datapulse.core.watchlist import MissionRun, WatchlistStore, WatchMission
@@ -58,6 +59,7 @@ class DataPulseReader:
         self.watchlist = WatchlistStore()
         self.watch_scheduler = WatchScheduler(self.watchlist)
         self.triage = TriageQueue(self.inbox)
+        self.story_store = StoryStore()
         self.alert_store = AlertStore()
         self.alert_routes = AlertRouteStore()
         self.watch_status = WatchStatusStore()
@@ -958,6 +960,76 @@ class DataPulseReader:
             return "\n".join(lines)
 
         return json.dumps(package, ensure_ascii=False, indent=2)
+
+    def story_build(
+        self,
+        *,
+        items: list[DataPulseItem] | None = None,
+        profile: str = "default",
+        source_ids: list[str] | None = None,
+        max_stories: int = 10,
+        evidence_limit: int = 6,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+        save: bool = True,
+    ) -> dict[str, Any]:
+        if items is None:
+            candidates = self.query_feed(
+                profile=profile,
+                source_ids=source_ids,
+                limit=500,
+                min_confidence=min_confidence,
+                since=since,
+            )
+        else:
+            candidates = [
+                item for item in items
+                if item.confidence >= min_confidence
+            ]
+        candidates = [item for item in candidates if is_digest_candidate(item)]
+        authority_map = self.catalog.build_authority_map()
+        entity_source_counts = self._collect_entity_source_counts(candidates)
+        ranked = rank_items(
+            candidates,
+            authority_map=authority_map,
+            entity_source_counts=entity_source_counts,
+        )
+        stories = build_story_clusters(
+            ranked,
+            entity_store=self.entity_store,
+            max_stories=max_stories,
+            evidence_limit=evidence_limit,
+        )
+        persisted = self.story_store.replace_stories(stories) if save else stories
+        contradicted = sum(1 for story in persisted if story.contradictions)
+        return {
+            "version": "1.0",
+            "generated_at": _utcnow_z(),
+            "stats": {
+                "items_considered": len(candidates),
+                "stories_built": len(stories),
+                "stories_saved": len(persisted),
+                "contradicted_stories": contradicted,
+            },
+            "stories": [story.to_dict() for story in persisted],
+        }
+
+    def list_stories(self, *, limit: int = 20, min_items: int = 1) -> list[dict[str, Any]]:
+        return [story.to_dict() for story in self.story_store.list_stories(limit=limit, min_items=min_items)]
+
+    def show_story(self, identifier: str) -> dict[str, Any] | None:
+        story = self.story_store.get_story(identifier)
+        if story is None:
+            return None
+        return story.to_dict()
+
+    def export_story(self, identifier: str, *, output_format: str = "json") -> str | None:
+        story = self.story_store.get_story(identifier)
+        if story is None:
+            return None
+        if output_format.lower() in {"md", "markdown"}:
+            return render_story_markdown(story)
+        return json.dumps(story.to_dict(), ensure_ascii=False, indent=2)
 
     def _to_item(self, parse_result, parser_name: str) -> DataPulseItem:
         source_type = parse_result.source_type or SourceType.GENERIC

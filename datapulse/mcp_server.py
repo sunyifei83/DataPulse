@@ -121,6 +121,46 @@ async def _run_emit_digest_package(
     )
 
 
+async def _run_story_build(
+    profile: str = "default",
+    source_ids: list[str] | None = None,
+    max_stories: int = 10,
+    evidence_limit: int = 6,
+    min_confidence: float = 0.0,
+    since: str | None = None,
+) -> str:
+    reader = DataPulseReader()
+    payload = reader.story_build(
+        profile=profile,
+        source_ids=source_ids,
+        max_stories=max_stories,
+        evidence_limit=evidence_limit,
+        min_confidence=min_confidence,
+        since=since,
+    )
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_story_list(limit: int = 20, min_items: int = 1) -> str:
+    reader = DataPulseReader()
+    payload = reader.list_stories(limit=limit, min_items=min_items)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_story_show(identifier: str) -> str:
+    reader = DataPulseReader()
+    payload = reader.show_story(identifier)
+    return json.dumps({"ok": payload is not None, "story": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_story_export(identifier: str, output_format: str = "json") -> str:
+    reader = DataPulseReader()
+    payload = reader.export_story(identifier, output_format=output_format)
+    if payload is None:
+        return json.dumps({"ok": False, "story": None}, ensure_ascii=False, indent=2)
+    return payload
+
+
 async def _run_build_atom_feed(
     profile: str = "default",
     source_ids: list[str] | None = None,
@@ -844,6 +884,40 @@ def _register_tools(app: Any) -> None:
             since=since,
             output_format=output_format,
         )
+
+    @app.tool()
+    async def story_build(
+        profile: str = "default",
+        source_ids: list[str] | None = None,
+        max_stories: int = 10,
+        evidence_limit: int = 6,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+    ) -> str:  # noqa: ANN001
+        """Build and persist a clustered story workspace snapshot."""
+        return await _run_story_build(
+            profile=profile,
+            source_ids=source_ids,
+            max_stories=max_stories,
+            evidence_limit=evidence_limit,
+            min_confidence=min_confidence,
+            since=since,
+        )
+
+    @app.tool()
+    async def story_list(limit: int = 20, min_items: int = 1) -> str:  # noqa: ANN001
+        """List persisted stories from the story workspace."""
+        return await _run_story_list(limit=limit, min_items=min_items)
+
+    @app.tool()
+    async def story_show(identifier: str) -> str:  # noqa: ANN001
+        """Show one persisted story by id or title."""
+        return await _run_story_show(identifier=identifier)
+
+    @app.tool()
+    async def story_export(identifier: str, output_format: str = "json") -> str:  # noqa: ANN001
+        """Export one story as JSON or Markdown."""
+        return await _run_story_export(identifier=identifier, output_format=output_format)
 
     @app.tool()
     async def mark_processed(item_id: str, processed: bool = True) -> str:  # noqa: ANN001

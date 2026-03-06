@@ -145,6 +145,12 @@ Dependency:
 
 - requires P8 story model to exist first
 
+Current backend status:
+
+- `P8` backend has started with `Story / StoryEvidence / StoryTimelineEvent / StoryConflict / StoryStore`
+- story clustering and persistence are available through Reader, CLI, and MCP
+- browser console has not exposed story board views yet; G3 remains the next UI-bearing step
+
 ### G4: Ops and Distribution Center
 
 Goal:

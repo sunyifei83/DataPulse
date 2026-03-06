@@ -1,0 +1,166 @@
+"""Tests for story workspace clustering and persistence."""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+import pytest
+
+from datapulse.core.models import DataPulseItem, SourceType
+from datapulse.reader import DataPulseReader
+
+
+def _make_item(
+    item_id: str,
+    *,
+    title: str,
+    content: str,
+    url: str,
+    source_name: str,
+    confidence: float = 0.8,
+    entities: list[str] | None = None,
+) -> DataPulseItem:
+    item = DataPulseItem(
+        source_type=SourceType.GENERIC,
+        source_name=source_name,
+        title=title,
+        content=content,
+        url=url,
+        id=item_id,
+        confidence=confidence,
+    )
+    if entities:
+        item.extra["entities"] = [{"name": entity.upper(), "display_name": entity} for entity in entities]
+    return item
+
+
+def _reader(tmp_path: Path, items: list[DataPulseItem]) -> DataPulseReader:
+    inbox_path = tmp_path / "inbox.json"
+    catalog_path = tmp_path / "catalog.json"
+    stories_path = tmp_path / "stories.json"
+    inbox_path.write_text(json.dumps([item.to_dict() for item in items], ensure_ascii=False), encoding="utf-8")
+    catalog_path.write_text(json.dumps({"version": 2, "sources": [], "subscriptions": {}, "packs": []}), encoding="utf-8")
+    os.environ["DATAPULSE_SOURCE_CATALOG"] = str(catalog_path)
+    os.environ["DATAPULSE_STORIES_PATH"] = str(stories_path)
+    return DataPulseReader(inbox_path=str(inbox_path))
+
+
+@pytest.fixture(autouse=True)
+def _cleanup_env():
+    yield
+    os.environ.pop("DATAPULSE_SOURCE_CATALOG", None)
+    os.environ.pop("DATAPULSE_STORIES_PATH", None)
+
+
+def test_story_build_clusters_related_items(tmp_path):
+    reader = _reader(
+        tmp_path,
+        [
+            _make_item(
+                "item-1",
+                title="OpenAI Launch Event",
+                content="OpenAI launch event works well for ChatGPT users and enterprise teams.",
+                url="https://example.com/openai-launch",
+                source_name="src-a",
+                confidence=0.93,
+                entities=["OpenAI", "ChatGPT"],
+            ),
+            _make_item(
+                "item-2",
+                title="OpenAI Launch Event Recap",
+                content="OpenAI launch event recap says ChatGPT enterprise rollout works for more teams.",
+                url="https://another.com/openai-launch-recap",
+                source_name="src-b",
+                confidence=0.88,
+                entities=["OpenAI", "ChatGPT"],
+            ),
+            _make_item(
+                "item-3",
+                title="Unrelated Market Update",
+                content="A market update about semiconductor demand and supply chains.",
+                url="https://example.com/market-update",
+                source_name="src-c",
+                confidence=0.61,
+                entities=["Semiconductor"],
+            ),
+        ],
+    )
+
+    payload = reader.story_build(max_stories=5, evidence_limit=4)
+
+    assert payload["stats"]["stories_built"] == 2
+    first = payload["stories"][0]
+    assert first["item_count"] == 2
+    assert first["source_count"] == 2
+    assert any(entity == "OpenAI" for entity in first["entities"])
+
+
+def test_story_build_detects_security_contradiction(tmp_path):
+    reader = _reader(
+        tmp_path,
+        [
+            _make_item(
+                "item-1",
+                title="OpenAI Security Update",
+                content="OpenAI security update works and is reliable for enterprise rollout.",
+                url="https://example.com/security-good",
+                source_name="src-a",
+                confidence=0.92,
+                entities=["OpenAI"],
+            ),
+            _make_item(
+                "item-2",
+                title="OpenAI Security Update Risk",
+                content="OpenAI security update is fake, risky, and misleading for enterprise teams.",
+                url="https://another.com/security-bad",
+                source_name="src-b",
+                confidence=0.91,
+                entities=["OpenAI"],
+            ),
+        ],
+    )
+
+    payload = reader.story_build(max_stories=3, evidence_limit=4)
+
+    assert payload["stories"][0]["contradictions"][0]["topic"] == "security"
+    assert payload["stories"][0]["status"] == "conflicted"
+
+
+def test_story_show_and_export_markdown(tmp_path):
+    reader = _reader(
+        tmp_path,
+        [
+            _make_item(
+                "item-1",
+                title="Launch Watch",
+                content="Launch watch says OpenAI product launch works for developers.",
+                url="https://example.com/launch-watch",
+                source_name="src-a",
+                confidence=0.9,
+                entities=["OpenAI"],
+            ),
+            _make_item(
+                "item-2",
+                title="Launch Watch Recap",
+                content="Launch watch recap confirms OpenAI rollout for developers.",
+                url="https://another.com/launch-watch-recap",
+                source_name="src-b",
+                confidence=0.86,
+                entities=["OpenAI"],
+            ),
+        ],
+    )
+
+    build_payload = reader.story_build(max_stories=3, evidence_limit=4)
+    story_id = build_payload["stories"][0]["id"]
+
+    shown = reader.show_story(story_id)
+    exported = reader.export_story(story_id, output_format="markdown")
+
+    assert shown is not None
+    assert shown["id"] == story_id
+    assert exported is not None
+    assert exported.startswith("# ")
+    assert "## Timeline" in exported
