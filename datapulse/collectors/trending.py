@@ -54,6 +54,12 @@ LOCATION_ALIASES: dict[str, str] = {
 }
 
 _VOLUME_PATTERN = re.compile(r"([\d,.]+)\s*([KkMm])?")
+_GENERIC_PLACEHOLDER_MARKERS = (
+    "youtube trending videos",
+    "explore more apps",
+    "top charts",
+    "popular apps",
+)
 
 
 @dataclass
@@ -140,7 +146,10 @@ class TrendingCollector(BaseCollector):
             return ParseResult.failure(url, "No trending data found on page")
 
         latest = snapshots[0]
-        location = self._extract_location(url)
+        location_slug = self._extract_location(url)
+        if self._is_low_signal_snapshot(latest) and location_slug not in {"", "worldwide", "global"}:
+            return ParseResult.failure(url, "Trending data degraded: low-signal placeholder topics")
+        location = location_slug
         location_display = location.replace("-", " ").title() if location else "Worldwide"
 
         # Build LLM-friendly content
@@ -192,7 +201,32 @@ class TrendingCollector(BaseCollector):
         if top_n > 0:
             for snap in snapshots:
                 snap.trends = snap.trends[:top_n]
+        location_slug = normalize_location(location)
+        if (
+            snapshots
+            and self._is_low_signal_snapshot(snapshots[0])
+            and location_slug not in {"", "worldwide", "global"}
+        ):
+            raise ValueError("Low-signal trending snapshot (placeholder topics)")
         return snapshots
+
+    @staticmethod
+    def _is_placeholder_topic(name: str) -> bool:
+        lowered = (name or "").strip().lower()
+        if not lowered:
+            return True
+        return any(marker in lowered for marker in _GENERIC_PLACEHOLDER_MARKERS)
+
+    def _is_low_signal_snapshot(self, snapshot: TrendSnapshot) -> bool:
+        trends = snapshot.trends or []
+        if not trends:
+            return True
+        if len(trends) == 1:
+            topic = trends[0]
+            return self._is_placeholder_topic(topic.name) or topic.volume_raw <= 0
+        if len(trends) <= 3:
+            return all(self._is_placeholder_topic(t.name) for t in trends)
+        return False
 
     @retry(max_attempts=2, retryable=(requests.RequestException,))
     def _fetch_page(self, url: str) -> str:

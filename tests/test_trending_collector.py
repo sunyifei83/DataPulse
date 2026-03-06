@@ -85,6 +85,17 @@ NO_VOLUME_HTML = """
 </body></html>
 """
 
+LOW_SIGNAL_HTML = """
+<html><body>
+<div class="trend-card">
+  <h3>12:00</h3>
+  <ol class="trend-card__list">
+    <li><a href="/t/yt">YouTube Trending Videos</a></li>
+  </ol>
+</div>
+</body></html>
+"""
+
 
 # ---------------------------------------------------------------------------
 # TestCanHandle
@@ -237,6 +248,14 @@ class TestParse:
         assert "trending_snapshot" in result.confidence_flags
         assert "rich_data" not in result.confidence_flags
 
+    def test_low_signal_page_marks_failure(self):
+        c = self._make_collector()
+        with patch.object(c, "_fetch_page", return_value=LOW_SIGNAL_HTML):
+            result = c.parse("https://trends24.in/united-states/")
+
+        assert result.success is False
+        assert "low-signal" in result.error
+
 
 # ---------------------------------------------------------------------------
 # TestFetchSnapshots
@@ -266,6 +285,12 @@ class TestFetchSnapshots:
         import requests as req
         with patch.object(c, "_fetch_page", side_effect=req.RequestException("timeout")):
             with pytest.raises(req.RequestException):
+                c.fetch_snapshots("us")
+
+    def test_low_signal_snapshot_raises(self):
+        c = TrendingCollector()
+        with patch.object(c, "_fetch_page", return_value=LOW_SIGNAL_HTML):
+            with pytest.raises(ValueError):
                 c.fetch_snapshots("us")
 
 
