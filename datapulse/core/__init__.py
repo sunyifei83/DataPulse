@@ -21,6 +21,7 @@ from .story import (
     StoryStore,
     StoryTimelineEvent,
     build_story_clusters,
+    build_story_graph,
     render_story_markdown,
 )
 from .triage import (
@@ -62,6 +63,7 @@ __all__ = [
     "StoryStore",
     "StoryTimelineEvent",
     "build_story_clusters",
+    "build_story_graph",
     "render_story_markdown",
     "WatchStatusStore",
     "REVIEW_STATES",

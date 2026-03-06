@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from datapulse.core.entities import Entity, EntityType, Relation
+from datapulse.core.entity_store import EntityStore
 from datapulse.core.models import DataPulseItem, SourceType
 from datapulse.reader import DataPulseReader
 
@@ -36,14 +38,28 @@ def _make_item(
     return item
 
 
-def _reader(tmp_path: Path, items: list[DataPulseItem]) -> DataPulseReader:
+def _reader(
+    tmp_path: Path,
+    items: list[DataPulseItem],
+    *,
+    entities: list[Entity] | None = None,
+    relations: list[Relation] | None = None,
+) -> DataPulseReader:
     inbox_path = tmp_path / "inbox.json"
     catalog_path = tmp_path / "catalog.json"
     stories_path = tmp_path / "stories.json"
+    entity_store_path = tmp_path / "entity_store.json"
     inbox_path.write_text(json.dumps([item.to_dict() for item in items], ensure_ascii=False), encoding="utf-8")
     catalog_path.write_text(json.dumps({"version": 2, "sources": [], "subscriptions": {}, "packs": []}), encoding="utf-8")
     os.environ["DATAPULSE_SOURCE_CATALOG"] = str(catalog_path)
     os.environ["DATAPULSE_STORIES_PATH"] = str(stories_path)
+    os.environ["DATAPULSE_ENTITY_STORE"] = str(entity_store_path)
+    if entities or relations:
+        store = EntityStore(path=str(entity_store_path))
+        for entity in entities or []:
+            store.add_entity(entity)
+        for relation in relations or []:
+            store.add_relation(relation)
     return DataPulseReader(inbox_path=str(inbox_path))
 
 
@@ -52,6 +68,7 @@ def _cleanup_env():
     yield
     os.environ.pop("DATAPULSE_SOURCE_CATALOG", None)
     os.environ.pop("DATAPULSE_STORIES_PATH", None)
+    os.environ.pop("DATAPULSE_ENTITY_STORE", None)
 
 
 def test_story_build_clusters_related_items(tmp_path):
@@ -164,3 +181,52 @@ def test_story_show_and_export_markdown(tmp_path):
     assert exported is not None
     assert exported.startswith("# ")
     assert "## Timeline" in exported
+
+
+def test_story_graph_uses_entity_store_relations(tmp_path):
+    reader = _reader(
+        tmp_path,
+        [
+            _make_item(
+                "item-1",
+                title="OpenAI Launch Event",
+                content="OpenAI launch event works well for ChatGPT users and enterprise teams.",
+                url="https://example.com/openai-launch",
+                source_name="src-a",
+                confidence=0.93,
+                entities=["OpenAI", "ChatGPT"],
+            ),
+            _make_item(
+                "item-2",
+                title="OpenAI Launch Event Recap",
+                content="OpenAI launch event recap says ChatGPT enterprise rollout works for more teams.",
+                url="https://another.com/openai-launch-recap",
+                source_name="src-b",
+                confidence=0.88,
+                entities=["OpenAI", "ChatGPT"],
+            ),
+        ],
+        entities=[
+            Entity(name="OPENAI", entity_type=EntityType.ORG, display_name="OpenAI", source_item_ids=["item-1", "item-2"]),
+            Entity(name="CHATGPT", entity_type=EntityType.PRODUCT, display_name="ChatGPT", source_item_ids=["item-1", "item-2"]),
+        ],
+        relations=[
+            Relation(
+                source_entity="OPENAI",
+                target_entity="CHATGPT",
+                relation_type="BUILT",
+                source_item_ids=["item-1"],
+            )
+        ],
+    )
+
+    build_payload = reader.story_build(max_stories=3, evidence_limit=4)
+    story_id = build_payload["stories"][0]["id"]
+    graph = reader.story_graph(story_id, entity_limit=6, relation_limit=6)
+
+    assert graph is not None
+    assert graph["story"]["id"] == story_id
+    assert any(node["kind"] == "story" for node in graph["nodes"])
+    assert any(node["label"] == "OpenAI" for node in graph["nodes"])
+    assert any(edge["kind"] == "story_entity" for edge in graph["edges"])
+    assert any(edge["kind"] == "entity_relation" and edge["relation_type"] == "BUILT" for edge in graph["edges"])

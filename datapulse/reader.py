@@ -24,7 +24,7 @@ from datapulse.core.scoring import rank_items
 from datapulse.core.search_gateway import SearchGateway, SearchHit
 from datapulse.core.source_catalog import SourceCatalog
 from datapulse.core.storage import UnifiedInbox, output_record_md, save_markdown
-from datapulse.core.story import StoryStore, build_story_clusters, render_story_markdown
+from datapulse.core.story import StoryStore, build_story_clusters, build_story_graph, render_story_markdown
 from datapulse.core.triage import TriageQueue, is_digest_candidate
 from datapulse.core.utils import content_fingerprint, inbox_path_from_env, normalize_language
 from datapulse.core.watchlist import MissionRun, WatchlistStore, WatchMission
@@ -1030,6 +1030,23 @@ class DataPulseReader:
         if output_format.lower() in {"md", "markdown"}:
             return render_story_markdown(story)
         return json.dumps(story.to_dict(), ensure_ascii=False, indent=2)
+
+    def story_graph(
+        self,
+        identifier: str,
+        *,
+        entity_limit: int = 12,
+        relation_limit: int = 24,
+    ) -> dict[str, Any] | None:
+        story = self.story_store.get_story(identifier)
+        if story is None:
+            return None
+        return build_story_graph(
+            story,
+            entity_store=self.entity_store,
+            entity_limit=entity_limit,
+            relation_limit=relation_limit,
+        )
 
     def _to_item(self, parse_result, parser_name: str) -> DataPulseItem:
         source_type = parse_result.source_type or SourceType.GENERIC

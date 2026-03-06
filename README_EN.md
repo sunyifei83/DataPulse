@@ -41,7 +41,7 @@ for MCP, Skill, Agent, and bot workflows.
   - duplicate explain workflow with candidate ranking, signals, and suggested primary item
 - Story workspace (initial support):
   - story clustering, primary/secondary evidence, timelines, contradiction hints, and entity rollups
-  - `--story-build / --story-list / --story-show / --story-export`
+  - `--story-build / --story-list / --story-show / --story-graph / --story-export`
   - shared story semantics across Reader, MCP, and the browser console
 - Alerts and scheduling (initial support):
   - threshold alert rules, due-runner polling, daemon single-instance lock
@@ -53,7 +53,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Browser console (G0/G3):
   - local `datapulse-console` browser shell
   - unified watch / triage / story / alert / route / status operating surface
-  - includes a read-only Story Workspace board with evidence stacks, timeline, contradiction markers, and Markdown pack preview
+  - includes a read-only Story Workspace board with evidence stacks, timeline, contradiction markers, entity graph, and Markdown pack preview
 - Reliability:
   - centralized parse error handling with narrowed exceptions
   - `retry_with_backoff` decorator + `CircuitBreaker` for fault tolerance
@@ -77,7 +77,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 617 tests across 41 modules
+  - 619 tests across 41 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -164,6 +164,7 @@ K. Story workspace:
   - `datapulse --story-build`
   - `datapulse --story-list`
   - `datapulse --story-show <story_id>`
+  - `datapulse --story-graph <story_id>`
 L. Browser console:
   - `datapulse-console --port 8765`
 M. Diagnostics:
@@ -246,6 +247,7 @@ datapulse --triage-stats
 datapulse --story-build
 datapulse --story-list
 datapulse --story-show story-openai-launch
+datapulse --story-graph story-openai-launch
 datapulse --story-export story-openai-launch --story-format markdown
 
 # Launch the local browser console (G0/G3)
@@ -305,7 +307,7 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-45 tools available:
+46 tools available:
 
 **Intake & reading:**
 - `read_url(url, min_confidence)` — parse a single URL
@@ -330,6 +332,7 @@ python -m datapulse.mcp_server --call health
 - `story_build(profile='default', source_ids=None, max_stories=10, evidence_limit=6, min_confidence=0.0, since=None)` — build and persist a clustered story snapshot
 - `story_list(limit=20, min_items=1)` — list persisted stories
 - `story_show(identifier)` — inspect one story
+- `story_graph(identifier, entity_limit=12, relation_limit=24)` — inspect the entity graph for one story
 - `story_export(identifier, output_format='json')` — export one story as `json` or `markdown`
 
 **Watch Mission:**

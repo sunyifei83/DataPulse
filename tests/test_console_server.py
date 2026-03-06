@@ -212,6 +212,29 @@ class _ConsoleReader:
             return None
         return self.list_stories()[0]
 
+    def story_graph(self, identifier, **kwargs):
+        if identifier != "story-openai-launch":
+            return None
+        return {
+            "story": {
+                "id": "story-openai-launch",
+                "title": "OpenAI Launch",
+                "status": "active",
+            },
+            "nodes": [
+                {"id": "story-openai-launch", "label": "OpenAI Launch", "kind": "story", "item_count": 3, "source_count": 2},
+                {"id": "entity:openai", "label": "OpenAI", "kind": "entity", "entity_type": "ORG", "in_story_source_count": 2},
+                {"id": "entity:gpt_5", "label": "GPT-5", "kind": "entity", "entity_type": "PRODUCT", "in_story_source_count": 1},
+            ],
+            "edges": [
+                {"source": "story-openai-launch", "target": "entity:openai", "relation_type": "MENTIONED_IN_STORY", "kind": "story_entity"},
+                {"source": "entity:openai", "target": "entity:gpt_5", "relation_type": "BUILT", "kind": "entity_relation"},
+            ],
+            "entity_count": 2,
+            "relation_count": 1,
+            "edge_count": 2,
+        }
+
     def export_story(self, identifier, **kwargs):
         if identifier != "story-openai-launch":
             return None
@@ -317,12 +340,16 @@ def test_console_story_routes():
 
     stories = client.get("/api/stories?limit=4&min_items=2")
     detail = client.get("/api/stories/story-openai-launch")
+    graph = client.get("/api/stories/story-openai-launch/graph?entity_limit=6")
     export = client.get("/api/stories/story-openai-launch/export?format=markdown")
 
     assert stories.status_code == 200
     assert stories.json()[0]["id"] == "story-openai-launch"
     assert detail.status_code == 200
     assert detail.json()["primary_item_id"] == "item-1"
+    assert graph.status_code == 200
+    assert graph.json()["relation_count"] == 1
+    assert graph.json()["nodes"][1]["label"] == "OpenAI"
     assert export.status_code == 200
     assert export.headers["content-type"].startswith("text/markdown")
     assert export.text.startswith("# OpenAI Launch")

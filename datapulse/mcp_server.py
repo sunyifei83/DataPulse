@@ -153,6 +153,12 @@ async def _run_story_show(identifier: str) -> str:
     return json.dumps({"ok": payload is not None, "story": payload}, ensure_ascii=False, indent=2)
 
 
+async def _run_story_graph(identifier: str, entity_limit: int = 12, relation_limit: int = 24) -> str:
+    reader = DataPulseReader()
+    payload = reader.story_graph(identifier, entity_limit=entity_limit, relation_limit=relation_limit)
+    return json.dumps({"ok": payload is not None, "graph": payload}, ensure_ascii=False, indent=2)
+
+
 async def _run_story_export(identifier: str, output_format: str = "json") -> str:
     reader = DataPulseReader()
     payload = reader.export_story(identifier, output_format=output_format)
@@ -913,6 +919,15 @@ def _register_tools(app: Any) -> None:
     async def story_show(identifier: str) -> str:  # noqa: ANN001
         """Show one persisted story by id or title."""
         return await _run_story_show(identifier=identifier)
+
+    @app.tool()
+    async def story_graph(identifier: str, entity_limit: int = 12, relation_limit: int = 24) -> str:  # noqa: ANN001
+        """Show the entity graph for one persisted story."""
+        return await _run_story_graph(
+            identifier=identifier,
+            entity_limit=entity_limit,
+            relation_limit=relation_limit,
+        )
 
     @app.tool()
     async def story_export(identifier: str, output_format: str = "json") -> str:  # noqa: ANN001

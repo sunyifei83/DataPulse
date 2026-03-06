@@ -285,6 +285,27 @@ class _WatchReader:
             "item_count": 2,
         }
 
+    def story_graph(self, identifier, **kwargs):
+        return {
+            "story": {
+                "id": identifier,
+                "title": "OpenAI Launch Story",
+                "status": "active",
+            },
+            "nodes": [
+                {"id": identifier, "label": "OpenAI Launch Story", "kind": "story"},
+                {"id": "entity:openai", "label": "OpenAI", "kind": "entity", "entity_type": "ORG", "in_story_source_count": 2},
+                {"id": "entity:chatgpt", "label": "ChatGPT", "kind": "entity", "entity_type": "PRODUCT", "in_story_source_count": 1},
+            ],
+            "edges": [
+                {"source": identifier, "target": "entity:openai", "relation_type": "MENTIONED_IN_STORY", "kind": "story_entity"},
+                {"source": "entity:openai", "target": "entity:chatgpt", "relation_type": "BUILT", "kind": "entity_relation"},
+            ],
+            "entity_count": 2,
+            "relation_count": 1,
+            "edge_count": 2,
+        }
+
     def export_story(self, identifier, **kwargs):
         if kwargs.get("output_format") == "markdown":
             return "# OpenAI Launch Story\n\n## Timeline"
@@ -605,6 +626,14 @@ def test_story_list_and_export(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "# OpenAI Launch Story" in out
 
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--story-graph", "story-openai-launch"])
+    cli.main()
+    out = capsys.readouterr().out
+    assert "story: story-openai-launch" in out
+    assert "relation_count: 1" in out
+    assert "OpenAI | type=ORG" in out
+    assert "entity:openai -> entity:chatgpt | BUILT | kind=entity_relation" in out
+
 
 def test_skill_contract_lists_watch_status_and_alert_envs(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["datapulse", "--skill-contract"])
@@ -616,9 +645,11 @@ def test_skill_contract_lists_watch_status_and_alert_envs(monkeypatch, capsys):
     assert "triage_list" in out
     assert "triage_explain" in out
     assert "story_build" in out
+    assert "story_graph" in out
     assert "--triage-list" in out
     assert "--triage-explain" in out
     assert "--story-build" in out
+    assert "--story-graph" in out
     assert "DATAPULSE_WATCH_STATUS_PATH" in out
     assert "DATAPULSE_STORIES_PATH" in out
     assert "DATAPULSE_WATCH_STATUS_HTML" in out

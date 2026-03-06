@@ -29,7 +29,7 @@ DataPulse 提供一个统一入口，用于：
 | 搜索 | `Jina` / `Tavily` / `auto` / `multi`，支持 `--platform`、`--site`、时间窗参数 |
 | 任务化 | 首版 watch mission：`--watch-create`、`--watch-list`、`--watch-run`、`--watch-run-due`、`--watch-daemon`、`--watch-status` |
 | 处置化 | 首版 triage queue：`--triage-list`、`--triage-explain`、`--triage-update`、`--triage-note`、`--triage-stats` |
-| 证据化 | 首版 story workspace：`--story-build`、`--story-list`、`--story-show`、`--story-export` |
+| 证据化 | 首版 story workspace：`--story-build`、`--story-list`、`--story-show`、`--story-graph`、`--story-export` |
 | 告警分发 | threshold alert rule、关键词/标签/域名/时效过滤、JSON/Markdown/Webhook/Feishu/Telegram sink、`--alert-list`、`--alert-route-list` |
 | 运行状态 | daemon 单实例锁、heartbeat JSON/HTML 状态页、MCP `watch_status` |
 | 浏览器控制台 | `datapulse-console` 本地 G0/G3 GUI，统一 watch / triage / story / alert / route / status 工作台 |
@@ -109,6 +109,7 @@ datapulse --triage-update item-123 --triage-state verified --triage-note-text "c
 datapulse --story-build
 datapulse --story-list
 datapulse --story-show story-openai-launch
+datapulse --story-graph story-openai-launch
 
 # 启动浏览器控制台（G0/G3）
 datapulse-console --port 8765
@@ -160,7 +161,7 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-常用工具：`read_url`、`read_batch`、`search_web`、`create_watch`、`list_watches`、`run_watch`、`run_due_watches`、`triage_list`、`triage_explain`、`triage_update`、`triage_note`、`triage_stats`、`story_build`、`story_list`、`story_show`、`story_export`、`list_alerts`、`list_alert_routes`、`watch_status`、`trending`、`query_inbox`、`build_digest`、`doctor`。
+常用工具：`read_url`、`read_batch`、`search_web`、`create_watch`、`list_watches`、`run_watch`、`run_due_watches`、`triage_list`、`triage_explain`、`triage_update`、`triage_note`、`triage_stats`、`story_build`、`story_list`、`story_show`、`story_graph`、`story_export`、`list_alerts`、`list_alert_routes`、`watch_status`、`trending`、`query_inbox`、`build_digest`、`doctor`。
 
 ### Skill 调用
 

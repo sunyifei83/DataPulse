@@ -376,6 +376,40 @@ def _console_html() -> str:
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }}
+    .graph-shell {{
+      display: grid;
+      gap: 12px;
+    }}
+    .graph-canvas {{
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background:
+        radial-gradient(circle at 50% 45%, rgba(13, 123, 97, 0.09), transparent 42%),
+        linear-gradient(180deg, rgba(255,255,255,0.56), rgba(255,255,255,0.34));
+      overflow: hidden;
+    }}
+    .graph-canvas svg {{
+      width: 100%;
+      height: auto;
+      display: block;
+    }}
+    .graph-meta {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }}
+    .mini-list {{
+      display: grid;
+      gap: 8px;
+    }}
+    .mini-item {{
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.42);
+      font: 700 12px/1.4 var(--mono);
+      color: var(--muted);
+    }}
     .text-block {{
       margin: 0;
       padding: 14px;
@@ -530,6 +564,7 @@ def _console_html() -> str:
       triageExplain: {{}},
       stories: [],
       storyDetails: {{}},
+      storyGraph: {{}},
       storyMarkdown: {{}},
       selectedStoryId: "",
     }};
@@ -828,7 +863,12 @@ def _console_html() -> str:
 
     async function loadStory(identifier) {{
       state.selectedStoryId = identifier;
-      state.storyDetails[identifier] = await api(`/api/stories/${{identifier}}`);
+      const [detail, graph] = await Promise.all([
+        api(`/api/stories/${{identifier}}`),
+        api(`/api/stories/${{identifier}}/graph`),
+      ]);
+      state.storyDetails[identifier] = detail;
+      state.storyGraph[identifier] = graph;
       renderStories();
     }}
 
@@ -839,6 +879,97 @@ def _console_html() -> str:
       }}
       state.storyMarkdown[identifier] = await apiText(`/api/stories/${{identifier}}/export?format=markdown`);
       renderStories();
+    }}
+
+    function renderStoryGraph(payload) {{
+      if (!payload || !Array.isArray(payload.nodes) || !payload.nodes.length) {{
+        return `<div class="empty">No entity graph available for this story.</div>`;
+      }}
+      const storyNode = payload.nodes.find((node) => node.kind === "story") || payload.nodes[0];
+      const entityNodes = payload.nodes.filter((node) => node.kind === "entity");
+      const positions = {{}};
+      positions[storyNode.id] = {{ x: 360, y: 160 }};
+      const radius = Math.min(145, 88 + (entityNodes.length * 5));
+      entityNodes.forEach((node, index) => {{
+        const angle = ((Math.PI * 2) * index) / Math.max(entityNodes.length, 1) - (Math.PI / 2);
+        positions[node.id] = {{
+          x: 360 + (Math.cos(angle) * radius),
+          y: 160 + (Math.sin(angle) * radius),
+        }};
+      }});
+
+      const lines = (payload.edges || []).map((edge) => {{
+        const source = positions[edge.source];
+        const target = positions[edge.target];
+        if (!source || !target) {{
+          return "";
+        }}
+        const stroke = edge.kind === "entity_relation" ? "rgba(176, 75, 45, 0.72)" : "rgba(13, 123, 97, 0.4)";
+        const dash = edge.kind === "entity_relation" ? "0" : "6 6";
+        return `<line x1="${{source.x}}" y1="${{source.y}}" x2="${{target.x}}" y2="${{target.y}}" stroke="${{stroke}}" stroke-width="2.5" stroke-dasharray="${{dash}}" />`;
+      }}).join("");
+
+      const labels = [storyNode, ...entityNodes].map((node) => {{
+        const pos = positions[node.id];
+        if (!pos) {{
+          return "";
+        }}
+        const isStory = node.kind === "story";
+        const radiusValue = isStory ? 34 : 22 + Math.min(10, (Number(node.in_story_source_count || 0) * 2));
+        const fill = isStory ? "#14231c" : "#fff6e8";
+        const stroke = isStory ? "rgba(20, 35, 28, 0.9)" : "rgba(13, 123, 97, 0.28)";
+        const textFill = isStory ? "#fff9ee" : "#14231c";
+        const label = escapeHtml(node.label || node.id);
+        const subtitle = isStory
+          ? `${{node.item_count || 0}} items`
+          : `${{node.entity_type || "UNKNOWN"}} / ${{node.in_story_source_count || 0}} src`;
+        const subtitleY = isStory ? 8 : 6;
+        return `
+          <g>
+            <circle cx="${{pos.x}}" cy="${{pos.y}}" r="${{radiusValue}}" fill="${{fill}}" stroke="${{stroke}}" stroke-width="2.5"></circle>
+            <text x="${{pos.x}}" y="${{pos.y - 4}}" text-anchor="middle" font-family="Avenir Next Condensed, Arial Narrow, sans-serif" font-size="${{isStory ? 16 : 13}}" fill="${{textFill}}">
+              ${{label.slice(0, isStory ? 22 : 14)}}
+            </text>
+            <text x="${{pos.x}}" y="${{pos.y + subtitleY}}" text-anchor="middle" font-family="SF Mono, IBM Plex Mono, monospace" font-size="10" fill="${{textFill}}">
+              ${{escapeHtml(subtitle)}}
+            </text>
+          </g>
+        `;
+      }}).join("");
+
+      const entityList = entityNodes.length
+        ? entityNodes.map((node) => `
+            <div class="mini-item">${{escapeHtml(node.label)}} | type=${{escapeHtml(node.entity_type || "UNKNOWN")}} | in_story=${{node.in_story_source_count || 0}}</div>
+          `).join("")
+        : '<div class="empty">No entity node captured.</div>';
+
+      const relationList = (payload.edges || []).filter((edge) => edge.kind === "entity_relation").length
+        ? (payload.edges || []).filter((edge) => edge.kind === "entity_relation").map((edge) => `
+            <div class="mini-item">${{escapeHtml(edge.source)}} -> ${{escapeHtml(edge.target)}} | ${{escapeHtml(edge.relation_type || "RELATED")}}</div>
+          `).join("")
+        : '<div class="empty">No direct entity relation captured. Story-level mention edges are still shown above.</div>';
+
+      return `
+        <div class="graph-shell">
+          <div class="graph-canvas">
+            <svg viewBox="0 0 720 320" role="img" aria-label="Story entity graph">
+              <rect x="0" y="0" width="720" height="320" fill="transparent"></rect>
+              ${{lines}}
+              ${{labels}}
+            </svg>
+          </div>
+          <div class="meta">
+            <span>nodes=${{payload.nodes.length}}</span>
+            <span>edges=${{payload.edge_count || 0}}</span>
+            <span>relations=${{payload.relation_count || 0}}</span>
+            <span>entities=${{payload.entity_count || 0}}</span>
+          </div>
+          <div class="graph-meta">
+            <div class="mini-list">${{entityList}}</div>
+            <div class="mini-list">${{relationList}}</div>
+          </div>
+        </div>
+      `;
     }}
 
     function renderStoryDetail() {{
@@ -912,6 +1043,7 @@ def _console_html() -> str:
             </div>
           `
         : "";
+      const graphPreview = renderStoryGraph(state.storyGraph[selected]);
       root.innerHTML = `
         <div class="card">
           <div class="card-top">
@@ -955,6 +1087,10 @@ def _console_html() -> str:
         <div class="stack">
           <div class="mono">timeline</div>
           ${{timelineBlock}}
+        </div>
+        <div class="stack">
+          <div class="mono">entity graph</div>
+          ${{graphPreview}}
         </div>
         ${{markdownPreview}}
       `;
@@ -1081,6 +1217,9 @@ def _console_html() -> str:
           if (seeded) {{
             state.storyDetails[selected] = seeded;
           }}
+        }}
+        if (!state.storyGraph[selected]) {{
+          state.storyGraph[selected] = await api(`/api/stories/${{selected}}/graph`);
         }}
       }} else {{
         state.selectedStoryId = "";
@@ -1254,6 +1393,17 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
         if story is None:
             raise HTTPException(status_code=404, detail=f"Story not found: {identifier}")
         return story
+
+    @app.get("/api/stories/{identifier}/graph")
+    def story_graph(identifier: str, entity_limit: int = 12, relation_limit: int = 24) -> dict[str, Any]:
+        graph = reader_factory().story_graph(
+            identifier,
+            entity_limit=entity_limit,
+            relation_limit=relation_limit,
+        )
+        if graph is None:
+            raise HTTPException(status_code=404, detail=f"Story not found: {identifier}")
+        return graph
 
     @app.get("/api/stories/{identifier}/export")
     def export_story(identifier: str, format: str = "markdown") -> Response:

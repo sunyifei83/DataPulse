@@ -150,6 +150,33 @@ def _print_story_list(stories):
         print(f"    {story.get('title', '')}")
 
 
+def _print_story_graph(payload):
+    story = payload.get("story", {}) if isinstance(payload, dict) else {}
+    print(f"story: {story.get('id', '-')}")
+    print(f"title: {story.get('title', '')}")
+    print(f"status: {story.get('status', 'active')}")
+    print(f"entity_count: {payload.get('entity_count', 0)}")
+    print(f"relation_count: {payload.get('relation_count', 0)}")
+    print(f"edge_count: {payload.get('edge_count', 0)}")
+    nodes = payload.get("nodes", []) if isinstance(payload, dict) else []
+    edges = payload.get("edges", []) if isinstance(payload, dict) else []
+    entity_nodes = [node for node in nodes if node.get("kind") == "entity"]
+    if entity_nodes:
+        print("entities:")
+        for node in entity_nodes:
+            print(
+                f"  - {node.get('label', '')} | type={node.get('entity_type', 'UNKNOWN')} | "
+                f"in_story_sources={node.get('in_story_source_count', 0)}"
+            )
+    if edges:
+        print("edges:")
+        for edge in edges:
+            print(
+                f"  - {edge.get('source')} -> {edge.get('target')} | "
+                f"{edge.get('relation_type', 'RELATED')} | kind={edge.get('kind', '-')}"
+            )
+
+
 _FIX_COMMANDS_BY_COLLECTOR = {
     "xhs": ["datapulse --login xhs"],
     "wechat": ["datapulse --login wechat"],
@@ -531,6 +558,7 @@ def _print_skill_contract() -> None:
                 "--story-build",
                 "--story-list",
                 "--story-show",
+                "--story-graph",
                 "--story-export",
                 "--doctor",
                 "--config-check",
@@ -569,7 +597,7 @@ def _print_skill_contract() -> None:
             "for route audit: --alert-route-list",
             "for daemon status: --watch-status",
             "for analyst queue operations: --triage-list/--triage-explain/--triage-update/--triage-note/--triage-stats",
-            "for story workspace: --story-build/--story-list/--story-show/--story-export",
+            "for story workspace: --story-build/--story-list/--story-show/--story-graph/--story-export",
             "for source governance: --list-sources/--list-packs/--query-feed",
             "for health checks: --doctor / --troubleshoot",
         ],
@@ -644,7 +672,7 @@ def main() -> None:
             "H) Watch daemon:            datapulse --watch-daemon --watch-daemon-once\n"
             "I) Watch status:            datapulse --watch-status\n"
             "J) Triage queue:            datapulse --triage-list / --triage-update <item_id> --triage-state verified\n"
-            "K) Story workspace:         datapulse --story-build / --story-list / --story-show <story_id>\n"
+            "K) Story workspace:         datapulse --story-build / --story-list / --story-show <story_id> / --story-graph <story_id>\n"
             "Diagnostics: datapulse --config-check / --doctor / --troubleshoot / --skill-contract / --check-update / --self-update / --version"
         ),
     )
@@ -834,10 +862,13 @@ def main() -> None:
     management_group.add_argument("--story-build", action="store_true", help="Build and persist clustered story workspace snapshot")
     management_group.add_argument("--story-list", action="store_true", help="List persisted stories")
     management_group.add_argument("--story-show", metavar="STORY", help="Show one persisted story by id or title")
+    management_group.add_argument("--story-graph", metavar="STORY", help="Show entity graph for one persisted story")
     management_group.add_argument("--story-export", metavar="STORY", help="Export one story as json or markdown")
     management_group.add_argument("--story-limit", type=int, default=10, help="Max stories to build or list")
     management_group.add_argument("--story-evidence-limit", type=int, default=6, help="Evidence items to keep per story")
     management_group.add_argument("--story-min-items", type=int, default=1, help="Minimum clustered items when listing stories")
+    management_group.add_argument("--story-graph-entity-limit", type=int, default=12, help="Max entity nodes for --story-graph")
+    management_group.add_argument("--story-graph-relation-limit", type=int, default=24, help="Max relation edges for --story-graph")
     management_group.add_argument("--story-format", default="json", choices=["json", "markdown", "md"], help="Output format for --story-export")
     management_group.add_argument(
         "-i",
@@ -1175,6 +1206,18 @@ def main() -> None:
             print(f"⚠️ story not found: {args.story_show}")
         else:
             print(json.dumps(story_payload, ensure_ascii=False, indent=2))
+        return
+
+    if args.story_graph:
+        story_graph_payload = reader.story_graph(
+            args.story_graph,
+            entity_limit=args.story_graph_entity_limit,
+            relation_limit=args.story_graph_relation_limit,
+        )
+        if story_graph_payload is None:
+            print(f"⚠️ story not found: {args.story_graph}")
+        else:
+            _print_story_graph(story_graph_payload)
         return
 
     if args.story_export:

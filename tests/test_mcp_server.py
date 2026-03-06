@@ -177,6 +177,24 @@ class _WatchMCPReader:
             "item_count": 2,
         }
 
+    def story_graph(self, identifier, **kwargs):
+        return {
+            "story": {
+                "id": identifier,
+                "title": "OpenAI Launch Story",
+            },
+            "nodes": [
+                {"id": identifier, "label": "OpenAI Launch Story", "kind": "story"},
+                {"id": "entity:openai", "label": "OpenAI", "kind": "entity", "entity_type": "ORG"},
+            ],
+            "edges": [
+                {"source": identifier, "target": "entity:openai", "relation_type": "MENTIONED_IN_STORY", "kind": "story_entity"}
+            ],
+            "entity_count": 1,
+            "relation_count": 0,
+            "edge_count": 1,
+        }
+
     def export_story(self, identifier, **kwargs):
         if kwargs.get("output_format") == "markdown":
             return "# OpenAI Launch Story\n\n## Timeline"
@@ -210,6 +228,7 @@ def test_mcp_registers_watch_tools():
         "story_build",
         "story_list",
         "story_show",
+        "story_graph",
         "story_export",
     } <= tool_names
 
@@ -382,3 +401,16 @@ async def test_mcp_story_export_markdown_tool(monkeypatch):
     raw = await app._run_tool("story_export", {"identifier": "story-openai-launch", "output_format": "markdown"})
 
     assert raw.startswith("# OpenAI Launch Story")
+
+
+@pytest.mark.asyncio
+async def test_mcp_story_graph_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool("story_graph", {"identifier": "story-openai-launch", "entity_limit": 6})
+    payload = json.loads(raw)
+
+    assert payload["ok"] is True
+    assert payload["graph"]["entity_count"] == 1
+    assert payload["graph"]["nodes"][1]["label"] == "OpenAI"

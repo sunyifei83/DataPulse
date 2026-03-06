@@ -69,10 +69,11 @@
 - 新增 `core/story.py`，提供 `Story / StoryEvidence / StoryTimelineEvent / StoryConflict / StoryStore`。
 - 新增首版 story 聚合构建器：基于标题/正文/实体/域名/指纹相似度聚类，生成主次证据、时间线、冲突提示与实体聚合。
 - `DataPulseReader` 支持 `story_build / list_stories / show_story / export_story`。
-- CLI 新增：`--story-build / --story-list / --story-show / --story-export`。
-- MCP 新增：`story_build / story_list / story_show / story_export`。
-- `datapulse-console` 已补入首版只读 story board：story 列表、证据栈、时间线、冲突标记、Markdown 证据包预览。
-- 当前范围为“只读证据组织层 + 持久化 story snapshot + GUI read-only board”；人工编辑、故事合并、entity graph 留待下一阶段。
+- `DataPulseReader` 支持 `story_graph` 生成 story-aware entity graph。
+- CLI 新增：`--story-build / --story-list / --story-show / --story-graph / --story-export`。
+- MCP 新增：`story_build / story_list / story_show / story_graph / story_export`。
+- `datapulse-console` 已补入首版只读 story board：story 列表、证据栈、时间线、冲突标记、entity graph、Markdown 证据包预览。
+- 当前范围为“只读证据组织层 + 持久化 story snapshot + GUI read-only board + entity graph”；人工编辑、故事合并留待下一阶段。
 
 ## 与现网能力映射
 
@@ -87,7 +88,7 @@
 | Web 搜索 | ✅ 多源网关（Jina/Tavily）CLI/MCP | ✅ v0.5.0 完成 |
 | 任务化 | 🚧 `WatchMission` 首版（CLI/Reader/MCP + due runner + daemon + richer alert sink + status page） | 后续: 自动重跑 / 故障恢复 / 聚合面板 |
 | 处置化 | 🚧 `TriageQueue` 首版（state/note/action + duplicate explain + CLI/MCP/Console + digest gate） | 后续: keyboard workflow / reviewer SLA |
-| 证据化 | 🚧 `Story Workspace` 首版（story cluster + evidence/timeline/conflict + CLI/MCP + persisted snapshot + console board） | 后续: story merge / editor / entity graph |
+| 证据化 | 🚧 `Story Workspace` 首版（story cluster + evidence/timeline/conflict + CLI/MCP + persisted snapshot + console board + entity graph） | 后续: story merge / editor |
 
 ## 验收建议（本项目）
 
@@ -101,7 +102,7 @@
 - `datapulse --alert-route-list` 可审计命名路由配置。
 - `datapulse --triage-list / --triage-explain / --triage-update / --triage-note / --triage-stats` 可完成首版处置闭环。
 - `datapulse --story-build / --story-list / --story-show / --story-export` 可完成首版证据组织闭环。
-- MCP 包含新增工具：`resolve_source/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed/create_watch/list_watches/run_watch/run_due_watches/triage_list/triage_explain/triage_update/triage_note/triage_stats/story_build/story_list/story_show/story_export/list_alerts/list_alert_routes/watch_status/disable_watch`。
+- MCP 包含新增工具：`resolve_source/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed/create_watch/list_watches/run_watch/run_due_watches/triage_list/triage_explain/triage_update/triage_note/triage_stats/story_build/story_list/story_show/story_graph/story_export/list_alerts/list_alert_routes/watch_status/disable_watch`。
 - 远端 OpenClaw 入口可通过 `read_url/read_batch` 与 feed 查询联调。
 
 ## 横向蓝图：GUI Intelligence Console
@@ -109,7 +110,7 @@
 - GUI 已进入合理建设窗口，但不应独立于领域模型先行。
 - 推荐顺序：先补 HTTP API 适配层，再做本地单用户浏览器控制台。
 - 当前浏览器控制台已承接 `P6 + P7 + P8 first cut`：watch、alerts、routes、status、triage、story board。
-- `G0/G3` 壳层已落地：`FastAPI` + `datapulse-console` + `/api/overview` / `/api/watches` / `/api/alerts` / `/api/alert-routes` / `/api/watch-status` / `/api/triage` / `/api/triage/{id}/explain` / `/api/stories` / `/api/stories/{id}` / `/api/stories/{id}/export`。
-- `P8` backend 与首版 GUI story board 已打通，当前仍保持只读证据板策略，后续再进入编辑与图谱视图。
+- `G0/G3` 壳层已落地：`FastAPI` + `datapulse-console` + `/api/overview` / `/api/watches` / `/api/alerts` / `/api/alert-routes` / `/api/watch-status` / `/api/triage` / `/api/triage/{id}/explain` / `/api/stories` / `/api/stories/{id}` / `/api/stories/{id}/graph` / `/api/stories/{id}/export`。
+- `P8` backend 与首版 GUI story board 已打通，当前已补入 story-aware entity graph；后续再进入编辑能力。
 - GUI 增量应随仓内提交进入 GitHub Actions，至少通过 `ruff` / `mypy` / `pytest` 与 `datapulse-console --help` 烟测。
 - 详细方案见 [gui_intelligence_console_plan.md](/Users/sunyifei/DataPulse/docs/gui_intelligence_console_plan.md)。

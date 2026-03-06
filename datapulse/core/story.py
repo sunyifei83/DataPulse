@@ -483,6 +483,151 @@ def render_story_markdown(story: Story) -> str:
     return "\n".join(lines)
 
 
+def _story_item_ids(story: Story) -> list[str]:
+    rows: list[str] = []
+    if story.primary_item_id:
+        rows.append(story.primary_item_id)
+    for evidence in [*story.primary_evidence, *story.secondary_evidence]:
+        if evidence.item_id:
+            rows.append(evidence.item_id)
+    for event in story.timeline:
+        if event.item_id:
+            rows.append(event.item_id)
+    return list(dict.fromkeys(rows))
+
+
+def build_story_graph(
+    story: Story,
+    *,
+    entity_store: EntityStore | None = None,
+    entity_limit: int = 12,
+    relation_limit: int = 24,
+) -> dict[str, Any]:
+    entity_limit = max(0, int(entity_limit))
+    relation_limit = max(0, int(relation_limit))
+    story_item_ids = set(_story_item_ids(story))
+
+    entity_rows: list[dict[str, Any]] = []
+    seen_entities: set[str] = set()
+    for raw_label in story.entities:
+        normalized = normalize_entity_name(raw_label)
+        if not normalized or normalized in seen_entities:
+            continue
+        seen_entities.add(normalized)
+        entity = entity_store.get_entity(raw_label) if entity_store is not None else None
+        source_item_ids = set(entity.source_item_ids) if entity is not None else set()
+        in_story_source_ids = sorted(story_item_ids & source_item_ids)
+        entity_rows.append(
+            {
+                "id": f"entity:{normalized.lower()}",
+                "entity_key": normalized,
+                "label": entity.display_name if entity is not None else raw_label,
+                "kind": "entity",
+                "entity_type": entity.entity_type.value if entity is not None else "UNKNOWN",
+                "source_count": len(source_item_ids),
+                "mention_count": entity.mention_count if entity is not None else 0,
+                "in_story_source_count": len(in_story_source_ids),
+                "in_story_source_ids": in_story_source_ids,
+            }
+        )
+
+    entity_rows.sort(
+        key=lambda row: (
+            row["in_story_source_count"],
+            row["source_count"],
+            row["mention_count"],
+            row["label"],
+        ),
+        reverse=True,
+    )
+    selected_entities = entity_rows[:entity_limit]
+    selected_keys = {row["entity_key"] for row in selected_entities}
+
+    nodes: list[dict[str, Any]] = [
+        {
+            "id": story.id,
+            "label": story.title,
+            "kind": "story",
+            "status": story.status,
+            "item_count": story.item_count,
+            "source_count": story.source_count,
+            "focus": True,
+        }
+    ]
+    for row in selected_entities:
+        nodes.append({key: value for key, value in row.items() if key != "entity_key"})
+
+    mention_edges: list[dict[str, Any]] = []
+    for row in selected_entities:
+        mention_edges.append(
+            {
+                "id": f"{story.id}->{row['id']}",
+                "source": story.id,
+                "target": row["id"],
+                "kind": "story_entity",
+                "relation_type": "MENTIONED_IN_STORY",
+                "weight": max(1.0, float(row["in_story_source_count"] or row["source_count"] or 1)),
+                "source_item_count": row["in_story_source_count"] or row["source_count"] or 1,
+                "keywords": [],
+            }
+        )
+
+    relation_edges: list[dict[str, Any]] = []
+    if entity_store is not None and selected_keys:
+        seen_relations: set[tuple[str, str, str]] = set()
+        for relation in entity_store.relations:
+            if relation.source_entity not in selected_keys or relation.target_entity not in selected_keys:
+                continue
+            relation_source_ids = {item_id for item_id in relation.source_item_ids if item_id}
+            if relation_source_ids and story_item_ids and not (relation_source_ids & story_item_ids):
+                continue
+            relation_key = (relation.source_entity, relation.target_entity, relation.relation_type)
+            if relation_key in seen_relations:
+                continue
+            seen_relations.add(relation_key)
+            overlap_ids = sorted(story_item_ids & relation_source_ids) if relation_source_ids else []
+            relation_edges.append(
+                {
+                    "id": f"rel:{relation.source_entity}:{relation.target_entity}:{relation.relation_type}",
+                    "source": f"entity:{relation.source_entity.lower()}",
+                    "target": f"entity:{relation.target_entity.lower()}",
+                    "kind": "entity_relation",
+                    "relation_type": relation.relation_type,
+                    "weight": float(relation.weight or 1.0),
+                    "source_item_count": len(overlap_ids) or len(relation_source_ids),
+                    "source_item_ids": overlap_ids or sorted(relation_source_ids),
+                    "keywords": list(relation.keywords),
+                }
+            )
+
+    relation_edges.sort(
+        key=lambda edge: (
+            edge["source_item_count"],
+            edge["weight"],
+            edge["relation_type"],
+            edge["id"],
+        ),
+        reverse=True,
+    )
+    relation_edges = relation_edges[:relation_limit]
+    edges = [*mention_edges, *relation_edges]
+
+    return {
+        "story": {
+            "id": story.id,
+            "title": story.title,
+            "status": story.status,
+            "item_count": story.item_count,
+            "source_count": story.source_count,
+        },
+        "nodes": nodes,
+        "edges": edges,
+        "entity_count": len(selected_entities),
+        "edge_count": len(edges),
+        "relation_count": len(relation_edges),
+    }
+
+
 def build_story_clusters(
     items: list[DataPulseItem],
     *,

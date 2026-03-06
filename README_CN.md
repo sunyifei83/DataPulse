@@ -40,7 +40,7 @@
   - 支持重复项解释（duplicate explain），给出候选条目、相似信号和建议保留主条目
 - 证据化（首版 Story Workspace）：
   - 支持 story 聚类、主次证据、时间线、冲突提示、实体聚合
-  - 支持 `--story-build / --story-list / --story-show / --story-export`
+  - 支持 `--story-build / --story-list / --story-show / --story-graph / --story-export`
   - 支持 Reader / MCP / Console 共用同一套 story 语义
 - 告警与调度（首版）：
   - 支持 threshold alert rule、到期任务轮询、daemon 单实例锁
@@ -52,7 +52,7 @@
 - 浏览器控制台（G0/G3）：
   - 提供 `datapulse-console` 本地浏览器控制台
   - 汇总 watch / triage / story / alert / route / status 六块工作台能力
-  - 已包含 Story Workspace 只读证据板：story 卡片、证据栈、时间线、冲突标记、Markdown 证据包预览
+  - 已包含 Story Workspace 只读证据板：story 卡片、证据栈、时间线、冲突标记、entity graph、Markdown 证据包预览
 - 稳定性：
   - 统一失败处理，异常窄化（精确捕获 `RequestException`/`TimeoutError` 等）
   - `retry_with_backoff` 重试装饰器 + `CircuitBreaker` 熔断器
@@ -76,7 +76,7 @@
   - `--entity-query` / `--entity-graph` / `--entity-stats` 支持实体存储与查询
   - 评分链路可通过 `DATAPULSE_ENTITY_CORROBORATION_WEIGHT` 引入实体跨源互证加分（默认 `0`）
 - 测试基建：
-  - 617 个测试，覆盖 41 个测试模块
+  - 619 个测试，覆盖 41 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -175,6 +175,7 @@ datapulse --triage-stats
 datapulse --story-build
 datapulse --story-list
 datapulse --story-show story-openai-launch
+datapulse --story-graph story-openai-launch
 datapulse --story-export story-openai-launch --story-format markdown
 
 # 启动浏览器控制台（G0/G3）
@@ -255,6 +256,7 @@ K. Story Workspace:
   - `datapulse --story-build`
   - `datapulse --story-list`
   - `datapulse --story-show <story_id>`
+  - `datapulse --story-graph <story_id>`
 L. GUI 控制台:
   - `datapulse-console --port 8765`（含 Story Workspace 只读证据板）
 M. 诊断:
@@ -362,7 +364,7 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-45 个可用工具：
+46 个可用工具：
 
 **采集与读取：**
 - `read_url(url, min_confidence)` — 解析单条 URL
@@ -387,6 +389,7 @@ python -m datapulse.mcp_server --call health
 - `story_build(profile='default', source_ids=None, max_stories=10, evidence_limit=6, min_confidence=0.0, since=None)` — 构建并持久化 story 聚类快照
 - `story_list(limit=20, min_items=1)` — 列出已持久化的 story
 - `story_show(identifier)` — 查看单个 story
+- `story_graph(identifier, entity_limit=12, relation_limit=24)` — 查看单个 story 的实体关系图
 - `story_export(identifier, output_format='json')` — 导出 story（`json` / `markdown`）
 
 **任务化（Watch Mission）：**
