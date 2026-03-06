@@ -93,6 +93,34 @@ class _ConsoleReader:
             "last_error": "",
         }
 
+    def triage_list(self, **kwargs):
+        return [
+            {
+                "id": "item-1",
+                "title": "OpenAI launch post",
+                "review_state": "new",
+                "score": 81,
+                "confidence": 0.91,
+                "url": "https://example.com/openai-launch",
+                "review_notes": [],
+            }
+        ]
+
+    def triage_stats(self):
+        return {
+            "total": 2,
+            "open_count": 1,
+            "closed_count": 1,
+            "note_count": 0,
+            "states": {"new": 1, "triaged": 0, "verified": 1, "duplicate": 0, "ignored": 0, "escalated": 0},
+        }
+
+    def triage_update(self, item_id, **kwargs):
+        return {"id": item_id, "review_state": kwargs["state"]}
+
+    def triage_note(self, item_id, **kwargs):
+        return {"id": item_id, "review_notes": [{"note": kwargs["note"]}]}
+
 
 def _client() -> TestClient:
     app = create_app(reader_factory=lambda: _ConsoleReader())
@@ -107,6 +135,7 @@ def test_console_index_serves_shell():
     assert CONSOLE_TITLE in response.text
     assert "Mission Control For Signal Work" in response.text
     assert "create-watch-form" in response.text
+    assert "Triage Queue" in response.text
 
 
 def test_console_overview_returns_aggregates():
@@ -119,6 +148,7 @@ def test_console_overview_returns_aggregates():
     assert payload["disabled_watches"] == 1
     assert payload["due_watches"] == 1
     assert payload["route_count"] == 1
+    assert payload["triage_open_count"] == 1
     assert payload["daemon_state"] == "running"
 
 
@@ -161,3 +191,18 @@ def test_console_routes_and_status():
     assert routes.json()[0]["name"] == "ops-webhook"
     assert status.status_code == 200
     assert status.json()["metrics"]["cycles_total"] == 3
+
+
+def test_console_triage_routes():
+    client = _client()
+
+    triage = client.get("/api/triage?limit=5")
+    stats = client.get("/api/triage/stats")
+    update = client.post("/api/triage/item-1/state", json={"state": "verified"})
+
+    assert triage.status_code == 200
+    assert triage.json()[0]["id"] == "item-1"
+    assert stats.status_code == 200
+    assert stats.json()["open_count"] == 1
+    assert update.status_code == 200
+    assert update.json()["review_state"] == "verified"

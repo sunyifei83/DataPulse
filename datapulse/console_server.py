@@ -23,7 +23,7 @@ def _console_html() -> str:
     initial_state = _json_blob(
         {
             "title": CONSOLE_TITLE,
-            "sections": ["overview", "missions", "alerts", "routes", "status"],
+            "sections": ["overview", "missions", "alerts", "routes", "status", "triage"],
         }
     )
     return f"""<!doctype html>
@@ -171,7 +171,7 @@ def _console_html() -> str:
     }}
     .signal-strip {{
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 12px;
       margin-top: 22px;
     }}
@@ -428,12 +428,23 @@ def _console_html() -> str:
       </article>
     </section>
 
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title">Triage Queue</h2>
+          <div class="panel-sub">Review open items, push high-signal stories forward, and suppress low-value noise.</div>
+        </div>
+      </div>
+      <div class="meta" id="triage-stats-inline"></div>
+      <div class="stack" id="triage-list"></div>
+    </section>
+
     <div class="footer-note">Local-first console shell. CLI and MCP remain first-class control planes.</div>
   </div>
 
   <script>
     const initial = {initial_state};
-    const state = {{ watches: [], alerts: [], routes: [], status: null, overview: null }};
+    const state = {{ watches: [], alerts: [], routes: [], status: null, overview: null, triage: [], triageStats: null }};
 
     const $ = (id) => document.getElementById(id);
     const jsonHeaders = {{ "Content-Type": "application/json" }};
@@ -457,6 +468,7 @@ def _console_html() -> str:
         metricCard("Enabled Missions", metrics.enabled_watches ?? 0),
         metricCard("Due Now", metrics.due_watches ?? 0, "hot"),
         metricCard("Alert Routes", metrics.route_count ?? 0),
+        metricCard("Open Queue", metrics.triage_open_count ?? 0),
         metricCard("Daemon State", String(metrics.daemon_state || "idle").toUpperCase()),
       ].join("");
     }}
@@ -594,24 +606,85 @@ def _console_html() -> str:
         </div>`;
     }}
 
+    function renderTriage() {{
+      const root = $("triage-list");
+      const inlineStats = $("triage-stats-inline");
+      const stats = state.triageStats || {{}};
+      inlineStats.innerHTML = `
+        <span>open=${{stats.open_count || 0}}</span>
+        <span>closed=${{stats.closed_count || 0}}</span>
+        <span>notes=${{stats.note_count || 0}}</span>
+        <span>verified=${{(stats.states || {{}}).verified || 0}}</span>
+      `;
+      if (!state.triage.length) {{
+        root.innerHTML = `<div class="empty">No open triage item right now.</div>`;
+        return;
+      }}
+      root.innerHTML = state.triage.map((item) => `
+        <div class="card">
+          <div class="card-top">
+            <div>
+              <h3 class="card-title">${{item.title}}</h3>
+              <div class="meta">
+                <span>${{item.id}}</span>
+                <span>state=${{item.review_state || "new"}}</span>
+                <span>score=${{item.score || 0}}</span>
+                <span>confidence=${{Number(item.confidence || 0).toFixed(2)}}</span>
+              </div>
+            </div>
+            <span class="chip ${{item.review_state === "escalated" ? "hot" : ""}}">${{item.review_state || "new"}}</span>
+          </div>
+          <div class="panel-sub">${{item.url}}</div>
+          <div class="actions">
+            <button class="btn-secondary" data-triage-state="verified" data-triage-id="${{item.id}}">Verify</button>
+            <button class="btn-secondary" data-triage-state="escalated" data-triage-id="${{item.id}}">Escalate</button>
+            <button class="btn-secondary" data-triage-state="ignored" data-triage-id="${{item.id}}">Ignore</button>
+          </div>
+        </div>
+      `).join("");
+
+      root.querySelectorAll("[data-triage-state]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          button.disabled = true;
+          try {{
+            await api(`/api/triage/${{button.dataset.triageId}}/state`, {{
+              method: "POST",
+              headers: jsonHeaders,
+              body: JSON.stringify({{ state: button.dataset.triageState, actor: "console" }}),
+            }});
+            await refreshBoard();
+          }} catch (error) {{
+            alert(error.message);
+          }} finally {{
+            button.disabled = false;
+          }}
+        }});
+      }});
+    }}
+
     async function refreshBoard() {{
-      const [overview, watches, alerts, routes, status] = await Promise.all([
+      const [overview, watches, alerts, routes, status, triage, triageStats] = await Promise.all([
         api("/api/overview"),
         api("/api/watches?include_disabled=true"),
         api("/api/alerts?limit=8"),
         api("/api/alert-routes"),
         api("/api/watch-status"),
+        api("/api/triage?limit=6"),
+        api("/api/triage/stats"),
       ]);
       state.overview = overview;
       state.watches = watches;
       state.alerts = alerts;
       state.routes = routes;
       state.status = status;
+      state.triage = triage;
+      state.triageStats = triageStats;
       renderOverview();
       renderWatches();
       renderAlerts();
       renderRoutes();
       renderStatus();
+      renderTriage();
     }}
 
     $("refresh-all").addEventListener("click", refreshBoard);
@@ -679,6 +752,18 @@ class RunDueRequest(BaseModel):
     limit: int = Field(default=0, ge=0)
 
 
+class TriageStateRequest(BaseModel):
+    state: str
+    note: str = ""
+    actor: str = "console"
+    duplicate_of: str | None = None
+
+
+class TriageNoteRequest(BaseModel):
+    note: str
+    author: str = "console"
+
+
 def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) -> FastAPI:
     app = FastAPI(title=CONSOLE_TITLE, version="0.7.0")
 
@@ -707,6 +792,7 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
             "due_watches": sum(1 for watch in watches if watch.get("is_due")),
             "alert_count": len(alerts),
             "route_count": len(routes),
+            "triage_open_count": reader.triage_stats().get("open_count", 0),
             "daemon_state": status.get("state", "idle"),
             "daemon_heartbeat_at": status.get("heartbeat_at", ""),
         }
@@ -748,6 +834,31 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     @app.get("/api/watch-status")
     def watch_status() -> dict[str, Any]:
         return reader_factory().watch_status_snapshot()
+
+    @app.get("/api/triage")
+    def triage_list(limit: int = 20, state: list[str] | None = None, include_closed: bool = False) -> list[dict[str, Any]]:
+        return reader_factory().triage_list(limit=limit, states=state, include_closed=include_closed)
+
+    @app.get("/api/triage/stats")
+    def triage_stats() -> dict[str, Any]:
+        return reader_factory().triage_stats()
+
+    @app.post("/api/triage/{item_id}/state")
+    def triage_update(item_id: str, payload: TriageStateRequest) -> dict[str, Any]:
+        try:
+            item = reader_factory().triage_update(item_id, **payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if item is None:
+            raise HTTPException(status_code=404, detail=f"Triage item not found: {item_id}")
+        return item
+
+    @app.post("/api/triage/{item_id}/note")
+    def triage_note(item_id: str, payload: TriageNoteRequest) -> dict[str, Any]:
+        item = reader_factory().triage_note(item_id, **payload.model_dump())
+        if item is None:
+            raise HTTPException(status_code=404, detail=f"Triage item not found: {item_id}")
+        return item
 
     return app
 

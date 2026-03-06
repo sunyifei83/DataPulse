@@ -34,6 +34,11 @@
     },
     {
       "type": "message",
+      "pattern": "(?i)\\b(?:triage|review|verify|duplicate|ignore|escalate|审核|复核|处置|去重|忽略|升级)\\b.*(?:queue|item|signal|story|条目|队列|信号)?",
+      "description": "Triggered for triage queue review, verification, duplicate marking, and analyst workflow requests."
+    },
+    {
+      "type": "message",
       "pattern": "(?i)\\b(datapulse|skill|agent)\\b.*\\b(health|doctor|config|diagnose|update|version|upgrade|troubleshoot)\\b",
       "description": "Triggered for maintenance and capability introspection tasks."
     },
@@ -53,6 +58,7 @@
     "watch-missions",
     "watch-alerts",
     "watch-alert-routing",
+    "triage-queue",
     "assistant-ready",
     "mcp-tools"
   ],

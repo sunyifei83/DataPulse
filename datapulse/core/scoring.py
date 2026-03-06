@@ -7,6 +7,7 @@ from collections import Counter
 from datetime import datetime, timezone
 
 from .models import DataPulseItem
+from .triage import normalize_review_state, review_state_score
 from .utils import content_fingerprint, get_domain
 
 
@@ -31,6 +32,7 @@ def _default_weights() -> dict[str, float]:
         "recency_bonus": _env_float("DATAPULSE_RECENCY_BONUS_WEIGHT", 0.00),
         "engagement": _env_float("DATAPULSE_ENGAGEMENT_WEIGHT", 0.08),
         "search_noise_penalty": _env_float("DATAPULSE_SEARCH_NOISE_PENALTY_WEIGHT", 0.08),
+        "review_state": _env_float("DATAPULSE_REVIEW_STATE_WEIGHT", 0.08),
     }
 
 
@@ -366,6 +368,9 @@ def compute_composite_score(
     w_engagement = w.get("engagement", 0.0)
     dim_search_noise = search_noise_penalty(item)
     w_search_noise = w.get("search_noise_penalty", 0.0)
+    dim_review_state = review_state_score(item.review_state)
+    w_review_state = w.get("review_state", 0.0)
+    review_state_label = normalize_review_state(item.review_state, processed=item.processed)
     # Backward-compatible alias to satisfy acceptance docs using "recency_bonus" naming.
     recency_bonus = dim_recency * w.get("recency_bonus", 0.0)
 
@@ -378,6 +383,7 @@ def compute_composite_score(
         + w_source_diversity * dim_source_diversity
         + w_cross_validation * dim_cross_validation
         + w_engagement * dim_engagement
+        + w_review_state * dim_review_state
         - w_search_noise * dim_search_noise
         + recency_bonus
     )
@@ -398,6 +404,9 @@ def compute_composite_score(
         "cross_validation_weight": round(w_cross_validation, 4),
         "engagement": round(dim_engagement, 4),
         "engagement_weight": round(w_engagement, 4),
+        "review_state": round(dim_review_state, 4),
+        "review_state_weight": round(w_review_state, 4),
+        "review_state_label": review_state_label,
         "search_noise_penalty": round(dim_search_noise, 4),
         "search_noise_penalty_weight": round(w_search_noise, 4),
         "recency_bonus": round(dim_recency * w.get("recency_bonus", 0.0), 4),

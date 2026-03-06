@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .models import DataPulseItem
+from .triage import normalize_review_state
 from .utils import content_fingerprint, content_hash, get_domain_tag
 
 
@@ -103,10 +104,20 @@ class UnifiedInbox:
     def all_items(self, min_confidence: float = 0.0) -> list[DataPulseItem]:
         return [item for item in self.items if item.confidence >= min_confidence]
 
+    def get(self, item_id: str) -> DataPulseItem | None:
+        for item in self.items:
+            if item.id == item_id:
+                return item
+        return None
+
     def mark_processed(self, item_id: str, processed: bool = True) -> bool:
         for item in self.items:
             if item.id == item_id:
                 item.processed = processed
+                if processed and item.review_state == "new":
+                    item.review_state = "triaged"
+                elif not processed and item.review_state == "triaged":
+                    item.review_state = normalize_review_state("", processed=False)
                 return True
         return False
 

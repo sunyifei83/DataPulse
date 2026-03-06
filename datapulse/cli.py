@@ -96,6 +96,30 @@ def _print_watch_status(payload):
     print(f"alerts_total: {metrics.get('alerts_total', 0)}")
 
 
+def _print_triage_items(items):
+    for item in items:
+        state = item.get("review_state", "new")
+        duplicate_of = item.get("duplicate_of") or "-"
+        notes = len(item.get("review_notes", []) or [])
+        print(
+            f"{item.get('id')}: {state} | score={item.get('score', 0)} | "
+            f"confidence={float(item.get('confidence', 0.0)):.3f} | notes={notes}"
+        )
+        print(f"    {item.get('title', '')}")
+        print(f"    duplicate_of: {duplicate_of}")
+
+
+def _print_triage_stats(payload):
+    print(f"total: {payload.get('total', 0)}")
+    print(f"open_count: {payload.get('open_count', 0)}")
+    print(f"closed_count: {payload.get('closed_count', 0)}")
+    print(f"processed_count: {payload.get('processed_count', 0)}")
+    print(f"note_count: {payload.get('note_count', 0)}")
+    states = payload.get("states", {}) if isinstance(payload, dict) else {}
+    for state in ("new", "triaged", "verified", "duplicate", "ignored", "escalated"):
+        print(f"{state}: {states.get(state, 0)}")
+
+
 _FIX_COMMANDS_BY_COLLECTOR = {
     "xhs": ["datapulse --login xhs"],
     "wechat": ["datapulse --login wechat"],
@@ -469,6 +493,10 @@ def _print_skill_contract() -> None:
                 "--alert-list",
                 "--alert-route-list",
                 "--watch-status",
+                "--triage-list",
+                "--triage-update",
+                "--triage-note",
+                "--triage-stats",
                 "--doctor",
                 "--config-check",
                 "--troubleshoot",
@@ -504,6 +532,7 @@ def _print_skill_contract() -> None:
             "for alert review: --alert-list",
             "for route audit: --alert-route-list",
             "for daemon status: --watch-status",
+            "for analyst queue operations: --triage-list/--triage-update/--triage-note/--triage-stats",
             "for source governance: --list-sources/--list-packs/--query-feed",
             "for health checks: --doctor / --troubleshoot",
         ],
@@ -577,6 +606,7 @@ def main() -> None:
             "G) Watch scheduler:         datapulse --watch-run-due\n"
             "H) Watch daemon:            datapulse --watch-daemon --watch-daemon-once\n"
             "I) Watch status:            datapulse --watch-status\n"
+            "J) Triage queue:            datapulse --triage-list / --triage-update <item_id> --triage-state verified\n"
             "Diagnostics: datapulse --config-check / --doctor / --troubleshoot / --skill-contract / --check-update / --self-update / --version"
         ),
     )
@@ -747,6 +777,20 @@ def main() -> None:
     management_group.add_argument("--watch-daemon-retry-base-delay", type=float, default=1.0, help="Retry base delay in seconds")
     management_group.add_argument("--watch-daemon-retry-max-delay", type=float, default=30.0, help="Retry max delay in seconds")
     management_group.add_argument("--watch-daemon-retry-backoff", type=float, default=2.0, help="Retry backoff factor")
+    management_group.add_argument("--triage-list", action="store_true", help="List triage queue items")
+    management_group.add_argument("--triage-update", metavar="ITEM_ID", help="Update triage state for one inbox item")
+    management_group.add_argument("--triage-note", metavar="ITEM_ID", help="Append one triage note to an inbox item")
+    management_group.add_argument("--triage-stats", action="store_true", help="Show triage queue stats")
+    management_group.add_argument(
+        "--triage-state",
+        action="append",
+        choices=["new", "triaged", "verified", "duplicate", "ignored", "escalated"],
+        help="Target triage state for update or list filter (repeatable on --triage-list)",
+    )
+    management_group.add_argument("--triage-note-text", help="Triage note text for update/note commands")
+    management_group.add_argument("--triage-author", default="cli", help="Actor label for triage updates")
+    management_group.add_argument("--triage-duplicate-of", metavar="ITEM_ID", help="Canonical item id when state=duplicate")
+    management_group.add_argument("--triage-include-closed", action="store_true", help="Include verified/duplicate/ignored in --triage-list")
     management_group.add_argument(
         "-i",
         "--login",
@@ -988,6 +1032,61 @@ def main() -> None:
 
     if args.watch_status:
         _print_watch_status(reader.watch_status_snapshot())
+        return
+
+    if args.triage_list:
+        items = reader.triage_list(
+            limit=args.limit,
+            min_confidence=args.min_confidence,
+            states=args.triage_state,
+            include_closed=args.triage_include_closed,
+        )
+        if not items:
+            print("No triage queue item matched.")
+        else:
+            print(f"🧭 Triage queue: {len(items)}")
+            _print_triage_items(items)
+        return
+
+    if args.triage_update:
+        if not args.triage_state:
+            parser.error("--triage-update requires --triage-state")
+        state_values = list(args.triage_state)
+        if len(state_values) != 1:
+            parser.error("--triage-update accepts exactly one --triage-state")
+        try:
+            item = reader.triage_update(
+                args.triage_update,
+                state=state_values[0],
+                note=args.triage_note_text or "",
+                actor=args.triage_author,
+                duplicate_of=args.triage_duplicate_of,
+            )
+        except ValueError as exc:
+            print(f"❌ {exc}")
+            return
+        if item is None:
+            print(f"⚠️ triage item not found: {args.triage_update}")
+        else:
+            print(f"✅ triage updated: {item['id']} -> {item['review_state']}")
+        return
+
+    if args.triage_note:
+        if not args.triage_note_text:
+            parser.error("--triage-note requires --triage-note-text")
+        item = reader.triage_note(
+            args.triage_note,
+            note=args.triage_note_text,
+            author=args.triage_author,
+        )
+        if item is None:
+            print(f"⚠️ triage item not found: {args.triage_note}")
+        else:
+            print(f"✅ triage note added: {item['id']}")
+        return
+
+    if args.triage_stats:
+        _print_triage_stats(reader.triage_stats(min_confidence=args.min_confidence))
         return
 
     if args.watch_run_due:

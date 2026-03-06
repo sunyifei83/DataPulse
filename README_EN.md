@@ -34,6 +34,10 @@ for MCP, Skill, Agent, and bot workflows.
 - Task layer (initial Watch Mission support):
   - save recurring search missions, list them, run them manually, disable them
   - shared mission/run object model across CLI, Reader, and MCP
+- Triage queue (initial support):
+  - review states: `new / triaged / verified / duplicate / ignored / escalated`
+  - review notes, review actions, and `duplicate_of` linking
+  - shared triage semantics across CLI, Reader, MCP, and the browser console
 - Alerts and scheduling (initial support):
   - threshold alert rules, due-runner polling, daemon single-instance lock
   - keyword / tag / domain / source-type / freshness filters for alert matching
@@ -43,7 +47,7 @@ for MCP, Skill, Agent, and bot workflows.
   - JSON + HTML static status outputs
 - Browser console (G0):
   - local `datapulse-console` browser shell
-  - unified watch / alert / route / status operating surface
+  - unified watch / triage / alert / route / status operating surface
 - Reliability:
   - centralized parse error handling with narrowed exceptions
   - `retry_with_backoff` decorator + `CircuitBreaker` for fault tolerance
@@ -67,7 +71,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
 - Testing:
-  - 591 tests across 39 modules
+  - 606 tests across 40 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -146,9 +150,12 @@ H. Alerts:
   - `datapulse --alert-route-list`
 I. Daemon:
   - `datapulse --watch-daemon --watch-daemon-once`
-J. Browser console:
+J. Triage queue:
+  - `datapulse --triage-list`
+  - `datapulse --triage-update <item_id> --triage-state verified`
+K. Browser console:
   - `datapulse-console --port 8765`
-K. Diagnostics:
+L. Diagnostics:
   - `datapulse --config-check`
   - `datapulse --doctor`
   - `datapulse --troubleshoot`
@@ -217,6 +224,12 @@ datapulse --watch-daemon --watch-daemon-once
 # Show daemon heartbeat and metrics
 datapulse --watch-status
 
+# Triage queue
+datapulse --triage-list
+datapulse --triage-update item-123 --triage-state verified --triage-note-text "confirmed by analyst"
+datapulse --triage-note item-123 --triage-note-text "needs follow-up"
+datapulse --triage-stats
+
 # Launch the local browser console (G0)
 datapulse-console --port 8765
 
@@ -274,7 +287,7 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-36 tools available:
+40 tools available:
 
 **Intake & reading:**
 - `read_url(url, min_confidence)` — parse a single URL
@@ -287,6 +300,12 @@ python -m datapulse.mcp_server --call health
 - `query_inbox(limit, min_confidence)` — query inbox
 - `mark_processed(item_id, processed)` — mark as processed
 - `query_unprocessed(limit, min_confidence)` — query unprocessed items
+
+**Triage queue:**
+- `triage_list(limit=20, min_confidence=0.0, states=None, include_closed=False)` — list triage queue items
+- `triage_update(item_id, state, note='', actor='mcp', duplicate_of='')` — update one triage state
+- `triage_note(item_id, note, author='mcp')` — append one review note
+- `triage_stats(min_confidence=0.0)` — show queue counts by state
 
 **Watch Mission:**
 - `create_watch(name, query, platforms=None, sites=None, schedule='manual', min_confidence=0.0, top_n=5)` — create a saved recurring mission

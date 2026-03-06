@@ -33,6 +33,10 @@
 - 任务化（首版 Watch Mission）：
   - 支持保存搜索任务、列出任务、手动执行、禁用任务
   - CLI / Reader / MCP 共用同一套任务对象与运行记录模型
+- 处置化（首版 Triage Queue）：
+  - 支持 `new / triaged / verified / duplicate / ignored / escalated` 状态流
+  - 支持 review note、状态变更记录、`duplicate_of` 归并标记
+  - 支持 CLI / Reader / MCP / Console 共用同一套 triage 语义
 - 告警与调度（首版）：
   - 支持 threshold alert rule、到期任务轮询、daemon 单实例锁
   - 支持关键词 / 标签 / 域名 / source_type / 时效过滤
@@ -42,7 +46,7 @@
   - 支持 JSON + HTML 静态状态页输出
 - 浏览器控制台（G0）：
   - 提供 `datapulse-console` 本地浏览器控制台
-  - 汇总 watch / alert / route / status 四块首版工作台能力
+  - 汇总 watch / triage / alert / route / status 五块首版工作台能力
 - 稳定性：
   - 统一失败处理，异常窄化（精确捕获 `RequestException`/`TimeoutError` 等）
   - `retry_with_backoff` 重试装饰器 + `CircuitBreaker` 熔断器
@@ -66,7 +70,7 @@
   - `--entity-query` / `--entity-graph` / `--entity-stats` 支持实体存储与查询
   - 评分链路可通过 `DATAPULSE_ENTITY_CORROBORATION_WEIGHT` 引入实体跨源互证加分（默认 `0`）
 - 测试基建：
-  - 591 个测试，覆盖 39 个测试模块
+  - 606 个测试，覆盖 40 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -154,6 +158,12 @@ datapulse --watch-daemon --watch-daemon-once
 # 查看 daemon 心跳与指标
 datapulse --watch-status
 
+# Triage Queue
+datapulse --triage-list
+datapulse --triage-update item-123 --triage-state verified --triage-note-text "confirmed by analyst"
+datapulse --triage-note item-123 --triage-note-text "need follow-up"
+datapulse --triage-stats
+
 # 启动浏览器控制台（G0）
 datapulse-console --port 8765
 
@@ -224,9 +234,12 @@ H. Alert:
   - `datapulse --alert-route-list`
 I. Daemon:
   - `datapulse --watch-daemon --watch-daemon-once`
-J. GUI 控制台:
+J. Triage:
+  - `datapulse --triage-list`
+  - `datapulse --triage-update <item_id> --triage-state verified`
+K. GUI 控制台:
   - `datapulse-console --port 8765`
-K. 诊断:
+L. 诊断:
   - `datapulse --config-check`
   - `datapulse --doctor`
   - `datapulse --troubleshoot`
@@ -331,7 +344,7 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-36 个可用工具：
+40 个可用工具：
 
 **采集与读取：**
 - `read_url(url, min_confidence)` — 解析单条 URL
@@ -344,6 +357,12 @@ python -m datapulse.mcp_server --call health
 - `query_inbox(limit, min_confidence)` — 查询收件箱
 - `mark_processed(item_id, processed)` — 标记已处理
 - `query_unprocessed(limit, min_confidence)` — 查询未处理条目
+
+**处置层（Triage Queue）：**
+- `triage_list(limit=20, min_confidence=0.0, states=None, include_closed=False)` — 列出处置队列
+- `triage_update(item_id, state, note='', actor='mcp', duplicate_of='')` — 更新处置状态
+- `triage_note(item_id, note, author='mcp')` — 追加处置备注
+- `triage_stats(min_confidence=0.0)` — 查看队列统计
 
 **任务化（Watch Mission）：**
 - `create_watch(name, query, platforms=None, sites=None, schedule='manual', min_confidence=0.0, top_n=5)` — 创建任务

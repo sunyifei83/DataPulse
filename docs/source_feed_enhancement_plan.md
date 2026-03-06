@@ -55,6 +55,16 @@
 - MCP 首版开放：`create_watch / list_watches / run_watch / run_due_watches / list_alerts / list_alert_routes / watch_status / disable_watch`。
 - 当前范围为“保存搜索 + 手动执行 + 轻量 due runner + daemon 轮询 + richer alert rule + named routing + 状态页”；自动恢复与更复杂编排留待下一阶段。
 
+### P7：Triage Queue 处置层 🚧 (v0.8.0 进行中)
+- 新增 triage 状态模型：`new / triaged / verified / duplicate / ignored / escalated`。
+- `DataPulseItem` 新增 `review_state / review_notes / review_actions / duplicate_of`，保持旧 inbox JSON 向后兼容。
+- 新增 `core/triage.py`，统一状态校验、备注记录、动作日志、队列统计。
+- `DataPulseReader` 支持 `triage_list / triage_update / triage_note / triage_stats`。
+- CLI 支持 `--triage-list / --triage-update / --triage-note / --triage-stats`。
+- MCP 新增：`triage_list / triage_update / triage_note / triage_stats`。
+- Digest 现在默认排除 `duplicate / ignored`，`verified` 状态进入评分链路获得稳定加权。
+- `datapulse-console` 已在 G0 壳层中加入 triage queue 面板与状态更新入口。
+
 ## 与现网能力映射
 
 | 目标 | 目前落地状态 | 下一步 |
@@ -67,6 +77,7 @@
 | 多维评分 | ✅ 四维度加权 + Source Authority Tiers | ✅ v0.4.0 完成 |
 | Web 搜索 | ✅ 多源网关（Jina/Tavily）CLI/MCP | ✅ v0.5.0 完成 |
 | 任务化 | 🚧 `WatchMission` 首版（CLI/Reader/MCP + due runner + daemon + richer alert sink + status page） | 后续: 自动重跑 / 故障恢复 / 聚合面板 |
+| 处置化 | 🚧 `TriageQueue` 首版（state/note/action + CLI/MCP/Console + digest gate） | 后续: duplicate explain / keyboard workflow / reviewer SLA |
 
 ## 验收建议（本项目）
 
@@ -78,7 +89,8 @@
 - `datapulse --watch-status` 可查看 daemon 心跳、指标与最近错误。
 - `datapulse --alert-list` 可查看阈值告警落库结果。
 - `datapulse --alert-route-list` 可审计命名路由配置。
-- MCP 包含新增工具：`resolve_source/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed/create_watch/list_watches/run_watch/run_due_watches/list_alerts/list_alert_routes/watch_status/disable_watch`。
+- `datapulse --triage-list / --triage-update / --triage-note / --triage-stats` 可完成首版处置闭环。
+- MCP 包含新增工具：`resolve_source/list_sources/list_packs/query_feed/build_json_feed/build_rss_feed/create_watch/list_watches/run_watch/run_due_watches/triage_list/triage_update/triage_note/triage_stats/list_alerts/list_alert_routes/watch_status/disable_watch`。
 - 远端 OpenClaw 入口可通过 `read_url/read_batch` 与 feed 查询联调。
 
 ## 横向蓝图：GUI Intelligence Console
@@ -86,6 +98,6 @@
 - GUI 已进入合理建设窗口，但不应独立于领域模型先行。
 - 推荐顺序：先补 HTTP API 适配层，再做本地单用户浏览器控制台。
 - 第一阶段只承接当前 `P6`：watch、alerts、routes、status。
-- `G0` 壳层已落地：`FastAPI` + `datapulse-console` + `/api/overview` / `/api/watches` / `/api/alerts` / `/api/alert-routes` / `/api/watch-status`。
+- `G0` 壳层已落地：`FastAPI` + `datapulse-console` + `/api/overview` / `/api/watches` / `/api/alerts` / `/api/alert-routes` / `/api/watch-status` / `/api/triage`。
 - GUI 增量应随仓内提交进入 GitHub Actions，至少通过 `ruff` / `mypy` / `pytest` 与 `datapulse-console --help` 烟测。
 - 详细方案见 [gui_intelligence_console_plan.md](/Users/sunyifei/DataPulse/docs/gui_intelligence_console_plan.md)。

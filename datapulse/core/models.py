@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
+from .triage import normalize_review_state
+
 
 class SourceType(str, Enum):
     TWITTER = "twitter"
@@ -57,6 +59,10 @@ class DataPulseItem:
     extra: dict[str, Any] = field(default_factory=dict)
 
     processed: bool = False
+    review_state: str = "new"
+    review_notes: list[dict[str, str]] = field(default_factory=list)
+    review_actions: list[dict[str, str]] = field(default_factory=list)
+    duplicate_of: Optional[str] = None
     digest_date: Optional[str] = None
 
     def __post_init__(self) -> None:
@@ -64,6 +70,18 @@ class DataPulseItem:
             self.id = hashlib.md5(f"{self.url}:{self.title}".encode("utf-8")).hexdigest()[:12]
         if not self.fetched_at:
             self.fetched_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+        self.review_state = normalize_review_state(self.review_state, processed=self.processed)
+        self.review_notes = [
+            {str(k): str(v) for k, v in note.items()}
+            for note in self.review_notes
+            if isinstance(note, dict)
+        ]
+        self.review_actions = [
+            {str(k): str(v) for k, v in action.items()}
+            for action in self.review_actions
+            if isinstance(action, dict)
+        ]
+        self.duplicate_of = str(self.duplicate_of or "").strip() or None
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)

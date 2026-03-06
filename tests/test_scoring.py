@@ -235,6 +235,18 @@ class TestCompositeScore:
         assert listicle_breakdown["search_noise_penalty"] > actionable_breakdown["search_noise_penalty"]
         assert listicle_score < actionable_score
 
+    def test_verified_review_state_gets_bonus(self):
+        now = datetime.now(timezone.utc)
+        verified = _make_item(title="Verified", confidence=0.7, fetched_at=now.isoformat(), url="https://example.com/v")
+        verified.review_state = "verified"
+        neutral = _make_item(title="Neutral", confidence=0.7, fetched_at=now.isoformat(), url="https://example.com/n")
+        verified_score, verified_breakdown = compute_composite_score(verified, now=now)
+        neutral_score, neutral_breakdown = compute_composite_score(neutral, now=now)
+
+        assert verified_breakdown["review_state_label"] == "verified"
+        assert float(verified_breakdown["review_state"]) > float(neutral_breakdown["review_state"])
+        assert verified_score > neutral_score
+
 
 class TestRankItems:
     def test_sorted_order(self):

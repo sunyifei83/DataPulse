@@ -100,6 +100,38 @@ class _WatchMCPReader:
             "metrics": {"cycles_total": 3},
         }
 
+    def triage_list(self, **kwargs):
+        return [
+            {
+                "id": "item-1",
+                "title": "OpenAI launch post",
+                "review_state": "new",
+                "score": 81,
+            }
+        ]
+
+    def triage_update(self, item_id, **kwargs):
+        return {
+            "id": item_id,
+            "review_state": kwargs["state"],
+            "duplicate_of": kwargs.get("duplicate_of"),
+        }
+
+    def triage_note(self, item_id, **kwargs):
+        return {
+            "id": item_id,
+            "review_notes": [{"note": kwargs["note"]}],
+            "review_state": "new",
+        }
+
+    def triage_stats(self, **kwargs):
+        return {
+            "total": 3,
+            "open_count": 2,
+            "closed_count": 1,
+            "states": {"new": 1, "triaged": 0, "verified": 1, "duplicate": 1, "ignored": 0, "escalated": 0},
+        }
+
 
 def _make_app() -> mcp_server._LocalMCP:
     app = mcp_server._LocalMCP("datapulse")
@@ -111,7 +143,20 @@ def test_mcp_registers_watch_tools():
     app = _make_app()
     tool_names = set(app.tools)
 
-    assert {"create_watch", "list_watches", "run_watch", "disable_watch", "run_due_watches", "list_alerts", "list_alert_routes", "watch_status"} <= tool_names
+    assert {
+        "create_watch",
+        "list_watches",
+        "run_watch",
+        "disable_watch",
+        "run_due_watches",
+        "list_alerts",
+        "list_alert_routes",
+        "watch_status",
+        "triage_list",
+        "triage_update",
+        "triage_note",
+        "triage_stats",
+    } <= tool_names
 
 
 @pytest.mark.asyncio
@@ -209,3 +254,39 @@ async def test_mcp_watch_status_tool(monkeypatch):
 
     assert payload["state"] == "idle"
     assert payload["metrics"]["cycles_total"] == 3
+
+
+@pytest.mark.asyncio
+async def test_mcp_triage_list_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool("triage_list", {"limit": 5})
+    payload = json.loads(raw)
+
+    assert payload[0]["id"] == "item-1"
+    assert payload[0]["review_state"] == "new"
+
+
+@pytest.mark.asyncio
+async def test_mcp_triage_update_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool("triage_update", {"item_id": "item-1", "state": "verified", "note": "confirmed"})
+    payload = json.loads(raw)
+
+    assert payload["ok"] is True
+    assert payload["item"]["review_state"] == "verified"
+
+
+@pytest.mark.asyncio
+async def test_mcp_triage_stats_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool("triage_stats", {})
+    payload = json.loads(raw)
+
+    assert payload["total"] == 3
+    assert payload["states"]["verified"] == 1

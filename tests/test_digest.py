@@ -191,6 +191,23 @@ class TestBuildDigest:
         today = now.strftime("%Y-%m-%d")
         assert digest["digest_date"] == today
 
+    def test_digest_excludes_ignored_and_duplicate_items(self, tmp_path):
+        now = datetime.now(timezone.utc)
+        keep = _make_item(title="Keep", url="https://ex.com/keep", source_name="src_keep", fetched_at=now.isoformat())
+        ignored = _make_item(title="Ignore", url="https://ex.com/ignore", source_name="src_ignore", fetched_at=now.isoformat())
+        ignored.review_state = "ignored"
+        duplicate = _make_item(title="Dup", url="https://ex.com/dup", source_name="src_dup", fetched_at=now.isoformat())
+        duplicate.review_state = "duplicate"
+        items = [keep, ignored, duplicate]
+
+        reader = _setup_reader(tmp_path, items)
+        digest = reader.build_digest(top_n=3, secondary_n=3)
+        selected_ids = {item["id"] for item in digest["primary"] + digest["secondary"]}
+
+        assert keep.id in selected_ids
+        assert ignored.id not in selected_ids
+        assert duplicate.id not in selected_ids
+
 
 class TestSelectDiverse:
     def test_penalty_same_source(self, tmp_path):

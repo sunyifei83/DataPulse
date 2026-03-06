@@ -183,6 +183,51 @@ class _WatchReader:
             },
         }
 
+    def triage_list(self, **kwargs):
+        return [
+            {
+                "id": "item-1",
+                "title": "OpenAI launch post",
+                "review_state": "new",
+                "score": 78,
+                "confidence": 0.92,
+                "review_notes": [],
+                "duplicate_of": None,
+            }
+        ]
+
+    def triage_update(self, item_id, **kwargs):
+        return {
+            "id": item_id,
+            "review_state": kwargs["state"],
+            "review_notes": [{"note": kwargs.get("note", ""), "author": kwargs.get("actor", "cli")}],
+            "duplicate_of": kwargs.get("duplicate_of"),
+        }
+
+    def triage_note(self, item_id, **kwargs):
+        return {
+            "id": item_id,
+            "review_notes": [{"note": kwargs["note"], "author": kwargs.get("author", "cli")}],
+            "review_state": "new",
+        }
+
+    def triage_stats(self, **kwargs):
+        return {
+            "total": 4,
+            "open_count": 2,
+            "closed_count": 2,
+            "processed_count": 2,
+            "note_count": 3,
+            "states": {
+                "new": 1,
+                "triaged": 0,
+                "verified": 1,
+                "duplicate": 1,
+                "ignored": 0,
+                "escalated": 1,
+            },
+        }
+
 
 def test_trending_prints_fallback_context(monkeypatch, capsys):
     monkeypatch.setattr(cli, "DataPulseReader", lambda: _TrendingReader())
@@ -411,6 +456,57 @@ def test_watch_status_prints_metrics(monkeypatch, capsys):
     assert "alerts_total: 1" in out
 
 
+def test_triage_list_prints_rows(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--triage-list"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "Triage queue: 1" in out
+    assert "item-1: new | score=78 | confidence=0.920 | notes=0" in out
+
+
+def test_triage_update_prints_summary(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["datapulse", "--triage-update", "item-1", "--triage-state", "verified", "--triage-note-text", "confirmed"],
+    )
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "triage updated: item-1 -> verified" in out
+
+
+def test_triage_note_prints_summary(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["datapulse", "--triage-note", "item-1", "--triage-note-text", "needs follow-up"],
+    )
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "triage note added: item-1" in out
+
+
+def test_triage_stats_prints_counts(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--triage-stats"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "total: 4" in out
+    assert "open_count: 2" in out
+    assert "verified: 1" in out
+
+
 def test_skill_contract_lists_watch_status_and_alert_envs(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["datapulse", "--skill-contract"])
 
@@ -418,6 +514,8 @@ def test_skill_contract_lists_watch_status_and_alert_envs(monkeypatch, capsys):
     out = capsys.readouterr().out
 
     assert "watch_status" in out
+    assert "triage_list" in out
+    assert "--triage-list" in out
     assert "DATAPULSE_WATCH_STATUS_PATH" in out
     assert "DATAPULSE_WATCH_STATUS_HTML" in out
     assert "DATAPULSE_ALERT_ROUTING_PATH" in out

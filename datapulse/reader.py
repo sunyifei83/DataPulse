@@ -24,6 +24,7 @@ from datapulse.core.scoring import rank_items
 from datapulse.core.search_gateway import SearchGateway, SearchHit
 from datapulse.core.source_catalog import SourceCatalog
 from datapulse.core.storage import UnifiedInbox, output_record_md, save_markdown
+from datapulse.core.triage import TriageQueue, is_digest_candidate
 from datapulse.core.utils import content_fingerprint, inbox_path_from_env, normalize_language
 from datapulse.core.watchlist import MissionRun, WatchlistStore, WatchMission
 
@@ -56,6 +57,7 @@ class DataPulseReader:
         self.catalog = SourceCatalog()
         self.watchlist = WatchlistStore()
         self.watch_scheduler = WatchScheduler(self.watchlist)
+        self.triage = TriageQueue(self.inbox)
         self.alert_store = AlertStore()
         self.alert_routes = AlertRouteStore()
         self.watch_status = WatchStatusStore()
@@ -1018,6 +1020,57 @@ class DataPulseReader:
     def query_unprocessed(self, limit: int = 20, min_confidence: float = 0.0) -> list[DataPulseItem]:
         return self.inbox.query_unprocessed(limit=limit, min_confidence=min_confidence)
 
+    def triage_list(
+        self,
+        *,
+        limit: int = 20,
+        min_confidence: float = 0.0,
+        states: list[str] | None = None,
+        include_closed: bool = False,
+    ) -> list[dict[str, Any]]:
+        items = self.triage.list_items(
+            limit=limit,
+            min_confidence=min_confidence,
+            states=states,
+            include_closed=include_closed,
+        )
+        return [item.to_dict() for item in items]
+
+    def triage_update(
+        self,
+        item_id: str,
+        *,
+        state: str,
+        note: str = "",
+        actor: str = "system",
+        duplicate_of: str | None = None,
+    ) -> dict[str, Any] | None:
+        item = self.triage.update_state(
+            item_id,
+            state=state,
+            note=note,
+            actor=actor,
+            duplicate_of=duplicate_of,
+        )
+        if item is None:
+            return None
+        return item.to_dict()
+
+    def triage_note(
+        self,
+        item_id: str,
+        *,
+        note: str,
+        author: str = "system",
+    ) -> dict[str, Any] | None:
+        item = self.triage.add_note(item_id, note=note, author=author)
+        if item is None:
+            return None
+        return item.to_dict()
+
+    def triage_stats(self, *, min_confidence: float = 0.0) -> dict[str, Any]:
+        return self.triage.stats(min_confidence=min_confidence)
+
     def detect_platform(self, url: str) -> str:
         result, parser = self.router.route(url)
         if result.success:
@@ -1442,6 +1495,7 @@ class DataPulseReader:
             candidates = [
                 item for item in items
                 if (not min_confidence or item.confidence >= min_confidence)
+                and is_digest_candidate(item)
             ]
         candidates_total = len(candidates)
 
@@ -1471,6 +1525,7 @@ class DataPulseReader:
             }
 
         # 2. Score and rank
+        candidates = [item for item in candidates if is_digest_candidate(item)]
         authority_map = self.catalog.build_authority_map()
         ranked = rank_items(candidates, authority_map=authority_map)
 

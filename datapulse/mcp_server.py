@@ -162,6 +162,52 @@ async def _run_query_unprocessed(limit: int = 20, min_confidence: float = 0.0) -
     return json.dumps([item.to_dict() for item in items], ensure_ascii=False, indent=2)
 
 
+async def _run_triage_list(
+    limit: int = 20,
+    min_confidence: float = 0.0,
+    states: list[str] | None = None,
+    include_closed: bool = False,
+) -> str:
+    reader = DataPulseReader()
+    payload = reader.triage_list(
+        limit=limit,
+        min_confidence=min_confidence,
+        states=states,
+        include_closed=include_closed,
+    )
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_triage_update(
+    item_id: str,
+    state: str,
+    note: str = "",
+    actor: str = "mcp",
+    duplicate_of: str | None = None,
+) -> str:
+    reader = DataPulseReader()
+    payload = reader.triage_update(
+        item_id,
+        state=state,
+        note=note,
+        actor=actor,
+        duplicate_of=duplicate_of,
+    )
+    return json.dumps({"ok": payload is not None, "item": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_triage_note(item_id: str, note: str, author: str = "mcp") -> str:
+    reader = DataPulseReader()
+    payload = reader.triage_note(item_id, note=note, author=author)
+    return json.dumps({"ok": payload is not None, "item": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_triage_stats(min_confidence: float = 0.0) -> str:
+    reader = DataPulseReader()
+    payload = reader.triage_stats(min_confidence=min_confidence)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
 async def _run_search_web(
     query: str,
     sites: list[str] | None = None,
@@ -800,6 +846,48 @@ def _register_tools(app: Any) -> None:
     @app.tool()
     async def query_unprocessed(limit: int = 20, min_confidence: float = 0.0) -> str:  # noqa: ANN001
         return await _run_query_unprocessed(limit=limit, min_confidence=min_confidence)
+
+    @app.tool()
+    async def triage_list(
+        limit: int = 20,
+        min_confidence: float = 0.0,
+        states: list[str] | None = None,
+        include_closed: bool = False,
+    ) -> str:  # noqa: ANN001
+        """List triage queue items from the inbox."""
+        return await _run_triage_list(
+            limit=limit,
+            min_confidence=min_confidence,
+            states=states,
+            include_closed=include_closed,
+        )
+
+    @app.tool()
+    async def triage_update(
+        item_id: str,
+        state: str,
+        note: str = "",
+        actor: str = "mcp",
+        duplicate_of: str = "",
+    ) -> str:  # noqa: ANN001
+        """Update triage state for one inbox item."""
+        return await _run_triage_update(
+            item_id=item_id,
+            state=state,
+            note=note,
+            actor=actor,
+            duplicate_of=duplicate_of or None,
+        )
+
+    @app.tool()
+    async def triage_note(item_id: str, note: str, author: str = "mcp") -> str:  # noqa: ANN001
+        """Append one triage note to an inbox item."""
+        return await _run_triage_note(item_id=item_id, note=note, author=author)
+
+    @app.tool()
+    async def triage_stats(min_confidence: float = 0.0) -> str:  # noqa: ANN001
+        """Show triage queue counts by state."""
+        return await _run_triage_stats(min_confidence=min_confidence)
 
     @app.tool()
     async def query_inbox(limit: int = 20, min_confidence: float = 0.0) -> str:  # noqa: ANN001

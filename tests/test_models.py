@@ -149,4 +149,20 @@ class TestDataPulseItem:
         assert item.category == ""
         assert item.extra == {}
         assert item.processed is False
+        assert item.review_state == "new"
+        assert item.review_notes == []
+        assert item.review_actions == []
+        assert item.duplicate_of is None
         assert item.digest_date is None
+
+    def test_processed_item_defaults_to_triaged_state(self):
+        item = DataPulseItem(
+            source_type=SourceType.GENERIC,
+            source_name="x",
+            title="y",
+            content="z",
+            url="https://example.com",
+            processed=True,
+        )
+
+        assert item.review_state == "triaged"

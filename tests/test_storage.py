@@ -120,6 +120,7 @@ class TestProcessedState:
         inbox.add(item)
         assert inbox.mark_processed(item.id) is True
         assert item.processed is True
+        assert item.review_state == "triaged"
 
     def test_mark_processed_not_found(self, tmp_path):
         inbox = UnifiedInbox(str(tmp_path / "inbox.json"))
@@ -156,6 +157,7 @@ class TestProcessedState:
 
         inbox2 = UnifiedInbox(path)
         assert inbox2.items[0].processed is True
+        assert inbox2.items[0].review_state == "triaged"
         assert len(inbox2.query_unprocessed()) == 0
 
 
