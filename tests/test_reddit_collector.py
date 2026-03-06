@@ -76,3 +76,41 @@ def test_parse_respects_max_comments_env_and_marks_truncation(monkeypatch):
     assert result.extra["comments_available"] == 5
     assert result.extra["comments_truncated"] is True
     assert result.extra["max_comments"] == 2
+
+
+def test_parse_extracts_comment_links_and_github_repos():
+    collector = RedditCollector()
+    payload = _build_reddit_payload(num_comments=2)
+    payload[1]["data"]["children"][0]["data"]["body"] = (
+        "Useful refs: https://github.com/openlineage/openlineage and https://docs.example.com/guide"
+    )
+    payload[1]["data"]["children"][1]["data"]["body"] = (
+        "Another repo https://github.com/dbt-labs/dbt-core/issues/1"
+    )
+
+    with patch("urllib.request.urlopen", return_value=_mock_urlopen_payload(payload)):
+        result = collector.parse("https://www.reddit.com/r/dataengineering/comments/abc123/test/")
+
+    assert result.success is True
+    assert result.extra["comment_link_count"] >= 3
+    assert "https://github.com/openlineage/openlineage" in result.extra["comment_links"]
+    assert "https://docs.example.com/guide" in result.extra["comment_links"]
+    assert "openlineage/openlineage" in result.extra["github_repos"]
+    assert "dbt-labs/dbt-core" in result.extra["github_repos"]
+    assert result.extra["github_repo_count"] == 2
+    assert result.extra["comment_link_extraction_degraded"] is False
+
+
+def test_parse_can_disable_comment_link_extraction(monkeypatch):
+    monkeypatch.setenv("DATAPULSE_REDDIT_EXTRACT_COMMENT_LINKS", "0")
+    collector = RedditCollector()
+    payload = _build_reddit_payload(num_comments=1)
+    payload[1]["data"]["children"][0]["data"]["body"] = "https://github.com/acme/project"
+
+    with patch("urllib.request.urlopen", return_value=_mock_urlopen_payload(payload)):
+        result = collector.parse("https://www.reddit.com/r/dataengineering/comments/abc123/test/")
+
+    assert result.success is True
+    assert result.extra["comment_links"] == []
+    assert result.extra["github_repos"] == []
+    assert result.extra["comment_link_count"] == 0

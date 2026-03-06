@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-from datapulse.core.config import read_env_int
+from datapulse.core.config import read_env_bool, read_env_int
 from datapulse.core.models import SourceType
 from datapulse.core.utils import clean_text, generate_excerpt
 
@@ -29,6 +30,8 @@ class RedditCollector(BaseCollector):
     max_reply_depth = 3
     reddit_max_comments_env = "DATAPULSE_REDDIT_MAX_COMMENTS"
     reddit_max_reply_depth_env = "DATAPULSE_REDDIT_MAX_REPLY_DEPTH"
+    reddit_extract_comment_links_env = "DATAPULSE_REDDIT_EXTRACT_COMMENT_LINKS"
+    reddit_max_comment_links_env = "DATAPULSE_REDDIT_MAX_COMMENT_LINKS"
 
     def check(self) -> dict[str, str | bool]:
         return {"status": "ok", "message": "public JSON API (no auth)", "available": True}
@@ -96,6 +99,8 @@ class RedditCollector(BaseCollector):
         flair = post.get("link_flair_text", "")
         max_comments = read_env_int(self.reddit_max_comments_env, self.max_comments, min_value=1, max_value=100)
         max_reply_depth = read_env_int(self.reddit_max_reply_depth_env, self.max_reply_depth, min_value=0, max_value=8)
+        extract_comment_links = read_env_bool(self.reddit_extract_comment_links_env, True)
+        max_comment_links = read_env_int(self.reddit_max_comment_links_env, 80, min_value=1, max_value=500)
 
         ts = ""
         if created_utc:
@@ -115,6 +120,20 @@ class RedditCollector(BaseCollector):
             parts.append(f"\n🔗 {link}")
 
         comments = self._extract_comments(comments_tree, max_comments=max_comments, max_reply_depth=max_reply_depth)
+        comment_links: list[str] = []
+        github_repos: list[str] = []
+        comment_link_extraction_degraded = False
+        if extract_comment_links:
+            try:
+                comment_links, github_repos = self._extract_comment_links(
+                    comments_tree,
+                    max_comments=max_comments,
+                    max_reply_depth=max_reply_depth,
+                    max_links=max_comment_links,
+                )
+            except Exception:  # pragma: no cover - defensive fail-closed
+                comment_link_extraction_degraded = True
+
         if comments:
             parts.append("\n---\n## Top Comments")
             parts.extend(comments)
@@ -148,6 +167,11 @@ class RedditCollector(BaseCollector):
                 "comments_truncated": bool(num_comments and len(comments) < num_comments),
                 "max_comments": max_comments,
                 "max_reply_depth": max_reply_depth,
+                "comment_links": comment_links,
+                "comment_link_count": len(comment_links),
+                "github_repos": github_repos,
+                "github_repo_count": len(github_repos),
+                "comment_link_extraction_degraded": comment_link_extraction_degraded,
             },
         )
 
@@ -213,3 +237,102 @@ class RedditCollector(BaseCollector):
                     )
                 )
         return out
+
+    _url_pattern = re.compile(r"https?://[^\s)\]}>\"']+", re.IGNORECASE)
+
+    @classmethod
+    def _extract_urls(cls, text: str) -> list[str]:
+        if not text:
+            return []
+        urls: list[str] = []
+        for raw in cls._url_pattern.findall(text):
+            candidate = raw.strip().rstrip(".,;:!?")
+            if candidate:
+                urls.append(candidate)
+        return urls
+
+    @staticmethod
+    def _github_repo_from_url(url: str) -> str:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        if host not in {"github.com", "www.github.com"}:
+            return ""
+        parts = [part for part in parsed.path.split("/") if part]
+        if len(parts) < 2:
+            return ""
+        owner = parts[0].strip()
+        repo = parts[1].strip()
+        if not owner or not repo:
+            return ""
+        if repo.endswith(".git"):
+            repo = repo[:-4]
+        if not repo:
+            return ""
+        return f"{owner.lower()}/{repo.lower()}"
+
+    def _extract_comment_links(
+        self,
+        comment_listing: dict,
+        *,
+        max_comments: int,
+        max_reply_depth: int,
+        max_links: int,
+    ) -> tuple[list[str], list[str]]:
+        children = comment_listing.get("data", {}).get("children", [])
+        if not isinstance(children, list):
+            return [], []
+
+        filtered = [c for c in children if c.get("kind") == "t1"]
+        filtered.sort(key=lambda c: c.get("data", {}).get("score", 0), reverse=True)
+
+        links: list[str] = []
+        github_repos: list[str] = []
+        seen_links: set[str] = set()
+        seen_repos: set[str] = set()
+
+        def _consume_from_data(data: dict) -> None:
+            body = str(data.get("body", "") or "")
+            for link in self._extract_urls(body):
+                if len(links) >= max_links:
+                    return
+                if link in seen_links:
+                    continue
+                seen_links.add(link)
+                links.append(link)
+                repo = self._github_repo_from_url(link)
+                if repo and repo not in seen_repos:
+                    seen_repos.add(repo)
+                    github_repos.append(repo)
+
+        def _walk(nodes: list[dict], depth: int) -> None:
+            if not nodes or depth > max_reply_depth or len(links) >= max_links:
+                return
+            for node in nodes[:3]:
+                if len(links) >= max_links:
+                    return
+                if node.get("kind") != "t1":
+                    continue
+                data = node.get("data", {})
+                if not isinstance(data, dict):
+                    continue
+                _consume_from_data(data)
+                replies = data.get("replies")
+                if isinstance(replies, dict):
+                    child_nodes = replies.get("data", {}).get("children", [])
+                    if isinstance(child_nodes, list):
+                        _walk(child_nodes, depth + 1)
+
+        for entry in filtered[:max_comments]:
+            if len(links) >= max_links:
+                break
+            data = entry.get("data", {})
+            if not isinstance(data, dict):
+                continue
+            _consume_from_data(data)
+            replies = data.get("replies")
+            if isinstance(replies, dict):
+                child_nodes = replies.get("data", {}).get("children", [])
+                if isinstance(child_nodes, list):
+                    _walk(child_nodes, 1)
+
+        return links, github_repos
