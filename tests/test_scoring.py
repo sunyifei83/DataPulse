@@ -173,6 +173,30 @@ class TestCompositeScore:
         # Score should still incorporate other dimensions
         assert score >= 0
 
+    def test_recency_uses_search_raw_published_date(self):
+        now = datetime.utcnow()
+        old = (now - timedelta(days=7)).isoformat()
+        item = _make_item(confidence=0.8, fetched_at=now.isoformat())
+        item.extra = {"search_raw": {"published_date": old}}
+        _, breakdown = compute_composite_score(item, now=now)
+        assert float(breakdown["recency"]) < 0.1
+        assert breakdown["recency_source"] == "search_raw.published_date"
+
+    def test_recency_can_use_twitter_status_time_proxy(self):
+        now = datetime.utcnow()
+        tw_epoch = 1288834974657
+        old = now - timedelta(days=10)
+        status_id = ((int(old.timestamp() * 1000) - tw_epoch) << 22) + 1
+        item = _make_item(
+            confidence=0.8,
+            fetched_at=now.isoformat(),
+            url=f"https://x.com/user/status/{status_id}",
+            source_type=SourceType.TWITTER,
+        )
+        _, breakdown = compute_composite_score(item, now=now)
+        assert float(breakdown["recency"]) < 0.1
+        assert breakdown["recency_source"] == "twitter_status_id"
+
 
 class TestRankItems:
     def test_sorted_order(self):

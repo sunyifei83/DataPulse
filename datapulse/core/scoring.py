@@ -2,6 +2,7 @@
 
 import math
 import os
+import re
 from collections import Counter
 from datetime import datetime
 
@@ -36,6 +37,7 @@ DEFAULT_WEIGHTS = _default_weights()
 
 # Default half-life for recency decay (hours)
 _DEFAULT_HALF_LIFE_HOURS = 24.0
+_TWITTER_EPOCH_MS = 1288834974657
 
 
 def recency_score(fetched_at: str, now: datetime | None = None) -> float:
@@ -62,6 +64,103 @@ def recency_score(fetched_at: str, now: datetime | None = None) -> float:
         half_life = _DEFAULT_HALF_LIFE_HOURS
 
     return math.pow(2, -age_hours / half_life)
+
+
+def _parse_timestamp_candidate(value: object) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        ts = float(value)
+        if ts > 1_000_000_000_000:  # milliseconds epoch
+            ts = ts / 1000.0
+        if ts <= 0:
+            return None
+        try:
+            return datetime.utcfromtimestamp(ts)
+        except (ValueError, OSError):
+            return None
+
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return _parse_timestamp_candidate(float(text))
+
+    normalized = text.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    if parsed.tzinfo is not None:
+        return parsed.astimezone(tz=None).replace(tzinfo=None)
+    return parsed
+
+
+def _tweet_time_from_url(url: str) -> datetime | None:
+    matched = re.search(r"/status/(\d+)", str(url or ""))
+    if not matched:
+        return None
+    try:
+        tid = int(matched.group(1))
+    except (TypeError, ValueError):
+        return None
+    ms = (tid >> 22) + _TWITTER_EPOCH_MS
+    if ms <= 0:
+        return None
+    try:
+        return datetime.utcfromtimestamp(ms / 1000.0)
+    except (ValueError, OSError):
+        return None
+
+
+def recency_reference(item: DataPulseItem) -> tuple[str, str]:
+    """Resolve which timestamp should drive recency for an item.
+
+    Priority:
+    1) explicit source-published fields
+    2) nested search_raw published fields
+    3) twitter status snowflake time
+    4) fallback fetched_at
+    """
+    extra = item.extra if isinstance(item.extra, dict) else {}
+
+    direct_keys = (
+        "source_published_at",
+        "published_at",
+        "published_date",
+        "created_at",
+        "created_utc",
+        "timestamp",
+    )
+    for key in direct_keys:
+        if key not in extra:
+            continue
+        parsed = _parse_timestamp_candidate(extra.get(key))
+        if parsed is not None:
+            return parsed.isoformat(), key
+
+    search_raw = extra.get("search_raw")
+    if isinstance(search_raw, dict):
+        nested_keys = (
+            "published_date",
+            "published_at",
+            "published",
+            "created_at",
+            "created_utc",
+            "timestamp",
+        )
+        for key in nested_keys:
+            if key not in search_raw:
+                continue
+            parsed = _parse_timestamp_candidate(search_raw.get(key))
+            if parsed is not None:
+                return parsed.isoformat(), f"search_raw.{key}"
+
+    tweet_time = _tweet_time_from_url(item.url)
+    if tweet_time is not None:
+        return tweet_time.isoformat(), "twitter_status_id"
+
+    return item.fetched_at, "fetched_at"
 
 
 def authority_score(item: DataPulseItem, authority_map: dict[str, float]) -> float:
@@ -207,7 +306,7 @@ def compute_composite_score(
     entity_source_counts: dict[str, int] | None = None,
     now: datetime | None = None,
     weights: dict[str, float] | None = None,
-) -> tuple[int, dict[str, float]]:
+) -> tuple[int, dict[str, float | str]]:
     """Compute composite score (0-100) and return dimension breakdown.
 
     Does NOT modify item.confidence.
@@ -220,7 +319,8 @@ def compute_composite_score(
     dim_authority = authority_score(item, amap)
     dim_corroboration = corroboration_score(item, fp_counts)
     dim_entity = entity_corroboration_bonus(item, entity_source_counts=entity_source_counts)
-    dim_recency = recency_score(item.fetched_at, now=now)
+    recency_anchor, recency_source = recency_reference(item)
+    dim_recency = recency_score(recency_anchor, now=now)
     dim_source_diversity = source_diversity_score(item)
     w_source_diversity = w.get("source_diversity", 0.0)
     dim_cross_validation = cross_validation_score(item)
@@ -251,6 +351,7 @@ def compute_composite_score(
         "entity_corroboration": round(dim_entity, 4),
         "entity_corroboration_weight": round(w.get("entity_corroboration", 0.0), 4),
         "recency": round(dim_recency, 4),
+        "recency_source": recency_source,
         "source_diversity": round(dim_source_diversity, 4),
         "source_diversity_weight": round(w_source_diversity, 4),
         "cross_validation": round(dim_cross_validation, 4),
