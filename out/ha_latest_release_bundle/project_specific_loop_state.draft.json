@@ -1,7 +1,7 @@
 {
   "schema_version": "project_specific_loop_state.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T12:49:03Z",
+  "generated_at_utc": "2026-03-07T12:58:33Z",
   "state_kind": "draft_export",
   "source_plan": "docs/governance/datapulse-blueprint-plan.json",
   "wired": true,
@@ -35,9 +35,7 @@
   },
   "remaining_promotion_gates": [
     "workspace_dirty",
-    "repo_landed_false",
-    "head_not_pushed",
-    "ci_run_not_proven"
+    "repo_landed_false"
   ],
   "blocking_facts": [],
   "pipeline_contract": {

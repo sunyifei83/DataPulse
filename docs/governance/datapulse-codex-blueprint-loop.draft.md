@@ -62,6 +62,12 @@ After each Codex round, the runner now enforces three control-plane checks befor
 Recommended trigger:
 
 ```bash
+bash scripts/governance/ignite_datapulse_codex_loop.sh
+```
+
+Equivalent expanded command:
+
+```bash
 SYSTEM_VERSION_COMPAT=1 uv run python scripts/governance/run_codex_blueprint_loop.py \
   --model gpt-5.4 \
   --model-reasoning-effort xhigh \

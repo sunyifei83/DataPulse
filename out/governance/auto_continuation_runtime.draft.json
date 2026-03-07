@@ -32,7 +32,8 @@
         "enabled": true,
         "trigger_mode": "local_manual_or_supervised",
         "runner": "scripts/governance/run_codex_blueprint_loop.py",
-        "recommended_command": "SYSTEM_VERSION_COMPAT=1 uv run python scripts/governance/run_codex_blueprint_loop.py --model gpt-5.4 --model-reasoning-effort xhigh --ask-for-approval never --dangerously-bypass-approvals-and-sandbox --promotion-mode auto",
+        "ignition_wrapper": "scripts/governance/ignite_datapulse_codex_loop.sh",
+        "recommended_command": "bash scripts/governance/ignite_datapulse_codex_loop.sh",
         "side_effect_mode": "repo_mutating_slice_execution",
         "guardrails": [
           "Use this companion entrypoint only from a controlled local environment.",
@@ -64,9 +65,7 @@
     "ignored_blocking_facts": [],
     "remaining_promotion_gates": [
       "workspace_dirty",
-      "repo_landed_false",
-      "head_not_pushed",
-      "ci_run_not_proven"
+      "repo_landed_false"
     ],
     "pipeline_contract": {
       "objective": "trusted_delivery_pipeline",
@@ -168,16 +167,14 @@
     "machine_decidable": true,
     "blocking_facts": [
       "workspace_dirty",
-      "repo_landed_false",
-      "head_not_pushed",
-      "ci_run_not_proven"
+      "repo_landed_false"
     ]
   },
   "companion_slice_execution": {
     "enabled": true,
     "trigger_mode": "local_manual_or_supervised",
     "runner": "scripts/governance/run_codex_blueprint_loop.py",
-    "recommended_command": "SYSTEM_VERSION_COMPAT=1 uv run python scripts/governance/run_codex_blueprint_loop.py --model gpt-5.4 --model-reasoning-effort xhigh --ask-for-approval never --dangerously-bypass-approvals-and-sandbox --promotion-mode auto",
+    "recommended_command": "bash scripts/governance/ignite_datapulse_codex_loop.sh",
     "side_effect_mode": "repo_mutating_slice_execution",
     "guardrails": [
       "Use this companion entrypoint only from a controlled local environment.",
