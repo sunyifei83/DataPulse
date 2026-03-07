@@ -75,13 +75,28 @@ def run_capture(command: list[str]) -> str:
 
 
 def refresh_governance_snapshots(bundle_dir: Path, *, plan_path: Path = DEFAULT_PLAN_PATH) -> dict[str, str]:
+    return refresh_governance_snapshots_to_targets(
+        bundle_dir=bundle_dir,
+        plan_path=plan_path,
+        code_landing_status_output=REPO_ROOT / "out/governance/code_landing_status.draft.json",
+        project_loop_state_output=REPO_ROOT / "out/governance/project_specific_loop_state.draft.json",
+    )
+
+
+def refresh_governance_snapshots_to_targets(
+    *,
+    bundle_dir: Path,
+    plan_path: Path = DEFAULT_PLAN_PATH,
+    code_landing_status_output: Path,
+    project_loop_state_output: Path,
+) -> dict[str, str]:
     return {
         "code_landing_status": run_capture(
             [
                 "python3",
                 "scripts/governance/export_datapulse_code_landing_status.py",
                 "--output",
-                "out/governance/code_landing_status.draft.json",
+                str(code_landing_status_output),
             ]
         ),
         "project_loop_state": run_capture(
@@ -91,7 +106,7 @@ def refresh_governance_snapshots(bundle_dir: Path, *, plan_path: Path = DEFAULT_
                 "--plan",
                 str(plan_path),
                 "--output",
-                "out/governance/project_specific_loop_state.draft.json",
+                str(project_loop_state_output),
             ]
         ),
         "structured_release_bundle": run_capture(

@@ -6,13 +6,14 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
 
 from datapulse_loop_adapter import DEFAULT_CATALOG_PATH, build_datapulse_loop_runtime
 from datapulse_loop_contracts import DEFAULT_PLAN_PATH, REPO_ROOT, build_code_landing_status, display_path, load_plan
-from run_datapulse_auto_continuation import refresh_governance_snapshots
+from run_datapulse_auto_continuation import refresh_governance_snapshots, refresh_governance_snapshots_to_targets
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "out" / "codex_blueprint_loop"
@@ -108,8 +109,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=DEFAULT_OUTPUT_DIR,
-        help="Directory for per-round prompts and Codex last-message outputs.",
+        default=None,
+        help="Directory for per-round prompts and Codex last-message outputs. Defaults to an ephemeral temp directory.",
     )
     parser.add_argument(
         "--obsidian-source",
@@ -196,8 +197,21 @@ def refresh_runtime(
     plan_path: Path,
     catalog_path: Path,
     bundle_dir: Path,
+    tracked_snapshots: bool,
+    code_landing_status_output: Path | None = None,
+    project_loop_state_output: Path | None = None,
 ) -> tuple[dict[str, str], dict[str, Any], dict[str, Any]]:
-    snapshots = refresh_governance_snapshots(bundle_dir.resolve(), plan_path=plan_path.resolve())
+    if tracked_snapshots:
+        snapshots = refresh_governance_snapshots(bundle_dir.resolve(), plan_path=plan_path.resolve())
+    else:
+        if code_landing_status_output is None or project_loop_state_output is None:
+            raise ValueError("ephemeral refresh requires explicit code_landing_status_output and project_loop_state_output")
+        snapshots = refresh_governance_snapshots_to_targets(
+            bundle_dir=bundle_dir.resolve(),
+            plan_path=plan_path.resolve(),
+            code_landing_status_output=code_landing_status_output.resolve(),
+            project_loop_state_output=project_loop_state_output.resolve(),
+        )
     runtime = build_datapulse_loop_runtime(plan_path, catalog_path)
     plan = load_plan(plan_path)
     return snapshots, runtime, plan
@@ -496,6 +510,9 @@ def maybe_auto_promote(
     plan_path: Path,
     catalog_path: Path,
     bundle_dir: Path,
+    tracked_snapshots: bool,
+    code_landing_status_output: Path | None,
+    project_loop_state_output: Path | None,
     poll_interval_seconds: int,
     ci_timeout_seconds: int,
     dry_run: bool,
@@ -532,6 +549,9 @@ def maybe_auto_promote(
             plan_path=plan_path,
             catalog_path=catalog_path,
             bundle_dir=bundle_dir,
+            tracked_snapshots=tracked_snapshots,
+            code_landing_status_output=code_landing_status_output,
+            project_loop_state_output=project_loop_state_output,
         )
         baseline_dirty_paths = changed_paths_from_status_lines(workspace_status_lines())
 
@@ -562,6 +582,9 @@ def maybe_auto_promote(
                 plan_path=plan_path,
                 catalog_path=catalog_path,
                 bundle_dir=bundle_dir,
+                tracked_snapshots=tracked_snapshots,
+                code_landing_status_output=code_landing_status_output,
+                project_loop_state_output=project_loop_state_output,
             )
             continue
 
@@ -595,6 +618,9 @@ def maybe_auto_promote(
             plan_path=plan_path,
             catalog_path=catalog_path,
             bundle_dir=bundle_dir,
+            tracked_snapshots=tracked_snapshots,
+            code_landing_status_output=code_landing_status_output,
+            project_loop_state_output=project_loop_state_output,
         )
 
     return current_runtime, snapshots, plan, promotions
@@ -715,210 +741,228 @@ def run_round(
 
 def main() -> int:
     args = parse_args()
-    output_dir = args.output_dir.expanduser().resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
     obsidian_source = resolve_obsidian_source(args.obsidian_source)
 
-    snapshots, runtime, plan = refresh_runtime(
-        plan_path=args.plan,
-        catalog_path=args.catalog,
-        bundle_dir=args.bundle_dir,
-    )
-    baseline_dirty_paths = changed_paths_from_status_lines(workspace_status_lines())
-    initial_payload = {
-        "status": _to_text(runtime.get("status")),
-        "reason": _to_text(runtime.get("reason")),
-        "current_level": _to_text(runtime.get("current_level")),
-        "next_slice": _to_text(dict(runtime.get("next_slice") or {}).get("id")),
-        "snapshots_refreshed": snapshots,
-    }
-    print(json.dumps({"status": "runtime_refreshed", **initial_payload}, ensure_ascii=False))
+    with tempfile.TemporaryDirectory(prefix="datapulse_codex_loop_") as temp_dir:
+        temp_root = Path(temp_dir)
+        tracked_snapshots = False
+        code_landing_status_output = temp_root / "governance" / "code_landing_status.draft.json"
+        project_loop_state_output = temp_root / "governance" / "project_specific_loop_state.draft.json"
+        bundle_dir = temp_root / "bundle"
+        output_dir = args.output_dir.expanduser().resolve() if args.output_dir is not None else temp_root / "rounds"
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-    try:
-        runtime, promotion_snapshots, plan, _ = maybe_auto_promote(
-            runtime=runtime,
-            slice_execution_brief=dict(runtime.get("slice_execution_brief") or runtime.get("adapter_entry") or {}),
-            round_index=None,
-            baseline_dirty_paths=baseline_dirty_paths,
-            promotion_mode=str(args.promotion_mode),
-            allow_existing_dirty_worktree=bool(args.allow_existing_dirty_worktree),
+        baseline_dirty_paths = changed_paths_from_status_lines(workspace_status_lines())
+        snapshots, runtime, plan = refresh_runtime(
             plan_path=args.plan,
             catalog_path=args.catalog,
-            bundle_dir=args.bundle_dir,
-            poll_interval_seconds=int(args.poll_interval_seconds),
-            ci_timeout_seconds=int(args.ci_timeout_seconds),
-            dry_run=bool(args.dry_run),
+            bundle_dir=bundle_dir,
+            tracked_snapshots=tracked_snapshots,
+            code_landing_status_output=code_landing_status_output,
+            project_loop_state_output=project_loop_state_output,
         )
-        if promotion_snapshots:
-            snapshots = promotion_snapshots
-    except RuntimeError as exc:
-        print(json.dumps({"status": "blocked", "reason": "auto_promotion_blocked", "detail": str(exc)}, ensure_ascii=False))
-        return BLOCKED_EXIT_CODE
-
-    if _to_text(runtime.get("status")) == "blocked":
-        print(json.dumps(stop_snapshot(runtime), ensure_ascii=False))
-        return BLOCKED_EXIT_CODE
-    if _to_text(runtime.get("status")) == "stopped":
-        print(json.dumps(stop_snapshot(runtime), ensure_ascii=False))
-        return 0
-
-    for round_index in range(1, max(int(args.max_rounds), 1) + 1):
-        runtime = build_datapulse_loop_runtime(args.plan, args.catalog)
-        before_runtime = dict(runtime)
-        next_slice = dict(runtime.get("next_slice") or {})
-        adapter_entry = dict(runtime.get("slice_execution_brief") or runtime.get("adapter_entry") or {})
-        plan = load_plan(args.plan)
-        before_status_lines = workspace_status_lines()
-        before_plan = plan
-        prompt_text = build_codex_prompt_text(
-            prompt=str(args.prompt),
-            runtime=runtime,
-            adapter_entry=adapter_entry,
-            plan_edit_target=effective_plan_edit_target(args.plan, plan),
-            promotion_mode=str(args.promotion_mode),
-            obsidian_source=obsidian_source,
-        )
-        round_dir = output_dir / f"round-{round_index:02d}"
-        output_last_message = round_dir / "last_message.txt"
-        command = build_codex_exec_command(
-            codex_bin=str(args.codex_bin),
-            prompt=prompt_text,
-            model=str(args.model),
-            model_reasoning_effort=str(args.model_reasoning_effort),
-            ask_for_approval=str(args.ask_for_approval),
-            sandbox=str(args.sandbox),
-            dangerous=bool(args.dangerously_bypass_approvals_and_sandbox),
-            output_last_message=output_last_message,
-            obsidian_source=obsidian_source,
-        )
-        exit_code = run_round(
-            command=command,
-            output_dir=output_dir,
-            round_index=round_index,
-            prompt_text=prompt_text,
-            dry_run=bool(args.dry_run),
-        )
-        if exit_code != 0:
-            print(json.dumps({"status": "failed", "round": round_index, "exit_code": exit_code}, ensure_ascii=False))
-            return exit_code
-
-        verification_results, verification_ok = run_verification_commands(
-            commands=list(adapter_entry.get("verification_commands", [])),
-            round_dir=round_dir,
-            dry_run=bool(args.dry_run),
-        )
-        print(
-            json.dumps(
-                {
-                    "status": "verification_completed",
-                    "round": round_index,
-                    "ok": verification_ok,
-                    "results": verification_results,
-                },
-                ensure_ascii=False,
-            )
-        )
-        if not verification_ok:
-            print(
-                json.dumps(
-                    {
-                        "status": "blocked",
-                        "reason": "post_round_verification_failed",
-                        "round": round_index,
-                        "verification_results": verification_results,
-                    },
-                    ensure_ascii=False,
-                )
-            )
-            return BLOCKED_EXIT_CODE
-
-        snapshots, runtime, _ = refresh_runtime(
-            plan_path=args.plan,
-            catalog_path=args.catalog,
-            bundle_dir=args.bundle_dir,
-        )
-        after_plan = load_plan(args.plan)
-        after_status_lines = workspace_status_lines()
-
-        if not args.dry_run and not evaluate_progress(
-            before_runtime=before_runtime,
-            after_runtime=runtime,
-            before_plan=before_plan,
-            after_plan=after_plan,
-            before_status_lines=before_status_lines,
-            after_status_lines=after_status_lines,
-        ):
-            print(
-                json.dumps(
-                    {
-                        "status": "blocked",
-                        "reason": "no_progress_detected",
-                        "round": round_index,
-                        "next_slice": _to_text(next_slice.get("id")),
-                    },
-                    ensure_ascii=False,
-                )
-            )
-            return BLOCKED_EXIT_CODE
+        initial_payload = {
+            "status": _to_text(runtime.get("status")),
+            "reason": _to_text(runtime.get("reason")),
+            "current_level": _to_text(runtime.get("current_level")),
+            "next_slice": _to_text(dict(runtime.get("next_slice") or {}).get("id")),
+            "snapshots_refreshed": snapshots,
+        }
+        print(json.dumps({"status": "runtime_refreshed", **initial_payload}, ensure_ascii=False))
 
         try:
-            runtime, promotion_snapshots, _, promotions = maybe_auto_promote(
+            runtime, promotion_snapshots, plan, _ = maybe_auto_promote(
                 runtime=runtime,
-                slice_execution_brief=adapter_entry,
-                round_index=round_index,
+                slice_execution_brief=dict(runtime.get("slice_execution_brief") or runtime.get("adapter_entry") or {}),
+                round_index=None,
                 baseline_dirty_paths=baseline_dirty_paths,
                 promotion_mode=str(args.promotion_mode),
                 allow_existing_dirty_worktree=bool(args.allow_existing_dirty_worktree),
                 plan_path=args.plan,
                 catalog_path=args.catalog,
-                bundle_dir=args.bundle_dir,
+                bundle_dir=bundle_dir,
+                tracked_snapshots=tracked_snapshots,
+                code_landing_status_output=code_landing_status_output,
+                project_loop_state_output=project_loop_state_output,
                 poll_interval_seconds=int(args.poll_interval_seconds),
                 ci_timeout_seconds=int(args.ci_timeout_seconds),
                 dry_run=bool(args.dry_run),
             )
-            if promotions and promotion_snapshots:
+            if promotion_snapshots:
                 snapshots = promotion_snapshots
         except RuntimeError as exc:
+            print(json.dumps({"status": "blocked", "reason": "auto_promotion_blocked", "detail": str(exc)}, ensure_ascii=False))
+            return BLOCKED_EXIT_CODE
+
+        if _to_text(runtime.get("status")) == "blocked":
+            print(json.dumps(stop_snapshot(runtime), ensure_ascii=False))
+            return BLOCKED_EXIT_CODE
+        if _to_text(runtime.get("status")) == "stopped":
+            print(json.dumps(stop_snapshot(runtime), ensure_ascii=False))
+            return 0
+
+        for round_index in range(1, max(int(args.max_rounds), 1) + 1):
+            runtime = build_datapulse_loop_runtime(args.plan, args.catalog)
+            before_runtime = dict(runtime)
+            next_slice = dict(runtime.get("next_slice") or {})
+            adapter_entry = dict(runtime.get("slice_execution_brief") or runtime.get("adapter_entry") or {})
+            plan = load_plan(args.plan)
+            before_status_lines = workspace_status_lines()
+            before_plan = plan
+            prompt_text = build_codex_prompt_text(
+                prompt=str(args.prompt),
+                runtime=runtime,
+                adapter_entry=adapter_entry,
+                plan_edit_target=effective_plan_edit_target(args.plan, plan),
+                promotion_mode=str(args.promotion_mode),
+                obsidian_source=obsidian_source,
+            )
+            round_dir = output_dir / f"round-{round_index:02d}"
+            output_last_message = round_dir / "last_message.txt"
+            command = build_codex_exec_command(
+                codex_bin=str(args.codex_bin),
+                prompt=prompt_text,
+                model=str(args.model),
+                model_reasoning_effort=str(args.model_reasoning_effort),
+                ask_for_approval=str(args.ask_for_approval),
+                sandbox=str(args.sandbox),
+                dangerous=bool(args.dangerously_bypass_approvals_and_sandbox),
+                output_last_message=output_last_message,
+                obsidian_source=obsidian_source,
+            )
+            exit_code = run_round(
+                command=command,
+                output_dir=output_dir,
+                round_index=round_index,
+                prompt_text=prompt_text,
+                dry_run=bool(args.dry_run),
+            )
+            if exit_code != 0:
+                print(json.dumps({"status": "failed", "round": round_index, "exit_code": exit_code}, ensure_ascii=False))
+                return exit_code
+
+            verification_results, verification_ok = run_verification_commands(
+                commands=list(adapter_entry.get("verification_commands", [])),
+                round_dir=round_dir,
+                dry_run=bool(args.dry_run),
+            )
             print(
                 json.dumps(
                     {
-                        "status": "blocked",
-                        "reason": "auto_promotion_blocked",
+                        "status": "verification_completed",
                         "round": round_index,
-                        "detail": str(exc),
+                        "ok": verification_ok,
+                        "results": verification_results,
                     },
                     ensure_ascii=False,
                 )
             )
-            return BLOCKED_EXIT_CODE
+            if not verification_ok:
+                print(
+                    json.dumps(
+                        {
+                            "status": "blocked",
+                            "reason": "post_round_verification_failed",
+                            "round": round_index,
+                            "verification_results": verification_results,
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+                return BLOCKED_EXIT_CODE
 
-        status_text = _to_text(runtime.get("status"))
-        progress_payload = {
-            "status": "continue",
-            "round": round_index,
-            "current_level": _to_text(runtime.get("current_level")),
-            "next_slice": _to_text(dict(runtime.get("next_slice") or {}).get("id")),
-            "runtime_status": status_text,
-            "runtime_reason": _to_text(runtime.get("reason")),
-            "snapshots_refreshed": snapshots,
-        }
-        print(json.dumps(progress_payload, ensure_ascii=False))
-        baseline_dirty_paths = changed_paths_from_status_lines(workspace_status_lines())
+            snapshots, runtime, _ = refresh_runtime(
+                plan_path=args.plan,
+                catalog_path=args.catalog,
+                bundle_dir=bundle_dir,
+                tracked_snapshots=tracked_snapshots,
+                code_landing_status_output=code_landing_status_output,
+                project_loop_state_output=project_loop_state_output,
+            )
+            after_plan = load_plan(args.plan)
+            after_status_lines = workspace_status_lines()
 
-        if status_text == "blocked":
-            payload = stop_snapshot(runtime)
-            payload["round"] = round_index
-            print(json.dumps(payload, ensure_ascii=False))
-            return BLOCKED_EXIT_CODE
-        if status_text == "stopped":
-            payload = stop_snapshot(runtime)
-            payload["round"] = round_index
-            print(json.dumps(payload, ensure_ascii=False))
-            return 0
+            if not args.dry_run and not evaluate_progress(
+                before_runtime=before_runtime,
+                after_runtime=runtime,
+                before_plan=before_plan,
+                after_plan=after_plan,
+                before_status_lines=before_status_lines,
+                after_status_lines=after_status_lines,
+            ):
+                print(
+                    json.dumps(
+                        {
+                            "status": "blocked",
+                            "reason": "no_progress_detected",
+                            "round": round_index,
+                            "next_slice": _to_text(next_slice.get("id")),
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+                return BLOCKED_EXIT_CODE
 
-        # Keep looping while the repo remains ready and max_rounds is not exhausted.
-        if _to_text(dict(runtime.get("next_slice") or {}).get("id")) == _to_text(next_slice.get("id")) and args.dry_run:
-            continue
+            try:
+                runtime, promotion_snapshots, _, promotions = maybe_auto_promote(
+                    runtime=runtime,
+                    slice_execution_brief=adapter_entry,
+                    round_index=round_index,
+                    baseline_dirty_paths=baseline_dirty_paths,
+                    promotion_mode=str(args.promotion_mode),
+                    allow_existing_dirty_worktree=bool(args.allow_existing_dirty_worktree),
+                    plan_path=args.plan,
+                    catalog_path=args.catalog,
+                    bundle_dir=bundle_dir,
+                    tracked_snapshots=tracked_snapshots,
+                    code_landing_status_output=code_landing_status_output,
+                    project_loop_state_output=project_loop_state_output,
+                    poll_interval_seconds=int(args.poll_interval_seconds),
+                    ci_timeout_seconds=int(args.ci_timeout_seconds),
+                    dry_run=bool(args.dry_run),
+                )
+                if promotions and promotion_snapshots:
+                    snapshots = promotion_snapshots
+            except RuntimeError as exc:
+                print(
+                    json.dumps(
+                        {
+                            "status": "blocked",
+                            "reason": "auto_promotion_blocked",
+                            "round": round_index,
+                            "detail": str(exc),
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+                return BLOCKED_EXIT_CODE
+
+            status_text = _to_text(runtime.get("status"))
+            progress_payload = {
+                "status": "continue",
+                "round": round_index,
+                "current_level": _to_text(runtime.get("current_level")),
+                "next_slice": _to_text(dict(runtime.get("next_slice") or {}).get("id")),
+                "runtime_status": status_text,
+                "runtime_reason": _to_text(runtime.get("reason")),
+                "snapshots_refreshed": snapshots,
+            }
+            print(json.dumps(progress_payload, ensure_ascii=False))
+            baseline_dirty_paths = changed_paths_from_status_lines(workspace_status_lines())
+
+            if status_text == "blocked":
+                payload = stop_snapshot(runtime)
+                payload["round"] = round_index
+                print(json.dumps(payload, ensure_ascii=False))
+                return BLOCKED_EXIT_CODE
+            if status_text == "stopped":
+                payload = stop_snapshot(runtime)
+                payload["round"] = round_index
+                print(json.dumps(payload, ensure_ascii=False))
+                return 0
+
+            if _to_text(dict(runtime.get("next_slice") or {}).get("id")) == _to_text(next_slice.get("id")) and args.dry_run:
+                continue
 
     print(json.dumps({"status": "max_rounds_reached", "max_rounds": int(args.max_rounds)}, ensure_ascii=False))
     return 0
