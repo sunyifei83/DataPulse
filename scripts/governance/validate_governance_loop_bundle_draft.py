@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from loop_bundle_draft import build_bundle_runtime_payload, load_bundle_manifest, resolve_bundle_files, validate_manifest_shape
+from loop_core_draft import validate_blueprint_plan_structure
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,8 +47,20 @@ def main() -> int:
         }
     )
 
+    plan_errors: list[str] = []
+    if not missing_files:
+        plan = json.loads(resolved["plan"].read_text(encoding="utf-8"))
+        plan_errors = [f"invalid_blueprint_plan:{item}" for item in validate_blueprint_plan_structure(plan)]
+    checks.append(
+        {
+            "name": "blueprint_plan_structure",
+            "ok": not plan_errors,
+            "details": plan_errors or ["blueprint plan is phase/slice/status structured"],
+        }
+    )
+
     replay_payload, replay_errors, _, _ = build_bundle_runtime_payload(bundle_dir, [])
-    if errors or missing_files:
+    if errors or missing_files or plan_errors:
         replay_errors = replay_errors or ["replay_skipped_due_to_bundle_errors"]
 
     checks.append(

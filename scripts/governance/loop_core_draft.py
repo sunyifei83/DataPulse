@@ -5,6 +5,10 @@ from pathlib import Path
 from typing import Any
 
 
+ALLOWED_PHASE_STATUSES = {"pending", "in_progress", "completed"}
+ALLOWED_SLICE_STATUSES = {"pending", "in_progress", "completed", "skipped", "blocked", "failed"}
+
+
 def dedupe(items: list[str]) -> list[str]:
     seen: set[str] = set()
     result: list[str] = []
@@ -14,6 +18,107 @@ def dedupe(items: list[str]) -> list[str]:
         seen.add(item)
         result.append(item)
     return result
+
+
+def _future_semantic_paths(value: Any, *, path: str) -> list[str]:
+    hits: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            next_path = f"{path}.{key}" if path else str(key)
+            if str(key).startswith("future_"):
+                hits.append(next_path)
+            hits.extend(_future_semantic_paths(item, path=next_path))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            hits.extend(_future_semantic_paths(item, path=f"{path}[{index}]"))
+    return hits
+
+
+def validate_blueprint_plan_structure(plan: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    required_top_level = ["schema_version", "plan_id", "project", "activation", "slice_profiles", "phases"]
+    for key in required_top_level:
+        if key not in plan:
+            errors.append(f"missing_plan_field:{key}")
+
+    future_paths = _future_semantic_paths(plan, path="")
+    for item in future_paths:
+        errors.append(f"prose_only_future_semantics_not_allowed:{item}")
+
+    activation = plan.get("activation", {})
+    if not isinstance(activation, dict):
+        errors.append("invalid_plan_activation")
+    elif "wired" not in activation:
+        errors.append("missing_plan_activation_field:wired")
+
+    slice_profiles = plan.get("slice_profiles", {})
+    if not isinstance(slice_profiles, dict) or not slice_profiles:
+        errors.append("invalid_plan_slice_profiles")
+        slice_profiles = {}
+
+    phases = plan.get("phases", [])
+    if not isinstance(phases, list) or not phases:
+        errors.append("invalid_plan_phases")
+        return dedupe(errors)
+
+    slice_ids: list[str] = []
+    for phase_index, phase in enumerate(phases):
+        phase_path = f"phases[{phase_index}]"
+        if not isinstance(phase, dict):
+            errors.append(f"invalid_phase:{phase_path}")
+            continue
+        phase_id = str(phase.get("id", "")).strip()
+        if not phase_id:
+            errors.append(f"missing_phase_id:{phase_path}")
+        if not str(phase.get("title", "")).strip():
+            errors.append(f"missing_phase_title:{phase_path}")
+        phase_status = str(phase.get("status", "")).strip()
+        if phase_status not in ALLOWED_PHASE_STATUSES:
+            errors.append(f"invalid_phase_status:{phase_path}:{phase_status or 'missing'}")
+
+        slices = phase.get("slices", [])
+        if not isinstance(slices, list) or not slices:
+            errors.append(f"phase_missing_slices:{phase_path}")
+            continue
+
+        for slice_index, item in enumerate(slices):
+            slice_path = f"{phase_path}.slices[{slice_index}]"
+            if not isinstance(item, dict):
+                errors.append(f"invalid_slice:{slice_path}")
+                continue
+            slice_id = str(item.get("id", "")).strip()
+            if not slice_id:
+                errors.append(f"missing_slice_id:{slice_path}")
+            elif slice_id in slice_ids:
+                errors.append(f"duplicate_slice_id:{slice_id}")
+            else:
+                slice_ids.append(slice_id)
+            if not str(item.get("title", "")).strip():
+                errors.append(f"missing_slice_title:{slice_path}")
+            slice_status = str(item.get("status", "")).strip()
+            if slice_status not in ALLOWED_SLICE_STATUSES:
+                errors.append(f"invalid_slice_status:{slice_path}:{slice_status or 'missing'}")
+            execution_profile = str(item.get("execution_profile", "")).strip()
+            if not execution_profile:
+                errors.append(f"missing_slice_execution_profile:{slice_path}")
+            elif execution_profile not in slice_profiles:
+                errors.append(f"unknown_slice_execution_profile:{slice_path}:{execution_profile}")
+
+    recommended_next = plan.get("recommended_next_slice", {})
+    if isinstance(recommended_next, dict):
+        recommended_id = str(recommended_next.get("id", "")).strip()
+        if recommended_id and recommended_id != "no-open-slice" and recommended_id not in slice_ids:
+            errors.append(f"recommended_next_slice_not_declared:{recommended_id}")
+
+    return dedupe(errors)
+
+
+def ensure_valid_blueprint_plan(plan: dict[str, Any], *, source: str = "blueprint_plan") -> None:
+    errors = validate_blueprint_plan_structure(plan)
+    if not errors:
+        return
+    detail = ", ".join(errors)
+    raise ValueError(f"Invalid blueprint plan at {source}: {detail}")
 
 
 def iter_slices(plan: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -217,6 +322,7 @@ def build_project_loop_state_core(
     source_plan: str,
     generated_at_utc: str,
 ) -> dict[str, Any]:
+    ensure_valid_blueprint_plan(plan, source=source_plan)
     activation = plan.get("activation", {})
     wired = bool(activation.get("wired", False))
     auto_continuation_enabled = auto_continuation_enabled_from_activation(activation, wired)

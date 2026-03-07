@@ -37,6 +37,13 @@ Required fields:
 - `slice_profiles`
 - `phases[].slices[]`
 
+Hard rule:
+
+- once a target is confirmed for loop consumption, it must exist as a structured `phase -> slices -> status` block
+- prose may explain a plan, but prose-only planning state is not loop truth
+- `future_*` planning semantics are invalid in `blueprint_plan`
+- `no-open-slice` is allowed only as the derived terminal state after all declared slices are completed or skipped
+
 ### Input 2: landing status
 
 Required fields:

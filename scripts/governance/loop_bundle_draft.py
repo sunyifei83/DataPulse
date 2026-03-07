@@ -5,7 +5,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from loop_core_draft import build_project_loop_state_core, build_reuse_summary, build_trust_summary, dedupe, evaluate_loop_status
+from loop_core_draft import (
+    build_project_loop_state_core,
+    build_reuse_summary,
+    build_trust_summary,
+    dedupe,
+    evaluate_loop_status,
+    validate_blueprint_plan_structure,
+)
 
 
 REQUIRED_MANIFEST_FIELDS = [
@@ -78,6 +85,14 @@ def build_bundle_runtime_payload(
         return {}, errors + [f"missing_bundle_file:{item}" for item in missing], resolved_files, str(manifest_path)
 
     plan = read_json(resolved["plan"])
+    plan_errors = validate_blueprint_plan_structure(plan)
+    if plan_errors:
+        return (
+            {},
+            [f"invalid_blueprint_plan:{item}" for item in plan_errors],
+            resolved_files,
+            str(manifest_path),
+        )
     landing_status = read_json(resolved["landing_status"])
     loop_state = build_project_loop_state_core(
         plan,

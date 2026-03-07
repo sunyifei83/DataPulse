@@ -59,7 +59,7 @@ Export the repo-agnostic assets as a portable kit:
 
 ## Minimum Adoption Sequence
 
-1. define a machine-readable blueprint plan
+1. define a machine-readable blueprint plan using only `phases[].slices[].status` for confirmed loop targets
 2. export a landing-status snapshot
 3. map slice profiles to blocking gate groups
 4. export an adapter bundle
@@ -71,6 +71,8 @@ Export the repo-agnostic assets as a portable kit:
 10. export and verify a machine-readable activation intent
 11. export and verify an activation preview
 12. only then consider active workflow wiring
+
+The blueprint plan must not treat prose such as "Future Track" or any `future_*` field as a non-open planning bucket. If the repository wants the loop to recognize a target, that target must be declared as a structured slice with an explicit status.
 
 ## DataPulse Draft Reference
 

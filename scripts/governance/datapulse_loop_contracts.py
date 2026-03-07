@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from loop_core_draft import build_project_loop_state_core, dedupe
+from loop_core_draft import build_project_loop_state_core, dedupe, ensure_valid_blueprint_plan
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -482,7 +482,9 @@ def build_code_landing_status() -> dict[str, Any]:
 def load_plan(path: Path) -> dict[str, Any]:
     plan = read_json(path)
     if str(plan.get("schema_version", "")) != "blueprint_plan_overlay.v1":
-        return apply_activation_policy(plan, source_path=path)
+        resolved_plan = apply_activation_policy(plan, source_path=path)
+        ensure_valid_blueprint_plan(resolved_plan, source=display_path(path.resolve()))
+        return resolved_plan
 
     base_plan_raw = str(plan.get("base_plan", "")).strip()
     if not base_plan_raw:
@@ -494,7 +496,9 @@ def load_plan(path: Path) -> dict[str, Any]:
     merged = deep_merge_dicts(base_plan, overlay)
     merged["_overlay_path"] = str(path.resolve())
     merged["_base_plan_path"] = str(base_path.resolve())
-    return apply_activation_policy(merged, source_path=path)
+    resolved_plan = apply_activation_policy(merged, source_path=path)
+    ensure_valid_blueprint_plan(resolved_plan, source=display_path(path.resolve()))
+    return resolved_plan
 
 
 def apply_activation_policy(plan: dict[str, Any], *, source_path: Path) -> dict[str, Any]:

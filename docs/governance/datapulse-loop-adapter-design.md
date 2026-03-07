@@ -9,7 +9,7 @@ Created: 2026-03-07
 - This folder is additive only.
 - No existing script, workflow, CLI entrypoint, or release gate reads these files.
 - The JSON files in this folder are draft/example contracts, not active truth sources.
-- The future active paths remain recommendations until a later activation change lands.
+- Confirmed loop targets must be declared as structured `phase + slices + status`, not as prose-only future buckets.
 
 ## Goal
 
@@ -69,7 +69,7 @@ DataPulse-specific adapter logic:
 
 ## Proposed Contract Set
 
-Recommended future active paths:
+Recommended active truth paths once wired:
 
 1. `docs/governance/datapulse-blueprint-plan.json`
 2. `out/project_specific_loop_state.json`

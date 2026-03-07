@@ -6,9 +6,8 @@
   "status": "completed",
   "activation": {
     "wired": true,
-    "future_active_path": "docs/governance/datapulse-blueprint-plan.json",
-    "promotion_mode": "auto_policy_gated",
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
+    "promotion_mode": "auto_policy_gated",
     "auto_continuation_policy": {
       "path": "docs/governance/datapulse-auto-continuation-policy.json"
     },

@@ -1,7 +1,7 @@
 {
   "schema_version": "datapulse_ha_recovery_preset.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T10:57:36Z",
+  "generated_at_utc": "2026-03-07T11:59:25Z",
   "wired": false,
   "source_ha_delivery_facts": {
     "source_kind": "provided_json",

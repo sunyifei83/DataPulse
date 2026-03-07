@@ -29,6 +29,7 @@ The scaffold should already be:
 3. replayable by the generic core
 4. explicit about what must be replaced by project-specific truth
 5. equipped with starter adapter and bundle-exporter templates
+6. free of prose-only future buckets such as `future_*` or "Future Track"
 
 ## DataPulse Draft Landing
 

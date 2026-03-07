@@ -37,7 +37,7 @@ def build_plan(project: str, slug: str) -> dict[str, object]:
         "status": "draft_not_wired",
         "activation": {
             "wired": False,
-            "future_active_path": f"docs/governance/{slug}-blueprint-plan.json",
+            "active_path": f"docs/governance/{slug}-blueprint-plan.json",
             "promotion_mode": "manual_only",
         },
         "automation_objective": {

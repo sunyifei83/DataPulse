@@ -1,7 +1,7 @@
 {
   "schema_version": "structured_release_bundle_manifest.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T10:57:25Z",
+  "generated_at_utc": "2026-03-07T11:59:47Z",
   "bundle_kind": "draft_export",
   "wired": false,
   "bundle_dir": "/Users/sunyifei/DataPulse/out/ha_latest_release_bundle",

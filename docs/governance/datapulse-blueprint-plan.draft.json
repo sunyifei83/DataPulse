@@ -6,7 +6,7 @@
   "status": "completed",
   "activation": {
     "wired": false,
-    "future_active_path": "docs/governance/datapulse-blueprint-plan.json",
+    "active_path": "docs/governance/datapulse-blueprint-plan.json",
     "promotion_mode": "manual_only"
   },
   "automation_objective": {
