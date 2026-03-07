@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+from datapulse_loop_contracts import DEFAULT_OUT_DIR, build_code_landing_status, write_json
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Export a draft DataPulse code landing status snapshot. This script is manual-only and not wired into existing workflows."
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_OUT_DIR / "code_landing_status.draft.json",
+        help="Output path for the draft landing status JSON.",
+    )
+    parser.add_argument(
+        "--stdout",
+        action="store_true",
+        help="Print JSON to stdout instead of writing the default draft file.",
+    )
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    payload = build_code_landing_status()
+    if args.stdout:
+        print(json.dumps(payload, indent=2, ensure_ascii=True))
+        return 0
+    write_json(args.output, payload)
+    print(args.output)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

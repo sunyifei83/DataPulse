@@ -1,0 +1,111 @@
+{
+  "schema_version": "code_landing_status.v1",
+  "project": "DataPulse",
+  "generated_at_utc": "2026-03-07T00:00:00Z",
+  "status_kind": "example_contract",
+  "wired": false,
+  "workspace": {
+    "clean": false,
+    "reason": "Assessment snapshot observed a dirty worktree."
+  },
+  "verification": {
+    "compileall": {
+      "gateable": true,
+      "required_for_loop": true,
+      "truth_source": "python3 -m compileall datapulse"
+    },
+    "quick_test": {
+      "gateable": false,
+      "gateable_via_wrapper": true,
+      "required_for_loop": false,
+      "truth_source": "scripts/quick_test.sh",
+      "wrapper_command": "python3 scripts/governance/run_datapulse_quick_test_gate.py",
+      "reason": "Current semantics are not declared as the canonical strict gate set."
+    },
+    "local_smoke": {
+      "gateable": false,
+      "gateable_via_wrapper": true,
+      "required_for_loop": true,
+      "truth_source": "artifacts/openclaw_datapulse_<RUN_ID>/local_report.md",
+      "wrapper_command": "python3 scripts/governance/run_datapulse_local_smoke_gate.py",
+      "reason": "Current script writes PASS/FAIL summary but does not fail the process when fail_count is nonzero."
+    },
+    "console_smoke": {
+      "gateable": true,
+      "required_for_loop": true,
+      "truth_source": "scripts/datapulse_console_smoke.sh"
+    },
+    "remote_smoke": {
+      "gateable": false,
+      "gateable_via_wrapper": true,
+      "required_for_loop": true,
+      "truth_source": "artifacts/openclaw_datapulse_<RUN_ID>/remote_report.md",
+      "wrapper_command": "python3 scripts/governance/run_datapulse_remote_smoke_gate.py",
+      "reason": "Current script records required-step failures in report output but does not expose them as a strict process gate contract."
+    },
+    "emergency_gate": {
+      "gateable": true,
+      "required_for_loop": true,
+      "truth_source": "artifacts/openclaw_datapulse_<RUN_ID>/emergency_state.json"
+    },
+    "release_readiness": {
+      "gateable": true,
+      "required_for_loop": true,
+      "truth_source": "scripts/release_readiness.sh"
+    }
+  },
+  "ci": {
+    "workflow_name": "CI",
+    "truth_source": ".github/workflows/ci.yml",
+    "docs_only_changes_skip_ci": true
+  },
+  "release": {
+    "mode": "mixed_local_script_and_tag_workflow",
+    "workflow_dispatch_available": false,
+    "structured_release_bundle": false,
+    "truth_sources": [
+      "scripts/release_publish.sh",
+      ".github/workflows/release.yml"
+    ]
+  },
+  "gate_groups": {
+    "execution_safety": [
+      "workspace_dirty"
+    ],
+    "local_verification": [
+      "latest_local_smoke_failed"
+    ],
+    "runtime_governance": [],
+    "ci_policy": [
+      "docs_only_changes_skip_ci"
+    ],
+    "release_governance": [
+      "workflow_dispatch_missing",
+      "structured_release_bundle_missing"
+    ]
+  },
+  "promotion_levels": {
+    "repo_landed": {
+      "satisfied": false,
+      "reasons": [
+        "workspace_dirty",
+        "latest_local_smoke_failed"
+      ]
+    },
+    "ci_proven": {
+      "satisfied": false,
+      "reasons": [
+        "repo_landed_false",
+        "docs_only_changes_skip_ci",
+        "workflow_dispatch_missing",
+        "structured_release_bundle_missing"
+      ]
+    }
+  },
+  "evidence_paths": {
+    "local_report": "artifacts/openclaw_datapulse_<RUN_ID>/local_report.md",
+    "remote_report": "artifacts/openclaw_datapulse_<RUN_ID>/remote_report.md",
+    "remote_log": "artifacts/openclaw_datapulse_<RUN_ID>/remote_test.log",
+    "emergency_state": "artifacts/openclaw_datapulse_<RUN_ID>/emergency_state.json"
+  }
+}

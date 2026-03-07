@@ -1,0 +1,63 @@
+name: DataPulse Evidence Draft
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional release tag such as v0.7.0"
+        required: false
+        type: string
+      notes_file:
+        description: "Release notes source file"
+        required: false
+        default: "RELEASE_NOTES.md"
+        type: string
+      emit_release_sidecar:
+        description: "Export draft release sidecar bundle"
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build toolchain
+        run: |
+          python -m pip install --upgrade build
+
+      - name: Build package artifacts
+        run: |
+          python -m build --sdist --wheel .
+
+      - name: Export governance draft snapshots
+        run: |
+          python3 scripts/governance/export_datapulse_loop_snapshot.py
+
+      - name: Export release sidecar draft
+        if: ${{ inputs.emit_release_sidecar }}
+        run: |
+          python3 scripts/governance/export_datapulse_release_sidecar.py \
+            --tag "${{ inputs.release_tag }}" \
+            --notes-file "${{ inputs.notes_file }}"
+
+      - name: Upload draft governance bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: datapulse-governance-draft-bundle
+          path: |
+            out/governance/*
+
+# Draft only:
+# - This file intentionally lives outside .github/workflows and is not active.
+# - It documents the minimum workflow_dispatch evidence path that future loop promotion could consume.
+# - The local analogue is scripts/governance/export_datapulse_evidence_bundle.py

@@ -1,0 +1,359 @@
+{
+  "schema_version": "blueprint_plan.v1",
+  "plan_id": "datapulse-loop-bootstrap-2026-03-07",
+  "project": "DataPulse",
+  "generated_at_utc": "2026-03-07T00:00:00Z",
+  "status": "draft_not_wired",
+  "activation": {
+    "wired": false,
+    "future_active_path": "docs/governance/datapulse-blueprint-plan.json",
+    "promotion_mode": "manual_only"
+  },
+  "automation_objective": {
+    "target_class": "trusted_delivery_pipeline",
+    "continuous_when_healthy": true,
+    "halts_on_machine_decidable_blockers": true,
+    "blocked_state_is_expected": true
+  },
+  "reusable_capability_model": {
+    "progress_truth": "blueprint_plan_plus_next_open_slice",
+    "stop_truth": "blocking_facts_plus_remaining_promotion_gates_plus_flow_control",
+    "reopen_truth": [
+      "plan_adds_new_open_slice",
+      "workspace_or_repo_change_reopens_repo_promotion",
+      "promotion_evidence_regression_reopens_ci_or_release_promotion"
+    ],
+    "driver_cycle": [
+      "export_state_before_action",
+      "execute_slice_or_promotion",
+      "collect_evidence",
+      "re_export_state",
+      "stop_or_continue"
+    ],
+    "expected_terminal_stop": true
+  },
+  "slice_profiles": {
+    "draft_only": {
+      "description": "Plan or contract drafting slices with no default service-governance coupling.",
+      "blocking_gate_groups": []
+    },
+    "local_wrapper": {
+      "description": "Local wrapper or exporter slices. Only repo execution safety matters when activated.",
+      "blocking_gate_groups": []
+    },
+    "workflow_change": {
+      "description": "Active workflow changes. Execution safety matters, but release evidence gaps should not block the slice that introduces them.",
+      "blocking_gate_groups": [
+        "execution_safety"
+      ]
+    },
+    "release_policy_change": {
+      "description": "Release policy refactors. Execution safety matters; release evidence remains an outcome rather than a prerequisite.",
+      "blocking_gate_groups": [
+        "execution_safety"
+      ]
+    },
+    "runtime_validation": {
+      "description": "Slices that intentionally depend on runtime HA evidence.",
+      "blocking_gate_groups": [
+        "execution_safety",
+        "local_verification",
+        "runtime_governance"
+      ]
+    }
+  },
+  "phase_statuses": {
+    "L0": "completed",
+    "L1": "completed",
+    "L2": "completed",
+    "L3": "completed",
+    "L4": "pending",
+    "L5": "pending"
+  },
+  "phases": [
+    {
+      "id": "L0",
+      "title": "Adapter Contract Drafts",
+      "goal": "Create non-active design contracts with zero impact on current repository behavior.",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "L0.1",
+          "title": "Write loop adapter design draft",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-loop-adapter-design.md"
+          ]
+        },
+        {
+          "id": "L0.2",
+          "title": "Create bootstrap blueprint plan draft",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-blueprint-plan.draft.json"
+          ]
+        },
+        {
+          "id": "L0.3",
+          "title": "Create example loop state and landing status contracts",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/project_specific_loop_state.example.json",
+            "docs/governance/code_landing_status.example.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L1",
+      "title": "Verification Gate Hardening",
+      "goal": "Normalize verification commands so the future loop can trust process exit semantics.",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "L1.1",
+          "title": "Make local smoke gateable",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "bash scripts/datapulse_local_smoke.sh",
+            "python3 scripts/governance/run_datapulse_local_smoke_gate.py"
+          ],
+          "exit_condition": "nonzero when mandatory checks fail",
+          "artifacts": [
+            "scripts/governance/run_datapulse_local_smoke_gate.py"
+          ]
+        },
+        {
+          "id": "L1.2",
+          "title": "Make remote smoke gateable",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "bash scripts/datapulse_remote_openclaw_smoke.sh",
+            "python3 scripts/governance/run_datapulse_remote_smoke_gate.py"
+          ],
+          "exit_condition": "nonzero when required remote steps fail",
+          "artifacts": [
+            "scripts/governance/run_datapulse_remote_smoke_gate.py"
+          ]
+        },
+        {
+          "id": "L1.3",
+          "title": "Normalize quick test semantics",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "bash scripts/quick_test.sh",
+            "python3 scripts/governance/run_datapulse_quick_test_gate.py"
+          ],
+          "exit_condition": "no swallowed failures in mandatory checks",
+          "artifacts": [
+            "scripts/governance/run_datapulse_quick_test_gate.py",
+            "docs/governance/datapulse-verification-contract.draft.md"
+          ]
+        },
+        {
+          "id": "L1.4",
+          "title": "Declare canonical verification command set",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/inhouse_workflow.md",
+            "docs/governance/datapulse-loop-adapter-design.md",
+            "docs/governance/datapulse-verification-contract.draft.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L2",
+      "title": "Code Landing Status Exporter",
+      "goal": "Export normalized landing truth from git state, artifact evidence, CI facts, and release facts.",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "L2.1",
+          "title": "Define code_landing_status exporter output",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "out/code_landing_status.json",
+            "docs/governance/code_landing_status.example.json",
+            "scripts/governance/export_datapulse_code_landing_status.py"
+          ]
+        },
+        {
+          "id": "L2.2",
+          "title": "Map local, HA, emergency, and CI evidence into landing status",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "scripts/governance/datapulse_loop_contracts.py"
+          ]
+        },
+        {
+          "id": "L2.3",
+          "title": "Expose repo_landed and ci_proven booleans",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "scripts/governance/datapulse_loop_contracts.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L3",
+      "title": "Loop State Exporter",
+      "goal": "Derive current_level, next_slice, and remaining_promotion_gates from plan plus landing truth.",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "L3.1",
+          "title": "Define project_specific_loop_state exporter output",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "out/project_specific_loop_state.json",
+            "docs/governance/project_specific_loop_state.example.json",
+            "scripts/governance/export_datapulse_project_loop_state.py"
+          ]
+        },
+        {
+          "id": "L3.2",
+          "title": "Implement next-slice selection policy",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "scripts/governance/datapulse_loop_contracts.py"
+          ]
+        },
+        {
+          "id": "L3.3",
+          "title": "Decide projection targets",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-projection-targets.draft.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L4",
+      "title": "Promotion Evidence Unification",
+      "goal": "Create a single promotion-evidence path suitable for manual and later automatic loop progression.",
+      "status": "pending",
+      "slices": [
+        {
+          "id": "L4.1",
+          "title": "Add workflow_dispatch evidence workflow",
+          "category": "promotion",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "ci",
+          "closes_gates": [
+            "workflow_dispatch_missing"
+          ],
+          "status": "pending",
+          "draft_artifacts": [
+            "docs/governance/datapulse-evidence-workflow.draft.yml"
+          ]
+        },
+        {
+          "id": "L4.2",
+          "title": "Emit structured release evidence sidecar",
+          "category": "promotion",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "release",
+          "closes_gates": [
+            "structured_release_bundle_missing"
+          ],
+          "status": "pending",
+          "draft_artifacts": [
+            "docs/governance/datapulse-release-sidecar.example.json",
+            "scripts/governance/export_datapulse_release_sidecar.py",
+            "scripts/governance/export_datapulse_evidence_bundle.py"
+          ]
+        },
+        {
+          "id": "L4.3",
+          "title": "Unify script-driven and workflow-driven release policy",
+          "category": "promotion",
+          "execution_profile": "release_policy_change",
+          "promotion_scope": "release",
+          "closes_gates": [
+            "mixed_release_policy"
+          ],
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "L5",
+      "title": "Driver Integration",
+      "goal": "Integrate a reusable loop driver with DataPulse-specific adapter logic.",
+      "status": "pending",
+      "slices": [
+        {
+          "id": "L5.1",
+          "title": "Add DataPulse adapter implementation",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending"
+        },
+        {
+          "id": "L5.2",
+          "title": "Run in manual promotion mode",
+          "category": "promotion",
+          "execution_profile": "runtime_validation",
+          "promotion_scope": "ci",
+          "status": "pending"
+        },
+        {
+          "id": "L5.3",
+          "title": "Enable auto promotion after gates close",
+          "category": "promotion",
+          "execution_profile": "runtime_validation",
+          "promotion_scope": "release",
+          "status": "pending"
+        }
+      ]
+    }
+  ],
+  "recommended_next_slice": {
+    "id": "L4.1",
+    "title": "Add workflow_dispatch evidence workflow",
+    "reason": "L4 draft materials now exist, but the active repo still lacks a real workflow_dispatch evidence path."
+  }
+}
