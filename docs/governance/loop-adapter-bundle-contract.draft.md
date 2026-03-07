@@ -80,6 +80,7 @@ The first draft bundle exporter and bundle runner live here:
 - `scripts/governance/export_datapulse_loop_adapter_bundle.py`
 - `scripts/governance/run_governance_loop_bundle_draft.py`
 - `scripts/governance/validate_governance_loop_bundle_draft.py`
+- `scripts/governance/init_governance_loop_project_scaffold.py`
 
 The bundle validator should confirm:
 

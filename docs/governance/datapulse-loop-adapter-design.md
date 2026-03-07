@@ -112,6 +112,7 @@ Draft decoupling principle contract added in this change:
 4. `docs/governance/loop-project-adapter-contract.draft.md`
 5. `docs/governance/loop-adapter-bundle-contract.draft.md`
 6. `docs/governance/governance-loop-adoption-playbook.draft.md`
+7. `docs/governance/governance-loop-project-scaffold.draft.md`
 
 L4 draft materials added in this change:
 
@@ -130,6 +131,7 @@ Blueprint-first driver materials added in this change:
 6. `scripts/governance/export_datapulse_loop_adapter_bundle.py`
 7. `scripts/governance/run_governance_loop_bundle_draft.py`
 8. `scripts/governance/validate_governance_loop_bundle_draft.py`
+9. `scripts/governance/init_governance_loop_project_scaffold.py`
 
 Working-copy mode materials added in this change:
 
@@ -208,6 +210,7 @@ See also:
 - `docs/governance/loop-project-adapter-contract.draft.md`
 - `docs/governance/loop-adapter-bundle-contract.draft.md`
 - `docs/governance/governance-loop-adoption-playbook.draft.md`
+- `docs/governance/governance-loop-project-scaffold.draft.md`
 
 ## Adapter Interface Recommendation
 

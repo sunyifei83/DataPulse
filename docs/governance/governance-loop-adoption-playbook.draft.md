@@ -66,6 +66,8 @@ Current draft reference points:
 - adapter contract: `docs/governance/loop-project-adapter-contract.draft.md`
 - bundle contract: `docs/governance/loop-adapter-bundle-contract.draft.md`
 - bundle validator: `scripts/governance/validate_governance_loop_bundle_draft.py`
+- scaffold generator: `scripts/governance/init_governance_loop_project_scaffold.py`
+- scaffold guide: `docs/governance/governance-loop-project-scaffold.draft.md`
 
 ## Acceptance Bar For A New Repository
 
@@ -78,6 +80,7 @@ It should meet all of these:
 3. the replay exposes machine-decidable blockers
 4. terminal stop and reopen semantics are present in state output
 5. repository-specific commands remain in the adapter, not in the core
+6. a fresh scaffold can be generated and then replaced incrementally by project truth
 
 ## Why This Matters
 

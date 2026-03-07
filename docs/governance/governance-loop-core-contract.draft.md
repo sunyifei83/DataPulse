@@ -111,6 +111,7 @@ The project-side adapter contract is documented here:
 - `docs/governance/loop-project-adapter-contract.draft.md`
 - `docs/governance/loop-adapter-bundle-contract.draft.md`
 - `docs/governance/governance-loop-adoption-playbook.draft.md`
+- `docs/governance/governance-loop-project-scaffold.draft.md`
 
 ## Why This Matters
 

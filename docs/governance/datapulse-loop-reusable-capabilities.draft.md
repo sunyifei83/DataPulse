@@ -141,6 +141,8 @@ The first repo-local extraction of that reusable layer now lives in:
 - `docs/governance/loop-adapter-bundle-contract.draft.md`
 - `scripts/governance/validate_governance_loop_bundle_draft.py`
 - `docs/governance/governance-loop-adoption-playbook.draft.md`
+- `scripts/governance/init_governance_loop_project_scaffold.py`
+- `docs/governance/governance-loop-project-scaffold.draft.md`
 
 That matters because the DataPulse adapter can now shrink toward:
 
