@@ -65,6 +65,12 @@ Recommended trigger:
 bash scripts/governance/ignite_datapulse_codex_loop.sh
 ```
 
+The ignition wrapper now enables `--allow-existing-dirty-worktree` by default so the local companion loop can take over `repo_landed` promotion for already-landed slice changes in the current worktree. To keep manual promotion review, run:
+
+```bash
+DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=0 bash scripts/governance/ignite_datapulse_codex_loop.sh
+```
+
 Equivalent expanded command:
 
 ```bash
@@ -85,6 +91,7 @@ SYSTEM_VERSION_COMPAT=1 uv run python scripts/governance/run_codex_blueprint_loo
 - After each round, governance truth must be refreshed before deciding whether to continue.
 - If the slice catalog is missing an entry for the current slice, use the synthesized execution brief instead of inventing prose-only instructions.
 - `--promotion-mode auto` now means "allow local repo_landed auto-promotion, then auto-resolve the current `ci_proven` path by pushing and waiting for real GitHub workflow evidence". It still does not mean release/tag autopilot.
+- The ignition wrapper allows existing dirty worktree promotion takeover by default; set `DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=0` when you want to keep a manual repo_landed review step.
 - Hard-stop gates such as `workflow_dispatch_missing`, `structured_release_bundle_missing`, `ci_run_failed`, or `governance_evidence_failed` must stop the loop instead of being auto-overridden.
 
 ## Why This Matters
