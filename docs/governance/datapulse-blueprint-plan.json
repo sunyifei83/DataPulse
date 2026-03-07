@@ -1,0 +1,21 @@
+{
+  "schema_version": "blueprint_plan_overlay.v1",
+  "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
+  "generated_at_utc": "2026-03-07T00:00:00Z",
+  "status": "completed",
+  "activation": {
+    "wired": true,
+    "active_path": "docs/governance/datapulse-blueprint-plan.json",
+    "promotion_mode": "auto_policy_gated",
+    "auto_continuation_policy": {
+      "path": "docs/governance/datapulse-auto-continuation-policy.json"
+    }
+  },
+  "governance_mode": {
+    "kind": "active_auto_gated",
+    "notes": [
+      "This overlay activates the loop control plane with a repository-governance auto-continuation policy.",
+      "The auto entrypoint remains read-only and stops on machine-decidable blockers instead of mutating product workflows."
+    ]
+  }
+}

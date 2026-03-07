@@ -43,6 +43,7 @@ The first project adapter draft now lives here:
 - `scripts/governance/datapulse_loop_adapter_draft.py`
 - `scripts/governance/export_datapulse_loop_adapter_bundle.py`
 - `scripts/governance/validate_governance_loop_bundle_draft.py`
+- `scripts/governance/verify_datapulse_loop_adoption_draft.py`
 
 It currently wraps:
 

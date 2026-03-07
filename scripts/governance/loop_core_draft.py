@@ -48,12 +48,24 @@ def current_level_from_promotion_levels(promotion_levels: dict[str, Any]) -> str
 
 def remaining_promotion_gates(landing_status: dict[str, Any], wired: bool) -> list[str]:
     promotion_levels = landing_status.get("promotion_levels", {})
+    gate_groups = landing_status.get("gate_groups", {})
     gates: list[str] = []
     gates.extend(promotion_levels.get("repo_landed", {}).get("reasons", []))
     gates.extend(promotion_levels.get("ci_proven", {}).get("reasons", []))
+    gates.extend(gate_groups.get("release_governance", []))
     if not wired:
         gates.append("draft_not_wired")
     return dedupe(gates)
+
+
+def auto_continuation_enabled_from_activation(activation: dict[str, Any], wired: bool) -> bool:
+    if not wired:
+        return False
+    auto_continuation = activation.get("auto_continuation", {})
+    if isinstance(auto_continuation, dict) and "enabled" in auto_continuation:
+        return bool(auto_continuation.get("enabled", False))
+    promotion_mode = str(activation.get("promotion_mode", "manual_only"))
+    return promotion_mode not in {"manual_only", "disabled"}
 
 
 def next_slice_payload(plan: dict[str, Any]) -> dict[str, Any]:
@@ -96,8 +108,8 @@ def flow_control_for_state(
     remaining_gates: list[str],
     wired: bool,
     promotion_mode: str,
+    auto_continuation_enabled: bool,
 ) -> tuple[dict[str, Any], str]:
-    auto_continuation_enabled = wired and promotion_mode not in {"manual_only", "disabled"}
     readiness_gaps: list[str] = []
     if not wired:
         readiness_gaps.append("draft_not_wired")
@@ -207,6 +219,7 @@ def build_project_loop_state_core(
 ) -> dict[str, Any]:
     activation = plan.get("activation", {})
     wired = bool(activation.get("wired", False))
+    auto_continuation_enabled = auto_continuation_enabled_from_activation(activation, wired)
     promotion_levels = landing_status.get("promotion_levels", {})
     current_level = current_level_from_promotion_levels(promotion_levels)
     next_slice = next_slice_payload(plan)
@@ -218,6 +231,7 @@ def build_project_loop_state_core(
         remaining_gates,
         wired,
         activation.get("promotion_mode", "manual_only"),
+        auto_continuation_enabled,
     )
     workspace = landing_status.get("workspace", {})
 

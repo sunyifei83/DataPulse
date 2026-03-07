@@ -1,0 +1,339 @@
+{
+  "schema_version": "code_landing_status.v1",
+  "project": "DataPulse",
+  "generated_at_utc": "2026-03-07T10:57:31Z",
+  "status_kind": "draft_export",
+  "wired": false,
+  "git": {
+    "head": "748a9c1f20ed8f1cd568726bafdbb74a9f529ac7",
+    "branch": "main"
+  },
+  "workspace": {
+    "clean": false,
+    "dirty_entries": [
+      "M .github/workflows/release.yml",
+      " M README.md",
+      " M README_CN.md",
+      " M README_EN.md",
+      " M datapulse/cli.py",
+      " M datapulse/console_server.py",
+      " M datapulse/core/story.py",
+      " M datapulse/core/watchlist.py",
+      " M datapulse/mcp_server.py",
+      " M datapulse/reader.py",
+      " M docs/datapulse_console_parameter_guide.md",
+      " M docs/governance/datapulse-blueprint-plan.draft.json",
+      " M docs/governance/datapulse-evidence-workflow.draft.yml",
+      " M docs/governance/datapulse-loop-adapter-design.md",
+      " M docs/governance/datapulse-loop-reusable-capabilities.draft.md",
+      " M docs/governance/datapulse-verification-contract.draft.md",
+      " M docs/governance/governance-loop-adoption-playbook.draft.md",
+      " M docs/governance/governance-loop-core-contract.draft.md",
+      " M docs/governance/governance-loop-project-scaffold.draft.md",
+      " M docs/governance/loop-adapter-bundle-contract.draft.md",
+      " M docs/governance/loop-project-adapter-contract.draft.md",
+      " M docs/gui_intelligence_console_plan.md",
+      " M docs/source_feed_enhancement_plan.md",
+      " M scripts/datapulse_local_smoke.sh",
+      " M scripts/datapulse_remote_openclaw_smoke.sh",
+      " M scripts/emergency_guard.sh",
+      " M scripts/governance/datapulse_loop_contracts.py",
+      " M scripts/governance/export_datapulse_evidence_bundle.py",
+      " M scripts/governance/export_datapulse_loop_adapter_bundle.py",
+      " M scripts/governance/export_datapulse_release_sidecar.py",
+      " M scripts/governance/init_governance_loop_project_scaffold.py",
+      " M scripts/governance/loop_core_draft.py",
+      " M scripts/governance/run_governance_loop_bundle_draft.py",
+      " M scripts/governance/validate_governance_loop_bundle_draft.py",
+      " M tests/test_cli.py",
+      " M tests/test_console_server.py",
+      " M tests/test_mcp_server.py",
+      " M tests/test_watchlist.py",
+      "?? .github/workflows/governance-evidence.yml",
+      "?? .github/workflows/governance-loop-auto.yml",
+      "?? docs/governance/datapulse-auto-continuation-policy.json",
+      "?? docs/governance/datapulse-auto-continuation-policy.md",
+      "?? docs/governance/datapulse-blueprint-plan.json",
+      "?? docs/governance/datapulse-ha-delivery-facts.draft.md",
+      "?? docs/governance/datapulse-ha-delivery-landing.draft.md",
+      "?? docs/governance/datapulse-ha-recovery-catalog.draft.json",
+      "?? docs/governance/datapulse-ha-recovery-catalog.draft.md",
+      "?? docs/governance/datapulse-ha-recovery-preset.draft.md",
+      "?? docs/governance/datapulse-ha-recovery-replay.draft.md",
+      "?? docs/governance/datapulse-release-readiness-fact.draft.md",
+      "?? docs/governance/datapulse-structured-release-bundle.draft.md",
+      "?? docs/governance/governance-loop-activation-boundary.draft.md",
+      "?? docs/governance/governance-loop-activation-intent.draft.md",
+      "?? docs/governance/governance-loop-activation-plan.draft.md",
+      "?? docs/governance/governance-loop-activation-preview.draft.md",
+      "?? docs/governance/governance-loop-adoption-verification.draft.md",
+      "?? docs/governance/governance-loop-reuse-kit.draft.md",
+      "?? out/",
+      "?? scripts/governance/assess_governance_loop_activation_draft.py",
+      "?? scripts/governance/datapulse_loop_adapter.py",
+      "?? scripts/governance/export_datapulse_ha_delivery_facts.py",
+      "?? scripts/governance/export_datapulse_ha_delivery_landing.py",
+      "?? scripts/governance/export_datapulse_ha_recovery_preset.py",
+      "?? scripts/governance/export_datapulse_release_readiness_fact.py",
+      "?? scripts/governance/export_datapulse_structured_release_bundle.py",
+      "?? scripts/governance/export_governance_loop_activation_intent.py",
+      "?? scripts/governance/export_governance_loop_activation_plan.py",
+      "?? scripts/governance/export_governance_loop_activation_preview.py",
+      "?? scripts/governance/export_governance_loop_reuse_kit.py",
+      "?? scripts/governance/loop_bundle_draft.py",
+      "?? scripts/governance/run_datapulse_auto_continuation.py",
+      "?? scripts/governance/run_datapulse_blueprint_loop.py",
+      "?? scripts/governance/run_datapulse_ha_recovery_replay.py",
+      "?? scripts/governance/verify_datapulse_ha_delivery_facts.py",
+      "?? scripts/governance/verify_datapulse_ha_delivery_landing.py",
+      "?? scripts/governance/verify_datapulse_ha_recovery_preset.py",
+      "?? scripts/governance/verify_datapulse_loop_adoption_draft.py",
+      "?? scripts/governance/verify_datapulse_release_readiness_fact.py",
+      "?? scripts/governance/verify_governance_loop_activation_intent.py",
+      "?? scripts/governance/verify_governance_loop_activation_preview.py",
+      "?? scripts/governance/verify_governance_loop_adoption_draft.py",
+      "?? scripts/governance/verify_governance_loop_reuse_kit.py"
+    ],
+    "reason": "git status reported local modifications."
+  },
+  "verification": {
+    "compileall": {
+      "gateable": true,
+      "required_for_loop": true,
+      "truth_source": "python3 -m compileall datapulse"
+    },
+    "quick_test": {
+      "gateable": false,
+      "gateable_via_wrapper": true,
+      "required_for_loop": false,
+      "truth_source": "scripts/quick_test.sh",
+      "wrapper_command": "python3 scripts/governance/run_datapulse_quick_test_gate.py",
+      "reason": "Current semantics are not declared as the canonical strict gate set."
+    },
+    "local_smoke": {
+      "gateable": false,
+      "gateable_via_wrapper": true,
+      "required_for_loop": true,
+      "truth_source": "artifacts/openclaw_datapulse_<RUN_ID>/local_report.md",
+      "wrapper_command": "python3 scripts/governance/run_datapulse_local_smoke_gate.py",
+      "latest_observation": {
+        "path": "artifacts/openclaw_datapulse_20260307_185520/local_report.md",
+        "run_id": "20260307_185520",
+        "pass_count": 14,
+        "fail_count": 0,
+        "log": "./artifacts/openclaw_datapulse_20260307_185520/local_test.log"
+      },
+      "reason": "Current script writes PASS/FAIL summary but does not fail the process when fail_count is nonzero."
+    },
+    "console_smoke": {
+      "gateable": true,
+      "required_for_loop": true,
+      "truth_source": "scripts/datapulse_console_smoke.sh"
+    },
+    "remote_smoke": {
+      "gateable": false,
+      "gateable_via_wrapper": true,
+      "required_for_loop": true,
+      "truth_source": "artifacts/openclaw_datapulse_<RUN_ID>/remote_report.md",
+      "wrapper_command": "python3 scripts/governance/run_datapulse_remote_smoke_gate.py",
+      "latest_observation": {
+        "path": "artifacts/openclaw_datapulse_20260307_180508/remote_report.md",
+        "run_id": "20260307_180508",
+        "failed_steps": 0,
+        "log": "./artifacts/openclaw_datapulse_20260307_180508/remote_test.log",
+        "block_codes": []
+      },
+      "reason": "Current script records required-step failures in report output but does not expose them as a strict process gate contract."
+    },
+    "emergency_gate": {
+      "gateable": true,
+      "required_for_loop": true,
+      "truth_source": "artifacts/openclaw_datapulse_<RUN_ID>/emergency_state.json"
+    },
+    "release_readiness": {
+      "gateable": true,
+      "required_for_loop": true,
+      "truth_source": "scripts/release_readiness.sh"
+    }
+  },
+  "ci": {
+    "workflow_name": "CI",
+    "truth_source": ".github/workflows/ci.yml",
+    "docs_only_changes_skip_ci": false,
+    "docs_paths_ignore_configured": true,
+    "change_scope": {
+      "paths": [
+        "github/workflows/release.yml",
+        "README.md",
+        "README_CN.md",
+        "README_EN.md",
+        "datapulse/cli.py",
+        "datapulse/console_server.py",
+        "datapulse/core/story.py",
+        "datapulse/core/watchlist.py",
+        "datapulse/mcp_server.py",
+        "datapulse/reader.py",
+        "docs/datapulse_console_parameter_guide.md",
+        "docs/governance/datapulse-blueprint-plan.draft.json",
+        "docs/governance/datapulse-evidence-workflow.draft.yml",
+        "docs/governance/datapulse-loop-adapter-design.md",
+        "docs/governance/datapulse-loop-reusable-capabilities.draft.md",
+        "docs/governance/datapulse-verification-contract.draft.md",
+        "docs/governance/governance-loop-adoption-playbook.draft.md",
+        "docs/governance/governance-loop-core-contract.draft.md",
+        "docs/governance/governance-loop-project-scaffold.draft.md",
+        "docs/governance/loop-adapter-bundle-contract.draft.md",
+        "docs/governance/loop-project-adapter-contract.draft.md",
+        "docs/gui_intelligence_console_plan.md",
+        "docs/source_feed_enhancement_plan.md",
+        "scripts/datapulse_local_smoke.sh",
+        "scripts/datapulse_remote_openclaw_smoke.sh",
+        "scripts/emergency_guard.sh",
+        "scripts/governance/datapulse_loop_contracts.py",
+        "scripts/governance/export_datapulse_evidence_bundle.py",
+        "scripts/governance/export_datapulse_loop_adapter_bundle.py",
+        "scripts/governance/export_datapulse_release_sidecar.py",
+        "scripts/governance/init_governance_loop_project_scaffold.py",
+        "scripts/governance/loop_core_draft.py",
+        "scripts/governance/run_governance_loop_bundle_draft.py",
+        "scripts/governance/validate_governance_loop_bundle_draft.py",
+        "tests/test_cli.py",
+        "tests/test_console_server.py",
+        "tests/test_mcp_server.py",
+        "tests/test_watchlist.py",
+        ".github/workflows/governance-evidence.yml",
+        ".github/workflows/governance-loop-auto.yml",
+        "docs/governance/datapulse-auto-continuation-policy.json",
+        "docs/governance/datapulse-auto-continuation-policy.md",
+        "docs/governance/datapulse-blueprint-plan.json",
+        "docs/governance/datapulse-ha-delivery-facts.draft.md",
+        "docs/governance/datapulse-ha-delivery-landing.draft.md",
+        "docs/governance/datapulse-ha-recovery-catalog.draft.json",
+        "docs/governance/datapulse-ha-recovery-catalog.draft.md",
+        "docs/governance/datapulse-ha-recovery-preset.draft.md",
+        "docs/governance/datapulse-ha-recovery-replay.draft.md",
+        "docs/governance/datapulse-release-readiness-fact.draft.md",
+        "docs/governance/datapulse-structured-release-bundle.draft.md",
+        "docs/governance/governance-loop-activation-boundary.draft.md",
+        "docs/governance/governance-loop-activation-intent.draft.md",
+        "docs/governance/governance-loop-activation-plan.draft.md",
+        "docs/governance/governance-loop-activation-preview.draft.md",
+        "docs/governance/governance-loop-adoption-verification.draft.md",
+        "docs/governance/governance-loop-reuse-kit.draft.md",
+        "out/",
+        "scripts/governance/assess_governance_loop_activation_draft.py",
+        "scripts/governance/datapulse_loop_adapter.py",
+        "scripts/governance/export_datapulse_ha_delivery_facts.py",
+        "scripts/governance/export_datapulse_ha_delivery_landing.py",
+        "scripts/governance/export_datapulse_ha_recovery_preset.py",
+        "scripts/governance/export_datapulse_release_readiness_fact.py",
+        "scripts/governance/export_datapulse_structured_release_bundle.py",
+        "scripts/governance/export_governance_loop_activation_intent.py",
+        "scripts/governance/export_governance_loop_activation_plan.py",
+        "scripts/governance/export_governance_loop_activation_preview.py",
+        "scripts/governance/export_governance_loop_reuse_kit.py",
+        "scripts/governance/loop_bundle_draft.py",
+        "scripts/governance/run_datapulse_auto_continuation.py",
+        "scripts/governance/run_datapulse_blueprint_loop.py",
+        "scripts/governance/run_datapulse_ha_recovery_replay.py",
+        "scripts/governance/verify_datapulse_ha_delivery_facts.py",
+        "scripts/governance/verify_datapulse_ha_delivery_landing.py",
+        "scripts/governance/verify_datapulse_ha_recovery_preset.py",
+        "scripts/governance/verify_datapulse_loop_adoption_draft.py",
+        "scripts/governance/verify_datapulse_release_readiness_fact.py",
+        "scripts/governance/verify_governance_loop_activation_intent.py",
+        "scripts/governance/verify_governance_loop_activation_preview.py",
+        "scripts/governance/verify_governance_loop_adoption_draft.py",
+        "scripts/governance/verify_governance_loop_reuse_kit.py"
+      ],
+      "docs_only": false
+    }
+  },
+  "release": {
+    "mode": "script_authoritative_with_manual_workflow_repair",
+    "workflow_dispatch_available": true,
+    "workflow_dispatch_entrypoints": [
+      ".github/workflows/release.yml",
+      ".github/workflows/governance-evidence.yml"
+    ],
+    "tag_push_release_enabled": false,
+    "structured_release_bundle": true,
+    "policy_gates": [],
+    "truth_sources": [
+      "scripts/release_publish.sh",
+      ".github/workflows/release.yml",
+      ".github/workflows/governance-evidence.yml"
+    ]
+  },
+  "gate_groups": {
+    "execution_safety": [
+      "workspace_dirty"
+    ],
+    "local_verification": [],
+    "runtime_governance": [],
+    "ci_policy": [],
+    "release_governance": []
+  },
+  "promotion_levels": {
+    "repo_landed": {
+      "satisfied": false,
+      "reasons": [
+        "workspace_dirty"
+      ]
+    },
+    "ci_proven": {
+      "satisfied": false,
+      "reasons": [
+        "repo_landed_false"
+      ]
+    }
+  },
+  "observed_evidence": {
+    "latest_local_report": {
+      "path": "artifacts/openclaw_datapulse_20260307_185520/local_report.md",
+      "run_id": "20260307_185520",
+      "pass_count": 14,
+      "fail_count": 0,
+      "log": "./artifacts/openclaw_datapulse_20260307_185520/local_test.log"
+    },
+    "latest_remote_report": {
+      "path": "artifacts/openclaw_datapulse_20260307_180508/remote_report.md",
+      "run_id": "20260307_180508",
+      "failed_steps": 0,
+      "log": "./artifacts/openclaw_datapulse_20260307_180508/remote_test.log",
+      "block_codes": []
+    },
+    "latest_emergency_state": {
+      "path": "artifacts/openclaw_datapulse_20260307_180508/emergency_state.json",
+      "run_id": "20260307_180508",
+      "state": {
+        "id": "S5",
+        "name": "\u590d\u6838\u653e\u884c"
+      },
+      "stop": false,
+      "should_new_run_id": false,
+      "blocker_codes": [],
+      "fail_steps": 0,
+      "conclusion": "GREEN",
+      "first_trigger": "",
+      "block_codes": [],
+      "recommendation": {
+        "primary_action": "",
+        "secondary_action": "",
+        "remediation_class": ""
+      },
+      "evidence": {
+        "report": "/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260307_180508/remote_report.md",
+        "log": "/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260307_180508/remote_test.log",
+        "prev_report": "",
+        "report_root": "/Users/sunyifei/DataPulse"
+      }
+    }
+  },
+  "evidence_paths": {
+    "local_report": "artifacts/openclaw_datapulse_<RUN_ID>/local_report.md",
+    "remote_report": "artifacts/openclaw_datapulse_<RUN_ID>/remote_report.md",
+    "remote_log": "artifacts/openclaw_datapulse_<RUN_ID>/remote_test.log",
+    "emergency_state": "artifacts/openclaw_datapulse_<RUN_ID>/emergency_state.json"
+  }
+}

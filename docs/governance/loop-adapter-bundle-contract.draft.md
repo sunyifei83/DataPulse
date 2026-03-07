@@ -87,6 +87,7 @@ The bundle validator should confirm:
 - manifest shape is valid
 - referenced files exist
 - the bundle can be replayed through the generic core
+- adapter runtime can be compared against bundle replay on core fields
 
 ## Why This Matters
 

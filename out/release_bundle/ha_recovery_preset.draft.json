@@ -1,0 +1,45 @@
+{
+  "schema_version": "datapulse_ha_recovery_preset.v1",
+  "project": "DataPulse",
+  "generated_at_utc": "2026-03-07T10:57:36Z",
+  "wired": false,
+  "source_ha_delivery_facts": {
+    "source_kind": "provided_json",
+    "path": "/Users/sunyifei/DataPulse/out/release_bundle/ha_delivery_facts.draft.json"
+  },
+  "recovery_status": {
+    "status": "clear",
+    "first_trigger": "",
+    "conclusion": "GREEN",
+    "selected_route": "selected",
+    "route_available": false,
+    "requires_new_run_id": false
+  },
+  "catalog_match": {
+    "matched": false,
+    "catalog_schema_version": "datapulse_ha_recovery_catalog.v1",
+    "preset_id": "",
+    "title": "",
+    "match_kind": "unmatched",
+    "recommended_signals": [],
+    "notes": []
+  },
+  "route_contract": {},
+  "preset_contract": {
+    "preset_kind": "empty_recovery_route",
+    "supported_by_existing_remote_smoke_entrypoint": false,
+    "env_assignments": {},
+    "manual_steps": [],
+    "shell_exports": [],
+    "command_lines": [],
+    "entrypoint": "",
+    "entrypoint_command": ""
+  },
+  "blocker_codes": [],
+  "recommended_usage": [
+    "Prefer catalog-matched presets when catalog_match.matched is true.",
+    "Rotate RUN_ID before replay if requires_new_run_id is true.",
+    "Use the shell exports and command lines exactly as rendered for the selected route.",
+    "Re-run emergency_guard after the remote smoke replay so the recovery fact chain closes."
+  ]
+}

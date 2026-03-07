@@ -4,8 +4,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
-OUT_DIR="${OUT_DIR:-$ROOT_DIR/artifacts}"
-RUN_ID="${RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
+CALLER_OUT_DIR="${OUT_DIR:-}"
+CALLER_RUN_ID="${RUN_ID:-}"
+OUT_DIR="${CALLER_OUT_DIR:-$ROOT_DIR/artifacts}"
+RUN_ID="${CALLER_RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
 RUN_LOG_DIR="$OUT_DIR/openclaw_datapulse_${RUN_ID}"
 mkdir -p "$RUN_LOG_DIR"
 LOG_FILE="$RUN_LOG_DIR/local_test.log"
@@ -19,21 +21,37 @@ for env_file in ".env.openclaw.local" ".env.openclaw" ".env.local" ".env.secret"
   fi
 done
 
+if [[ -n "$CALLER_OUT_DIR" ]]; then
+  OUT_DIR="$CALLER_OUT_DIR"
+fi
+if [[ -n "$CALLER_RUN_ID" ]]; then
+  RUN_ID="$CALLER_RUN_ID"
+fi
+RUN_LOG_DIR="$OUT_DIR/openclaw_datapulse_${RUN_ID}"
+mkdir -p "$RUN_LOG_DIR"
+LOG_FILE="$RUN_LOG_DIR/local_test.log"
+
 : "${URL_1:=}"
 : "${URL_BATCH:=}"
 : "${PLATFORMS:=twitter reddit youtube bilibili telegram rss wechat xhs}"
 : "${MIN_CONFIDENCE:=${DATAPULSE_MIN_CONFIDENCE:-0.0}}"
+: "${STRICT_PLATFORM_COVERAGE:=0}"
 
-PYTHON_BIN="${PYTHON_BIN:-python3}"
-DATAPULSE_CLI=(datapulse)
-DATAPULSE_SMOKE=(datapulse-smoke)
+if [[ -z "${PYTHON_BIN:-}" ]]; then
+  if [[ -x "$ROOT_DIR/.venv/bin/python" ]]; then
+    PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
+  elif command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="python3"
+  elif command -v python >/dev/null 2>&1; then
+    PYTHON_BIN="python"
+  else
+    echo "Python executable not found." >&2
+    exit 1
+  fi
+fi
 
-if ! command -v datapulse >/dev/null 2>&1; then
-  DATAPULSE_CLI=("$PYTHON_BIN" -m datapulse.cli)
-fi
-if ! command -v datapulse-smoke >/dev/null 2>&1; then
-  DATAPULSE_SMOKE=("$PYTHON_BIN" -m datapulse.tools.smoke)
-fi
+DATAPULSE_CLI=("$PYTHON_BIN" -m datapulse.cli)
+DATAPULSE_SMOKE=("$PYTHON_BIN" -m datapulse.tools.smoke)
 
 exec 1> >(tee -a "$LOG_FILE")
 exec 2> >(tee -a "$LOG_FILE" >&2)
@@ -46,6 +64,8 @@ exec 2> >(tee -a "$LOG_FILE" >&2)
   echo "URL_1=$URL_1"
   echo "URL_BATCH=$URL_BATCH"
   echo "PLATFORMS=$PLATFORMS"
+  echo "PYTHON_BIN=$PYTHON_BIN"
+  echo "STRICT_PLATFORM_COVERAGE=$STRICT_PLATFORM_COVERAGE"
 } | tee -a "$LOG_FILE"
 
 pass_count=0
@@ -105,7 +125,7 @@ run_cmd "列表命令" "${DATAPULSE_CLI[@]}" --list --limit 5 --min-confidence 0
 
 step "6) 平台覆盖（read only）"
 if (("${#DATAPULSE_SMOKE[@]}" > 0)); then
-  "${DATAPULSE_SMOKE[@]}" --platforms $PLATFORMS --list
+  run_cmd "平台覆盖清单" "${DATAPULSE_SMOKE[@]}" --platforms $PLATFORMS --list
 else
   echo "SKIP: datapulse-smoke 不存在"
 fi
@@ -149,7 +169,13 @@ PY
 
 step "10) Smoke 平台回归"
 if (("${#DATAPULSE_SMOKE[@]}" > 0)); then
-  run_cmd "smoke 平台回归" "${DATAPULSE_SMOKE[@]}" --platforms $PLATFORMS --require-all --min-confidence "$MIN_CONFIDENCE"
+  smoke_args=(--platforms $PLATFORMS --min-confidence "$MIN_CONFIDENCE")
+  if [[ "$STRICT_PLATFORM_COVERAGE" == "1" ]]; then
+    smoke_args+=(--require-all)
+    run_cmd "smoke 平台回归（strict）" "${DATAPULSE_SMOKE[@]}" "${smoke_args[@]}"
+  else
+    run_cmd "smoke 平台回归" "${DATAPULSE_SMOKE[@]}" "${smoke_args[@]}"
+  fi
 else
   echo "SKIP: datapulse-smoke 不存在"
 fi

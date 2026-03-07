@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+from pathlib import Path
+from typing import Any
+
+from datapulse_loop_adapter import DEFAULT_CATALOG_PATH, build_datapulse_loop_runtime
+from datapulse_loop_contracts import DEFAULT_PLAN_PATH, REPO_ROOT, display_path, read_json, write_json
+
+
+DEFAULT_POLICY_PATH = REPO_ROOT / "docs/governance/datapulse-auto-continuation-policy.json"
+DEFAULT_OUTPUT_PATH = REPO_ROOT / "out/governance/auto_continuation_runtime.draft.json"
+DEFAULT_BUNDLE_DIR = REPO_ROOT / "out/ha_latest_release_bundle"
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run the repository-governance auto-continuation entrypoint for the DataPulse blueprint loop."
+    )
+    parser.add_argument(
+        "--plan",
+        type=Path,
+        default=DEFAULT_PLAN_PATH,
+        help="Blueprint plan path. Defaults to the active plan overlay.",
+    )
+    parser.add_argument(
+        "--catalog",
+        type=Path,
+        default=DEFAULT_CATALOG_PATH,
+        help="Slice adapter catalog path.",
+    )
+    parser.add_argument(
+        "--policy",
+        type=Path,
+        default=DEFAULT_POLICY_PATH,
+        help="Auto-continuation policy path.",
+    )
+    parser.add_argument(
+        "--bundle-dir",
+        type=Path,
+        default=DEFAULT_BUNDLE_DIR,
+        help="Structured evidence bundle directory to refresh when requested.",
+    )
+    parser.add_argument(
+        "--write-governance-snapshots",
+        action="store_true",
+        help="Refresh code landing status, project loop state, and structured bundle before evaluation.",
+    )
+    parser.add_argument(
+        "--out-path",
+        type=Path,
+        default=DEFAULT_OUTPUT_PATH,
+        help="Output path for the auto-continuation runtime JSON.",
+    )
+    parser.add_argument(
+        "--stdout",
+        action="store_true",
+        help="Print JSON to stdout instead of writing the default draft file.",
+    )
+    return parser.parse_args()
+
+
+def run_capture(command: list[str]) -> str:
+    completed = subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return completed.stdout.strip()
+
+
+def refresh_governance_snapshots(bundle_dir: Path) -> dict[str, str]:
+    return {
+        "code_landing_status": run_capture(
+            [
+                "python3",
+                "scripts/governance/export_datapulse_code_landing_status.py",
+                "--output",
+                "out/governance/code_landing_status.draft.json",
+            ]
+        ),
+        "project_loop_state": run_capture(
+            [
+                "python3",
+                "scripts/governance/export_datapulse_project_loop_state.py",
+                "--output",
+                "out/governance/project_specific_loop_state.draft.json",
+            ]
+        ),
+        "structured_release_bundle": run_capture(
+            [
+                "python3",
+                "scripts/governance/export_datapulse_structured_release_bundle.py",
+                "--out-dir",
+                str(bundle_dir),
+                "--probe-ha-readiness",
+            ]
+        ),
+    }
+
+
+def load_policy(path: Path) -> dict[str, Any]:
+    payload = read_json(path)
+    payload = dict(payload)
+    payload["path"] = display_path(path)
+    return payload
+
+
+def decision_for_runtime(policy: dict[str, Any], runtime: dict[str, Any]) -> dict[str, Any]:
+    policy_enabled = bool(policy.get("enabled", False))
+    runtime_auto_enabled = bool(runtime.get("flow_control", {}).get("auto_continuation_enabled", False))
+    if not policy_enabled:
+        return {
+            "policy_state": "disabled",
+            "action": "stop",
+            "reason": "policy_disabled",
+            "machine_decidable": True,
+            "blocking_facts": [],
+        }
+    if not runtime_auto_enabled:
+        return {
+            "policy_state": "misaligned",
+            "action": "stop",
+            "reason": "runtime_not_auto_enabled",
+            "machine_decidable": True,
+            "blocking_facts": list(runtime.get("effective_blocking_facts", [])),
+        }
+    status = str(runtime.get("status", ""))
+    if status == "blocked":
+        return {
+            "policy_state": "active",
+            "action": "stop",
+            "reason": "machine_blockers_open",
+            "machine_decidable": True,
+            "blocking_facts": list(runtime.get("effective_blocking_facts", [])),
+        }
+    if status == "stopped":
+        return {
+            "policy_state": "active",
+            "action": "stop",
+            "reason": str(runtime.get("reason", "loop_stopped")),
+            "machine_decidable": True,
+            "blocking_facts": list(runtime.get("remaining_promotion_gates", [])),
+        }
+    return {
+        "policy_state": "active",
+        "action": "continue",
+        "reason": "ready_for_auto_advance",
+        "machine_decidable": True,
+        "blocking_facts": [],
+    }
+
+
+def build_payload(
+    *,
+    policy: dict[str, Any],
+    runtime: dict[str, Any],
+    bundle_dir: Path,
+    snapshots_refreshed: dict[str, str],
+) -> dict[str, Any]:
+    decision = decision_for_runtime(policy, runtime)
+    return {
+        "schema_version": "datapulse_auto_continuation_runtime.v1",
+        "project": runtime.get("project", "DataPulse"),
+        "policy": policy,
+        "runtime": runtime,
+        "entrypoint": {
+            "bundle_dir": display_path(bundle_dir.resolve()),
+            "runner": "scripts/governance/run_datapulse_auto_continuation.py",
+            "workflow": ".github/workflows/governance-loop-auto.yml",
+        },
+        "snapshots_refreshed": snapshots_refreshed,
+        "decision": decision,
+        "control_plane_contract": {
+            "healthy_environment_behavior": "continue_without_human_handoff",
+            "abnormal_environment_behavior": "stop_on_machine_decidable_blockers",
+            "default_side_effect_mode": "read_only",
+        },
+    }
+
+
+def main() -> int:
+    args = parse_args()
+    snapshots_refreshed: dict[str, str] = {}
+    if args.write_governance_snapshots:
+        snapshots_refreshed = refresh_governance_snapshots(args.bundle_dir.resolve())
+
+    policy = load_policy(args.policy.resolve())
+    runtime = build_datapulse_loop_runtime(args.plan, args.catalog)
+    payload = build_payload(
+        policy=policy,
+        runtime=runtime,
+        bundle_dir=args.bundle_dir.resolve(),
+        snapshots_refreshed=snapshots_refreshed,
+    )
+
+    if args.stdout:
+        print(json.dumps(payload, indent=2, ensure_ascii=True))
+        return 0
+
+    write_json(args.out_path, payload)
+    print(args.out_path)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

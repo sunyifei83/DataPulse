@@ -1,0 +1,40 @@
+name: governance-loop-auto
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governance-loop-auto
+  cancel-in-progress: false
+
+jobs:
+  refresh-loop-state:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install DataPulse
+        run: python -m pip install -e .
+
+      - name: Refresh auto-continuation state
+        run: python scripts/governance/run_datapulse_auto_continuation.py --write-governance-snapshots
+
+      - name: Upload governance auto state
+        uses: actions/upload-artifact@v4
+        with:
+          name: governance-loop-auto-state
+          path: |
+            out/governance
+            out/ha_latest_release_bundle

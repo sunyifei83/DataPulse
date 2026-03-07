@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+CALLER_RUN_ID="${RUN_ID-}"
+CALLER_OUT_DIR="${OUT_DIR-}"
+
 for env_file in ".env.openclaw.local" ".env.openclaw" ".env.local" ".env.secret" ".env"; do
   if [[ -f "$env_file" ]]; then
     set -a
@@ -9,6 +12,13 @@ for env_file in ".env.openclaw.local" ".env.openclaw" ".env.local" ".env.secret"
     break
   fi
 done
+
+if [[ -n "$CALLER_RUN_ID" ]]; then
+  RUN_ID="$CALLER_RUN_ID"
+fi
+if [[ -n "$CALLER_OUT_DIR" ]]; then
+  OUT_DIR="$CALLER_OUT_DIR"
+fi
 
 RUN_ID="${RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
 OUT_DIR="${OUT_DIR:-$(pwd)/artifacts}"

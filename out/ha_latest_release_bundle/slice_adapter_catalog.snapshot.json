@@ -1,0 +1,78 @@
+{
+  "schema_version": "slice_adapter_catalog.v1",
+  "project": "DataPulse",
+  "generated_at_utc": "2026-03-07T00:00:00Z",
+  "wired": false,
+  "slices": {
+    "L4.1": {
+      "adapter_type": "workflow_change",
+      "execute_mode": "manual_edit",
+      "summary": "Introduce a workflow_dispatch evidence path with minimal coupling to runtime governance.",
+      "candidate_commands": [
+        "python3 scripts/governance/export_datapulse_evidence_bundle.py --stdout",
+        "sed -n '1,240p' docs/governance/datapulse-evidence-workflow.draft.yml",
+        "sed -n '1,220p' .github/workflows/release.yml"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-evidence-workflow.draft.yml",
+        ".github/workflows/<future-evidence-workflow>.yml"
+      ],
+      "notes": [
+        "This slice should only depend on workflow-change execution safety, not on pre-existing release sidecar evidence.",
+        "Keep the future active workflow focused on evidence export, not on full repository governance."
+      ]
+    },
+    "L4.2": {
+      "adapter_type": "release_sidecar",
+      "execute_mode": "manual_export",
+      "summary": "Emit a structured release sidecar that future promotion logic can ingest.",
+      "candidate_commands": [
+        "python3 scripts/governance/export_datapulse_release_sidecar.py --stdout",
+        "python3 scripts/governance/export_datapulse_evidence_bundle.py --stdout"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-release-sidecar.example.json",
+        "out/governance/release_sidecar.draft.json"
+      ],
+      "notes": [
+        "Keep sidecar fields limited to release and evidence facts.",
+        "Do not turn product-domain data into release-governance payload."
+      ]
+    },
+    "L4.3": {
+      "adapter_type": "release_policy_change",
+      "execute_mode": "manual_analysis",
+      "summary": "Unify script-driven and workflow-driven release policy into one authoritative path.",
+      "candidate_commands": [
+        "sed -n '1,240p' scripts/release_publish.sh",
+        "sed -n '1,220p' .github/workflows/release.yml",
+        "sed -n '1,220p' docs/governance/datapulse-release-sidecar.example.json"
+      ],
+      "target_artifacts": [
+        "scripts/release_publish.sh",
+        ".github/workflows/release.yml"
+      ],
+      "notes": [
+        "Pick one authority for release publication and make the other path subordinate or remove it.",
+        "Do not let loop promotion reason over two competing release channels."
+      ]
+    },
+    "L5.1": {
+      "adapter_type": "loop_adapter",
+      "execute_mode": "manual_implementation",
+      "summary": "Implement the active DataPulse adapter after blueprint-first contracts are accepted.",
+      "candidate_commands": [
+        "python3 scripts/governance/run_datapulse_blueprint_loop_draft.py",
+        "python3 scripts/governance/export_datapulse_loop_snapshot.py --stdout"
+      ],
+      "target_artifacts": [
+        "scripts/governance/run_datapulse_blueprint_loop_draft.py",
+        "scripts/governance/datapulse_loop_contracts.py"
+      ],
+      "notes": [
+        "Keep adapter logic slice-profile-driven.",
+        "Keep service-governance evidence behind adapter lookups."
+      ]
+    }
+  }
+}

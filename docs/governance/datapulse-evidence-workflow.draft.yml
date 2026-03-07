@@ -42,6 +42,9 @@ jobs:
       - name: Export governance draft snapshots
         run: |
           python3 scripts/governance/export_datapulse_loop_snapshot.py
+          python3 scripts/governance/export_datapulse_ha_delivery_facts.py
+          python3 scripts/governance/export_datapulse_ha_delivery_landing.py
+          python3 scripts/governance/export_datapulse_ha_recovery_preset.py
 
       - name: Export release sidecar draft
         if: ${{ inputs.emit_release_sidecar }}
@@ -60,4 +63,4 @@ jobs:
 # Draft only:
 # - This file intentionally lives outside .github/workflows and is not active.
 # - It documents the minimum workflow_dispatch evidence path that future loop promotion could consume.
-# - The local analogue is scripts/governance/export_datapulse_evidence_bundle.py
+# - The local analogue is scripts/governance/export_datapulse_evidence_bundle.py, which now also includes ha_delivery_facts, ha_delivery_landing, and ha_recovery_preset.

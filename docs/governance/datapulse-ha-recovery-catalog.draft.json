@@ -1,0 +1,289 @@
+{
+  "schema_version": "datapulse_ha_recovery_catalog.v1",
+  "project": "DataPulse",
+  "generated_at_utc": "2026-03-07T00:00:00Z",
+  "wired": false,
+  "presets": [
+    {
+      "preset_id": "python_direct_310_bootstrap",
+      "title": "Python Direct 3.10 Bootstrap",
+      "recommended_signals": [
+        "PYTHON_VERSION_TOO_LOW"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "remote_smoke_env_preset",
+      "requires_new_run_id": true,
+      "env_assignments": {
+        "REMOTE_USE_UV": "0",
+        "REMOTE_PYTHON": "/opt/homebrew/bin/python3.10",
+        "REMOTE_BOOTSTRAP_INSTALL": "1"
+      },
+      "manual_steps": [],
+      "notes": [
+        "Primary recovery path from the emergency runbook for interpreter mismatch.",
+        "Uses the existing remote smoke entrypoint without adding extra commands."
+      ]
+    },
+    {
+      "preset_id": "uv_python_310_bootstrap",
+      "title": "UV Python 3.10 Bootstrap",
+      "recommended_signals": [
+        "PYTHON_VERSION_TOO_LOW"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "remote_smoke_env_preset",
+      "requires_new_run_id": true,
+      "env_assignments": {
+        "REMOTE_USE_UV": "1",
+        "REMOTE_UV_PYTHON": "3.10"
+      },
+      "manual_steps": [],
+      "notes": [
+        "Fallback recovery path from the emergency runbook for interpreter mismatch."
+      ]
+    },
+    {
+      "preset_id": "trim_context_and_retest",
+      "title": "Trim Context And Retest",
+      "recommended_signals": [
+        "context window exceeded"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "manual_recovery_step",
+      "requires_new_run_id": true,
+      "env_assignments": {},
+      "manual_steps": [
+        "trim_context_and_retest"
+      ],
+      "notes": [
+        "Manual context-compaction route from the emergency runbook.",
+        "Requires operator judgment before the next replay."
+      ]
+    },
+    {
+      "preset_id": "disable_uv_only",
+      "title": "Disable UV Only",
+      "recommended_signals": [
+        "UV_NOT_FOUND"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "remote_smoke_env_preset",
+      "requires_new_run_id": true,
+      "env_assignments": {
+        "REMOTE_USE_UV": "0"
+      },
+      "manual_steps": [],
+      "notes": [
+        "Primary recovery path when uv is unavailable remotely."
+      ]
+    },
+    {
+      "preset_id": "bootstrap_uv_user_site",
+      "title": "Bootstrap UV User Site",
+      "recommended_signals": [
+        "UV_NOT_FOUND"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "manual_recovery_step",
+      "requires_new_run_id": true,
+      "env_assignments": {},
+      "manual_steps": [
+        "bootstrap uv by python -m pip install --user uv"
+      ],
+      "notes": [
+        "Manual fallback when uv must be installed before replay."
+      ]
+    },
+    {
+      "preset_id": "verify_datapulse_dir_and_autoprobe",
+      "title": "Verify DataPulse Dir And Autoprobe",
+      "recommended_signals": [
+        "DATAPULSE_DIR_NOT_FOUND"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "manual_recovery_step",
+      "requires_new_run_id": true,
+      "env_assignments": {},
+      "manual_steps": [
+        "verify MACMINI_DATAPULSE_DIR and allow auto probe"
+      ],
+      "notes": [
+        "Manual path check before replay when the remote repo root cannot be found."
+      ]
+    },
+    {
+      "preset_id": "set_datapulse_dir_to_repo_root",
+      "title": "Set DataPulse Dir To Repo Root",
+      "recommended_signals": [
+        "DATAPULSE_DIR_NOT_FOUND"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "manual_recovery_step",
+      "requires_new_run_id": true,
+      "env_assignments": {},
+      "manual_steps": [
+        "set MACMINI_DATAPULSE_DIR to repo root containing pyproject.toml"
+      ],
+      "notes": [
+        "Manual fallback when the exact remote repo root must be specified."
+      ]
+    },
+    {
+      "preset_id": "set_datapulse_dir_to_source_root",
+      "title": "Set DataPulse Dir To Source Root",
+      "recommended_signals": [
+        "PYPROJECT_MISSING",
+        "PACKAGE_MISSING"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "manual_recovery_step",
+      "requires_new_run_id": true,
+      "env_assignments": {},
+      "manual_steps": [
+        "set MACMINI_DATAPULSE_DIR to source root"
+      ],
+      "notes": [
+        "Manual route when the remote source root is wrong."
+      ]
+    },
+    {
+      "preset_id": "bootstrap_install_only",
+      "title": "Bootstrap Install Only",
+      "recommended_signals": [
+        "IMPORT_FAILED"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "remote_smoke_env_preset",
+      "requires_new_run_id": true,
+      "env_assignments": {
+        "REMOTE_BOOTSTRAP_INSTALL": "1"
+      },
+      "manual_steps": [],
+      "notes": [
+        "Primary recovery path when package import fails and install bootstrap is sufficient."
+      ]
+    },
+    {
+      "preset_id": "set_remote_pip_extras_by_platform",
+      "title": "Set Remote PIP Extras By Platform",
+      "recommended_signals": [
+        "IMPORT_FAILED"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "manual_recovery_step",
+      "requires_new_run_id": true,
+      "env_assignments": {},
+      "manual_steps": [
+        "set REMOTE_PIP_EXTRAS by platform"
+      ],
+      "notes": [
+        "Manual fallback when import recovery needs platform-specific extras."
+      ]
+    },
+    {
+      "preset_id": "pip_no_proxy_and_no_cli_proxy_injection",
+      "title": "PIP No Proxy And No CLI Proxy Injection",
+      "recommended_signals": [
+        "BUILD_DEPENDENCY_PROXY_FAIL"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "manual_recovery_step",
+      "requires_new_run_id": true,
+      "env_assignments": {},
+      "manual_steps": [
+        "ensure REMOTE_PIP_NO_PROXY='*' and no command-line proxy injection"
+      ],
+      "notes": [
+        "Manual network/proxy recovery route from the emergency runbook."
+      ]
+    },
+    {
+      "preset_id": "enable_uv_bootstrap",
+      "title": "Enable UV Bootstrap",
+      "recommended_signals": [
+        "BUILD_DEPENDENCY_PROXY_FAIL"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "remote_smoke_env_preset",
+      "requires_new_run_id": true,
+      "env_assignments": {
+        "REMOTE_UV_BOOTSTRAP": "1"
+      },
+      "manual_steps": [],
+      "notes": [
+        "Fallback path when dependency bootstrap should switch to uv bootstrap."
+      ]
+    },
+    {
+      "preset_id": "rotate_macmini_host_candidates",
+      "title": "Rotate Mac Mini Host Candidates",
+      "recommended_signals": [
+        "SSH_CONNECTION_REFUSED"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "manual_recovery_step",
+      "requires_new_run_id": true,
+      "env_assignments": {},
+      "manual_steps": [
+        "rotate MACMINI_HOST from MACMINI_HOST_CANDIDATES"
+      ],
+      "notes": [
+        "Manual primary route for remote host connectivity failures."
+      ]
+    },
+    {
+      "preset_id": "switch_vps_backup_once",
+      "title": "Switch VPS Backup Once",
+      "recommended_signals": [
+        "SSH_CONNECTION_REFUSED",
+        "SSH_HOST_KEY_UNKNOWN"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "remote_smoke_env_preset",
+      "requires_new_run_id": true,
+      "env_assignments": {
+        "VPS_HOST": "38.244.20.109",
+        "VPS_PORT": "20108"
+      },
+      "manual_steps": [],
+      "notes": [
+        "Backup VPS route from the emergency runbook.",
+        "Should only be used once per incident window."
+      ]
+    },
+    {
+      "preset_id": "check_vps_or_macmini_reachability",
+      "title": "Check VPS Or Mac Mini Reachability",
+      "recommended_signals": [
+        "SSH_HOST_KEY_UNKNOWN"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "manual_recovery_step",
+      "requires_new_run_id": true,
+      "env_assignments": {},
+      "manual_steps": [
+        "check VPS_HOST/MACMINI_HOST reachability"
+      ],
+      "notes": [
+        "Manual primary route before switching backup transport."
+      ]
+    },
+    {
+      "preset_id": "check_ssh_auth_material",
+      "title": "Check SSH Auth Material",
+      "recommended_signals": [
+        "SSH_AUTH_FAILED"
+      ],
+      "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+      "route_kind": "manual_recovery_step",
+      "requires_new_run_id": true,
+      "env_assignments": {},
+      "manual_steps": [
+        "check MACMINI_PASSWORD / REMOTE_SSH_IDENTITY"
+      ],
+      "notes": [
+        "Manual route when SSH authentication fails."
+      ]
+    }
+  ]
+}

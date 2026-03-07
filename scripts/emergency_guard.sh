@@ -100,7 +100,13 @@ if [[ -z "$OUT_PATH" ]]; then
   OUT_PATH="$(dirname "$REPORT_PATH")/emergency_state.json"
 fi
 
-python3 - <<'PY'
+python3 - \
+  --report "$REPORT_PATH" \
+  --log "${LOG_PATH:-}" \
+  --rules "$RULES_PATH" \
+  --prev_report "${PREV_REPORT_PATH:-}" \
+  --out "$OUT_PATH" \
+  --root "$ROOT_DIR" <<'PY'
 import argparse
 import json
 import re
@@ -190,21 +196,23 @@ current = parse_report(report_path)
 prev = parse_report(prev_report) if prev_report else {}
 log_text = read_text(log_path) if log_path else ""
 full_text = f"{current['raw']}\n{log_text}".lower()
+should_infer_signals_from_text = bool((current.get("fail_steps") or 0) > 0 or current.get("block_codes"))
 
 block_codes = []
 for code in current["block_codes"]:
     if code not in block_codes:
         block_codes.append(code)
 
-for signal in signals:
-    sig_id = signal.get("id", "")
-    aliases = [sig_id] + signal.get("aliases", [])
-    for alias in aliases:
-        if not alias:
-            continue
-        if alias.lower() in full_text and sig_id not in block_codes:
-            block_codes.append(sig_id)
-            break
+if should_infer_signals_from_text:
+    for signal in signals:
+        sig_id = signal.get("id", "")
+        aliases = [sig_id] + signal.get("aliases", [])
+        for alias in aliases:
+            if not alias:
+                continue
+            if alias.lower() in full_text and sig_id not in block_codes:
+                block_codes.append(sig_id)
+                break
 
 first_trigger = ""
 for signal in signals:
@@ -303,10 +311,4 @@ print(f"FIRST_TRIGGER={state_payload['first_trigger'] or 'NONE'}")
 print(f"NEW_RUN_ID_REQUIRED={state_payload['should_new_run_id']}")
 print(f"STOP={state_payload['stop']}")
 print(f"CONCLUSION={state_payload['conclusion']}")
-PY \
-  --report "$REPORT_PATH" \
-  --log "${LOG_PATH:-}" \
-  --rules "$RULES_PATH" \
-  --prev_report "${PREV_REPORT_PATH:-}" \
-  --out "$OUT_PATH" \
-  --root "$ROOT_DIR"
+PY

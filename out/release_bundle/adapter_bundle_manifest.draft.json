@@ -1,0 +1,23 @@
+{
+  "schema_version": "adapter_bundle_manifest.v1",
+  "project": "DataPulse",
+  "generated_at_utc": "2026-03-07T10:57:31Z",
+  "bundle_kind": "draft_export",
+  "wired": true,
+  "files": {
+    "plan": "blueprint_plan.snapshot.json",
+    "landing_status": "code_landing_status.snapshot.json",
+    "slice_catalog": "slice_adapter_catalog.snapshot.json",
+    "auto_continuation_policy": "auto_continuation_policy.snapshot.json"
+  },
+  "adapter_metadata": {
+    "adapter_module": "scripts/governance/datapulse_loop_adapter.py",
+    "core_runner": "scripts/governance/run_governance_loop_bundle_draft.py",
+    "active_runner": "scripts/governance/run_datapulse_blueprint_loop.py",
+    "auto_runner": "scripts/governance/run_datapulse_auto_continuation.py"
+  },
+  "notes": [
+    "This bundle remains read-only, even when the repository-level auto-continuation entrypoint is enabled.",
+    "The bundle is intended for read-only core evaluation and replay."
+  ]
+}

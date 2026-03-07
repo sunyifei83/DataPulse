@@ -1,0 +1,191 @@
+{
+  "schema_version": "ha_delivery_facts.v1",
+  "project": "DataPulse",
+  "generated_at_utc": "2026-03-07T10:57:25Z",
+  "fact_kind": "draft_export",
+  "wired": false,
+  "current_level": "ha_release_structured",
+  "next_missing_level": "ha_release_structured",
+  "ha_chain": {
+    "remote_observation": {
+      "status": "passed",
+      "available": true,
+      "gate_passed": true,
+      "run_id": "20260307_180508",
+      "failed_steps": 0,
+      "block_codes": [],
+      "report_path": "artifacts/openclaw_datapulse_20260307_180508/remote_report.md",
+      "log_path": "artifacts/openclaw_datapulse_20260307_180508/remote_test.log",
+      "reasons": []
+    },
+    "emergency_gate": {
+      "status": "passed",
+      "available": true,
+      "gate_passed": true,
+      "source_kind": "artifact_observed",
+      "matches_latest_remote": true,
+      "run_id": "20260307_180508",
+      "state": {
+        "id": "S5",
+        "name": "\u590d\u6838\u653e\u884c"
+      },
+      "conclusion": "GREEN",
+      "first_trigger": "",
+      "block_codes": [],
+      "blocker_codes": [],
+      "should_new_run_id": false,
+      "fail_steps": 0,
+      "recommendation": {
+        "primary_action": "",
+        "secondary_action": "",
+        "remediation_class": ""
+      },
+      "evidence": {
+        "report": "/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260307_180508/remote_report.md",
+        "log": "/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260307_180508/remote_test.log",
+        "prev_report": "",
+        "report_root": "/Users/sunyifei/DataPulse"
+      },
+      "report_path": "artifacts/openclaw_datapulse_20260307_180508/remote_report.md",
+      "log_path": "artifacts/openclaw_datapulse_20260307_180508/remote_test.log",
+      "reasons": []
+    },
+    "recovery_route": {
+      "status": "clear",
+      "route_available": true,
+      "run_id": "20260307_180508",
+      "state": {
+        "id": "S5",
+        "name": "\u590d\u6838\u653e\u884c"
+      },
+      "conclusion": "GREEN",
+      "first_trigger": "",
+      "block_codes": [],
+      "blocker_codes": [],
+      "should_new_run_id": false,
+      "fail_steps": 0,
+      "primary_action": "",
+      "secondary_action": "",
+      "remediation_class": "",
+      "selected_route": "",
+      "primary_execution_contract": {
+        "route_name": "primary",
+        "route_available": false,
+        "raw_action": "",
+        "route_kind": "empty_recovery_route",
+        "env_assignments": {},
+        "manual_steps": [],
+        "supported_env_keys": [],
+        "unsupported_env_keys": [],
+        "supported_by_existing_remote_smoke_entrypoint": false,
+        "requires_new_run_id": false,
+        "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+        "shell_exports": [],
+        "command_lines": [],
+        "entrypoint_command": ""
+      },
+      "primary_catalog_match": {
+        "matched": false,
+        "catalog_schema_version": "datapulse_ha_recovery_catalog.v1",
+        "preset_id": "",
+        "title": "",
+        "match_kind": "unmatched",
+        "recommended_signals": [],
+        "notes": []
+      },
+      "secondary_execution_contract": {
+        "route_name": "secondary",
+        "route_available": false,
+        "raw_action": "",
+        "route_kind": "empty_recovery_route",
+        "env_assignments": {},
+        "manual_steps": [],
+        "supported_env_keys": [],
+        "unsupported_env_keys": [],
+        "supported_by_existing_remote_smoke_entrypoint": false,
+        "requires_new_run_id": false,
+        "entrypoint": "bash scripts/datapulse_remote_openclaw_smoke.sh",
+        "shell_exports": [],
+        "command_lines": [],
+        "entrypoint_command": ""
+      },
+      "secondary_catalog_match": {
+        "matched": false,
+        "catalog_schema_version": "datapulse_ha_recovery_catalog.v1",
+        "preset_id": "",
+        "title": "",
+        "match_kind": "unmatched",
+        "recommended_signals": [],
+        "notes": []
+      },
+      "selected_catalog_match": {
+        "matched": false,
+        "catalog_schema_version": "datapulse_ha_recovery_catalog.v1",
+        "preset_id": "",
+        "title": "",
+        "match_kind": "unmatched",
+        "recommended_signals": [],
+        "notes": []
+      },
+      "reasons": []
+    },
+    "release_readiness": {
+      "probe_requested": false,
+      "source_kind": "persisted_fact",
+      "source_fact_path": "out/governance/release_readiness_fact.draft.json",
+      "status": "passed",
+      "gate_passed": true,
+      "pass_count": 23,
+      "fail_count": 0,
+      "failed_checks": [],
+      "reasons": []
+    },
+    "release_structuring": {
+      "workflow_dispatch_available": true,
+      "workflow_dispatch_entrypoints": [
+        ".github/workflows/release.yml",
+        ".github/workflows/governance-evidence.yml"
+      ],
+      "structured_release_bundle_available": true,
+      "active_release_workflow": ".github/workflows/release.yml"
+    }
+  },
+  "delivery_levels": {
+    "ha_observed": {
+      "satisfied": true,
+      "reasons": []
+    },
+    "ha_guarded": {
+      "satisfied": true,
+      "reasons": []
+    },
+    "ha_ready": {
+      "satisfied": true,
+      "reasons": []
+    },
+    "ha_release_structured": {
+      "satisfied": true,
+      "reasons": []
+    }
+  },
+  "open_facts": [],
+  "machine_blockers": [],
+  "fact_groups": {
+    "ha_runtime": [],
+    "ha_recovery_signals": [],
+    "release_structuring": []
+  },
+  "delivery_contract": {
+    "objective": "high_ha_delivery",
+    "machine_decidable": true,
+    "project_specific": true,
+    "not_part_of_reusable_core": true,
+    "recovery_catalog_path": "docs/governance/datapulse-ha-recovery-catalog.draft.json",
+    "evidence_chain": [
+      "remote_smoke",
+      "emergency_gate",
+      "release_readiness",
+      "structured_release_evidence"
+    ]
+  }
+}

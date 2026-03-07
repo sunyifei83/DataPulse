@@ -44,6 +44,68 @@ Interpretation:
 
 - These commands remain the preferred readiness gate layer once a remote report exists.
 
+## HA Delivery Fact Export
+
+Preferred fact exporter:
+
+1. `python3 scripts/governance/export_datapulse_ha_delivery_facts.py`
+2. `python3 scripts/governance/export_datapulse_release_readiness_fact.py`
+
+Interpretation:
+
+- This exporter creates a DataPulse-specific HA delivery truth view from the latest remote and release evidence chain.
+- It may temporarily rehydrate `emergency_state.json` from the latest remote report when the latest artifact is missing or stale.
+- `--probe-release-readiness` remains opt-in because it executes the existing readiness script explicitly.
+- The release-readiness exporter persists that opt-in probe as `release_readiness_fact.v1`, so later HA fact recomputation can consume stable readiness truth without rerunning the command every time.
+
+## HA Delivery Landing Export
+
+Preferred landing exporter:
+
+1. `python3 scripts/governance/export_datapulse_ha_delivery_landing.py`
+
+Interpretation:
+
+- This exporter composes generic activation preview with DataPulse-specific HA delivery facts.
+- It keeps repo-governance cutover, runtime cutover timing, HA runtime blockers, and release-structuring facts in separate machine-readable tracks.
+- It should remain adapter-owned and must not be absorbed into the reusable loop core.
+
+## HA Recovery Preset Export
+
+Preferred preset exporter:
+
+1. `python3 scripts/governance/export_datapulse_ha_recovery_preset.py`
+
+Interpretation:
+
+- This exporter turns the currently selected emergency recovery route into a replayable preset for `scripts/datapulse_remote_openclaw_smoke.sh`.
+- It should stay read-only and must not execute the remote replay itself.
+- It is the bridge from machine-diagnosed blocker to machine-readable recovery contract.
+
+## HA Recovery Replay Wrapper
+
+Preferred manual replay wrapper:
+
+1. `python3 scripts/governance/run_datapulse_ha_recovery_replay.py`
+
+Interpretation:
+
+- This wrapper defaults to dry-run and only executes with explicit `--execute`.
+- It consumes the selected HA recovery preset, replays `scripts/datapulse_remote_openclaw_smoke.sh`, then refreshes emergency-state truth for that run.
+- It is the first explicit round-trip from recovery diagnosis to recovery replay.
+
+## Structured Release Bundle Export
+
+Preferred bundle exporter:
+
+1. `python3 scripts/governance/export_datapulse_structured_release_bundle.py --probe-ha-readiness`
+
+Interpretation:
+
+- This exporter creates a recognized structured release evidence directory under `out/release_bundle`.
+- It is manual-only and keeps `ha_release_structured` machine-decidable without wiring active release workflows.
+- `.github/workflows/governance-evidence.yml` is the corresponding dedicated `workflow_dispatch` entrypoint when the project decides to run the same export path in GitHub Actions.
+
 ## Commands Explicitly Excluded For Now
 
 ### `bash scripts/quick_test.sh`

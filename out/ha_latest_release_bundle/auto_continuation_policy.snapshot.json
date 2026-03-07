@@ -1,0 +1,33 @@
+{
+  "schema_version": "datapulse_auto_continuation_policy.v1",
+  "project": "DataPulse",
+  "generated_at_utc": "2026-03-07T00:00:00Z",
+  "enabled": true,
+  "mode": "scheduled_governance_entrypoint",
+  "entrypoints": {
+    "workflow": ".github/workflows/governance-loop-auto.yml",
+    "runner": "scripts/governance/run_datapulse_auto_continuation.py"
+  },
+  "schedule": {
+    "cron": "17 * * * *",
+    "timezone": "UTC"
+  },
+  "decision_contract": {
+    "continue_when": [
+      "loop_runtime_ready",
+      "auto_continuation_enabled"
+    ],
+    "stop_when": [
+      "machine_decidable_blockers_open",
+      "promotion_gates_open",
+      "loop_complete"
+    ],
+    "side_effect_mode": "read_only_governance_refresh"
+  },
+  "guardrails": [
+    "Do not invoke business entrypoints from the auto-continuation workflow.",
+    "Do not mutate release assets or tags from the auto-continuation workflow.",
+    "Keep runtime blockers machine-visible and stop instead of hand-waving around them."
+  ],
+  "path": "docs/governance/datapulse-auto-continuation-policy.json"
+}

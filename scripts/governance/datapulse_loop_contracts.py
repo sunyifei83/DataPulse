@@ -12,7 +12,9 @@ from loop_core_draft import build_project_loop_state_core, dedupe
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts"
-DEFAULT_PLAN_PATH = REPO_ROOT / "docs/governance/datapulse-blueprint-plan.draft.json"
+DRAFT_PLAN_PATH = REPO_ROOT / "docs/governance/datapulse-blueprint-plan.draft.json"
+ACTIVE_PLAN_PATH = REPO_ROOT / "docs/governance/datapulse-blueprint-plan.json"
+DEFAULT_PLAN_PATH = ACTIVE_PLAN_PATH if ACTIVE_PLAN_PATH.exists() else DRAFT_PLAN_PATH
 DEFAULT_OUT_DIR = REPO_ROOT / "out/governance"
 
 
@@ -28,6 +30,16 @@ def read_json(path: Path) -> dict[str, Any]:
     return json.loads(read_text(path))
 
 
+def deep_merge_dicts(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(base)
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = deep_merge_dicts(dict(merged[key]), value)
+        else:
+            merged[key] = value
+    return merged
+
+
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
@@ -35,6 +47,17 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
 
 def docs_governance_dir() -> Path:
     return REPO_ROOT / "docs/governance"
+
+
+def resolve_repo_path(raw_path: str, *, relative_to: Path | None = None) -> Path:
+    candidate = Path(raw_path)
+    if candidate.is_absolute():
+        return candidate.resolve()
+    repo_candidate = (REPO_ROOT / candidate).resolve()
+    if repo_candidate.exists():
+        return repo_candidate
+    base_dir = relative_to.parent if relative_to is not None else REPO_ROOT
+    return (base_dir / candidate).resolve()
 
 
 def display_path(path: Path) -> str:
@@ -62,6 +85,66 @@ def repo_workspace_clean() -> tuple[bool, list[str]]:
     if not status:
         return True, []
     return False, [line for line in status.splitlines() if line.strip()]
+
+
+def changed_paths_from_status_lines(status_lines: list[str]) -> list[str]:
+    paths: list[str] = []
+    for line in status_lines:
+        if len(line) < 4:
+            continue
+        raw_path = line[3:].strip()
+        if " -> " in raw_path:
+            parts = [part.strip() for part in raw_path.split(" -> ") if part.strip()]
+            paths.extend(parts)
+        elif raw_path:
+            paths.append(raw_path)
+    return dedupe(paths)
+
+
+def ci_paths_ignore_configured() -> bool:
+    ci_path = REPO_ROOT / ".github/workflows/ci.yml"
+    if not ci_path.exists():
+        return False
+    content = read_text(ci_path)
+    required_markers = [
+        'paths-ignore:',
+        '"*.md"',
+        '"README.md"',
+        '"README_CN.md"',
+        '"README_EN.md"',
+        '"docs/**"',
+    ]
+    return all(marker in content for marker in required_markers)
+
+
+def is_ci_ignored_docs_path(path: str) -> bool:
+    normalized = path.strip().lstrip("./")
+    if not normalized:
+        return False
+    if normalized.startswith("docs/"):
+        return True
+    if normalized in {"README.md", "README_CN.md", "README_EN.md"}:
+        return True
+    return "/" not in normalized and normalized.endswith(".md")
+
+
+def current_change_paths(workspace_clean: bool, dirty_entries: list[str]) -> list[str]:
+    if not workspace_clean:
+        return changed_paths_from_status_lines(dirty_entries)
+    changed = git_output("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD")
+    if not changed:
+        return []
+    return dedupe([line.strip() for line in changed.splitlines() if line.strip()])
+
+
+def ci_docs_only_skip_active(workspace_clean: bool, dirty_entries: list[str]) -> tuple[bool, list[str]]:
+    if not ci_paths_ignore_configured():
+        return False, []
+    change_paths = current_change_paths(workspace_clean, dirty_entries)
+    if not change_paths:
+        return False, []
+    docs_only = all(is_ci_ignored_docs_path(path) for path in change_paths)
+    return docs_only, change_paths
 
 
 def latest_artifact_file(filename: str) -> Path | None:
@@ -120,7 +203,7 @@ def parse_local_report(path: Path | None) -> dict[str, Any] | None:
         return None
     data = parse_report_kv(path)
     return {
-        "path": str(path.relative_to(REPO_ROOT)),
+        "path": display_path(path),
         "run_id": data.get("运行ID", ""),
         "pass_count": parse_int(data.get("PASS")),
         "fail_count": parse_int(data.get("FAIL")),
@@ -133,7 +216,7 @@ def parse_remote_report(path: Path | None) -> dict[str, Any] | None:
         return None
     data = parse_report_kv(path)
     return {
-        "path": str(path.relative_to(REPO_ROOT)),
+        "path": display_path(path),
         "run_id": data.get("运行ID", ""),
         "failed_steps": parse_int(data.get("失败步骤")),
         "log": data.get("日志", ""),
@@ -146,22 +229,25 @@ def parse_emergency_state(path: Path | None) -> dict[str, Any] | None:
         return None
     payload = read_json(path)
     return {
-        "path": str(path.relative_to(REPO_ROOT)),
+        "path": display_path(path),
         "run_id": payload.get("run_id", ""),
         "state": payload.get("state", {}),
         "stop": bool(payload.get("stop", False)),
+        "should_new_run_id": bool(payload.get("should_new_run_id", False)),
+        "blocker_codes": payload.get("blocker_codes", []),
+        "fail_steps": parse_int(payload.get("fail_steps")),
         "conclusion": payload.get("conclusion", ""),
         "first_trigger": payload.get("first_trigger", ""),
         "block_codes": payload.get("block_codes", []),
+        "recommendation": payload.get("recommendation", {}),
+        "evidence": payload.get("evidence", {}),
     }
 
 
 def ci_docs_only_skip() -> bool:
-    ci_path = REPO_ROOT / ".github/workflows/ci.yml"
-    if not ci_path.exists():
-        return False
-    content = read_text(ci_path)
-    return "paths-ignore:" in content and '"docs/**"' in content
+    workspace_clean, dirty_entries = repo_workspace_clean()
+    active, _ = ci_docs_only_skip_active(workspace_clean, dirty_entries)
+    return active
 
 
 def workflow_dispatch_available(workflow_path: Path) -> bool:
@@ -171,12 +257,40 @@ def workflow_dispatch_available(workflow_path: Path) -> bool:
     return "workflow_dispatch:" in content
 
 
+def workflow_dispatch_entrypoints() -> list[str]:
+    candidates = [
+        REPO_ROOT / ".github/workflows/release.yml",
+        REPO_ROOT / ".github/workflows/governance-evidence.yml",
+    ]
+    entrypoints: list[str] = []
+    for path in candidates:
+        if workflow_dispatch_available(path):
+            entrypoints.append(display_path(path))
+    return entrypoints
+
+
+def workflow_push_tag_release_enabled(workflow_path: Path) -> bool:
+    if not workflow_path.exists():
+        return False
+    content = read_text(workflow_path)
+    return "push:" in content and "tags:" in content
+
+
 def structured_release_bundle_available() -> bool:
     candidates = [
         REPO_ROOT / "out/ha_latest_release_bundle",
         REPO_ROOT / "out/release_bundle",
     ]
-    return any(path.exists() for path in candidates)
+    manifest_names = [
+        "structured_release_bundle_manifest.draft.json",
+        "evidence_bundle_manifest.draft.json",
+    ]
+    for path in candidates:
+        if not path.exists() or not path.is_dir():
+            continue
+        if any((path / name).exists() for name in manifest_names):
+            return True
+    return False
 
 
 def verification_contracts(local_report: dict[str, Any] | None, remote_report: dict[str, Any] | None) -> dict[str, Any]:
@@ -232,6 +346,7 @@ def verification_contracts(local_report: dict[str, Any] | None, remote_report: d
 
 def build_code_landing_status() -> dict[str, Any]:
     workspace_clean, dirty_entries = repo_workspace_clean()
+    docs_only_skip_active, change_paths = ci_docs_only_skip_active(workspace_clean, dirty_entries)
     local_report = parse_local_report(latest_artifact_file("local_report.md"))
     remote_report = parse_remote_report(latest_artifact_file("remote_report.md"))
     emergency_state = parse_emergency_state(latest_artifact_file("emergency_state.json"))
@@ -256,12 +371,16 @@ def build_code_landing_status() -> dict[str, Any]:
         repo_landed_reasons.append("emergency_stop")
 
     release_workflow = REPO_ROOT / ".github/workflows/release.yml"
+    dispatch_entrypoints = workflow_dispatch_entrypoints()
+    workflow_dispatch_ready = bool(dispatch_entrypoints)
+    tag_push_release_enabled = workflow_push_tag_release_enabled(release_workflow)
+    mixed_release_policy = tag_push_release_enabled
     ci_proven_reasons: list[str] = []
     if repo_landed_reasons:
         ci_proven_reasons.append("repo_landed_false")
-    if ci_docs_only_skip():
+    if docs_only_skip_active:
         ci_proven_reasons.append("docs_only_changes_skip_ci")
-    if not workflow_dispatch_available(release_workflow):
+    if not workflow_dispatch_ready:
         ci_proven_reasons.append("workflow_dispatch_missing")
     if not structured_release_bundle_available():
         ci_proven_reasons.append("structured_release_bundle_missing")
@@ -285,13 +404,14 @@ def build_code_landing_status() -> dict[str, Any]:
         ),
         "ci_policy": dedupe(
             [
-                "docs_only_changes_skip_ci" if ci_docs_only_skip() else "",
+                "docs_only_changes_skip_ci" if docs_only_skip_active else "",
             ]
         ),
         "release_governance": dedupe(
             [
-                "workflow_dispatch_missing" if not workflow_dispatch_available(release_workflow) else "",
+                "workflow_dispatch_missing" if not workflow_dispatch_ready else "",
                 "structured_release_bundle_missing" if not structured_release_bundle_available() else "",
+                "mixed_release_policy" if mixed_release_policy else "",
             ]
         ),
     }
@@ -315,15 +435,24 @@ def build_code_landing_status() -> dict[str, Any]:
         "ci": {
             "workflow_name": "CI",
             "truth_source": ".github/workflows/ci.yml",
-            "docs_only_changes_skip_ci": ci_docs_only_skip(),
+            "docs_only_changes_skip_ci": docs_only_skip_active,
+            "docs_paths_ignore_configured": ci_paths_ignore_configured(),
+            "change_scope": {
+                "paths": change_paths,
+                "docs_only": docs_only_skip_active,
+            },
         },
         "release": {
-            "mode": "mixed_local_script_and_tag_workflow",
-            "workflow_dispatch_available": workflow_dispatch_available(release_workflow),
+            "mode": "mixed_local_script_and_tag_workflow" if mixed_release_policy else "script_authoritative_with_manual_workflow_repair",
+            "workflow_dispatch_available": workflow_dispatch_ready,
+            "workflow_dispatch_entrypoints": dispatch_entrypoints,
+            "tag_push_release_enabled": tag_push_release_enabled,
             "structured_release_bundle": structured_release_bundle_available(),
+            "policy_gates": ["mixed_release_policy"] if mixed_release_policy else [],
             "truth_sources": [
                 "scripts/release_publish.sh",
                 ".github/workflows/release.yml",
+                ".github/workflows/governance-evidence.yml",
             ],
         },
         "gate_groups": gate_groups,
@@ -351,7 +480,48 @@ def build_code_landing_status() -> dict[str, Any]:
     }
 
 def load_plan(path: Path) -> dict[str, Any]:
-    return read_json(path)
+    plan = read_json(path)
+    if str(plan.get("schema_version", "")) != "blueprint_plan_overlay.v1":
+        return apply_activation_policy(plan, source_path=path)
+
+    base_plan_raw = str(plan.get("base_plan", "")).strip()
+    if not base_plan_raw:
+        raise ValueError(f"Plan overlay missing base_plan: {path}")
+    base_path = resolve_repo_path(base_plan_raw, relative_to=path)
+    base_plan = load_plan(base_path)
+
+    overlay = {key: value for key, value in plan.items() if key not in {"schema_version", "base_plan"}}
+    merged = deep_merge_dicts(base_plan, overlay)
+    merged["_overlay_path"] = str(path.resolve())
+    merged["_base_plan_path"] = str(base_path.resolve())
+    return apply_activation_policy(merged, source_path=path)
+
+
+def apply_activation_policy(plan: dict[str, Any], *, source_path: Path) -> dict[str, Any]:
+    activation = dict(plan.get("activation", {}))
+    policy_ref = activation.get("auto_continuation_policy", {})
+    if not isinstance(policy_ref, dict):
+        return plan
+    raw_path = str(policy_ref.get("path", "")).strip()
+    if not raw_path:
+        return plan
+
+    policy_path = resolve_repo_path(raw_path, relative_to=source_path)
+    policy_payload: dict[str, Any]
+    if policy_path.exists():
+        policy_payload = read_json(policy_path)
+    else:
+        policy_payload = {
+            "schema_version": "datapulse_auto_continuation_policy.v1",
+            "enabled": False,
+            "policy_status": "missing",
+            "reason": "policy_file_missing",
+        }
+    policy_payload = dict(policy_payload)
+    policy_payload["path"] = display_path(policy_path)
+    activation["auto_continuation"] = policy_payload
+    plan["activation"] = activation
+    return plan
 
 
 def write_plan(path: Path, plan: dict[str, Any]) -> None:

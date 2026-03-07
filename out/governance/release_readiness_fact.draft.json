@@ -1,0 +1,82 @@
+{
+  "schema_version": "release_readiness_fact.v1",
+  "project": "DataPulse",
+  "generated_at_utc": "2026-03-07T10:57:29Z",
+  "fact_kind": "draft_export",
+  "wired": false,
+  "source_emergency_state": {
+    "available": true,
+    "path": "artifacts/openclaw_datapulse_20260307_180508/emergency_state.json",
+    "run_id": "20260307_180508",
+    "conclusion": "GREEN",
+    "stop": false,
+    "first_trigger": ""
+  },
+  "command": {
+    "entrypoint": "bash scripts/release_readiness.sh",
+    "args": [
+      "--emergency-state",
+      "artifacts/openclaw_datapulse_20260307_180508/emergency_state.json",
+      "--require-emergency-gate"
+    ],
+    "require_emergency_gate": true
+  },
+  "observation": {
+    "status": "passed",
+    "gate_passed": true,
+    "returncode": 0,
+    "pass_count": 23,
+    "fail_count": 0,
+    "passed_checks": [
+      "git repository detected",
+      "command available: python3",
+      "command available: jq",
+      "command available: gh",
+      ".claude/ \u5df2\u5199\u5165 .gitignore",
+      "required file exists: pyproject.toml",
+      "required file exists: README.md",
+      "required file exists: README_CN.md",
+      "required file exists: README_EN.md",
+      "required file exists: docs/contracts/openclaw_datapulse_tool_contract.json",
+      "required file exists: docs/openclaw_tavily_multi_execution_plan.json",
+      "required file exists: docs/release_checklist.md",
+      "required file exists: docs/search_gateway_config.md",
+      "required file exists: docs/release_rollback_guide.md",
+      "required file exists: scripts/release_publish.sh",
+      "required file exists: scripts/datapulse_local_smoke.sh",
+      "required file exists: scripts/datapulse_console.sh",
+      "required file exists: scripts/datapulse_console_smoke.sh",
+      "required file exists: scripts/datapulse_remote_openclaw_smoke.sh",
+      "openclaw contract JSON valid",
+      "security guardrails passed",
+      "python compile check passed",
+      "emergency gate passed"
+    ],
+    "failed_checks": [],
+    "stdout_tail": [
+      "[PASS] required file exists: docs/search_gateway_config.md",
+      "[PASS] required file exists: docs/release_rollback_guide.md",
+      "[PASS] required file exists: scripts/release_publish.sh",
+      "[PASS] required file exists: scripts/datapulse_local_smoke.sh",
+      "[PASS] required file exists: scripts/datapulse_console.sh",
+      "[PASS] required file exists: scripts/datapulse_console_smoke.sh",
+      "[PASS] required file exists: scripts/datapulse_remote_openclaw_smoke.sh",
+      "[PASS] openclaw contract JSON valid",
+      "[guardrails] token leak scan start",
+      "[guardrails] no suspicious token pattern found",
+      "[PASS] security guardrails passed",
+      "[PASS] python compile check passed",
+      "EMERGENCY_STATE=S5 \u590d\u6838\u653e\u884c",
+      "EMERGENCY_RUN_ID=20260307_180508",
+      "EMERGENCY_FIRST_TRIGGER=NONE",
+      "EMERGENCY_NEW_RUN_REQUIRED=false",
+      "EMERGENCY_CONCLUSION=GREEN",
+      "[PASS] emergency gate passed",
+      "release readiness: pass=23 fail=0",
+      "[OK] release readiness check passed"
+    ],
+    "stderr_tail": [],
+    "reasons": []
+  },
+  "machine_blockers": []
+}

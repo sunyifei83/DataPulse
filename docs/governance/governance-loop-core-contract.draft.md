@@ -66,6 +66,10 @@ The core may additionally derive:
 - reusable-capability summary
 - ready/blocked/stopped status
 
+The core should not directly own active-wiring decisions.
+
+Those should be derived one layer up from bundle replay plus adapter metadata, so activation planning remains decoupled from core semantics.
+
 ## Expected Semantics
 
 ### Continue
@@ -99,6 +103,16 @@ The first extracted core lives here:
 - `scripts/governance/run_governance_loop_core_draft.py`
 - `scripts/governance/run_governance_loop_bundle_draft.py`
 - `scripts/governance/validate_governance_loop_bundle_draft.py`
+- `scripts/governance/loop_bundle_draft.py`
+- `scripts/governance/verify_governance_loop_adoption_draft.py`
+- `scripts/governance/assess_governance_loop_activation_draft.py`
+- `scripts/governance/export_governance_loop_activation_plan.py`
+- `scripts/governance/export_governance_loop_activation_intent.py`
+- `scripts/governance/verify_governance_loop_activation_intent.py`
+- `scripts/governance/export_governance_loop_activation_preview.py`
+- `scripts/governance/verify_governance_loop_activation_preview.py`
+- `scripts/governance/export_governance_loop_reuse_kit.py`
+- `scripts/governance/verify_governance_loop_reuse_kit.py`
 
 The current DataPulse-specific adapter remains responsible for:
 
@@ -112,6 +126,12 @@ The project-side adapter contract is documented here:
 - `docs/governance/loop-adapter-bundle-contract.draft.md`
 - `docs/governance/governance-loop-adoption-playbook.draft.md`
 - `docs/governance/governance-loop-project-scaffold.draft.md`
+- `docs/governance/governance-loop-adoption-verification.draft.md`
+- `docs/governance/governance-loop-activation-boundary.draft.md`
+- `docs/governance/governance-loop-activation-plan.draft.md`
+- `docs/governance/governance-loop-activation-intent.draft.md`
+- `docs/governance/governance-loop-activation-preview.draft.md`
+- `docs/governance/governance-loop-reuse-kit.draft.md`
 
 ## Why This Matters
 

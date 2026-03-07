@@ -1,0 +1,92 @@
+{
+  "schema_version": "release_sidecar.v1",
+  "project": "DataPulse",
+  "generated_at_utc": "2026-03-07T10:57:31Z",
+  "sidecar_kind": "draft_export",
+  "wired": false,
+  "release": {
+    "tag": "v0.7.0",
+    "version": "0.7.0",
+    "notes_file": "RELEASE_NOTES.md",
+    "notes_section_found": true,
+    "notes_excerpt_preview": [
+      "\u53d1\u5e03\u65e5\u671f\uff1a2026-03-04",
+      "\u6784\u5efa\u76ee\u6807\uff1a\u9ad8\u4ef7\u503c\u80fd\u529b\u8865\u9f50\uff08\u5b9e\u4f53\u84b8\u998f/\u6301\u4e45\u5316\u3001\u641c\u7d22\u7f51\u5173\u5f3a\u5316\u3001\u53ef\u89c2\u6d4b\u8bc4\u5206\uff09",
+      "",
+      "### \u4e3b\u8981\u53d8\u66f4",
+      "",
+      "**\u80fd\u529b 1 \u2014 \u8f7b\u91cf\u5b9e\u4f53\u84b8\u998f\u80fd\u529b\u8865\u9f50**",
+      "- \u65b0\u589e\u5b9e\u4f53\u62bd\u53d6\u80fd\u529b\uff1a`DataPulseReader.extract_entities()`\uff0c\u652f\u6301 URL \u5185\u5bb9\u76f4\u63a5\u62bd\u53d6 `entities` \u4e0e `relations`\u3002",
+      "- \u5f15\u5165 `EntityStore` \u6301\u4e45\u5316\u80fd\u529b\uff08\u9ed8\u8ba4 `entity_store.json`\uff0c\u652f\u6301 `DATAPULSE_ENTITY_STORE` \u8986\u76d6\u8def\u5f84\uff09\u3002"
+    ]
+  },
+  "git": {
+    "head": "748a9c1f20ed8f1cd568726bafdbb74a9f529ac7",
+    "branch": "main",
+    "workspace_clean": false
+  },
+  "build_artifacts": {
+    "dist_exists": true,
+    "files": [
+      "dist/datapulse-0.7.0-py3-none-any.whl",
+      "dist/datapulse-0.7.0.tar.gz"
+    ]
+  },
+  "evidence": {
+    "latest_remote_report": {
+      "path": "artifacts/openclaw_datapulse_20260307_180508/remote_report.md",
+      "run_id": "20260307_180508",
+      "failed_steps": 0,
+      "log": "./artifacts/openclaw_datapulse_20260307_180508/remote_test.log",
+      "block_codes": []
+    },
+    "latest_emergency_state": {
+      "path": "artifacts/openclaw_datapulse_20260307_180508/emergency_state.json",
+      "run_id": "20260307_180508",
+      "state": {
+        "id": "S5",
+        "name": "\u590d\u6838\u653e\u884c"
+      },
+      "stop": false,
+      "should_new_run_id": false,
+      "blocker_codes": [],
+      "fail_steps": 0,
+      "conclusion": "GREEN",
+      "first_trigger": "",
+      "block_codes": [],
+      "recommendation": {
+        "primary_action": "",
+        "secondary_action": "",
+        "remediation_class": ""
+      },
+      "evidence": {
+        "report": "/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260307_180508/remote_report.md",
+        "log": "/Users/sunyifei/DataPulse/artifacts/openclaw_datapulse_20260307_180508/remote_test.log",
+        "prev_report": "",
+        "report_root": "/Users/sunyifei/DataPulse"
+      }
+    },
+    "latest_local_report": {
+      "path": "artifacts/openclaw_datapulse_20260307_185520/local_report.md",
+      "run_id": "20260307_185520",
+      "pass_count": 14,
+      "fail_count": 0,
+      "log": "./artifacts/openclaw_datapulse_20260307_185520/local_test.log"
+    }
+  },
+  "workflow": {
+    "draft_workflow_path": "docs/governance/datapulse-evidence-workflow.draft.yml",
+    "workflow_dispatch_available_in_active_release_workflow": true,
+    "workflow_dispatch_entrypoints": [
+      ".github/workflows/release.yml",
+      ".github/workflows/governance-evidence.yml"
+    ],
+    "active_release_workflow": ".github/workflows/release.yml"
+  },
+  "promotion_readiness": {
+    "structured_release_bundle_available": true,
+    "reasons": [
+      "workspace_dirty"
+    ]
+  }
+}

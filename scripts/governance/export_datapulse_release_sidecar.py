@@ -16,6 +16,7 @@ from datapulse_loop_contracts import (
     parse_remote_report,
     read_text,
     repo_workspace_clean,
+    structured_release_bundle_available,
     utc_now,
     workflow_dispatch_available,
     write_json,
@@ -100,6 +101,16 @@ def main() -> int:
     emergency_state = parse_emergency_state(latest_artifact_file("emergency_state.json"))
     local_report = parse_local_report(latest_artifact_file("local_report.md"))
     release_workflow = REPO_ROOT / ".github/workflows/release.yml"
+    governance_workflow = REPO_ROOT / ".github/workflows/governance-evidence.yml"
+    dispatch_entrypoints = [
+        path
+        for path in [
+            ".github/workflows/release.yml" if workflow_dispatch_available(release_workflow) else "",
+            ".github/workflows/governance-evidence.yml" if workflow_dispatch_available(governance_workflow) else "",
+        ]
+        if path
+    ]
+    workflow_dispatch = bool(dispatch_entrypoints)
 
     payload = {
         "schema_version": "release_sidecar.v1",
@@ -130,16 +141,17 @@ def main() -> int:
         },
         "workflow": {
             "draft_workflow_path": "docs/governance/datapulse-evidence-workflow.draft.yml",
-            "workflow_dispatch_available_in_active_release_workflow": workflow_dispatch_available(release_workflow),
-            "active_release_workflow": ".github/workflows/release.yml",
+            "workflow_dispatch_available_in_active_release_workflow": workflow_dispatch,
+            "workflow_dispatch_entrypoints": dispatch_entrypoints,
+            "active_release_workflow": dispatch_entrypoints[0] if dispatch_entrypoints else ".github/workflows/release.yml",
         },
         "promotion_readiness": {
-            "structured_release_bundle_available": False,
+            "structured_release_bundle_available": structured_release_bundle_available(),
             "reasons": [
                 reason
                 for reason in [
-                    "" if workflow_dispatch_available(release_workflow) else "workflow_dispatch_missing",
-                    "structured_release_bundle_missing",
+                    "" if workflow_dispatch else "workflow_dispatch_missing",
+                    "" if structured_release_bundle_available() else "structured_release_bundle_missing",
                     "" if notes_found else "release_notes_section_missing",
                     "" if workspace_clean else "workspace_dirty",
                 ]

@@ -1,12 +1,15 @@
-name: Release
+name: Release Asset Repair
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to rebuild and re-upload assets for
+        required: true
+        type: string
 
 jobs:
-  publish:
+  repair-assets:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -15,6 +18,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: refs/tags/${{ inputs.tag }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -26,9 +30,12 @@ jobs:
           python -m pip install --upgrade build
           python -m build --sdist --wheel .
 
-      - name: Publish release assets
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/*
-          generate_release_notes: true
+      - name: Verify existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release view "${{ inputs.tag }}" --repo "${{ github.repository }}"
+
+      - name: Upload rebuilt assets to existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ inputs.tag }}" dist/* --repo "${{ github.repository }}" --clobber

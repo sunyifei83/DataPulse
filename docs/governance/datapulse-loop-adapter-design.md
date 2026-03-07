@@ -99,6 +99,10 @@ These wrappers do not modify the default smoke scripts. They add an opt-in stric
 Draft verification contract added in this change:
 
 1. `docs/governance/datapulse-verification-contract.draft.md`
+2. `docs/governance/datapulse-ha-delivery-facts.draft.md`
+3. `docs/governance/datapulse-ha-delivery-landing.draft.md`
+4. `docs/governance/datapulse-ha-recovery-preset.draft.md`
+5. `docs/governance/datapulse-ha-recovery-replay.draft.md`
 
 Draft projection target contract added in this change:
 
@@ -113,6 +117,8 @@ Draft decoupling principle contract added in this change:
 5. `docs/governance/loop-adapter-bundle-contract.draft.md`
 6. `docs/governance/governance-loop-adoption-playbook.draft.md`
 7. `docs/governance/governance-loop-project-scaffold.draft.md`
+8. `docs/governance/governance-loop-adoption-verification.draft.md`
+9. `docs/governance/governance-loop-reuse-kit.draft.md`
 
 L4 draft materials added in this change:
 
@@ -120,6 +126,13 @@ L4 draft materials added in this change:
 2. `docs/governance/datapulse-release-sidecar.example.json`
 3. `scripts/governance/export_datapulse_release_sidecar.py`
 4. `scripts/governance/export_datapulse_evidence_bundle.py`
+5. `scripts/governance/export_datapulse_ha_delivery_facts.py`
+6. `scripts/governance/verify_datapulse_ha_delivery_facts.py`
+7. `scripts/governance/export_datapulse_ha_delivery_landing.py`
+8. `scripts/governance/verify_datapulse_ha_delivery_landing.py`
+9. `scripts/governance/export_datapulse_ha_recovery_preset.py`
+10. `scripts/governance/verify_datapulse_ha_recovery_preset.py`
+11. `scripts/governance/run_datapulse_ha_recovery_replay.py`
 
 Blueprint-first driver materials added in this change:
 
@@ -132,6 +145,17 @@ Blueprint-first driver materials added in this change:
 7. `scripts/governance/run_governance_loop_bundle_draft.py`
 8. `scripts/governance/validate_governance_loop_bundle_draft.py`
 9. `scripts/governance/init_governance_loop_project_scaffold.py`
+10. `scripts/governance/loop_bundle_draft.py`
+11. `scripts/governance/verify_governance_loop_adoption_draft.py`
+12. `scripts/governance/verify_datapulse_loop_adoption_draft.py`
+13. `scripts/governance/export_governance_loop_reuse_kit.py`
+14. `scripts/governance/verify_governance_loop_reuse_kit.py`
+15. `scripts/governance/assess_governance_loop_activation_draft.py`
+16. `scripts/governance/export_governance_loop_activation_plan.py`
+17. `scripts/governance/export_governance_loop_activation_intent.py`
+18. `scripts/governance/verify_governance_loop_activation_intent.py`
+19. `scripts/governance/export_governance_loop_activation_preview.py`
+20. `scripts/governance/verify_governance_loop_activation_preview.py`
 
 Working-copy mode materials added in this change:
 
@@ -211,6 +235,12 @@ See also:
 - `docs/governance/loop-adapter-bundle-contract.draft.md`
 - `docs/governance/governance-loop-adoption-playbook.draft.md`
 - `docs/governance/governance-loop-project-scaffold.draft.md`
+- `docs/governance/governance-loop-adoption-verification.draft.md`
+- `docs/governance/governance-loop-activation-boundary.draft.md`
+- `docs/governance/governance-loop-activation-plan.draft.md`
+- `docs/governance/governance-loop-activation-intent.draft.md`
+- `docs/governance/governance-loop-activation-preview.draft.md`
+- `docs/governance/governance-loop-reuse-kit.draft.md`
 
 ## Adapter Interface Recommendation
 

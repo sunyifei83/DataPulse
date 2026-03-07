@@ -1,0 +1,158 @@
+{
+  "valid": true,
+  "schema_version": "governance_loop_activation_plan.v1",
+  "generated_at_utc": "2026-03-07T10:48:28Z",
+  "bundle_dir": "out/release_bundle",
+  "manifest_path": "out/release_bundle/adapter_bundle_manifest.draft.json",
+  "project": "DataPulse",
+  "target_class": "trusted_delivery_pipeline",
+  "current_class": "trusted_delivery_pipeline",
+  "activation_status": {
+    "planning_ready": true,
+    "ready_for_active_wiring": true,
+    "cutover_now_recommended": false,
+    "status_if_run_now": "stopped",
+    "reason_if_run_now": "promotion_gates_open",
+    "promotion_mode": "auto_policy_gated"
+  },
+  "activation_tracks": [
+    {
+      "track_id": "project_adapter_completion",
+      "layer": "project_adapter",
+      "goal": "Close project-specific truth gaps before discussing active wiring.",
+      "status": "complete",
+      "items": []
+    },
+    {
+      "track_id": "repo_governance_cutover",
+      "layer": "repo_governance",
+      "goal": "Wire explicit repository entrypoints only after adapter-side truth gaps are closed.",
+      "status": "complete",
+      "items": []
+    },
+    {
+      "track_id": "runtime_cutover_window",
+      "layer": "runtime_blockers",
+      "goal": "Keep machine-decidable runtime blockers visible without baking them into reusable architecture coupling.",
+      "status": "open",
+      "items": [
+        {
+          "fact": "docs_only_changes_skip_ci",
+          "category": "policy_constraint",
+          "summary": "Current CI policy skips docs-only changes, so promotion truth must treat the absence of CI evidence explicitly."
+        },
+        {
+          "fact": "latest_local_smoke_failed",
+          "category": "local_verification",
+          "summary": "The latest local smoke evidence is failing and should remain a runtime blocker, not a core coupling point."
+        },
+        {
+          "fact": "repo_landed_false",
+          "category": "derived_promotion_gate",
+          "summary": "Repository promotion is currently unsatisfied. Treat the more specific machine facts as the real blockers instead of coupling this derived gate into activation design."
+        },
+        {
+          "fact": "workspace_dirty",
+          "category": "working_copy",
+          "summary": "The workspace is dirty, so the loop should stop instead of promoting repo-level truth."
+        }
+      ]
+    }
+  ],
+  "minimal_activation_sequence": [],
+  "open_activation_surface_ids": [],
+  "deferred_operating_blockers": [
+    {
+      "fact": "docs_only_changes_skip_ci",
+      "category": "policy_constraint",
+      "summary": "Current CI policy skips docs-only changes, so promotion truth must treat the absence of CI evidence explicitly."
+    },
+    {
+      "fact": "latest_local_smoke_failed",
+      "category": "local_verification",
+      "summary": "The latest local smoke evidence is failing and should remain a runtime blocker, not a core coupling point."
+    },
+    {
+      "fact": "repo_landed_false",
+      "category": "derived_promotion_gate",
+      "summary": "Repository promotion is currently unsatisfied. Treat the more specific machine facts as the real blockers instead of coupling this derived gate into activation design."
+    },
+    {
+      "fact": "workspace_dirty",
+      "category": "working_copy",
+      "summary": "The workspace is dirty, so the loop should stop instead of promoting repo-level truth."
+    }
+  ],
+  "activation_boundary": {
+    "current_state": {
+      "wired": true,
+      "bundle_wired_flag": true,
+      "promotion_mode": "auto_policy_gated",
+      "status_if_run_now": "stopped",
+      "reason_if_run_now": "promotion_gates_open",
+      "current_class": "trusted_delivery_pipeline",
+      "target_class": "trusted_delivery_pipeline",
+      "auto_continuation_enabled": true
+    },
+    "activation_requirements": [],
+    "operating_blockers": [
+      {
+        "fact": "docs_only_changes_skip_ci",
+        "category": "policy_constraint",
+        "summary": "Current CI policy skips docs-only changes, so promotion truth must treat the absence of CI evidence explicitly."
+      },
+      {
+        "fact": "latest_local_smoke_failed",
+        "category": "local_verification",
+        "summary": "The latest local smoke evidence is failing and should remain a runtime blocker, not a core coupling point."
+      },
+      {
+        "fact": "repo_landed_false",
+        "category": "derived_promotion_gate",
+        "summary": "Repository promotion is currently unsatisfied. Treat the more specific machine facts as the real blockers instead of coupling this derived gate into activation design."
+      },
+      {
+        "fact": "workspace_dirty",
+        "category": "working_copy",
+        "summary": "The workspace is dirty, so the loop should stop instead of promoting repo-level truth."
+      }
+    ],
+    "ready_for_active_wiring": true,
+    "open_activation_surface_ids": [],
+    "minimal_activation_sequence": [],
+    "decoupling_rule": "Keep missing truth exporters and workflow entrypoints in the adapter or repo-governance layer; keep dirty workspaces and failed evidence as runtime blockers."
+  },
+  "resolved_files": {
+    "plan": "out/release_bundle/blueprint_plan.snapshot.json",
+    "landing_status": "out/release_bundle/code_landing_status.snapshot.json",
+    "slice_catalog": "out/release_bundle/slice_adapter_catalog.snapshot.json"
+  },
+  "decoupling_contract": {
+    "rule": "Keep missing truth exporters and workflow entrypoints in the adapter or repo-governance layer; keep dirty workspaces and failed evidence as runtime blockers.",
+    "core_ownership": "next-slice, blocker, and stop semantics stay in the reusable core",
+    "adapter_ownership": "project truth exporters and execution hints stay in the project adapter",
+    "repo_governance_ownership": "active wiring, scheduler entrypoints, and release evidence cutover stay in repo governance"
+  },
+  "recommended_cut_lines": [
+    {
+      "id": "finish_project_adapter_truth_first",
+      "when": "project_adapter track is open",
+      "guidance": "Do not start live workflow wiring while adapter-owned truth exporters are still missing."
+    },
+    {
+      "id": "wire_repo_entrypoints_second",
+      "when": "ready_for_active_wiring is true",
+      "guidance": "Limit activation changes to explicit repo-governance entrypoints instead of embedding project semantics into the core."
+    },
+    {
+      "id": "treat_runtime_blockers_as_cutover_window_facts",
+      "when": "runtime_cutover_window track is open",
+      "guidance": "Resolve runtime blockers for cutover timing, but do not promote them into reusable activation architecture."
+    }
+  ],
+  "non_goals": [
+    "Do not copy project verification commands into the reusable core.",
+    "Do not treat a dirty workspace or failing runtime evidence as reusable-core design gaps.",
+    "Do not wire active workflows before the activation boundary is explicit."
+  ]
+}

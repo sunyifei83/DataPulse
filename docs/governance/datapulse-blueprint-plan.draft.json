@@ -3,7 +3,7 @@
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
   "generated_at_utc": "2026-03-07T00:00:00Z",
-  "status": "draft_not_wired",
+  "status": "completed",
   "activation": {
     "wired": false,
     "future_active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -67,8 +67,8 @@
     "L1": "completed",
     "L2": "completed",
     "L3": "completed",
-    "L4": "pending",
-    "L5": "pending"
+    "L4": "completed",
+    "L5": "completed"
   },
   "phases": [
     {
@@ -273,7 +273,7 @@
       "id": "L4",
       "title": "Promotion Evidence Unification",
       "goal": "Create a single promotion-evidence path suitable for manual and later automatic loop progression.",
-      "status": "pending",
+      "status": "completed",
       "slices": [
         {
           "id": "L4.1",
@@ -284,9 +284,10 @@
           "closes_gates": [
             "workflow_dispatch_missing"
           ],
-          "status": "pending",
+          "status": "completed",
           "draft_artifacts": [
-            "docs/governance/datapulse-evidence-workflow.draft.yml"
+            "docs/governance/datapulse-evidence-workflow.draft.yml",
+            ".github/workflows/governance-evidence.yml"
           ]
         },
         {
@@ -298,11 +299,13 @@
           "closes_gates": [
             "structured_release_bundle_missing"
           ],
-          "status": "pending",
+          "status": "completed",
           "draft_artifacts": [
             "docs/governance/datapulse-release-sidecar.example.json",
             "scripts/governance/export_datapulse_release_sidecar.py",
-            "scripts/governance/export_datapulse_evidence_bundle.py"
+            "scripts/governance/export_datapulse_evidence_bundle.py",
+            "scripts/governance/export_datapulse_structured_release_bundle.py",
+            "out/release_bundle/structured_release_bundle_manifest.draft.json"
           ]
         },
         {
@@ -314,7 +317,11 @@
           "closes_gates": [
             "mixed_release_policy"
           ],
-          "status": "pending"
+          "status": "completed",
+          "artifacts": [
+            "scripts/release_publish.sh",
+            ".github/workflows/release.yml"
+          ]
         }
       ]
     },
@@ -322,7 +329,7 @@
       "id": "L5",
       "title": "Driver Integration",
       "goal": "Integrate a reusable loop driver with DataPulse-specific adapter logic.",
-      "status": "pending",
+      "status": "completed",
       "slices": [
         {
           "id": "L5.1",
@@ -330,7 +337,12 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending"
+          "status": "completed",
+          "artifacts": [
+            "scripts/governance/datapulse_loop_adapter.py",
+            "scripts/governance/run_datapulse_blueprint_loop.py",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ]
         },
         {
           "id": "L5.2",
@@ -338,7 +350,11 @@
           "category": "promotion",
           "execution_profile": "runtime_validation",
           "promotion_scope": "ci",
-          "status": "pending"
+          "status": "completed",
+          "artifacts": [
+            "scripts/governance/run_datapulse_blueprint_loop.py",
+            "out/governance/project_specific_loop_state.draft.json"
+          ]
         },
         {
           "id": "L5.3",
@@ -346,14 +362,20 @@
           "category": "promotion",
           "execution_profile": "runtime_validation",
           "promotion_scope": "release",
-          "status": "pending"
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-auto-continuation-policy.json",
+            "docs/governance/datapulse-auto-continuation-policy.md",
+            "scripts/governance/run_datapulse_auto_continuation.py",
+            ".github/workflows/governance-loop-auto.yml"
+          ]
         }
       ]
     }
   ],
   "recommended_next_slice": {
-    "id": "L4.1",
-    "title": "Add workflow_dispatch evidence workflow",
-    "reason": "L4 draft materials now exist, but the active repo still lacks a real workflow_dispatch evidence path."
+    "id": "no-open-slice",
+    "title": "No open slice",
+    "reason": "The reusable control plane, active adapter wiring, and gated auto-continuation policy are now present in this working copy."
   }
 }

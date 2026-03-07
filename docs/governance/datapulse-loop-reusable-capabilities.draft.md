@@ -143,6 +143,13 @@ The first repo-local extraction of that reusable layer now lives in:
 - `docs/governance/governance-loop-adoption-playbook.draft.md`
 - `scripts/governance/init_governance_loop_project_scaffold.py`
 - `docs/governance/governance-loop-project-scaffold.draft.md`
+- `scripts/governance/loop_bundle_draft.py`
+- `scripts/governance/verify_governance_loop_adoption_draft.py`
+- `scripts/governance/verify_datapulse_loop_adoption_draft.py`
+- `docs/governance/governance-loop-adoption-verification.draft.md`
+- `scripts/governance/export_governance_loop_reuse_kit.py`
+- `scripts/governance/verify_governance_loop_reuse_kit.py`
+- `docs/governance/governance-loop-reuse-kit.draft.md`
 
 That matters because the DataPulse adapter can now shrink toward:
 
@@ -163,4 +170,28 @@ The reusable capability is:
 3. evidence round-trip after promotion
 4. expected terminal stop with machine-decidable reopen triggers
 
+The next reusable layer above that is the activation boundary:
+
+5. explicit separation between missing activation surfaces and runtime blockers
+
+That matters because a reusable loop core should tell a repository what still needs wiring without collapsing operating facts into permanent architecture coupling.
+
+The next operational upgrade after that is:
+
+6. machine-readable activation planning that turns activation assessment into an ordered cutover plan
+
+And the next control layer above that is:
+
+7. machine-readable activation intent that keeps repo-governance cutover aligned with the plan
+
+And the final non-invasive planning layer before live wiring is:
+
+8. activation preview that makes the projected post-cutover runtime window explicit
+
 That is the correct abstraction level for DataPulse.
+
+Above that reusable layer, DataPulse can add one more project-specific composition:
+
+9. HA delivery landing truth that combines activation preview with DataPulse-only HA evidence
+
+That extra layer should stay adapter-owned. It is useful precisely because it does not leak project HA semantics back into the reusable core.

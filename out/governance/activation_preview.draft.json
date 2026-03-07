@@ -1,0 +1,74 @@
+{
+  "valid": true,
+  "schema_version": "governance_loop_activation_preview.v1",
+  "generated_at_utc": "2026-03-07T10:48:28Z",
+  "project": "DataPulse",
+  "source_activation_plan": {
+    "bundle_dir": "out/release_bundle",
+    "manifest_path": "out/release_bundle/adapter_bundle_manifest.draft.json"
+  },
+  "source_activation_intent": {
+    "bundle_dir": "out/release_bundle",
+    "manifest_path": "out/release_bundle/adapter_bundle_manifest.draft.json"
+  },
+  "preview_status": {
+    "status": "no_repo_governance_cutover_required",
+    "reason": "no_open_repo_targets",
+    "ready_for_repo_cutover": true,
+    "cutover_now_recommended": false
+  },
+  "preview_assumptions": [
+    "All repo-governance targets in the activation intent are implemented exactly as declared.",
+    "Project-adapter prerequisites remain unchanged until explicitly closed.",
+    "Runtime cutover window facts remain real operating blockers and are not rewritten by activation intent alone."
+  ],
+  "projected_post_cutover_state": {
+    "remaining_project_adapter_gaps": [],
+    "remaining_repo_governance_gaps": [],
+    "remaining_runtime_blockers": [
+      "docs_only_changes_skip_ci",
+      "latest_local_smoke_failed",
+      "repo_landed_false",
+      "workspace_dirty"
+    ],
+    "trusted_pipeline_bar_after_cutover": false
+  },
+  "repo_governance_bindings": [],
+  "project_adapter_prerequisites": [],
+  "runtime_cutover_window": {
+    "status": "open",
+    "facts": [
+      {
+        "fact": "docs_only_changes_skip_ci",
+        "category": "policy_constraint",
+        "summary": "Current CI policy skips docs-only changes, so promotion truth must treat the absence of CI evidence explicitly."
+      },
+      {
+        "fact": "latest_local_smoke_failed",
+        "category": "local_verification",
+        "summary": "The latest local smoke evidence is failing and should remain a runtime blocker, not a core coupling point."
+      },
+      {
+        "fact": "repo_landed_false",
+        "category": "derived_promotion_gate",
+        "summary": "Repository promotion is currently unsatisfied. Treat the more specific machine facts as the real blockers instead of coupling this derived gate into activation design."
+      },
+      {
+        "fact": "workspace_dirty",
+        "category": "working_copy",
+        "summary": "The workspace is dirty, so the loop should stop instead of promoting repo-level truth."
+      }
+    ],
+    "handling_rule": "Resolve these for cutover timing, but do not convert them into reusable-core or repo-governance design obligations."
+  },
+  "recommended_actions": [
+    "Project-adapter prerequisites are already clear.",
+    "Keep runtime blockers in a separate cutover window and do not promote them into architecture obligations.",
+    "Limit repo-governance cutover to the explicit bindings declared in the activation intent."
+  ],
+  "non_goals": [
+    "Do not copy project verification commands into the reusable core.",
+    "Do not treat a dirty workspace or failing runtime evidence as reusable-core design gaps.",
+    "Do not wire active workflows before the activation boundary is explicit."
+  ]
+}
