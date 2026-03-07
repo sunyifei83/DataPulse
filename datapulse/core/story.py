@@ -381,6 +381,33 @@ class StoryStore:
                 return candidate
         return None
 
+    def update_story(
+        self,
+        identifier: str,
+        *,
+        title: str | None = None,
+        summary: str | None = None,
+        status: str | None = None,
+    ) -> Story | None:
+        story = self.get_story(identifier)
+        if story is None:
+            return None
+        if title is not None:
+            next_title = str(title or "").strip()
+            if not next_title:
+                raise ValueError("Story title cannot be empty")
+            story.title = next_title
+        if summary is not None:
+            story.summary = str(summary or "").strip()
+        if status is not None:
+            next_status = str(status or "").strip().lower()
+            if not next_status:
+                raise ValueError("Story status cannot be empty")
+            story.status = next_status
+        story.updated_at = _utcnow()
+        self.save()
+        return story
+
 
 def _descriptor_for_item(item: DataPulseItem, *, entity_store: EntityStore | None = None) -> dict[str, Any]:
     entity_labels = _entity_labels_for_item(item, entity_store=entity_store)

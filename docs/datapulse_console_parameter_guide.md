@@ -4,18 +4,19 @@
 
 ## 适用范围
 
-本文档说明 `datapulse-console` 当前浏览器表单 `Deploy Mission` 中每个参数的实际含义、填写建议，以及它们最终映射到的后端字段。
+本文档说明 `datapulse-console` 当前浏览器表单 `Deploy Mission` 与 `Mission Cockpit` 中 alert rule editor 的参数含义、填写建议，以及它们最终映射到的后端字段。
 
-当前说明基于仓内已实现行为，不描述尚未开放的理想字段。
+当前说明基于仓内已实现行为，不描述尚未开放的理想字段。`Mission Cockpit` 中的 alert rule editor 复用同一组 alert 字段，只是提交到更新接口而不是创建接口。
 
 ## 当前表单范围
 
-浏览器表单当前用于创建一个 watch mission，并可选附带一条基础 alert rule。
+浏览器表单当前用于创建一个 watch mission，并可选附带一条基础 alert rule。`Mission Cockpit` 中的 alert rule editor 用于替换或清空该 mission 的当前基础规则。
 
 当前支持：
 
 - mission 基本信息：`name`、`query`、`schedule`、`platform`
 - alert 基础过滤：`route`、`keyword`、`domain`、`min_score`、`min_confidence`
+- alert rule 更新动作：保存替换、清空规则
 
 当前未在浏览器表单暴露，但 CLI / MCP / API 已支持：
 
@@ -103,6 +104,15 @@
 
 - 告警事件会先写入本地 alert store
 - 如果额外填写了 `Alert Route`，会再尝试走命名 route 分发
+
+### 5. Mission Cockpit 如何更新规则
+
+浏览器里有两条写路径：
+
+- `Deploy Mission`：`POST /api/watches`
+- `Mission Cockpit -> Save Alert Rule / Clear Alert Rules`：`PUT /api/watches/{id}/alert-rules`
+
+其中 `Save Alert Rule` 会用当前表单内容整体替换这个 mission 的规则列表；`Clear Alert Rules` 会提交空数组 `[]`。
 
 ## 推荐填写模板
 

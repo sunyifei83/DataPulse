@@ -114,8 +114,14 @@ def _print_watch_status(payload):
 
 def _print_ops_overview(payload):
     collector_summary = payload.get("collector_summary", {}) if isinstance(payload, dict) else {}
+    collector_tiers = payload.get("collector_tiers", {}) if isinstance(payload, dict) else {}
+    collector_drilldown = payload.get("collector_drilldown", []) if isinstance(payload, dict) else []
     watch_metrics = payload.get("watch_metrics", {}) if isinstance(payload, dict) else {}
+    watch_summary = payload.get("watch_summary", {}) if isinstance(payload, dict) else {}
+    watch_health = payload.get("watch_health", []) if isinstance(payload, dict) else []
     route_summary = payload.get("route_summary", {}) if isinstance(payload, dict) else {}
+    route_drilldown = payload.get("route_drilldown", []) if isinstance(payload, dict) else []
+    route_timeline = payload.get("route_timeline", []) if isinstance(payload, dict) else []
     degraded_collectors = payload.get("degraded_collectors", []) if isinstance(payload, dict) else []
     recent_failures = payload.get("recent_failures", []) if isinstance(payload, dict) else []
 
@@ -137,6 +143,29 @@ def _print_ops_overview(payload):
             message = str(collector.get("message", "") or "").strip()
             if message:
                 print(f"      message: {message}")
+    if collector_tiers:
+        print("  tiers:")
+        for tier_name in sorted(collector_tiers):
+            tier = collector_tiers.get(tier_name, {})
+            print(
+                f"    - {tier_name}"
+                f" | total={tier.get('total', 0)}"
+                f" | ok={tier.get('ok', 0)}"
+                f" | warn={tier.get('warn', 0)}"
+                f" | error={tier.get('error', 0)}"
+            )
+    if collector_drilldown:
+        print("  drilldown:")
+        for collector in collector_drilldown[:8]:
+            print(
+                f"    - {collector.get('name', '-')}"
+                f" | tier={collector.get('tier', '-')}"
+                f" | status={collector.get('status', '-')}"
+                f" | available={collector.get('available', True)}"
+            )
+            detail = str(collector.get("setup_hint") or collector.get("message") or "").strip()
+            if detail:
+                print(f"      detail: {detail}")
 
     print("watch_metrics:")
     print(f"  state: {watch_metrics.get('state', 'idle')}")
@@ -150,6 +179,34 @@ def _print_ops_overview(payload):
     if success_rate is not None:
         print(f"  success_rate: {float(success_rate) * 100:.1f}%")
     print(f"  last_error: {watch_metrics.get('last_error', '-') or '-'}")
+    print("watch_health:")
+    print(f"  total: {watch_summary.get('total', 0)}")
+    print(f"  enabled: {watch_summary.get('enabled', 0)}")
+    print(f"  disabled: {watch_summary.get('disabled', 0)}")
+    print(f"  healthy: {watch_summary.get('healthy', 0)}")
+    print(f"  degraded: {watch_summary.get('degraded', 0)}")
+    print(f"  idle: {watch_summary.get('idle', 0)}")
+    print(f"  due: {watch_summary.get('due', 0)}")
+    if watch_health:
+        print("  missions:")
+        for mission in watch_health[:5]:
+            rate = mission.get("success_rate")
+            rate_label = f"{float(rate) * 100:.1f}%" if rate is not None else "-"
+            print(
+                f"    - {mission.get('id', '-')}"
+                f" | status={mission.get('status', 'idle')}"
+                f" | enabled={mission.get('enabled', True)}"
+                f" | due={mission.get('is_due', False)}"
+                f" | rate={rate_label}"
+            )
+            print(
+                f"      {mission.get('name', '')}"
+                f" | next={mission.get('next_run_at', '-') or '-'}"
+                f" | last={mission.get('last_run_at', '-') or '-'}"
+            )
+            last_error = str(mission.get("last_run_error", "") or "").strip()
+            if last_error:
+                print(f"      last_error: {last_error}")
 
     print("route_health:")
     print(f"  total: {route_summary.get('total', 0)}")
@@ -157,6 +214,38 @@ def _print_ops_overview(payload):
     print(f"  degraded: {route_summary.get('degraded', 0)}")
     print(f"  missing: {route_summary.get('missing', 0)}")
     print(f"  idle: {route_summary.get('idle', 0)}")
+    if route_drilldown:
+        print("  drilldown:")
+        for route in route_drilldown[:8]:
+            rate = route.get("success_rate")
+            rate_label = f"{float(rate) * 100:.1f}%" if rate is not None else "-"
+            print(
+                f"    - {route.get('name', '-')}"
+                f" | channel={route.get('channel', '-')}"
+                f" | status={route.get('status', '-')}"
+                f" | rate={rate_label}"
+            )
+            print(
+                f"      missions={route.get('mission_count', 0)}"
+                f" | rules={route.get('rule_count', 0)}"
+                f" | events={route.get('event_count', 0)}"
+                f" | failed={route.get('failure_count', 0)}"
+            )
+            detail = str(route.get("last_error") or route.get("last_summary") or "").strip()
+            if detail:
+                print(f"      detail: {detail}")
+    if route_timeline:
+        print("  timeline:")
+        for event in route_timeline[:8]:
+            print(
+                f"    - {event.get('created_at', '-')}"
+                f" | {event.get('route', '-')}"
+                f" | {event.get('status', '-')}"
+                f" | mission={event.get('mission_name', event.get('mission_id', '-'))}"
+            )
+            detail = str(event.get("error") or event.get("summary") or "").strip()
+            if detail:
+                print(f"      detail: {detail}")
 
     if recent_failures:
         print("recent_failures:")
@@ -277,6 +366,32 @@ def _print_watch_detail(payload):
             print(f"    {item.get('title', '')}")
             print(f"    {item.get('url', '-')}")
 
+    result_filters = payload.get("result_filters", {}) if isinstance(payload, dict) else {}
+    if result_filters:
+        print("result_filters:")
+        for bucket_name in ("states", "sources", "domains"):
+            rows = result_filters.get(bucket_name, [])
+            if not rows:
+                continue
+            chips = ", ".join(
+                f"{row.get('label', row.get('key', '-'))}({row.get('count', 0)})"
+                for row in rows[:6]
+            )
+            print(f"  {bucket_name}: {chips}")
+
+    timeline_strip = payload.get("timeline_strip", []) if isinstance(payload, dict) else []
+    if timeline_strip:
+        print("timeline_strip:")
+        for event in timeline_strip[:6]:
+            print(
+                f"  - {event.get('time', '-')}"
+                f" | {event.get('kind', '-')}"
+                f" | {event.get('label', '-')}"
+            )
+            detail = str(event.get("detail", "") or "").strip()
+            if detail:
+                print(f"    detail: {detail}")
+
 
 def _print_watch_results(items):
     for item in items:
@@ -369,6 +484,56 @@ def _print_story_graph(payload):
                 f"  - {edge.get('source')} -> {edge.get('target')} | "
                 f"{edge.get('relation_type', 'RELATED')} | kind={edge.get('kind', '-')}"
             )
+
+
+def _build_watch_alert_rules_from_args(args) -> list[dict[str, Any]] | None:
+    if not any(
+        value is not None and value != []
+        for value in (
+            args.watch_alert_name,
+            args.watch_alert_min_score,
+            args.watch_alert_min_confidence,
+            args.watch_alert_channel,
+            args.watch_alert_route,
+            args.watch_alert_keyword,
+            args.watch_alert_keyword_all,
+            args.watch_alert_exclude_keyword,
+            args.watch_alert_required_tag,
+            args.watch_alert_excluded_tag,
+            args.watch_alert_domain,
+            args.watch_alert_source_type,
+            args.watch_alert_max_age_minutes,
+        )
+    ):
+        return None
+
+    alert_rule: dict[str, Any] = {
+        "name": args.watch_alert_name or "threshold",
+        "min_score": args.watch_alert_min_score or 0,
+        "min_confidence": args.watch_alert_min_confidence or 0.0,
+        "min_results": max(1, args.watch_alert_min_results),
+        "cooldown_seconds": max(0, args.watch_alert_cooldown),
+        "channels": args.watch_alert_channel or ["json"],
+    }
+    if args.watch_alert_route:
+        alert_rule["routes"] = args.watch_alert_route
+    if args.watch_alert_keyword:
+        alert_rule["keyword_any"] = args.watch_alert_keyword
+    if args.watch_alert_keyword_all:
+        alert_rule["keyword_all"] = args.watch_alert_keyword_all
+    if args.watch_alert_exclude_keyword:
+        alert_rule["exclude_keywords"] = args.watch_alert_exclude_keyword
+    if args.watch_alert_required_tag:
+        alert_rule["required_tags"] = args.watch_alert_required_tag
+    if args.watch_alert_excluded_tag:
+        alert_rule["excluded_tags"] = args.watch_alert_excluded_tag
+    if args.watch_alert_domain:
+        alert_rule["domains"] = args.watch_alert_domain
+    if args.watch_alert_source_type:
+        alert_rule["source_types"] = args.watch_alert_source_type
+    if args.watch_alert_max_age_minutes:
+        alert_rule["max_age_minutes"] = max(1, args.watch_alert_max_age_minutes)
+    return [alert_rule]
 
 
 _FIX_COMMANDS_BY_COLLECTOR = {
@@ -738,6 +903,8 @@ def _print_skill_contract() -> None:
                 "--entities",
                 "--watch-create",
                 "--watch-list",
+                "--watch-alert-set",
+                "--watch-alert-clear",
                 "--watch-show",
                 "--watch-results",
                 "--watch-run",
@@ -756,6 +923,7 @@ def _print_skill_contract() -> None:
                 "--story-build",
                 "--story-list",
                 "--story-show",
+                "--story-update",
                 "--story-graph",
                 "--story-export",
                 "--doctor",
@@ -789,13 +957,14 @@ def _print_skill_contract() -> None:
             "for ingestion of URLs: datapulse --batch",
             "for discovery: datapulse --search",
             "for recurring themes: --watch-create/--watch-list/--watch-run",
+            "for alert rule tuning: --watch-alert-set/--watch-alert-clear",
             "for scheduled recurring themes: --watch-run-due",
             "for daemon polling: --watch-daemon --watch-daemon-once",
             "for alert review: --alert-list",
             "for route audit: --alert-route-list",
             "for daemon status: --watch-status",
             "for analyst queue operations: --triage-list/--triage-explain/--triage-update/--triage-note/--triage-stats",
-            "for story workspace: --story-build/--story-list/--story-show/--story-graph/--story-export",
+            "for story workspace: --story-build/--story-list/--story-show/--story-update/--story-graph/--story-export",
             "for source governance: --list-sources/--list-packs/--query-feed",
             "for health checks: --doctor / --troubleshoot",
         ],
@@ -871,7 +1040,7 @@ def main() -> None:
             "I) Watch daemon:            datapulse --watch-daemon --watch-daemon-once\n"
             "J) Watch status:            datapulse --watch-status / --alert-route-health / --ops-overview\n"
             "K) Triage queue:            datapulse --triage-list / --triage-update <item_id> --triage-state verified\n"
-            "L) Story workspace:         datapulse --story-build / --story-list / --story-show <story_id> / --story-graph <story_id>\n"
+            "L) Story workspace:         datapulse --story-build / --story-list / --story-show <story_id> / --story-update <story_id>\n"
             "Diagnostics: datapulse --config-check / --doctor / --troubleshoot / --skill-contract / --check-update / --self-update / --version"
         ),
     )
@@ -992,6 +1161,8 @@ def main() -> None:
     management_group.add_argument("--entity-stats", action="store_true", help="Show entity store stats")
     management_group.add_argument("--watch-create", action="store_true", help="Create a recurring watch mission")
     management_group.add_argument("--watch-list", action="store_true", help="List watch missions")
+    management_group.add_argument("--watch-alert-set", metavar="WATCH", help="Replace alert rules for one watch mission")
+    management_group.add_argument("--watch-alert-clear", metavar="WATCH", help="Clear alert rules for one watch mission")
     management_group.add_argument(
         "--watch-show",
         metavar="WATCH",
@@ -1071,11 +1242,15 @@ def main() -> None:
     management_group.add_argument("--story-build", action="store_true", help="Build and persist clustered story workspace snapshot")
     management_group.add_argument("--story-list", action="store_true", help="List persisted stories")
     management_group.add_argument("--story-show", metavar="STORY", help="Show one persisted story by id or title")
+    management_group.add_argument("--story-update", metavar="STORY", help="Update one persisted story by id or title")
     management_group.add_argument("--story-graph", metavar="STORY", help="Show entity graph for one persisted story")
     management_group.add_argument("--story-export", metavar="STORY", help="Export one story as json or markdown")
     management_group.add_argument("--story-limit", type=int, default=10, help="Max stories to build or list")
     management_group.add_argument("--story-evidence-limit", type=int, default=6, help="Evidence items to keep per story")
     management_group.add_argument("--story-min-items", type=int, default=1, help="Minimum clustered items when listing stories")
+    management_group.add_argument("--story-title", help="Replacement title for --story-update")
+    management_group.add_argument("--story-summary", help="Replacement summary for --story-update (empty string clears it)")
+    management_group.add_argument("--story-status", help="Replacement status for --story-update")
     management_group.add_argument("--story-graph-entity-limit", type=int, default=12, help="Max entity nodes for --story-graph")
     management_group.add_argument("--story-graph-relation-limit", type=int, default=24, help="Max relation edges for --story-graph")
     management_group.add_argument("--story-format", default="json", choices=["json", "markdown", "md"], help="Output format for --story-export")
@@ -1219,52 +1394,7 @@ def main() -> None:
     if args.watch_create:
         if not args.watch_name or not args.watch_query:
             parser.error("--watch-create requires --watch-name and --watch-query")
-        alert_rules = None
-        if any(
-            value is not None and value != []
-            for value in (
-                args.watch_alert_name,
-                args.watch_alert_min_score,
-                args.watch_alert_min_confidence,
-                args.watch_alert_channel,
-                args.watch_alert_route,
-                args.watch_alert_keyword,
-                args.watch_alert_keyword_all,
-                args.watch_alert_exclude_keyword,
-                args.watch_alert_required_tag,
-                args.watch_alert_excluded_tag,
-                args.watch_alert_domain,
-                args.watch_alert_source_type,
-                args.watch_alert_max_age_minutes,
-            )
-        ):
-            alert_rule: dict[str, Any] = {
-                "name": args.watch_alert_name or "threshold",
-                "min_score": args.watch_alert_min_score or 0,
-                "min_confidence": args.watch_alert_min_confidence or 0.0,
-                "min_results": max(1, args.watch_alert_min_results),
-                "cooldown_seconds": max(0, args.watch_alert_cooldown),
-                "channels": args.watch_alert_channel or ["json"],
-            }
-            if args.watch_alert_route:
-                alert_rule["routes"] = args.watch_alert_route
-            if args.watch_alert_keyword:
-                alert_rule["keyword_any"] = args.watch_alert_keyword
-            if args.watch_alert_keyword_all:
-                alert_rule["keyword_all"] = args.watch_alert_keyword_all
-            if args.watch_alert_exclude_keyword:
-                alert_rule["exclude_keywords"] = args.watch_alert_exclude_keyword
-            if args.watch_alert_required_tag:
-                alert_rule["required_tags"] = args.watch_alert_required_tag
-            if args.watch_alert_excluded_tag:
-                alert_rule["excluded_tags"] = args.watch_alert_excluded_tag
-            if args.watch_alert_domain:
-                alert_rule["domains"] = args.watch_alert_domain
-            if args.watch_alert_source_type:
-                alert_rule["source_types"] = args.watch_alert_source_type
-            if args.watch_alert_max_age_minutes:
-                alert_rule["max_age_minutes"] = max(1, args.watch_alert_max_age_minutes)
-            alert_rules = [alert_rule]
+        alert_rules = _build_watch_alert_rules_from_args(args)
         mission = reader.create_watch(
             name=args.watch_name,
             query=args.watch_query,
@@ -1283,6 +1413,29 @@ def main() -> None:
         print(f"   alert_rules: {len(mission.get('alert_rules', []))}")
         return
 
+    if args.watch_alert_set:
+        alert_rules = _build_watch_alert_rules_from_args(args)
+        if not alert_rules:
+            parser.error("--watch-alert-set requires at least one watch alert field to define the replacement rule")
+        alert_mission = reader.set_watch_alert_rules(args.watch_alert_set, alert_rules=alert_rules)
+        if alert_mission is None:
+            print(f"⚠️ watch mission not found: {args.watch_alert_set}")
+        else:
+            print(f"✅ updated alert rules for: {alert_mission['id']}")
+            print(f"   alert_rules: {len(alert_mission.get('alert_rules', []))}")
+            _print_watch_detail(alert_mission)
+        return
+
+    if args.watch_alert_clear:
+        cleared_mission = reader.set_watch_alert_rules(args.watch_alert_clear, alert_rules=[])
+        if cleared_mission is None:
+            print(f"⚠️ watch mission not found: {args.watch_alert_clear}")
+        else:
+            print(f"✅ cleared alert rules for: {cleared_mission['id']}")
+            print(f"   alert_rules: {len(cleared_mission.get('alert_rules', []))}")
+            _print_watch_detail(cleared_mission)
+        return
+
     if args.watch_list:
         watches = reader.list_watches(include_disabled=args.watch_include_disabled)
         if not watches:
@@ -1293,11 +1446,11 @@ def main() -> None:
         return
 
     if args.watch_show:
-        mission = reader.show_watch(args.watch_show)
-        if mission is None:
+        watch_payload = reader.show_watch(args.watch_show)
+        if watch_payload is None:
             print(f"⚠️ watch mission not found: {args.watch_show}")
         else:
-            _print_watch_detail(mission)
+            _print_watch_detail(watch_payload)
         return
 
     if args.watch_results:
@@ -1450,6 +1603,26 @@ def main() -> None:
         if story_payload is None:
             print(f"⚠️ story not found: {args.story_show}")
         else:
+            print(json.dumps(story_payload, ensure_ascii=False, indent=2))
+        return
+
+    if args.story_update:
+        if args.story_title is None and args.story_summary is None and args.story_status is None:
+            parser.error("--story-update requires --story-title, --story-summary, or --story-status")
+        try:
+            story_payload = reader.update_story(
+                args.story_update,
+                title=args.story_title,
+                summary=args.story_summary,
+                status=args.story_status,
+            )
+        except ValueError as exc:
+            print(f"❌ {exc}")
+            return
+        if story_payload is None:
+            print(f"⚠️ story not found: {args.story_update}")
+        else:
+            print(f"✅ story updated: {story_payload['id']}")
             print(json.dumps(story_payload, ensure_ascii=False, indent=2))
         return
 

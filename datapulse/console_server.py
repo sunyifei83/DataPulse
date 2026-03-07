@@ -24,6 +24,37 @@ def _json_blob(payload: Any) -> str:
     return json.dumps(payload, ensure_ascii=False)
 
 
+def _build_console_alert_rules(
+    *,
+    route: str = "",
+    keyword: str = "",
+    domain: str = "",
+    min_score: float = 0.0,
+    min_confidence: float = 0.0,
+) -> list[dict[str, Any]]:
+    route = str(route or "").strip()
+    keyword = str(keyword or "").strip()
+    domain = str(domain or "").strip()
+    score_value = max(0, int(min_score or 0))
+    confidence_value = max(0.0, float(min_confidence or 0.0))
+    if not (route or keyword or domain or score_value > 0 or confidence_value > 0):
+        return []
+
+    alert_rule: dict[str, Any] = {
+        "name": "console-threshold",
+        "min_score": score_value,
+        "min_confidence": confidence_value,
+        "channels": ["json"],
+    }
+    if route:
+        alert_rule["routes"] = [route]
+    if keyword:
+        alert_rule["keyword_any"] = [keyword]
+    if domain:
+        alert_rule["domains"] = [domain]
+    return [alert_rule]
+
+
 def _console_html() -> str:
     initial_state = _json_blob(
         {
@@ -469,6 +500,32 @@ def _console_html() -> str:
     }}
     .chip.hot {{ background: rgba(255, 106, 130, 0.14); color: var(--accent); }}
     .chip.ok {{ background: rgba(127, 228, 255, 0.14); color: var(--accent-2); }}
+    .chip-row {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }}
+    .chip-btn {{
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(127, 228, 255, 0.05);
+      color: var(--muted);
+      font: 700 11px/1 var(--mono);
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+    }}
+    .chip-btn:hover {{
+      border-color: rgba(127, 228, 255, 0.32);
+      color: var(--text);
+    }}
+    .chip-btn.active {{
+      background: rgba(127, 228, 255, 0.16);
+      border-color: rgba(127, 228, 255, 0.36);
+      color: var(--accent-2);
+    }}
     .meta {{
       margin-top: 10px;
       display: flex;
@@ -595,6 +652,28 @@ def _console_html() -> str:
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
+    }}
+    .timeline-strip {{
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(180px, 220px);
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }}
+    .timeline-event {{
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      padding: 12px;
+      background: rgba(16, 27, 43, 0.78);
+      display: grid;
+      gap: 8px;
+    }}
+    .timeline-event.ok {{
+      border-color: rgba(127, 228, 255, 0.28);
+    }}
+    .timeline-event.hot {{
+      border-color: rgba(255, 106, 130, 0.28);
     }}
     .graph-shell {{
       display: grid;
@@ -814,6 +893,7 @@ def _console_html() -> str:
     const state = {{
       watches: [],
       watchDetails: {{}},
+      watchResultFilters: {{}},
       selectedWatchId: "",
       alerts: [],
       routes: [],
@@ -823,7 +903,10 @@ def _console_html() -> str:
       overview: null,
       triage: [],
       triageStats: null,
+      triageFilter: "open",
+      selectedTriageId: "",
       triageExplain: {{}},
+      triageNoteDrafts: {{}},
       stories: [],
       storyDetails: {{}},
       storyGraph: {{}},
@@ -867,6 +950,27 @@ def _console_html() -> str:
         return "-";
       }}
       return `${{Math.round(Number(value) * 100)}}%`;
+    }}
+
+    function buildAlertRules({{ route = "", keyword = "", domain = "", minScore = 0, minConfidence = 0 }}) {{
+      const cleanedRoute = String(route || "").trim();
+      const cleanedKeyword = String(keyword || "").trim();
+      const cleanedDomain = String(domain || "").trim();
+      const scoreValue = Math.max(0, Number(minScore || 0));
+      const confidenceValue = Math.max(0, Number(minConfidence || 0));
+      if (!(cleanedRoute || cleanedKeyword || cleanedDomain || scoreValue > 0 || confidenceValue > 0)) {{
+        return [];
+      }}
+      const alertRule = {{
+        name: "console-threshold",
+        min_score: scoreValue,
+        min_confidence: confidenceValue,
+        channels: ["json"],
+      }};
+      if (cleanedRoute) alertRule.routes = [cleanedRoute];
+      if (cleanedKeyword) alertRule.keyword_any = [cleanedKeyword];
+      if (cleanedDomain) alertRule.domains = [cleanedDomain];
+      return [alertRule];
     }}
 
     function renderOverview() {{
@@ -989,6 +1093,22 @@ def _console_html() -> str:
       const runStats = watch.run_stats || {{}};
       const resultStats = watch.result_stats || {{}};
       const deliveryStats = watch.delivery_stats || {{}};
+      const resultFilters = watch.result_filters || {{}};
+      const timelineEvents = Array.isArray(watch.timeline_strip) ? watch.timeline_strip : [];
+      const stateOptions = Array.isArray(resultFilters.states) ? resultFilters.states : [];
+      const sourceOptions = Array.isArray(resultFilters.sources) ? resultFilters.sources : [];
+      const domainOptions = Array.isArray(resultFilters.domains) ? resultFilters.domains : [];
+      const savedFilters = state.watchResultFilters[watch.id] || {{}};
+      const normalizeFilterValue = (key, options) => {{
+        const raw = String(savedFilters[key] || "all");
+        return raw === "all" || options.some((option) => option.key === raw) ? raw : "all";
+      }};
+      const activeFilters = {{
+        state: normalizeFilterValue("state", stateOptions),
+        source: normalizeFilterValue("source", sourceOptions),
+        domain: normalizeFilterValue("domain", domainOptions),
+      }};
+      state.watchResultFilters[watch.id] = activeFilters;
       const runsBlock = recentRuns.length
         ? recentRuns.map((run) => `
             <div class="card">
@@ -1028,8 +1148,38 @@ def _console_html() -> str:
             </div>
           `).join("")
         : `<div class="empty">No recent alert event for this mission.</div>`;
-      const resultsBlock = recentResults.length
-        ? recentResults.map((item) => `
+      const filteredResults = recentResults.filter((item) => {{
+        const filters = item.watch_filters || {{}};
+        if (activeFilters.state !== "all" && (filters.state || "new") !== activeFilters.state) {{
+          return false;
+        }}
+        if (activeFilters.source !== "all" && (filters.source || "unknown") !== activeFilters.source) {{
+          return false;
+        }}
+        if (activeFilters.domain !== "all" && (filters.domain || "unknown") !== activeFilters.domain) {{
+          return false;
+        }}
+        return true;
+      }});
+      const filterGroups = [
+        {{ key: "state", label: "state", options: stateOptions }},
+        {{ key: "source", label: "source", options: sourceOptions }},
+        {{ key: "domain", label: "domain", options: domainOptions }},
+      ];
+      const filterWindowCount = Number(resultFilters.window_count || recentResults.length || 0);
+      const filterBlock = filterGroups.map((group) => `
+          <div class="stack">
+            <div class="panel-sub">${{group.label}}</div>
+            <div class="chip-row">
+              <button class="chip-btn ${{activeFilters[group.key] === "all" ? "active" : ""}}" type="button" data-filter-group="${{group.key}}" data-filter-value="all">all (${{filterWindowCount}})</button>
+              ${{group.options.map((option) => `
+                <button class="chip-btn ${{activeFilters[group.key] === option.key ? "active" : ""}}" type="button" data-filter-group="${{group.key}}" data-filter-value="${{escapeHtml(option.key)}}">${{escapeHtml(option.label)}} (${{option.count || 0}})</button>
+              `).join("")}}
+            </div>
+          </div>
+        `).join("");
+      const resultsBlock = filteredResults.length
+        ? filteredResults.map((item) => `
             <div class="card">
               <div class="card-top">
                 <div>
@@ -1046,7 +1196,19 @@ def _console_html() -> str:
               <div class="panel-sub">${{item.url || "-"}}</div>
             </div>
           `).join("")
-        : `<div class="empty">No persisted result captured for this mission yet.</div>`;
+        : `<div class="empty">No persisted result matched the active filter chips in the current mission window.</div>`;
+      const timelineBlock = timelineEvents.length
+        ? `<div class="timeline-strip">${{timelineEvents.map((event) => `
+            <div class="timeline-event ${{event.tone || ""}}">
+              <div class="card-top">
+                <span class="chip ${{event.tone || ""}}">${{event.kind || "event"}}</span>
+                <span class="panel-sub">${{event.time || "-"}}</span>
+              </div>
+              <div class="mono">${{event.label || "-"}}</div>
+              <div class="panel-sub">${{event.detail || "-"}}</div>
+            </div>
+          `).join("")}}</div>`
+        : `<div class="empty">No mission timeline event captured yet.</div>`;
       const retryCollectors = retryAdvice && Array.isArray(retryAdvice.suspected_collectors)
         ? retryAdvice.suspected_collectors
         : [];
@@ -1122,6 +1284,13 @@ def _console_html() -> str:
         </div>
         ${{failureBlock}}
         ${{retryAdviceBlock}}
+        <div class="card">
+          <div class="mono">timeline strip</div>
+          <div class="panel-sub">Recent run, result, and alert events are merged into one server-backed mission timeline.</div>
+          <div style="margin-top:12px;">
+            ${{timelineBlock}}
+          </div>
+        </div>
         <div class="story-columns">
           <div class="stack">
             <div class="mono">recent runs</div>
@@ -1134,9 +1303,169 @@ def _console_html() -> str:
         </div>
         <div class="stack">
           <div class="mono">result stream</div>
+          <div class="card">
+            <div class="mono">filter chips</div>
+            <div class="panel-sub">Filter the current persisted result window by review state, source, or domain without leaving the cockpit.</div>
+            <div class="stack" style="margin-top:12px;">
+              ${{filterBlock}}
+            </div>
+          </div>
           ${{resultsBlock}}
         </div>
+        <div class="card">
+          <div class="card-top">
+            <div>
+              <div class="mono">alert rule editor</div>
+              <div class="panel-sub">Edit multiple console threshold rules for this mission, then replace the saved rule set in one write.</div>
+            </div>
+            <span class="chip">${{(watch.alert_rules || []).length}} rule(s)</span>
+          </div>
+          <form id="watch-alert-form" data-watch-id="${{watch.id}}">
+            <div class="stack" id="watch-alert-rules">
+              ${{
+                ((watch.alert_rules || []).length ? watch.alert_rules : [{{}}]).map((rule, index) => `
+                  <div class="card" data-alert-rule-card="${{index}}">
+                    <div class="card-top">
+                      <div>
+                        <div class="mono">rule ${{index + 1}}</div>
+                        <div class="panel-sub">Current name: ${{rule.name || "console-threshold"}}</div>
+                      </div>
+                      <button class="btn-secondary" type="button" data-remove-alert-rule="${{index}}">Remove</button>
+                    </div>
+                    <div class="field-grid">
+                      <label>Alert Route<input name="route" placeholder="ops-webhook" value="${{(rule.routes || [])[0] || ""}}"></label>
+                      <label>Alert Keyword<input name="keyword" placeholder="launch" value="${{(rule.keyword_any || [])[0] || ""}}"></label>
+                    </div>
+                    <div class="field-grid">
+                      <label>Alert Domain<input name="domain" placeholder="openai.com" value="${{(rule.domains || [])[0] || ""}}"></label>
+                      <label>Min Score<input name="min_score" placeholder="70" type="number" value="${{(rule.min_score || 0) || ""}}"></label>
+                    </div>
+                    <div class="field-grid">
+                      <label>Min Confidence<input name="min_confidence" placeholder="0.8" step="0.01" type="number" value="${{(rule.min_confidence || 0) || ""}}"></label>
+                      <div class="stack">
+                        <div class="panel-sub">Channels are still pinned to `json`; named route delivery is configured via `Alert Route`.</div>
+                      </div>
+                    </div>
+                  </div>
+                `).join("")
+              }}
+            </div>
+            <div class="toolbar">
+              <button class="btn-secondary" id="watch-alert-add" type="button">Add Alert Rule</button>
+              <button class="btn-primary" type="submit">Save Alert Rules</button>
+              <button class="btn-secondary" id="watch-alert-clear" type="button">Clear Alert Rules</button>
+            </div>
+          </form>
+        </div>
       `;
+
+      root.querySelectorAll("[data-filter-group]").forEach((button) => {{
+        button.addEventListener("click", () => {{
+          const filterGroup = String(button.dataset.filterGroup || "").trim();
+          if (!filterGroup) {{
+            return;
+          }}
+          const current = state.watchResultFilters[watch.id] || {{ state: "all", source: "all", domain: "all" }};
+          current[filterGroup] = String(button.dataset.filterValue || "all");
+          state.watchResultFilters[watch.id] = current;
+          renderWatchDetail();
+        }});
+      }});
+
+      const alertForm = document.getElementById("watch-alert-form");
+      const addRuleButton = document.getElementById("watch-alert-add");
+      if (addRuleButton) {{
+        addRuleButton.addEventListener("click", () => {{
+          const rulesRoot = document.getElementById("watch-alert-rules");
+          if (!rulesRoot) {{
+            return;
+          }}
+          const nextIndex = rulesRoot.querySelectorAll("[data-alert-rule-card]").length;
+          rulesRoot.insertAdjacentHTML("beforeend", `
+            <div class="card" data-alert-rule-card="${{nextIndex}}">
+              <div class="card-top">
+                <div>
+                  <div class="mono">rule ${{nextIndex + 1}}</div>
+                  <div class="panel-sub">New console threshold rule.</div>
+                </div>
+                <button class="btn-secondary" type="button" data-remove-alert-rule="${{nextIndex}}">Remove</button>
+              </div>
+              <div class="field-grid">
+                <label>Alert Route<input name="route" placeholder="ops-webhook"></label>
+                <label>Alert Keyword<input name="keyword" placeholder="launch"></label>
+              </div>
+              <div class="field-grid">
+                <label>Alert Domain<input name="domain" placeholder="openai.com"></label>
+                <label>Min Score<input name="min_score" placeholder="70" type="number"></label>
+              </div>
+              <div class="field-grid">
+                <label>Min Confidence<input name="min_confidence" placeholder="0.8" step="0.01" type="number"></label>
+                <div class="stack">
+                  <div class="panel-sub">Channels stay pinned to json; named route delivery is configured via Alert Route.</div>
+                </div>
+              </div>
+            </div>
+          `);
+          rulesRoot.querySelectorAll("[data-remove-alert-rule]").forEach((button) => {{
+            button.onclick = () => {{
+              button.closest("[data-alert-rule-card]")?.remove();
+            }};
+          }});
+        }});
+      }}
+      root.querySelectorAll("[data-remove-alert-rule]").forEach((button) => {{
+        button.onclick = () => {{
+          button.closest("[data-alert-rule-card]")?.remove();
+        }};
+      }});
+      if (alertForm) {{
+        alertForm.addEventListener("submit", async (event) => {{
+          event.preventDefault();
+          const cards = Array.from(document.querySelectorAll("[data-alert-rule-card]"));
+          const alertRules = cards.flatMap((card) => {{
+            return buildAlertRules({{
+              route: String(card.querySelector('[name=\"route\"]')?.value || "").trim(),
+              keyword: String(card.querySelector('[name=\"keyword\"]')?.value || "").trim(),
+              domain: String(card.querySelector('[name=\"domain\"]')?.value || "").trim(),
+              minScore: Number(card.querySelector('[name=\"min_score\"]')?.value || 0),
+              minConfidence: Number(card.querySelector('[name=\"min_confidence\"]')?.value || 0),
+            }});
+          }});
+          const payload = {{
+            alert_rules: alertRules,
+          }};
+          if (!payload.alert_rules.length) {{
+            alert("Provide at least one route, keyword, domain, or threshold across the rule set.");
+            return;
+          }}
+          try {{
+            await api(`/api/watches/${{watch.id}}/alert-rules`, {{
+              method: "PUT",
+              headers: jsonHeaders,
+              body: JSON.stringify(payload),
+            }});
+            await refreshBoard();
+          }} catch (error) {{
+            alert(error.message);
+          }}
+        }});
+      }}
+
+      const clearButton = document.getElementById("watch-alert-clear");
+      if (clearButton) {{
+        clearButton.addEventListener("click", async () => {{
+          try {{
+            await api(`/api/watches/${{watch.id}}/alert-rules`, {{
+              method: "PUT",
+              headers: jsonHeaders,
+              body: JSON.stringify({{ alert_rules: [] }}),
+            }});
+            await refreshBoard();
+          }} catch (error) {{
+            alert(error.message);
+          }}
+        }});
+      }}
     }}
 
     function renderAlerts() {{
@@ -1217,15 +1546,51 @@ def _console_html() -> str:
       const status = ops.daemon || state.status || {{}};
       const metrics = status.metrics || {{}};
       const collectorSummary = ops.collector_summary || {{}};
+      const collectorTiers = ops.collector_tiers || {{}};
+      const collectorDrilldown = Array.isArray(ops.collector_drilldown) ? ops.collector_drilldown : [];
+      const watchMetrics = ops.watch_metrics || {{}};
+      const watchSummary = ops.watch_summary || {{}};
+      const watchHealth = Array.isArray(ops.watch_health) ? ops.watch_health : [];
       const routeSummary = ops.route_summary || {{}};
+      const routeDrilldown = Array.isArray(ops.route_drilldown) ? ops.route_drilldown : [];
+      const routeTimeline = Array.isArray(ops.route_timeline) ? ops.route_timeline : [];
       const degradedCollectors = ops.degraded_collectors || [];
       const recentFailures = ops.recent_failures || [];
       const isError = status.state === "error";
+      const tierBlock = Object.entries(collectorTiers).length
+        ? Object.entries(collectorTiers).map(([tierName, tier]) => `
+            <div class="mini-item">${{tierName}} | total=${{tier.total || 0}} | ok=${{tier.ok || 0}} | warn=${{tier.warn || 0}} | error=${{tier.error || 0}}</div>
+          `).join("")
+        : '<div class="empty">No collector tier breakdown available.</div>';
+      const watchBlock = watchHealth.length
+        ? watchHealth.slice(0, 5).map((mission) => `
+            <div class="mini-item">${{mission.id}} | ${{mission.status || "idle"}} | due=${{mission.is_due ? "yes" : "no"}} | rate=${{formatRate(mission.success_rate)}}</div>
+          `).join("")
+        : '<div class="empty">No watch mission health record yet.</div>';
       const collectorBlock = degradedCollectors.length
         ? degradedCollectors.slice(0, 4).map((collector) => `
             <div class="mini-item">${{collector.name}} | ${{collector.tier}} | ${{collector.status}} | available=${{collector.available}}</div>
           `).join("")
         : '<div class="empty">No degraded collector currently reported.</div>';
+      const collectorDrilldownBlock = collectorDrilldown.length
+        ? collectorDrilldown.slice(0, 8).map((collector) => `
+            <div class="mini-item">${{collector.name}} | ${{collector.tier || "-"}} | ${{collector.status || "ok"}} | available=${{collector.available}}</div>
+            <div class="panel-sub">${{collector.setup_hint || collector.message || "No remediation note."}}</div>
+          `).join("")
+        : '<div class="empty">No collector drill-down entry available.</div>';
+      const routeDrilldownBlock = routeDrilldown.length
+        ? routeDrilldown.slice(0, 8).map((route) => `
+            <div class="mini-item">${{route.name}} | channel=${{route.channel || "unknown"}} | status=${{route.status || "idle"}} | rate=${{formatRate(route.success_rate)}}</div>
+            <div class="panel-sub">missions=${{route.mission_count || 0}} | rules=${{route.rule_count || 0}} | events=${{route.event_count || 0}} | failed=${{route.failure_count || 0}}</div>
+            <div class="panel-sub">${{route.last_error || route.last_summary || "No recent route detail."}}</div>
+          `).join("")
+        : '<div class="empty">No route drill-down entry available.</div>';
+      const routeTimelineBlock = routeTimeline.length
+        ? routeTimeline.slice(0, 8).map((event) => `
+            <div class="mini-item">${{event.created_at || "-"}} | ${{event.route || "-"}} | ${{event.status || "pending"}} | ${{event.mission_name || event.mission_id || "-"}}</div>
+            <div class="panel-sub">${{event.error || event.summary || "No route event detail."}}</div>
+          `).join("")
+        : '<div class="empty">No route delivery timeline event available.</div>';
       const failureBlock = recentFailures.length
         ? recentFailures.slice(0, 4).map((failure) => `
             <div class="mini-item">${{failure.kind}} | ${{failure.mission_name || failure.name || "-"}} | ${{failure.status || "error"}} | ${{failure.error || "-"}}</div>
@@ -1263,8 +1628,31 @@ def _console_html() -> str:
           </div>
         </div>
         <div class="card">
+          <div class="mono">watch health</div>
+          <div class="meta">
+            <span>total=${{watchSummary.total || 0}}</span>
+            <span>enabled=${{watchSummary.enabled || 0}}</span>
+            <span>healthy=${{watchSummary.healthy || 0}}</span>
+            <span>degraded=${{watchSummary.degraded || 0}}</span>
+            <span>idle=${{watchSummary.idle || 0}}</span>
+            <span>disabled=${{watchSummary.disabled || 0}}</span>
+            <span>due=${{watchSummary.due || 0}}</span>
+            <span>rate=${{formatRate(watchMetrics.success_rate)}}</span>
+          </div>
+        </div>
+        <div class="card">
           <div class="mono">last_error</div>
           <div>${{status.last_error || "-"}}</div>
+        </div>
+        <div class="graph-meta">
+          <div class="mini-list">
+            <div class="mono">collector tiers</div>
+            ${{tierBlock}}
+          </div>
+          <div class="mini-list">
+            <div class="mono">watch board</div>
+            ${{watchBlock}}
+          </div>
         </div>
         <div class="graph-meta">
           <div class="mini-list">
@@ -1272,8 +1660,28 @@ def _console_html() -> str:
             ${{collectorBlock}}
           </div>
           <div class="mini-list">
+            <div class="mono">collector drill-down</div>
+            ${{collectorDrilldownBlock}}
+          </div>
+        </div>
+        <div class="graph-meta">
+          <div class="mini-list">
+            <div class="mono">route drill-down</div>
+            ${{routeDrilldownBlock}}
+          </div>
+          <div class="mini-list">
             <div class="mono">recent failures</div>
             ${{failureBlock}}
+          </div>
+        </div>
+        <div class="graph-meta">
+          <div class="mini-list">
+            <div class="mono">route timeline</div>
+            ${{routeTimelineBlock}}
+          </div>
+          <div class="mini-list">
+            <div class="mono">degraded collectors</div>
+            ${{collectorBlock}}
           </div>
         </div>`;
     }}
@@ -1321,22 +1729,146 @@ def _console_html() -> str:
       `;
     }}
 
+    function renderReviewNotes(notes) {{
+      const entries = Array.isArray(notes) ? notes : [];
+      if (!entries.length) {{
+        return `<div class="panel-sub">No review note recorded yet.</div>`;
+      }}
+      return `
+        <div class="stack" style="margin-top:12px;">
+          ${{entries.slice(-3).map((entry) => `
+            <div class="mini-item">${{escapeHtml(entry.author || "console")}} | ${{escapeHtml(entry.created_at || "-")}}</div>
+            <div class="panel-sub">${{escapeHtml(entry.note || "")}}</div>
+          `).join("")}}
+        </div>
+      `;
+    }}
+
+    function getVisibleTriageItems() {{
+      const activeFilter = state.triageFilter || "open";
+      return state.triage.filter((item) => {{
+        const reviewState = String(item.review_state || "new").trim().toLowerCase() || "new";
+        if (activeFilter === "all") {{
+          return true;
+        }}
+        if (activeFilter === "open") {{
+          return !["verified", "duplicate", "ignored"].includes(reviewState);
+        }}
+        return reviewState === activeFilter;
+      }});
+    }}
+
+    async function runTriageExplain(itemId) {{
+      if (!itemId) {{
+        return;
+      }}
+      state.selectedTriageId = itemId;
+      state.triageExplain[itemId] = await api(`/api/triage/${{itemId}}/explain?limit=4`);
+      renderTriage();
+    }}
+
+    async function runTriageStateUpdate(itemId, nextState) {{
+      if (!itemId || !nextState) {{
+        return;
+      }}
+      state.selectedTriageId = itemId;
+      await api(`/api/triage/${{itemId}}/state`, {{
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({{ state: nextState, actor: "console" }}),
+      }});
+      await refreshBoard();
+    }}
+
+    function focusTriageNoteComposer(itemId) {{
+      if (!itemId) {{
+        return;
+      }}
+      state.selectedTriageId = itemId;
+      renderTriage();
+      const field = document.querySelector(`[data-triage-note-input="${{itemId}}"]`);
+      if (field) {{
+        field.focus();
+        field.setSelectionRange(field.value.length, field.value.length);
+      }}
+    }}
+
+    function moveTriageSelection(delta) {{
+      const visibleItems = getVisibleTriageItems();
+      if (!visibleItems.length) {{
+        return;
+      }}
+      const currentIndex = Math.max(
+        0,
+        visibleItems.findIndex((item) => item.id === state.selectedTriageId),
+      );
+      const nextIndex = Math.min(
+        visibleItems.length - 1,
+        Math.max(0, currentIndex + delta),
+      );
+      state.selectedTriageId = visibleItems[nextIndex].id;
+      renderTriage();
+      const selectedCard = document.querySelector(`[data-triage-card="${{state.selectedTriageId}}"]`);
+      selectedCard?.scrollIntoView({{ block: "nearest", behavior: "smooth" }});
+    }}
+
     function renderTriage() {{
       const root = $("triage-list");
       const inlineStats = $("triage-stats-inline");
       const stats = state.triageStats || {{}};
+      const triageStates = stats.states || {{}};
+      const filterOptions = [
+        {{ key: "open", label: "open", count: stats.open_count || 0 }},
+        {{ key: "all", label: "all", count: stats.total || state.triage.length }},
+        ...Object.entries(triageStates).map(([key, count]) => ({{ key, label: key, count: count || 0 }})),
+      ];
+      const activeFilter = state.triageFilter || "open";
+      const filteredItems = getVisibleTriageItems();
+      if (filteredItems.length && !filteredItems.some((item) => item.id === state.selectedTriageId)) {{
+        state.selectedTriageId = filteredItems[0].id;
+      }}
+      if (!filteredItems.length) {{
+        state.selectedTriageId = "";
+      }}
+      const filterBlock = filterOptions.map((option) => `
+        <button class="chip-btn ${{activeFilter === option.key ? "active" : ""}}" type="button" data-triage-filter="${{escapeHtml(option.key)}}">${{escapeHtml(option.label)}} (${{option.count || 0}})</button>
+      `).join("");
       inlineStats.innerHTML = `
         <span>open=${{stats.open_count || 0}}</span>
         <span>closed=${{stats.closed_count || 0}}</span>
         <span>notes=${{stats.note_count || 0}}</span>
         <span>verified=${{(stats.states || {{}}).verified || 0}}</span>
+        <span>filter=${{activeFilter}}</span>
+        <span>selected=${{state.selectedTriageId || "-"}}</span>
       `;
       if (!state.triage.length) {{
-        root.innerHTML = `<div class="empty">No open triage item right now.</div>`;
+        root.innerHTML = `
+          <div class="card">
+            <div class="mono">triage filters</div>
+            <div class="panel-sub">Slice the queue by current review state before applying notes or state transitions.</div>
+            <div class="stack" style="margin-top:12px;">${{filterBlock}}</div>
+          </div>
+          <div class="card">
+            <div class="mono">triage shortcuts</div>
+            <div class="panel-sub">Use J/K to move, V to verify, T to triage, E to escalate, I to ignore, D to explain duplicates, and N to focus the note composer.</div>
+          </div>
+          <div class="empty">No triage item stored right now.</div>`;
         return;
       }}
-      root.innerHTML = state.triage.map((item) => `
+      root.innerHTML = `
         <div class="card">
+          <div class="mono">triage filters</div>
+          <div class="panel-sub">Slice the queue by current review state before applying notes or state transitions.</div>
+          <div class="stack" style="margin-top:12px;">${{filterBlock}}</div>
+        </div>
+        <div class="card">
+          <div class="mono">triage shortcuts</div>
+          <div class="panel-sub">Use J/K to move, V to verify, T to triage, E to escalate, I to ignore, D to explain duplicates, and N to focus the note composer.</div>
+        </div>
+        ${{
+          filteredItems.length
+            ? filteredItems.map((item) => `
+        <div class="card selectable ${{item.id === state.selectedTriageId ? "selected" : ""}}" data-triage-card="${{item.id}}">
           <div class="card-top">
             <div>
               <h3 class="card-title">${{item.title}}</h3>
@@ -1352,21 +1884,51 @@ def _console_html() -> str:
           <div class="panel-sub">${{item.url}}</div>
           <div class="actions">
             <button class="btn-secondary" data-triage-explain="${{item.id}}">Explain Dup</button>
+            <button class="btn-secondary" data-triage-state="triaged" data-triage-id="${{item.id}}">Triaged</button>
             <button class="btn-secondary" data-triage-state="verified" data-triage-id="${{item.id}}">Verify</button>
             <button class="btn-secondary" data-triage-state="escalated" data-triage-id="${{item.id}}">Escalate</button>
             <button class="btn-secondary" data-triage-state="ignored" data-triage-id="${{item.id}}">Ignore</button>
           </div>
+          <div class="card" style="margin-top:12px;">
+            <div class="mono">review notes</div>
+            <div class="panel-sub">Capture reviewer rationale, routing hints, and merge context without leaving the queue.</div>
+            ${{renderReviewNotes(item.review_notes)}}
+            <form data-triage-note-form="${{item.id}}" style="margin-top:12px;">
+              <label>note composer<textarea name="note" rows="3" data-triage-note-input="${{item.id}}" placeholder="Capture reviewer rationale, routing hint, or merge context.">${{escapeHtml(state.triageNoteDrafts[item.id] || "")}}</textarea></label>
+              <div class="toolbar">
+                <button class="btn-primary" type="submit">Save Note</button>
+              </div>
+            </form>
+          </div>
           ${{renderDuplicateExplain(state.triageExplain[item.id])}}
         </div>
-      `).join("");
+      `).join("")
+            : `<div class="empty">No triage item matched the active queue filter.</div>`
+        }}
+      `;
+
+      root.querySelectorAll("[data-triage-filter]").forEach((button) => {{
+        button.addEventListener("click", () => {{
+          state.triageFilter = String(button.dataset.triageFilter || "open").trim() || "open";
+          renderTriage();
+        }});
+      }});
+
+      root.querySelectorAll("[data-triage-card]").forEach((card) => {{
+        card.addEventListener("click", (event) => {{
+          if (event.target.closest("button, textarea, input, select, a, form")) {{
+            return;
+          }}
+          state.selectedTriageId = String(card.dataset.triageCard || "").trim();
+          renderTriage();
+        }});
+      }});
 
       root.querySelectorAll("[data-triage-explain]").forEach((button) => {{
         button.addEventListener("click", async () => {{
           button.disabled = true;
           try {{
-            const itemId = button.dataset.triageExplain;
-            state.triageExplain[itemId] = await api(`/api/triage/${{itemId}}/explain?limit=4`);
-            renderTriage();
+            await runTriageExplain(String(button.dataset.triageExplain || "").trim());
           }} catch (error) {{
             alert(error.message);
           }} finally {{
@@ -1379,16 +1941,51 @@ def _console_html() -> str:
         button.addEventListener("click", async () => {{
           button.disabled = true;
           try {{
-            await api(`/api/triage/${{button.dataset.triageId}}/state`, {{
-              method: "POST",
-              headers: jsonHeaders,
-              body: JSON.stringify({{ state: button.dataset.triageState, actor: "console" }}),
-            }});
-            await refreshBoard();
+            await runTriageStateUpdate(
+              String(button.dataset.triageId || "").trim(),
+              String(button.dataset.triageState || "").trim(),
+            );
           }} catch (error) {{
             alert(error.message);
           }} finally {{
             button.disabled = false;
+          }}
+        }});
+      }});
+
+      root.querySelectorAll("[data-triage-note-input]").forEach((field) => {{
+        field.addEventListener("input", () => {{
+          state.triageNoteDrafts[field.dataset.triageNoteInput] = field.value;
+        }});
+      }});
+
+      root.querySelectorAll("[data-triage-note-form]").forEach((form) => {{
+        form.addEventListener("submit", async (event) => {{
+          event.preventDefault();
+          const itemId = String(form.dataset.triageNoteForm || "").trim();
+          const note = String(new FormData(form).get("note") || "").trim();
+          if (!note) {{
+            alert("Provide a note before saving.");
+            return;
+          }}
+          const submitButton = form.querySelector("button[type='submit']");
+          if (submitButton) {{
+            submitButton.disabled = true;
+          }}
+          try {{
+            await api(`/api/triage/${{itemId}}/note`, {{
+              method: "POST",
+              headers: jsonHeaders,
+              body: JSON.stringify({{ note, author: "console" }}),
+            }});
+            state.triageNoteDrafts[itemId] = "";
+            await refreshBoard();
+          }} catch (error) {{
+            alert(error.message);
+          }} finally {{
+            if (submitButton) {{
+              submitButton.disabled = false;
+            }}
           }}
         }});
       }});
@@ -1577,6 +2174,7 @@ def _console_html() -> str:
           `
         : "";
       const graphPreview = renderStoryGraph(state.storyGraph[selected]);
+      const storyStatusOptions = ["active", "monitoring", "resolved", "archived"];
       root.innerHTML = `
         <div class="card">
           <div class="card-top">
@@ -1602,6 +2200,24 @@ def _console_html() -> str:
             <a href="/api/stories/${{story.id}}" target="_blank" rel="noreferrer">Open JSON</a>
             <a href="/api/stories/${{story.id}}/export?format=markdown" target="_blank" rel="noreferrer">Export MD</a>
           </div>
+        </div>
+        <div class="card">
+          <div class="mono">story editor</div>
+          <div class="panel-sub">Tune the persisted title, summary, and story status without rebuilding the whole workspace snapshot.</div>
+          <form id="story-editor-form" data-story-id="${{story.id}}" style="margin-top:12px;">
+            <div class="field-grid">
+              <label>Story Title<input name="title" value="${{escapeHtml(story.title || "")}}" placeholder="OpenAI Launch Story"></label>
+              <label>Story Status
+                <select name="status">
+                  ${{storyStatusOptions.map((value) => `<option value="${{value}}" ${{(story.status || "active") === value ? "selected" : ""}}>${{value}}</option>`).join("")}}
+                </select>
+              </label>
+            </div>
+            <label>Story Summary<textarea name="summary" rows="4" placeholder="Condense why this story matters right now.">${{escapeHtml(story.summary || "")}}</textarea></label>
+            <div class="toolbar">
+              <button class="btn-primary" type="submit">Save Story</button>
+            </div>
+          </form>
         </div>
         <div class="story-columns">
           <div class="stack">
@@ -1640,6 +2256,42 @@ def _console_html() -> str:
           }}
         }});
       }});
+
+      const storyEditorForm = document.getElementById("story-editor-form");
+      if (storyEditorForm) {{
+        storyEditorForm.addEventListener("submit", async (event) => {{
+          event.preventDefault();
+          const form = new FormData(storyEditorForm);
+          const payload = {{
+            title: String(form.get("title") || "").trim(),
+            summary: String(form.get("summary") || "").trim(),
+            status: String(form.get("status") || "").trim(),
+          }};
+          if (!payload.title) {{
+            alert("Provide a story title before saving.");
+            return;
+          }}
+          const submitButton = storyEditorForm.querySelector("button[type='submit']");
+          if (submitButton) {{
+            submitButton.disabled = true;
+          }}
+          try {{
+            await api(`/api/stories/${{story.id}}`, {{
+              method: "PUT",
+              headers: jsonHeaders,
+              body: JSON.stringify(payload),
+            }});
+            state.storyMarkdown[story.id] = "";
+            await refreshBoard();
+          }} catch (error) {{
+            alert(error.message);
+          }} finally {{
+            if (submitButton) {{
+              submitButton.disabled = false;
+            }}
+          }}
+        }});
+      }}
     }}
 
     function renderStories() {{
@@ -1730,7 +2382,7 @@ def _console_html() -> str:
         api("/api/alert-routes/health?limit=60"),
         api("/api/watch-status"),
         api("/api/ops"),
-        api("/api/triage?limit=6"),
+        api("/api/triage?limit=12&include_closed=true"),
         api("/api/triage/stats"),
         api("/api/stories?limit=6&min_items=2"),
       ]);
@@ -1794,31 +2446,19 @@ def _console_html() -> str:
     $("create-watch-form").addEventListener("submit", async (event) => {{
       event.preventDefault();
       const form = new FormData(event.target);
-      const route = String(form.get("route") || "").trim();
-      const keyword = String(form.get("keyword") || "").trim();
-      const domain = String(form.get("domain") || "").trim();
-      const minScore = Number(form.get("min_score") || 0);
-      const minConfidence = Number(form.get("min_confidence") || 0);
-      const shouldCreateAlertRule = Boolean(route || keyword || domain || minScore > 0 || minConfidence > 0);
-      let alertRules = null;
-      if (shouldCreateAlertRule) {{
-        const alertRule = {{
-          name: "console-threshold",
-          min_score: minScore,
-          min_confidence: minConfidence,
-          channels: ["json"],
-        }};
-        if (route) alertRule.routes = [route];
-        if (keyword) alertRule.keyword_any = [keyword];
-        if (domain) alertRule.domains = [domain];
-        alertRules = [alertRule];
-      }}
+      const alertRules = buildAlertRules({{
+        route: String(form.get("route") || "").trim(),
+        keyword: String(form.get("keyword") || "").trim(),
+        domain: String(form.get("domain") || "").trim(),
+        minScore: Number(form.get("min_score") || 0),
+        minConfidence: Number(form.get("min_confidence") || 0),
+      }});
       const payload = {{
         name: String(form.get("name") || "").trim(),
         query: String(form.get("query") || "").trim(),
         schedule: String(form.get("schedule") || "manual").trim() || "manual",
         platforms: String(form.get("platform") || "").trim() ? [String(form.get("platform")).trim()] : null,
-        alert_rules: alertRules,
+        alert_rules: alertRules.length ? alertRules : null,
       }};
       try {{
         await api("/api/watches", {{ method: "POST", headers: jsonHeaders, body: JSON.stringify(payload) }});
@@ -1832,6 +2472,48 @@ def _console_html() -> str:
     refreshBoard().catch((error) => {{
       console.error(error);
       alert(`Console boot failed: ${{error.message}}`);
+    }});
+
+    document.addEventListener("keydown", (event) => {{
+      const target = event.target;
+      const tagName = target && target.tagName ? String(target.tagName).toLowerCase() : "";
+      if (event.metaKey || event.ctrlKey || event.altKey) {{
+        return;
+      }}
+      if (["input", "textarea", "select", "button"].includes(tagName)) {{
+        return;
+      }}
+      const visibleItems = getVisibleTriageItems();
+      if (!visibleItems.length) {{
+        return;
+      }}
+      const selectedId = state.selectedTriageId || visibleItems[0].id;
+      const key = String(event.key || "").toLowerCase();
+      if (key === "j") {{
+        event.preventDefault();
+        moveTriageSelection(1);
+      }} else if (key === "k") {{
+        event.preventDefault();
+        moveTriageSelection(-1);
+      }} else if (key === "v") {{
+        event.preventDefault();
+        runTriageStateUpdate(selectedId, "verified").catch((error) => alert(error.message));
+      }} else if (key === "t") {{
+        event.preventDefault();
+        runTriageStateUpdate(selectedId, "triaged").catch((error) => alert(error.message));
+      }} else if (key === "e") {{
+        event.preventDefault();
+        runTriageStateUpdate(selectedId, "escalated").catch((error) => alert(error.message));
+      }} else if (key === "i") {{
+        event.preventDefault();
+        runTriageStateUpdate(selectedId, "ignored").catch((error) => alert(error.message));
+      }} else if (key === "d") {{
+        event.preventDefault();
+        runTriageExplain(selectedId).catch((error) => alert(error.message));
+      }} else if (key === "n") {{
+        event.preventDefault();
+        focusTriageNoteComposer(selectedId);
+      }}
     }});
   </script>
 </body>
@@ -1849,6 +2531,10 @@ class WatchCreateRequest(BaseModel):
     alert_rules: list[dict[str, Any]] | None = None
 
 
+class WatchAlertRuleRequest(BaseModel):
+    alert_rules: list[dict[str, Any]] | None = None
+
+
 class RunDueRequest(BaseModel):
     limit: int = Field(default=0, ge=0)
 
@@ -1863,6 +2549,12 @@ class TriageStateRequest(BaseModel):
 class TriageNoteRequest(BaseModel):
     note: str
     author: str = "console"
+
+
+class StoryUpdateRequest(BaseModel):
+    title: str | None = None
+    summary: str | None = None
+    status: str | None = None
 
 
 def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) -> FastAPI:
@@ -1946,6 +2638,13 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     def create_watch(payload: WatchCreateRequest) -> dict[str, Any]:
         return reader_factory().create_watch(**payload.model_dump())
 
+    @app.put("/api/watches/{identifier}/alert-rules")
+    def set_watch_alert_rules(identifier: str, payload: WatchAlertRuleRequest) -> dict[str, Any]:
+        mission = reader_factory().set_watch_alert_rules(identifier, alert_rules=payload.alert_rules)
+        if mission is None:
+            raise HTTPException(status_code=404, detail=f"Watch mission not found: {identifier}")
+        return mission
+
     @app.post("/api/watches/run-due")
     async def run_due_watches(payload: RunDueRequest) -> dict[str, Any]:
         return await reader_factory().run_due_watches(limit=payload.limit or None)
@@ -1991,6 +2690,16 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     @app.get("/api/stories/{identifier}")
     def show_story(identifier: str) -> dict[str, Any]:
         story = reader_factory().show_story(identifier)
+        if story is None:
+            raise HTTPException(status_code=404, detail=f"Story not found: {identifier}")
+        return story
+
+    @app.put("/api/stories/{identifier}")
+    def update_story(identifier: str, payload: StoryUpdateRequest) -> dict[str, Any]:
+        try:
+            story = reader_factory().update_story(identifier, **payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         if story is None:
             raise HTTPException(status_code=404, detail=f"Story not found: {identifier}")
         return story

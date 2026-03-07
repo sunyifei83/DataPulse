@@ -153,6 +153,18 @@ async def _run_story_show(identifier: str) -> str:
     return json.dumps({"ok": payload is not None, "story": payload}, ensure_ascii=False, indent=2)
 
 
+async def _run_story_update(
+    identifier: str,
+    *,
+    title: str | None = None,
+    summary: str | None = None,
+    status: str | None = None,
+) -> str:
+    reader = DataPulseReader()
+    payload = reader.update_story(identifier, title=title, summary=summary, status=status)
+    return json.dumps({"ok": payload is not None, "story": payload}, ensure_ascii=False, indent=2)
+
+
 async def _run_story_graph(identifier: str, entity_limit: int = 12, relation_limit: int = 24) -> str:
     reader = DataPulseReader()
     payload = reader.story_graph(identifier, entity_limit=entity_limit, relation_limit=relation_limit)
@@ -439,6 +451,12 @@ async def _run_list_watches(include_disabled: bool = False) -> str:
 async def _run_watch_show(identifier: str) -> str:
     reader = DataPulseReader()
     payload = reader.show_watch(identifier)
+    return json.dumps({"ok": payload is not None, "mission": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_watch_set_alert_rules(identifier: str, alert_rules: list[dict[str, Any]] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = reader.set_watch_alert_rules(identifier, alert_rules=alert_rules)
     return json.dumps({"ok": payload is not None, "mission": payload}, ensure_ascii=False, indent=2)
 
 
@@ -817,6 +835,11 @@ def _register_tools(app: Any) -> None:
         return await _run_watch_show(identifier=identifier)
 
     @app.tool()
+    async def watch_set_alert_rules(identifier: str, alert_rules: list[dict[str, Any]] | None = None) -> str:
+        """Replace alert rules for one watch mission. Pass an empty list to clear rules."""
+        return await _run_watch_set_alert_rules(identifier=identifier, alert_rules=alert_rules)
+
+    @app.tool()
     async def watch_results(identifier: str, limit: int = 10, min_confidence: float = 0.0) -> str:
         """Show recent persisted results for one watch mission."""
         return await _run_watch_results(identifier=identifier, limit=limit, min_confidence=min_confidence)
@@ -971,6 +994,21 @@ def _register_tools(app: Any) -> None:
     async def story_show(identifier: str) -> str:  # noqa: ANN001
         """Show one persisted story by id or title."""
         return await _run_story_show(identifier=identifier)
+
+    @app.tool()
+    async def story_update(
+        identifier: str,
+        title: str | None = None,
+        summary: str | None = None,
+        status: str | None = None,
+    ) -> str:  # noqa: ANN001
+        """Update one persisted story by id or title."""
+        return await _run_story_update(
+            identifier=identifier,
+            title=title,
+            summary=summary,
+            status=status,
+        )
 
     @app.tool()
     async def story_graph(identifier: str, entity_limit: int = 12, relation_limit: int = 24) -> str:  # noqa: ANN001

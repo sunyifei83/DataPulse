@@ -90,11 +90,25 @@ class _WatchMCPReader:
                 "returned_result_count": 1,
                 "latest_result_at": "2026-03-06T00:00:00+00:00",
             },
+            "result_filters": {
+                "window_count": 1,
+                "states": [{"key": "new", "label": "new", "count": 1}],
+                "sources": [{"key": "search", "label": "search", "count": 1}],
+                "domains": [{"key": "example.com", "label": "example.com", "count": 1}],
+            },
             "recent_alerts": [
                 {
                     "id": "alert-1",
                     "rule_name": "threshold",
                     "created_at": "2026-03-06T00:00:10+00:00",
+                }
+            ],
+            "timeline_strip": [
+                {
+                    "kind": "alert",
+                    "time": "2026-03-06T00:00:10+00:00",
+                    "label": "alert: threshold",
+                    "detail": "json | AI Radar triggered threshold",
                 }
             ],
         }
@@ -112,8 +126,21 @@ class _WatchMCPReader:
                 "review_state": "new",
                 "source_name": "search",
                 "source_type": "generic",
+                "watch_filters": {
+                    "state": "new",
+                    "source": "search",
+                    "domain": "example.com",
+                },
             }
         ][:limit]
+
+    def set_watch_alert_rules(self, identifier, *, alert_rules=None):
+        if identifier != "ai-radar":
+            return None
+        payload = self.show_watch(identifier)
+        payload["alert_rules"] = list(alert_rules or [])
+        payload["alert_rule_count"] = len(payload["alert_rules"])
+        return payload
 
     async def run_watch(self, identifier):
         return {
@@ -187,8 +214,71 @@ class _WatchMCPReader:
     def ops_snapshot(self, **kwargs):
         return {
             "collector_summary": {"total": 4, "ok": 2, "warn": 1, "error": 1, "available": 3, "unavailable": 1},
+            "collector_tiers": {
+                "tier_0": {"total": 2, "ok": 2, "warn": 0, "error": 0, "available": 2, "unavailable": 0},
+                "tier_1": {"total": 1, "ok": 0, "warn": 1, "error": 0, "available": 1, "unavailable": 0},
+            },
+            "collector_drilldown": [
+                {
+                    "tier": "tier_1",
+                    "name": "twitter",
+                    "status": "warn",
+                    "available": True,
+                    "message": "credentials missing",
+                    "setup_hint": "set API key",
+                }
+            ],
             "watch_metrics": {"state": "idle", "runs_total": 2, "success_total": 1, "error_total": 1, "success_rate": 0.5},
+            "watch_summary": {"total": 1, "enabled": 1, "disabled": 0, "healthy": 0, "degraded": 1, "idle": 0, "due": 1},
+            "watch_health": [
+                {
+                    "id": "ai-radar",
+                    "name": "AI Radar",
+                    "enabled": True,
+                    "status": "degraded",
+                    "is_due": True,
+                    "schedule_label": "hourly",
+                    "next_run_at": "2026-03-06T01:00:00+00:00",
+                    "last_run_at": "2026-03-06T00:00:00+00:00",
+                    "last_run_status": "error",
+                    "last_run_error": "temporary failure",
+                    "alert_rule_count": 1,
+                    "run_total": 2,
+                    "success_total": 1,
+                    "error_total": 1,
+                    "success_rate": 0.5,
+                    "average_items": 1.0,
+                }
+            ],
             "route_summary": {"total": 1, "healthy": 1, "degraded": 0, "missing": 0, "idle": 0},
+            "route_drilldown": [
+                {
+                    "name": "ops-webhook",
+                    "channel": "webhook",
+                    "status": "healthy",
+                    "event_count": 1,
+                    "delivered_count": 1,
+                    "failure_count": 0,
+                    "success_rate": 1.0,
+                    "mission_count": 1,
+                    "rule_count": 1,
+                    "last_summary": "AI Radar triggered threshold",
+                }
+            ],
+            "route_timeline": [
+                {
+                    "route": "ops-webhook",
+                    "channel": "webhook",
+                    "mission_id": "ai-radar",
+                    "mission_name": "AI Radar",
+                    "rule_name": "threshold",
+                    "created_at": "2026-03-06T00:00:10+00:00",
+                    "status": "delivered",
+                    "summary": "AI Radar triggered threshold",
+                    "error": "",
+                    "delivered_channels": ["json", "webhook:ops-webhook"],
+                }
+            ],
             "recent_failures": [{"kind": "watch_run", "mission_name": "AI Radar", "status": "error", "error": "temporary failure"}],
         }
 
@@ -269,6 +359,15 @@ class _WatchMCPReader:
             "item_count": 2,
         }
 
+    def update_story(self, identifier, **kwargs):
+        return {
+            "id": identifier,
+            "title": kwargs.get("title") or "OpenAI Launch Story",
+            "summary": kwargs.get("summary") or "Condensed launch summary",
+            "status": kwargs.get("status") or "monitoring",
+            "item_count": 2,
+        }
+
     def story_graph(self, identifier, **kwargs):
         return {
             "story": {
@@ -307,6 +406,7 @@ def test_mcp_registers_watch_tools():
         "create_watch",
         "list_watches",
         "watch_show",
+        "watch_set_alert_rules",
         "watch_results",
         "run_watch",
         "disable_watch",
@@ -324,6 +424,7 @@ def test_mcp_registers_watch_tools():
         "story_build",
         "story_list",
         "story_show",
+        "story_update",
         "story_graph",
         "story_export",
     } <= tool_names
@@ -377,6 +478,8 @@ async def test_mcp_watch_show_tool(monkeypatch):
     assert payload["mission"]["id"] == "ai-radar"
     assert payload["mission"]["run_stats"]["error"] == 1
     assert payload["mission"]["recent_results"][0]["id"] == "item-1"
+    assert payload["mission"]["result_filters"]["window_count"] == 1
+    assert payload["mission"]["timeline_strip"][0]["kind"] == "alert"
     assert payload["mission"]["retry_advice"]["retry_command"] == "datapulse --watch-run ai-radar"
 
 
@@ -391,6 +494,22 @@ async def test_mcp_watch_results_tool(monkeypatch):
     assert payload["ok"] is True
     assert payload["results"][0]["id"] == "item-1"
     assert payload["results"][0]["title"] == "OpenAI agents result"
+
+
+@pytest.mark.asyncio
+async def test_mcp_watch_set_alert_rules_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool(
+        "watch_set_alert_rules",
+        {"identifier": "ai-radar", "alert_rules": [{"name": "threshold", "routes": ["ops-webhook"]}]},
+    )
+    payload = json.loads(raw)
+
+    assert payload["ok"] is True
+    assert payload["mission"]["alert_rule_count"] == 1
+    assert payload["mission"]["alert_rules"][0]["routes"] == ["ops-webhook"]
 
 
 @pytest.mark.asyncio
@@ -477,6 +596,8 @@ async def test_mcp_ops_overview_tool(monkeypatch):
 
     assert payload["collector_summary"]["warn"] == 1
     assert payload["watch_metrics"]["success_rate"] == 0.5
+    assert payload["watch_summary"]["degraded"] == 1
+    assert payload["watch_health"][0]["id"] == "ai-radar"
     assert payload["recent_failures"][0]["mission_name"] == "AI Radar"
 
 
@@ -541,6 +662,27 @@ async def test_mcp_story_build_and_show_tool(monkeypatch):
     shown = json.loads(raw_show)
     assert shown["ok"] is True
     assert shown["story"]["id"] == "story-openai-launch"
+
+
+@pytest.mark.asyncio
+async def test_mcp_story_update_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool(
+        "story_update",
+        {
+            "identifier": "story-openai-launch",
+            "title": "OpenAI Launch Watch",
+            "summary": "Condensed launch summary",
+            "status": "monitoring",
+        },
+    )
+    payload = json.loads(raw)
+
+    assert payload["ok"] is True
+    assert payload["story"]["title"] == "OpenAI Launch Watch"
+    assert payload["story"]["status"] == "monitoring"
 
 
 @pytest.mark.asyncio

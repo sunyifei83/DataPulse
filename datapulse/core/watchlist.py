@@ -264,6 +264,19 @@ class WatchlistStore:
         self.save()
         return mission
 
+    def replace_alert_rules(self, identifier: str, alert_rules: list[dict[str, Any]] | None) -> WatchMission | None:
+        mission = self.get(identifier)
+        if mission is None:
+            return None
+        mission.alert_rules = [
+            dict(rule)
+            for rule in list(alert_rules or [])
+            if isinstance(rule, dict)
+        ]
+        mission.updated_at = _utcnow()
+        self.save()
+        return mission
+
     def record_run(self, identifier: str, run: MissionRun) -> WatchMission | None:
         mission = self.get(identifier)
         if mission is None:

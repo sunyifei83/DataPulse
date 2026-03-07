@@ -44,6 +44,7 @@ for MCP, Skill, Agent, and bot workflows.
 - Digest builder: auto-generates digest envelopes with primary/secondary stories, fingerprint dedup, diverse source selection
 - Task layer (initial Watch Mission support):
   - save recurring search missions, list them, run them manually, disable them
+  - replace or clear one mission's alert rules with `--watch-alert-set / --watch-alert-clear`
   - shared mission/run object model across CLI, Reader, and MCP
 - Triage queue (initial support):
   - review states: `new / triaged / verified / duplicate / ignored / escalated`
@@ -52,13 +53,14 @@ for MCP, Skill, Agent, and bot workflows.
   - duplicate explain workflow with candidate ranking, signals, and suggested primary item
 - Story workspace (initial support):
   - story clustering, primary/secondary evidence, timelines, contradiction hints, and entity rollups
-  - `--story-build / --story-list / --story-show / --story-graph / --story-export`
+  - `--story-build / --story-list / --story-show / --story-update / --story-graph / --story-export`
   - shared story semantics across Reader, MCP, and the browser console
 - Alerts and scheduling (initial support):
   - threshold alert rules, due-runner polling, daemon single-instance lock
   - keyword / tag / domain / source-type / freshness filters for alert matching
   - JSON / Markdown / Webhook / Feishu / Telegram alert sinks for auto-distribution
   - named route config with `--alert-route-list / --alert-route-health`
+  - `--watch-alert-set / --watch-alert-clear` to replace or clear one mission's alert rules in place
   - `--watch-show / --watch-results` for one mission's recent runs, persisted result stream, recent alert outcomes, and latest failure retry guidance
   - `watch_status` for daemon heartbeat, metrics, and last error
   - JSON + HTML static status outputs
@@ -66,7 +68,11 @@ for MCP, Skill, Agent, and bot workflows.
   - local `datapulse-console` browser shell
   - unified watch / mission cockpit / triage / story / alert / route / route health / status operating surface
   - `Mission Cockpit` now includes a persisted result stream for each mission
-  - includes a read-only Story Workspace board with evidence stacks, timeline, contradiction markers, entity graph, and Markdown pack preview
+  - `Mission Cockpit` now includes result filter chips and a timeline strip for one mission's recent events
+  - `Mission Cockpit` now includes a first-cut alert rule editor for replacing or clearing the console threshold rule
+  - `Triage Queue` now includes a first-cut keyboard workflow: `J/K` move selection, `V/T/E/I` apply state changes, `D` loads duplicate explain, and `N` focuses the note composer
+  - the status board now includes collector tier breakdown, a watch health board, and aggregate success-rate signals
+  - includes a Story Workspace board with evidence stacks, timeline, contradiction markers, entity graph, Markdown pack preview, and a basic story editor for `title / summary / status`
 - Reliability:
   - centralized parse error handling with narrowed exceptions
   - `retry_with_backoff` decorator + `CircuitBreaker` for fault tolerance
@@ -161,6 +167,8 @@ E. Entity flow:
   - `datapulse https://x.com/xxxx/status/123 --entities --entity-mode fast`
 F. Watch mission:
   - `datapulse --watch-create --watch-name "AI Radar" --watch-query "OpenAI agents"`
+  - `datapulse --watch-alert-set ai-radar --watch-alert-route ops-webhook --watch-alert-keyword launch`
+  - `datapulse --watch-alert-clear ai-radar`
   - `datapulse --watch-show ai-radar`
   - `datapulse --watch-results ai-radar`
   - `datapulse --watch-run ai-radar`
@@ -172,6 +180,7 @@ H. Alerts:
   - `datapulse --alert-route-health`
 I. Daemon:
   - `datapulse --watch-daemon --watch-daemon-once`
+  - `datapulse --ops-overview`
 J. Triage queue:
   - `datapulse --triage-list`
   - `datapulse --triage-explain <item_id>`
@@ -180,9 +189,10 @@ K. Story workspace:
   - `datapulse --story-build`
   - `datapulse --story-list`
   - `datapulse --story-show <story_id>`
+  - `datapulse --story-update <story_id>`
   - `datapulse --story-graph <story_id>`
 L. Browser console:
-  - `datapulse-console --port 8765`
+  - `datapulse-console --port 8765` (includes the Story Workspace board and basic story editor)
 M. Diagnostics:
   - `datapulse --config-check`
   - `datapulse --doctor`
@@ -246,6 +256,8 @@ datapulse --alert-list
 
 # Richer alert rule + named route
 datapulse --watch-create --watch-name "Launch Ops" --watch-query "OpenAI launch" --watch-alert-route ops-webhook --watch-alert-keyword launch --watch-alert-domain openai.com
+datapulse --watch-alert-set launch-ops --watch-alert-route ops-webhook --watch-alert-keyword launch --watch-alert-domain openai.com --watch-alert-min-score 70
+datapulse --watch-alert-clear launch-ops
 datapulse --alert-route-list
 datapulse --alert-route-health
 
@@ -254,6 +266,7 @@ datapulse --watch-daemon --watch-daemon-once
 
 # Show daemon heartbeat and metrics
 datapulse --watch-status
+datapulse --ops-overview
 
 # Triage queue
 datapulse --triage-list
@@ -266,6 +279,7 @@ datapulse --triage-stats
 datapulse --story-build
 datapulse --story-list
 datapulse --story-show story-openai-launch
+datapulse --story-update story-openai-launch --story-title "OpenAI Launch Watch" --story-status monitoring
 datapulse --story-graph story-openai-launch
 datapulse --story-export story-openai-launch --story-format markdown
 
@@ -371,6 +385,7 @@ python -m datapulse.mcp_server --call health
 - `create_watch(name, query, platforms=None, sites=None, schedule='manual', min_confidence=0.0, top_n=5)` — create a saved recurring mission
 - `list_watches(include_disabled=False)` — list missions
 - `watch_show(identifier)` — inspect one mission with recent runs and recent alerts
+- `watch_set_alert_rules(identifier, alert_rules=None)` — replace one mission's alert rules; pass `[]` to clear them
 - `watch_results(identifier, limit=10, min_confidence=0.0)` — inspect the persisted result stream for one mission
 - `run_watch(identifier)` — run one mission by id or name
 - `disable_watch(identifier)` — disable one mission

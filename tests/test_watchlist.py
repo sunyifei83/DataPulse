@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from datapulse.core.models import DataPulseItem, SourceType
+from datapulse.core.story import Story
 from datapulse.core.watchlist import MissionRun, WatchlistStore
 from datapulse.reader import DataPulseReader
 
@@ -142,10 +143,37 @@ async def test_reader_show_watch_returns_cockpit_detail(tmp_path, monkeypatch):
     assert payload["run_stats"]["success"] == 1
     assert payload["recent_results"][0]["title"] == "OpenAI launch result"
     assert payload["recent_results"][0]["extra"]["watch_mission_id"] == mission["id"]
+    assert payload["recent_results"][0]["watch_filters"]["domain"] == "example.com"
     assert payload["result_stats"]["stored_result_count"] == 1
     assert payload["result_stats"]["returned_result_count"] == 1
+    assert payload["result_filters"]["window_count"] == 1
+    assert payload["result_filters"]["domains"][0]["label"] == "example.com"
     assert payload["recent_alerts"][0]["rule_name"] == "threshold"
     assert payload["delivery_stats"]["recent_alert_count"] == 1
+    assert any(event["kind"] == "alert" for event in payload["timeline_strip"])
+
+
+def test_reader_set_watch_alert_rules_updates_mission(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    mission = reader.create_watch(name="AI Radar", query="OpenAI agents")
+
+    payload = reader.set_watch_alert_rules(
+        mission["id"],
+        alert_rules=[{"name": "threshold", "routes": ["ops-webhook"], "domains": ["openai.com"]}],
+    )
+
+    assert payload is not None
+    assert payload["alert_rule_count"] == 1
+    assert payload["alert_rules"][0]["routes"] == ["ops-webhook"]
+    assert payload["alert_rules"][0]["domains"] == ["openai.com"]
+
+    cleared = reader.set_watch_alert_rules(mission["id"], alert_rules=[])
+
+    assert cleared is not None
+    assert cleared["alert_rule_count"] == 0
+    assert cleared["alert_rules"] == []
 
 
 @pytest.mark.asyncio
@@ -315,3 +343,106 @@ async def test_reader_run_due_watches_retries_once(tmp_path, monkeypatch):
     assert payload["results"][0]["status"] == "success"
     assert payload["results"][0]["attempts"] == 2
     assert payload["results"][0]["alert_count"] == 1
+
+
+def test_reader_ops_snapshot_includes_watch_health_board(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    healthy = reader.create_watch(name="Healthy Watch", query="OpenAI agents", schedule="@hourly")
+    degraded = reader.create_watch(name="Degraded Watch", query="OpenAI infra", schedule="@daily")
+    disabled = reader.create_watch(name="Disabled Watch", query="quiet query")
+    reader.disable_watch(disabled["id"])
+
+    reader.watchlist.record_run(
+        healthy["id"],
+        MissionRun(
+            mission_id=healthy["id"],
+            status="success",
+            item_count=2,
+            finished_at="2026-03-06T00:00:00+00:00",
+        ),
+    )
+    reader.watchlist.record_run(
+        degraded["id"],
+        MissionRun(
+            mission_id=degraded["id"],
+            status="error",
+            item_count=0,
+            error="temporary failure",
+            finished_at="2026-03-06T00:01:00+00:00",
+        ),
+    )
+
+    monkeypatch.setattr(
+        reader,
+        "doctor",
+        lambda: {
+            "tier_0": [],
+            "tier_1": [],
+            "tier_2": [],
+        },
+    )
+    monkeypatch.setattr(
+        reader,
+        "watch_status_snapshot",
+        lambda: {
+            "state": "idle",
+            "heartbeat_at": "2026-03-06T00:02:00+00:00",
+            "last_error": "",
+            "metrics": {"cycles_total": 3, "runs_total": 2, "success_total": 1, "error_total": 1, "alerts_total": 0},
+        },
+    )
+    monkeypatch.setattr(reader, "alert_route_health", lambda limit=100: [])
+    monkeypatch.setattr(reader, "list_alerts", lambda limit=20, mission_id=None: [])
+
+    payload = reader.ops_snapshot()
+
+    assert payload["watch_summary"]["total"] == 3
+    assert payload["watch_summary"]["enabled"] == 2
+    assert payload["watch_summary"]["disabled"] == 1
+    assert payload["watch_summary"]["healthy"] == 1
+    assert payload["watch_summary"]["degraded"] == 1
+    assert payload["collector_drilldown"] == []
+    assert payload["route_drilldown"] == []
+    assert payload["route_timeline"] == []
+    assert payload["watch_health"][0]["id"] == degraded["id"]
+    assert payload["watch_health"][0]["status"] == "degraded"
+    assert payload["watch_health"][1]["id"] == healthy["id"]
+    assert payload["watch_health"][1]["status"] == "healthy"
+
+
+def test_reader_update_story_persists_changes(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_STORIES_PATH", str(tmp_path / "stories.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    reader.story_store.replace_stories(
+        [
+            Story(
+                title="OpenAI Launch",
+                summary="Initial summary",
+                status="active",
+                item_count=2,
+                source_count=2,
+            )
+        ]
+    )
+
+    payload = reader.update_story(
+        "openai-launch",
+        title="OpenAI Launch Watch",
+        summary="Condensed launch summary",
+        status="monitoring",
+    )
+
+    assert payload is not None
+    assert payload["title"] == "OpenAI Launch Watch"
+    assert payload["summary"] == "Condensed launch summary"
+    assert payload["status"] == "monitoring"
+
+    reloaded = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    restored = reloaded.show_story("openai-launch")
+
+    assert restored is not None
+    assert restored["title"] == "OpenAI Launch Watch"
+    assert restored["status"] == "monitoring"

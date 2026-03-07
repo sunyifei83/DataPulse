@@ -51,13 +51,14 @@
   - 支持重复项解释（duplicate explain），给出候选条目、相似信号和建议保留主条目
 - 证据化（首版 Story Workspace）：
   - 支持 story 聚类、主次证据、时间线、冲突提示、实体聚合
-  - 支持 `--story-build / --story-list / --story-show / --story-graph / --story-export`
+  - 支持 `--story-build / --story-list / --story-show / --story-update / --story-graph / --story-export`
   - 支持 Reader / MCP / Console 共用同一套 story 语义
 - 告警与调度（首版）：
   - 支持 threshold alert rule、到期任务轮询、daemon 单实例锁
   - 支持关键词 / 标签 / 域名 / source_type / 时效过滤
   - 支持 JSON / Markdown / Webhook / 飞书 / Telegram 五类告警分发
   - 支持命名 route 配置与 `--alert-route-list / --alert-route-health`
+  - 支持 `--watch-alert-set / --watch-alert-clear` 原地替换或清空单个 mission 的告警规则
   - 支持 `--watch-show / --watch-results` 查看单个 mission 的近期运行、结果流、告警历史与最近失败重试建议
   - 支持 `watch_status` 读取 daemon 心跳、指标与最近错误
   - 支持 JSON + HTML 静态状态页输出
@@ -65,7 +66,11 @@
   - 提供 `datapulse-console` 本地浏览器控制台
   - 汇总 watch / mission cockpit / triage / story / alert / route / route health / status 八块工作台能力
   - `Mission Cockpit` 已补入持久化 result stream，可直接回看某个 mission 的最近命中结果
-  - 已包含 Story Workspace 只读证据板：story 卡片、证据栈、时间线、冲突标记、entity graph、Markdown 证据包预览
+  - `Mission Cockpit` 已补入 result filter chips 与 timeline strip，可在同屏内筛看最近结果和事件时间线
+  - `Mission Cockpit` 已补入首版 alert rule editor，可直接替换或清空基础告警规则
+  - `Triage Queue` 已补入 first-cut keyboard workflow：`J/K` 选择、`V/T/E/I` 状态流转、`D` 打开 duplicate explain、`N` 聚焦 note composer
+  - 状态面板已补入 collector tier breakdown、watch health board 和 aggregate success-rate
+  - 已包含 Story Workspace 证据板与基础 story editor：story 卡片、证据栈、时间线、冲突标记、entity graph、Markdown 证据包预览，以及 `title / summary / status` 回写
 - 稳定性：
   - 统一失败处理，异常窄化（精确捕获 `RequestException`/`TimeoutError` 等）
   - `retry_with_backoff` 重试装饰器 + `CircuitBreaker` 熔断器
@@ -171,6 +176,8 @@ datapulse --alert-list
 
 # richer alert rule + 命名 route
 datapulse --watch-create --watch-name "Launch Ops" --watch-query "OpenAI launch" --watch-alert-route ops-webhook --watch-alert-keyword launch --watch-alert-domain openai.com
+datapulse --watch-alert-set launch-ops --watch-alert-route ops-webhook --watch-alert-keyword launch --watch-alert-domain openai.com --watch-alert-min-score 70
+datapulse --watch-alert-clear launch-ops
 datapulse --alert-route-list
 datapulse --alert-route-health
 
@@ -179,6 +186,7 @@ datapulse --watch-daemon --watch-daemon-once
 
 # 查看 daemon 心跳与指标
 datapulse --watch-status
+datapulse --ops-overview
 
 # Triage Queue
 datapulse --triage-list
@@ -191,6 +199,7 @@ datapulse --triage-stats
 datapulse --story-build
 datapulse --story-list
 datapulse --story-show story-openai-launch
+datapulse --story-update story-openai-launch --story-title "OpenAI Launch Watch" --story-status monitoring
 datapulse --story-graph story-openai-launch
 datapulse --story-export story-openai-launch --story-format markdown
 
@@ -269,6 +278,8 @@ E. 实体:
   - `datapulse https://x.com/xxxx/status/123 --entities --entity-mode fast`
 F. Watch:
   - `datapulse --watch-create --watch-name "AI Radar" --watch-query "OpenAI agents"`
+  - `datapulse --watch-alert-set ai-radar --watch-alert-route ops-webhook --watch-alert-keyword launch`
+  - `datapulse --watch-alert-clear ai-radar`
   - `datapulse --watch-show ai-radar`
   - `datapulse --watch-results ai-radar`
   - `datapulse --watch-run ai-radar`
@@ -280,6 +291,7 @@ H. Alert:
   - `datapulse --alert-route-health`
 I. Daemon:
   - `datapulse --watch-daemon --watch-daemon-once`
+  - `datapulse --ops-overview`
 J. Triage:
   - `datapulse --triage-list`
   - `datapulse --triage-explain <item_id>`
@@ -288,9 +300,10 @@ K. Story Workspace:
   - `datapulse --story-build`
   - `datapulse --story-list`
   - `datapulse --story-show <story_id>`
+  - `datapulse --story-update <story_id>`
   - `datapulse --story-graph <story_id>`
 L. GUI 控制台:
-  - `datapulse-console --port 8765`（含 Story Workspace 只读证据板）
+  - `datapulse-console --port 8765`（含 Story Workspace 证据板与基础 story editor）
 M. 诊断:
   - `datapulse --config-check`
   - `datapulse --doctor`

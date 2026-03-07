@@ -57,6 +57,14 @@ class _WatchReader:
             "enabled": True,
         }
 
+    def set_watch_alert_rules(self, identifier, *, alert_rules=None):
+        if identifier != "ai-radar":
+            return None
+        payload = self.show_watch(identifier)
+        payload["alert_rules"] = list(alert_rules or [])
+        payload["alert_rule_count"] = len(payload["alert_rules"])
+        return payload
+
     def list_watches(self, include_disabled=False):
         items = [
             {
@@ -173,6 +181,26 @@ class _WatchReader:
                     "summary": "AI Radar triggered threshold",
                 }
             ],
+            "result_filters": {
+                "window_count": 1,
+                "states": [{"key": "new", "label": "new", "count": 1}],
+                "sources": [{"key": "search", "label": "search", "count": 1}],
+                "domains": [{"key": "example.com", "label": "example.com", "count": 1}],
+            },
+            "timeline_strip": [
+                {
+                    "kind": "alert",
+                    "time": "2026-03-06T00:00:10+00:00",
+                    "label": "alert: threshold",
+                    "detail": "json,webhook:ops-webhook | AI Radar triggered threshold",
+                },
+                {
+                    "kind": "run",
+                    "time": "2026-03-06T00:00:05+00:00",
+                    "label": "run: success",
+                    "detail": "trigger=scheduled | items=1",
+                },
+            ],
             "recent_results": self.list_watch_results(identifier),
         }
 
@@ -189,6 +217,11 @@ class _WatchReader:
                 "review_state": "new",
                 "source_name": "search",
                 "source_type": "generic",
+                "watch_filters": {
+                    "state": "new",
+                    "source": "search",
+                    "domain": "example.com",
+                },
             }
         ][:limit]
 
@@ -307,6 +340,10 @@ class _WatchReader:
                 "available": 3,
                 "unavailable": 1,
             },
+            "collector_tiers": {
+                "tier_0": {"total": 2, "ok": 2, "warn": 0, "error": 0, "available": 2, "unavailable": 0},
+                "tier_2": {"total": 1, "ok": 0, "warn": 0, "error": 1, "available": 0, "unavailable": 1},
+            },
             "degraded_collectors": [
                 {
                     "name": "telegram",
@@ -314,6 +351,16 @@ class _WatchReader:
                     "status": "error",
                     "available": False,
                     "message": "missing credentials",
+                }
+            ],
+            "collector_drilldown": [
+                {
+                    "name": "telegram",
+                    "tier": "tier_2",
+                    "status": "error",
+                    "available": False,
+                    "message": "missing credentials",
+                    "setup_hint": "add TG_API_ID/TG_API_HASH",
                 }
             ],
             "watch_metrics": {
@@ -327,6 +374,53 @@ class _WatchReader:
                 "success_rate": 0.5,
                 "last_error": "",
             },
+            "watch_summary": {
+                "total": 2,
+                "enabled": 1,
+                "disabled": 1,
+                "healthy": 0,
+                "degraded": 1,
+                "idle": 0,
+                "due": 1,
+            },
+            "watch_health": [
+                {
+                    "id": "ai-radar",
+                    "name": "AI Radar",
+                    "enabled": True,
+                    "status": "degraded",
+                    "is_due": True,
+                    "schedule_label": "hourly",
+                    "next_run_at": "2026-03-06T01:00:00+00:00",
+                    "last_run_at": "2026-03-06T00:00:00+00:00",
+                    "last_run_status": "error",
+                    "last_run_error": "temporary failure",
+                    "alert_rule_count": 1,
+                    "run_total": 2,
+                    "success_total": 1,
+                    "error_total": 1,
+                    "success_rate": 0.5,
+                    "average_items": 1.0,
+                },
+                {
+                    "id": "old-watch",
+                    "name": "Old Watch",
+                    "enabled": False,
+                    "status": "disabled",
+                    "is_due": False,
+                    "schedule_label": "manual",
+                    "next_run_at": "",
+                    "last_run_at": "",
+                    "last_run_status": "",
+                    "last_run_error": "",
+                    "alert_rule_count": 0,
+                    "run_total": 0,
+                    "success_total": 0,
+                    "error_total": 0,
+                    "success_rate": None,
+                    "average_items": 0.0,
+                },
+            ],
             "route_summary": {
                 "total": 1,
                 "healthy": 0,
@@ -334,6 +428,35 @@ class _WatchReader:
                 "missing": 0,
                 "idle": 0,
             },
+            "route_drilldown": [
+                {
+                    "name": "ops-webhook",
+                    "channel": "webhook",
+                    "status": "degraded",
+                    "event_count": 2,
+                    "delivered_count": 1,
+                    "failure_count": 1,
+                    "success_rate": 0.5,
+                    "mission_count": 1,
+                    "rule_count": 1,
+                    "last_error": "webhook_url is required",
+                    "last_summary": "AI Radar triggered threshold",
+                }
+            ],
+            "route_timeline": [
+                {
+                    "route": "ops-webhook",
+                    "channel": "webhook",
+                    "mission_id": "ai-radar",
+                    "mission_name": "AI Radar",
+                    "rule_name": "threshold",
+                    "created_at": "2026-03-06T00:00:10+00:00",
+                    "status": "failed",
+                    "summary": "AI Radar triggered threshold",
+                    "error": "webhook_url is required",
+                    "delivered_channels": ["json"],
+                }
+            ],
             "recent_failures": [
                 {
                     "kind": "watch_run",
@@ -444,6 +567,15 @@ class _WatchReader:
         return {
             "id": identifier,
             "title": "OpenAI Launch Story",
+            "item_count": 2,
+        }
+
+    def update_story(self, identifier, **kwargs):
+        return {
+            "id": identifier,
+            "title": kwargs.get("title") or "OpenAI Launch Story",
+            "summary": kwargs.get("summary") or "Condensed launch summary",
+            "status": kwargs.get("status") or "monitoring",
             "item_count": 2,
         }
 
@@ -673,6 +805,10 @@ def test_watch_show_prints_cockpit_detail(monkeypatch, capsys):
     assert "setup_hint: set API key" in out
     assert "recent_alerts:" in out
     assert "recent_results:" in out
+    assert "result_filters:" in out
+    assert "states: new(1)" in out
+    assert "timeline_strip:" in out
+    assert "alert | alert: threshold" in out
     assert "OpenAI agents result" in out
 
 
@@ -686,6 +822,45 @@ def test_watch_results_prints_rows(monkeypatch, capsys):
     assert "Watch results: 1" in out
     assert "item-1: score=73 | confidence=0.910 | state=new | source=search" in out
     assert "OpenAI agents result" in out
+
+
+def test_watch_alert_set_replaces_rules(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "datapulse",
+            "--watch-alert-set",
+            "ai-radar",
+            "--watch-alert-route",
+            "ops-webhook",
+            "--watch-alert-keyword",
+            "launch",
+            "--watch-alert-domain",
+            "openai.com",
+            "--watch-alert-min-score",
+            "70",
+        ],
+    )
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "updated alert rules for: ai-radar" in out
+    assert "alert_rules: 1" in out
+    assert "id: ai-radar" in out
+
+
+def test_watch_alert_clear_removes_rules(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--watch-alert-clear", "ai-radar"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "cleared alert rules for: ai-radar" in out
+    assert "alert_rules: 0" in out
 
 
 def test_alert_list_prints_rows(monkeypatch, capsys):
@@ -756,9 +931,17 @@ def test_ops_overview_prints_summary(monkeypatch, capsys):
     assert "collector_health:" in out
     assert "warn: 1" in out
     assert "error: 1" in out
+    assert "tier_2 | total=1 | ok=0 | warn=0 | error=1" in out
     assert "watch_metrics:" in out
     assert "success_rate: 50.0%" in out
+    assert "watch_health:" in out
+    assert "degraded: 1" in out
+    assert "ai-radar | status=degraded | enabled=True | due=True | rate=50.0%" in out
+    assert "telegram | tier=tier_2 | status=error | available=False" in out
     assert "route_health:" in out
+    assert "ops-webhook | channel=webhook | status=degraded | rate=50.0%" in out
+    assert "timeline:" in out
+    assert "ops-webhook | failed | mission=AI Radar" in out
     assert "recent_failures:" in out
     assert "temporary failure" in out
 
@@ -859,6 +1042,32 @@ def test_story_list_and_export(monkeypatch, capsys):
     assert "entity:openai -> entity:chatgpt | BUILT | kind=entity_relation" in out
 
 
+def test_story_update_prints_payload(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "datapulse",
+            "--story-update",
+            "story-openai-launch",
+            "--story-title",
+            "OpenAI Launch Watch",
+            "--story-summary",
+            "Condensed launch summary",
+            "--story-status",
+            "monitoring",
+        ],
+    )
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert "✅ story updated: story-openai-launch" in out
+    assert '"title": "OpenAI Launch Watch"' in out
+    assert '"status": "monitoring"' in out
+
+
 def test_skill_contract_lists_watch_status_and_alert_envs(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["datapulse", "--skill-contract"])
 
@@ -870,7 +1079,9 @@ def test_skill_contract_lists_watch_status_and_alert_envs(monkeypatch, capsys):
     assert "triage_explain" in out
     assert "story_build" in out
     assert "story_graph" in out
+    assert "story_update" in out
     assert "watch_show" in out
+    assert "watch_set_alert_rules" in out
     assert "watch_results" in out
     assert "alert_route_health" in out
     assert "ops_overview" in out
@@ -878,6 +1089,9 @@ def test_skill_contract_lists_watch_status_and_alert_envs(monkeypatch, capsys):
     assert "--triage-explain" in out
     assert "--story-build" in out
     assert "--story-graph" in out
+    assert "--story-update" in out
+    assert "--watch-alert-set" in out
+    assert "--watch-alert-clear" in out
     assert "--watch-show" in out
     assert "--watch-results" in out
     assert "--alert-route-health" in out

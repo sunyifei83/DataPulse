@@ -19,13 +19,14 @@ class _ConsoleReader:
                 "enabled": True,
                 "platforms": ["twitter"],
                 "sites": ["openai.com"],
-                "schedule_label": "hourly",
-                "is_due": True,
-                "next_run_at": "2026-03-06T01:00:00+00:00",
-                "alert_rule_count": 1,
-                "last_run_at": "2026-03-06T00:00:00+00:00",
-                "last_run_status": "success",
-            }
+            "schedule_label": "hourly",
+            "is_due": True,
+            "next_run_at": "2026-03-06T01:00:00+00:00",
+            "alert_rule_count": 1,
+            "alert_rules": [{"name": "console-threshold", "routes": ["ops-webhook"]}],
+            "last_run_at": "2026-03-06T00:00:00+00:00",
+            "last_run_status": "success",
+        }
         ]
         if include_disabled:
             rows.append(
@@ -60,7 +61,25 @@ class _ConsoleReader:
             "schedule_label": "hourly",
             "is_due": True,
             "next_run_at": "2026-03-06T01:00:00+00:00",
-            "alert_rule_count": 1,
+            "alert_rule_count": 2,
+            "alert_rules": [
+                {
+                    "name": "console-threshold",
+                    "routes": ["ops-webhook"],
+                    "keyword_any": ["launch"],
+                    "domains": ["openai.com"],
+                    "min_score": 70,
+                    "min_confidence": 0.8,
+                },
+                {
+                    "name": "console-threshold",
+                    "routes": ["exec-telegram"],
+                    "keyword_any": ["ship"],
+                    "domains": ["example.com"],
+                    "min_score": 55,
+                    "min_confidence": 0.6,
+                },
+            ],
             "last_run_at": "2026-03-06T00:00:00+00:00",
             "last_run_status": "success",
             "last_run_error": "",
@@ -124,12 +143,23 @@ class _ConsoleReader:
                     "review_state": "verified",
                     "source_name": "OpenAI Blog",
                     "source_type": "generic",
+                    "watch_filters": {
+                        "state": "verified",
+                        "source": "openai blog",
+                        "domain": "example.com",
+                    },
                 }
             ],
             "result_stats": {
                 "stored_result_count": 1,
                 "returned_result_count": 1,
                 "latest_result_at": "2026-03-06T00:00:00+00:00",
+            },
+            "result_filters": {
+                "window_count": 1,
+                "states": [{"key": "verified", "label": "verified", "count": 1}],
+                "sources": [{"key": "openai blog", "label": "OpenAI Blog", "count": 1}],
+                "domains": [{"key": "example.com", "label": "example.com", "count": 1}],
             },
             "recent_alerts": [
                 {
@@ -149,6 +179,22 @@ class _ConsoleReader:
                 "recent_error_count": 0,
                 "last_alert_at": "2026-03-06T00:00:10+00:00",
             },
+            "timeline_strip": [
+                {
+                    "kind": "alert",
+                    "time": "2026-03-06T00:00:10+00:00",
+                    "tone": "ok",
+                    "label": "alert: console-threshold",
+                    "detail": "json,webhook:ops-webhook | Launch Ops triggered console-threshold",
+                },
+                {
+                    "kind": "result",
+                    "time": "2026-03-06T00:00:00+00:00",
+                    "tone": "ok",
+                    "label": "result: OpenAI launch post",
+                    "detail": "OpenAI Blog | score=91 | state=verified",
+                },
+            ],
         }
 
     def list_watch_results(self, identifier, limit=10, min_confidence=0.0):
@@ -166,6 +212,14 @@ class _ConsoleReader:
             "schedule": kwargs.get("schedule", "manual"),
             "alert_rules": kwargs.get("alert_rules") or [],
         }
+
+    def set_watch_alert_rules(self, identifier, *, alert_rules=None):
+        if identifier != "launch-ops":
+            return None
+        payload = self.show_watch(identifier)
+        payload["alert_rules"] = list(alert_rules or [])
+        payload["alert_rule_count"] = len(payload["alert_rules"])
+        return payload
 
     async def run_watch(self, identifier):
         return {
@@ -252,6 +306,16 @@ class _ConsoleReader:
                     "setup_hint": "set API key",
                 }
             ],
+            "collector_drilldown": [
+                {
+                    "tier": "tier_1",
+                    "name": "twitter",
+                    "status": "warn",
+                    "available": True,
+                    "message": "credentials missing",
+                    "setup_hint": "set API key",
+                }
+            ],
             "watch_metrics": {
                 "state": "running",
                 "heartbeat_at": "2026-03-06T00:00:00+00:00",
@@ -263,8 +327,90 @@ class _ConsoleReader:
                 "success_rate": 1.0,
                 "last_error": "",
             },
+            "watch_summary": {
+                "total": 2,
+                "enabled": 1,
+                "disabled": 1,
+                "healthy": 1,
+                "degraded": 0,
+                "idle": 0,
+                "due": 1,
+            },
+            "watch_health": [
+                {
+                    "id": "launch-ops",
+                    "name": "Launch Ops",
+                    "enabled": True,
+                    "status": "healthy",
+                    "is_due": True,
+                    "schedule_label": "hourly",
+                    "next_run_at": "2026-03-06T01:00:00+00:00",
+                    "last_run_at": "2026-03-06T00:00:00+00:00",
+                    "last_run_status": "success",
+                    "last_run_error": "",
+                    "alert_rule_count": 1,
+                    "run_total": 1,
+                    "success_total": 1,
+                    "error_total": 0,
+                    "success_rate": 1.0,
+                    "average_items": 2.0,
+                },
+                {
+                    "id": "old-watch",
+                    "name": "Old Watch",
+                    "enabled": False,
+                    "status": "disabled",
+                    "is_due": False,
+                    "schedule_label": "manual",
+                    "next_run_at": "",
+                    "last_run_at": "",
+                    "last_run_status": "",
+                    "last_run_error": "",
+                    "alert_rule_count": 0,
+                    "run_total": 0,
+                    "success_total": 0,
+                    "error_total": 0,
+                    "success_rate": None,
+                    "average_items": 0.0,
+                },
+            ],
             "route_summary": {"total": 1, "healthy": 1, "degraded": 0, "missing": 0, "idle": 0},
             "route_health": self.alert_route_health(),
+            "route_drilldown": [
+                {
+                    "name": "ops-webhook",
+                    "channel": "webhook",
+                    "status": "healthy",
+                    "configured": True,
+                    "event_count": 1,
+                    "delivered_count": 1,
+                    "failure_count": 0,
+                    "success_rate": 1.0,
+                    "last_event_at": "2026-03-06T00:00:10+00:00",
+                    "last_delivered_at": "2026-03-06T00:00:10+00:00",
+                    "last_failed_at": "",
+                    "last_error": "",
+                    "last_summary": "Launch Ops triggered console-threshold",
+                    "mission_count": 1,
+                    "rule_count": 1,
+                    "mission_ids": ["launch-ops"],
+                    "rule_names": ["console-threshold"],
+                }
+            ],
+            "route_timeline": [
+                {
+                    "route": "ops-webhook",
+                    "channel": "webhook",
+                    "mission_id": "launch-ops",
+                    "mission_name": "Launch Ops",
+                    "rule_name": "console-threshold",
+                    "created_at": "2026-03-06T00:00:10+00:00",
+                    "status": "delivered",
+                    "summary": "Launch Ops triggered console-threshold",
+                    "error": "",
+                    "delivered_channels": ["json", "webhook:ops-webhook"],
+                }
+            ],
             "recent_failures": [
                 {
                     "kind": "route_delivery",
@@ -288,7 +434,22 @@ class _ConsoleReader:
                 "confidence": 0.91,
                 "url": "https://example.com/openai-launch",
                 "review_notes": [],
-            }
+            },
+            {
+                "id": "item-2",
+                "title": "OpenAI launch recap",
+                "review_state": "verified",
+                "score": 74,
+                "confidence": 0.82,
+                "url": "https://example.com/openai-launch-recap",
+                "review_notes": [
+                    {
+                        "note": "Validated against primary launch source.",
+                        "author": "analyst",
+                        "created_at": "2026-03-06T00:05:00+00:00",
+                    }
+                ],
+            },
         ]
 
     def triage_stats(self):
@@ -296,7 +457,7 @@ class _ConsoleReader:
             "total": 2,
             "open_count": 1,
             "closed_count": 1,
-            "note_count": 0,
+            "note_count": 1,
             "states": {"new": 1, "triaged": 0, "verified": 1, "duplicate": 0, "ignored": 0, "escalated": 0},
         }
 
@@ -395,6 +556,19 @@ class _ConsoleReader:
             return None
         return self.list_stories()[0]
 
+    def update_story(self, identifier, **kwargs):
+        if identifier != "story-openai-launch":
+            return None
+        payload = self.show_story(identifier)
+        if kwargs.get("title") is not None:
+            payload["title"] = kwargs["title"]
+        if kwargs.get("summary") is not None:
+            payload["summary"] = kwargs["summary"]
+        if kwargs.get("status") is not None:
+            payload["status"] = kwargs["status"]
+        payload["updated_at"] = "2026-03-07T00:00:00+00:00"
+        return payload
+
     def story_graph(self, identifier, **kwargs):
         if identifier != "story-openai-launch":
             return None
@@ -444,9 +618,24 @@ def test_console_index_serves_shell():
     assert "create-watch-form" in response.text
     assert "Mission Cockpit" in response.text
     assert "retry advice" in response.text
+    assert "timeline strip" in response.text
+    assert "filter chips" in response.text
+    assert "alert rule editor" in response.text
+    assert "Add Alert Rule" in response.text
+    assert "Save Alert Rules" in response.text
+    assert "collector drill-down" in response.text
+    assert "route drill-down" in response.text
+    assert "route timeline" in response.text
     assert "Distribution Health" in response.text
     assert "Triage Queue" in response.text
+    assert "triage filters" in response.text
+    assert "triage shortcuts" in response.text
+    assert "Use J/K to move" in response.text
+    assert "note composer" in response.text
+    assert "Save Note" in response.text
     assert "Story Workspace" in response.text
+    assert "story editor" in response.text
+    assert "Save Story" in response.text
 
 
 def test_console_brand_hero_serves_jpeg():
@@ -529,6 +718,25 @@ def test_console_run_due_route():
     assert payload["run_count"] == 1
 
 
+def test_console_set_watch_alert_rules_route():
+    client = _client()
+    response = client.put(
+        "/api/watches/launch-ops/alert-rules",
+        json={
+            "alert_rules": [
+                {"name": "console-threshold", "routes": ["ops-webhook"], "domains": ["openai.com"]},
+                {"name": "console-threshold", "routes": ["exec-telegram"], "keyword_any": ["ship"]},
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["alert_rule_count"] == 2
+    assert payload["alert_rules"][0]["routes"] == ["ops-webhook"]
+    assert payload["alert_rules"][1]["routes"] == ["exec-telegram"]
+
+
 def test_console_routes_and_status():
     client = _client()
 
@@ -546,6 +754,11 @@ def test_console_routes_and_status():
     assert status.json()["metrics"]["cycles_total"] == 3
     assert ops.status_code == 200
     assert ops.json()["collector_summary"]["warn"] == 1
+    assert ops.json()["watch_summary"]["healthy"] == 1
+    assert ops.json()["watch_health"][0]["id"] == "launch-ops"
+    assert ops.json()["collector_drilldown"][0]["name"] == "twitter"
+    assert ops.json()["route_drilldown"][0]["name"] == "ops-webhook"
+    assert ops.json()["route_timeline"][0]["route"] == "ops-webhook"
     assert ops.json()["degraded_collectors"][0]["name"] == "twitter"
 
 
@@ -560,6 +773,8 @@ def test_console_watch_detail_route():
     assert payload["last_failure"]["status"] == "error"
     assert payload["retry_advice"]["retry_command"] == "datapulse --watch-run launch-ops"
     assert payload["recent_results"][0]["id"] == "item-1"
+    assert payload["result_filters"]["window_count"] == 1
+    assert payload["timeline_strip"][0]["kind"] == "alert"
     assert payload["recent_alerts"][0]["rule_name"] == "console-threshold"
 
 
@@ -580,15 +795,19 @@ def test_console_triage_routes():
     stats = client.get("/api/triage/stats")
     explain = client.get("/api/triage/item-1/explain?limit=3")
     update = client.post("/api/triage/item-1/state", json={"state": "verified"})
+    note = client.post("/api/triage/item-1/note", json={"note": "Escalate after duplicate review", "author": "console"})
 
     assert triage.status_code == 200
     assert triage.json()[0]["id"] == "item-1"
     assert stats.status_code == 200
     assert stats.json()["open_count"] == 1
+    assert stats.json()["note_count"] == 1
     assert explain.status_code == 200
     assert explain.json()["candidates"][0]["id"] == "item-2"
     assert update.status_code == 200
     assert update.json()["review_state"] == "verified"
+    assert note.status_code == 200
+    assert note.json()["review_notes"][0]["note"] == "Escalate after duplicate review"
 
 
 def test_console_story_routes():
@@ -596,6 +815,14 @@ def test_console_story_routes():
 
     stories = client.get("/api/stories?limit=4&min_items=2")
     detail = client.get("/api/stories/story-openai-launch")
+    update = client.put(
+        "/api/stories/story-openai-launch",
+        json={
+            "title": "OpenAI Launch Watch",
+            "summary": "Condensed launch summary",
+            "status": "monitoring",
+        },
+    )
     graph = client.get("/api/stories/story-openai-launch/graph?entity_limit=6")
     export = client.get("/api/stories/story-openai-launch/export?format=markdown")
 
@@ -603,6 +830,9 @@ def test_console_story_routes():
     assert stories.json()[0]["id"] == "story-openai-launch"
     assert detail.status_code == 200
     assert detail.json()["primary_item_id"] == "item-1"
+    assert update.status_code == 200
+    assert update.json()["title"] == "OpenAI Launch Watch"
+    assert update.json()["status"] == "monitoring"
     assert graph.status_code == 200
     assert graph.json()["relation_count"] == 1
     assert graph.json()["nodes"][1]["label"] == "OpenAI"

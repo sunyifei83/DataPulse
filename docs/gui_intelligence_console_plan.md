@@ -87,7 +87,7 @@ Current implementation status:
 
 - `FastAPI` adapter shipped in `datapulse/console_server.py`
 - browser shell shipped as a local-first single-file UI with `/api/overview`
-- current endpoints implemented: `GET /api/overview`, `GET /api/watches`, `GET /api/watches/{id}`, `POST /api/watches`, `POST /api/watches/{id}/run`, `POST /api/watches/{id}/disable`, `POST /api/watches/run-due`, `GET /api/alerts`, `GET /api/alert-routes`, `GET /api/alert-routes/health`, `GET /api/watch-status`, `GET /api/triage`, `GET /api/triage/{id}/explain`, `POST /api/triage/{id}/state`, `GET /api/triage/stats`
+- current endpoints implemented: `GET /api/overview`, `GET /api/watches`, `GET /api/watches/{id}`, `GET /api/watches/{id}/results`, `POST /api/watches`, `PUT /api/watches/{id}/alert-rules`, `POST /api/watches/{id}/run`, `POST /api/watches/{id}/disable`, `POST /api/watches/run-due`, `GET /api/alerts`, `GET /api/alert-routes`, `GET /api/alert-routes/health`, `GET /api/watch-status`, `GET /api/triage`, `GET /api/triage/{id}/explain`, `POST /api/triage/{id}/state`, `GET /api/triage/stats`
 - launch entry points: `datapulse-console --port 8765`, `python -m datapulse.console_server --port 8765`, `bash scripts/datapulse_console.sh --port 8765`
 - console smoke script shipped: `bash scripts/datapulse_console_smoke.sh`
 - a lightweight triage queue panel is now available inside the G0 shell, including duplicate explain cards; full keyboard-first analyst workflow still belongs to G2
@@ -116,9 +116,9 @@ Exit criteria:
 Current implementation status:
 
 - first-cut mission cockpit shipped inside the existing shell via `GET /api/watches/{id}` and `GET /api/watches/{id}/results`
-- current cockpit scope: schedule context, recent run history, recent alert outcomes, persisted result stream, and latest-failure retry guidance
-- current parity outside the browser: `datapulse --watch-show`, `datapulse --watch-results`, `watch_show(identifier)`, and `watch_results(identifier)`
-- remaining G1 scope still open: filter chips, timeline strip, alert rule editor
+- current cockpit scope: schedule context, recent run history, recent alert outcomes, persisted result stream, result filter chips, a merged timeline strip, latest-failure retry guidance, and a multi-rule alert editor backed by `PUT /api/watches/{id}/alert-rules`
+- current parity outside the browser: `datapulse --watch-show`, `datapulse --watch-results`, `datapulse --watch-alert-set`, `datapulse --watch-alert-clear`, `watch_show(identifier)`, `watch_results(identifier)`, and `watch_set_alert_rules(identifier, alert_rules)`
+- current G1 first-cut scope is functionally closed inside the shell; future work is richer mission drill-down rather than missing cockpit basics
 
 ### G2: Triage Workspace
 
@@ -133,6 +133,14 @@ Scope:
 - reviewer notes
 - duplicate explanations
 - quick actions and shortcuts
+
+Current implementation status:
+
+- first-cut triage workspace shipped inside the existing shell via `GET /api/triage`, `GET /api/triage/stats`, `GET /api/triage/{id}/explain`, `POST /api/triage/{id}/state`, and `POST /api/triage/{id}/note`
+- current browser scope: queue cards, state filter chips, keyboard selection, duplicate explain, state transitions, review-note history, and an inline note composer that writes back without leaving the queue
+- current parity outside the browser: `datapulse --triage-list`, `datapulse --triage-explain`, `datapulse --triage-update`, `datapulse --triage-note`, `datapulse --triage-stats`, and `triage_list(...)`, `triage_explain(...)`, `triage_update(...)`, `triage_note(...)`, `triage_stats()`
+- current keyboard shortcuts: `J/K` move selection, `V/T/E/I` apply state changes, `D` loads duplicate explain, `N` focuses the note composer
+- reviewer SLA views and deeper split-pane workflow remain future work
 
 Dependency:
 
@@ -156,13 +164,14 @@ Dependency:
 
 - requires P8 story model to exist first
 
-Current backend status:
+Current implementation status:
 
 - `P8` backend has started with `Story / StoryEvidence / StoryTimelineEvent / StoryConflict / StoryStore`
 - story clustering and persistence are available through Reader, CLI, and MCP
-- browser console now exposes a first-cut read-only story board with story cards, evidence stacks, contradiction markers, timeline panels, entity graph, and Markdown export preview
-- current G3 API surface: `GET /api/stories`, `GET /api/stories/{id}`, `GET /api/stories/{id}/graph`, `GET /api/stories/{id}/export`
-- story editing remains future work
+- browser console now exposes a first-cut story workspace with story cards, evidence stacks, contradiction markers, timeline panels, entity graph, Markdown export preview, and a persisted story editor
+- current G3 API surface: `GET /api/stories`, `GET /api/stories/{id}`, `PUT /api/stories/{id}`, `GET /api/stories/{id}/graph`, `GET /api/stories/{id}/export`
+- current write scope: update `title / summary / status` for one persisted story via `datapulse --story-update`, `story_update(...)`, or the browser `story editor`
+- story merge, evidence reordering, and richer editorial workflow remain future work
 
 ### G4: Ops and Distribution Center
 
@@ -177,6 +186,13 @@ Scope:
 - recent failures
 - alert delivery history
 - route health view
+
+Current implementation status:
+
+- the read-only ops board now surfaces collector tier breakdown, aggregate watch success metrics, and a watch health board alongside route delivery health
+- the ops board now also includes collector drill-down and route drill-down slices so operators can see remediation hints, mission counts, rule counts, and latest route failure detail without leaving the shell
+- current parity outside the browser: `datapulse --ops-overview` and `ops_overview(...)`
+- current ops scope now also includes route delivery timeline, so recent route attempts can be inspected without leaving the shell
 
 Dependency:
 

@@ -80,11 +80,11 @@ class JinaAPIClient:
 
     def __init__(
         self,
-        api_key: str = "",
+        api_key: str | None = None,
         proxy_url: str = "",
         timeout: int = 30,
     ):
-        self.api_key = api_key or get_secret("JINA_API_KEY")
+        self.api_key = get_secret("JINA_API_KEY") if api_key is None else api_key
         self.proxy_url = proxy_url
         self.timeout = timeout
         self._read_cb = CircuitBreaker(failure_threshold=5, recovery_timeout=60.0, name="jina_read")

@@ -8,6 +8,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from typing import Any, cast
+from urllib.parse import urlparse
 
 from datapulse.collectors.trending import TrendingCollector, build_trending_url
 from datapulse.core.alerts import AlertRouteStore, AlertStore, dispatch_alert_event, evaluate_watch_alerts
@@ -260,6 +261,84 @@ class DataPulseReader:
             "notes": notes,
         }
         return advice
+
+    def _watch_health_snapshot(
+        self,
+        *,
+        limit: int | None = None,
+    ) -> tuple[dict[str, int], list[dict[str, Any]]]:
+        summary = {
+            "total": 0,
+            "enabled": 0,
+            "disabled": 0,
+            "healthy": 0,
+            "degraded": 0,
+            "idle": 0,
+            "due": 0,
+        }
+        rows: list[dict[str, Any]] = []
+
+        for mission in self.watchlist.list_missions(include_disabled=True):
+            payload = self._serialize_watch_mission(mission)
+            run_stats = payload.get("run_stats", {})
+            run_total = int(run_stats.get("total", 0) or 0)
+            success_total = int(run_stats.get("success", 0) or 0)
+            error_total = int(run_stats.get("error", 0) or 0)
+            success_rate = round(success_total / run_total, 3) if run_total > 0 else None
+            is_due = bool(payload.get("is_due", False))
+
+            if not mission.enabled:
+                health_status = "disabled"
+            elif run_total <= 0:
+                health_status = "idle"
+            elif str(mission.last_run_status or "").strip().lower() == "success":
+                health_status = "healthy"
+            else:
+                health_status = "degraded"
+
+            summary["total"] += 1
+            if mission.enabled:
+                summary["enabled"] += 1
+                if is_due:
+                    summary["due"] += 1
+            else:
+                summary["disabled"] += 1
+            if health_status in {"healthy", "degraded", "idle"}:
+                summary[health_status] += 1
+
+            rows.append(
+                {
+                    "id": mission.id,
+                    "name": mission.name,
+                    "enabled": mission.enabled,
+                    "status": health_status,
+                    "is_due": is_due,
+                    "schedule_label": payload.get("schedule_label", "manual"),
+                    "next_run_at": payload.get("next_run_at", ""),
+                    "last_run_at": mission.last_run_at,
+                    "last_run_status": mission.last_run_status or "",
+                    "last_run_error": mission.last_run_error or "",
+                    "alert_rule_count": len(mission.alert_rules),
+                    "run_total": run_total,
+                    "success_total": success_total,
+                    "error_total": error_total,
+                    "success_rate": success_rate,
+                    "average_items": run_stats.get("average_items", 0.0),
+                }
+            )
+
+        severity = {"degraded": 0, "healthy": 1, "idle": 2, "disabled": 3}
+        rows.sort(
+            key=lambda row: (
+                severity.get(str(row.get("status", "idle")), 99),
+                0 if row.get("is_due", False) else 1,
+                -(_parse_timestamp(row.get("last_run_at")) or datetime.fromtimestamp(0, tz=timezone.utc)).timestamp(),
+                str(row.get("id", "")),
+            )
+        )
+        if limit is not None:
+            rows = rows[: max(0, int(limit))]
+        return summary, rows
 
     def _run_jina_search(
         self,
@@ -1217,6 +1296,24 @@ class DataPulseReader:
             return None
         return story.to_dict()
 
+    def update_story(
+        self,
+        identifier: str,
+        *,
+        title: str | None = None,
+        summary: str | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any] | None:
+        story = self.story_store.update_story(
+            identifier,
+            title=title,
+            summary=summary,
+            status=status,
+        )
+        if story is None:
+            return None
+        return story.to_dict()
+
     def export_story(self, identifier: str, *, output_format: str = "json") -> str | None:
         story = self.story_store.get_story(identifier)
         if story is None:
@@ -1392,6 +1489,17 @@ class DataPulseReader:
         )
         return mission.to_dict()
 
+    def set_watch_alert_rules(
+        self,
+        identifier: str,
+        *,
+        alert_rules: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | None:
+        mission = self.watchlist.replace_alert_rules(identifier, alert_rules)
+        if mission is None:
+            return None
+        return self.show_watch(mission.id)
+
     def list_watches(self, *, include_disabled: bool = False) -> list[dict[str, Any]]:
         return [
             self._serialize_watch_mission(mission)
@@ -1419,6 +1527,142 @@ class DataPulseReader:
             reverse=True,
         )
 
+    @staticmethod
+    def _watch_result_filter_tags(item: DataPulseItem) -> dict[str, str]:
+        state = str(getattr(item, "review_state", "") or "new").strip().lower() or "new"
+        source_label = str(item.source_name or getattr(item.source_type, "value", "") or "unknown").strip() or "unknown"
+        source_key = source_label.casefold() or "unknown"
+        try:
+            domain = str(urlparse(str(item.url or "")).netloc or "").strip().lower()
+        except ValueError:
+            domain = ""
+        if domain.startswith("www."):
+            domain = domain[4:]
+        return {
+            "state": state,
+            "source": source_key,
+            "domain": domain or "unknown",
+        }
+
+    def _serialize_watch_result(self, item: DataPulseItem) -> dict[str, Any]:
+        payload = item.to_dict()
+        payload["watch_filters"] = self._watch_result_filter_tags(item)
+        return payload
+
+    @staticmethod
+    def _build_watch_result_filters(items: list[dict[str, Any]]) -> dict[str, Any]:
+        buckets: dict[str, dict[str, dict[str, Any]]] = {
+            "states": {},
+            "sources": {},
+            "domains": {},
+        }
+
+        def add(bucket_name: str, key: str, label: str) -> None:
+            bucket = buckets[bucket_name]
+            row = bucket.setdefault(key, {"key": key, "label": label, "count": 0})
+            row["count"] += 1
+
+        for item in items:
+            filters = item.get("watch_filters", {}) if isinstance(item, dict) else {}
+            if not isinstance(filters, dict):
+                filters = {}
+            state_key = str(filters.get("state", "new") or "new").strip().lower() or "new"
+            source_key = str(filters.get("source", "unknown") or "unknown").strip().casefold() or "unknown"
+            domain_key = str(filters.get("domain", "unknown") or "unknown").strip().lower() or "unknown"
+            add("states", state_key, state_key.replace("_", " "))
+            add(
+                "sources",
+                source_key,
+                str(item.get("source_name") or item.get("source_type") or "unknown").strip() or "unknown",
+            )
+            add("domains", domain_key, domain_key)
+
+        state_order = {
+            "new": 0,
+            "triaged": 1,
+            "verified": 2,
+            "escalated": 3,
+            "duplicate": 4,
+            "ignored": 5,
+            "unknown": 99,
+        }
+        return {
+            "window_count": len(items),
+            "states": sorted(
+                buckets["states"].values(),
+                key=lambda row: (state_order.get(str(row.get("key", "unknown")), 98), str(row.get("label", ""))),
+            ),
+            "sources": sorted(
+                buckets["sources"].values(),
+                key=lambda row: (-int(row.get("count", 0) or 0), str(row.get("label", ""))),
+            ),
+            "domains": sorted(
+                buckets["domains"].values(),
+                key=lambda row: (-int(row.get("count", 0) or 0), str(row.get("label", ""))),
+            ),
+        }
+
+    @staticmethod
+    def _build_watch_timeline_strip(
+        mission: WatchMission,
+        recent_results: list[dict[str, Any]],
+        recent_alerts: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        events: list[dict[str, Any]] = []
+        for run in mission.runs[:6]:
+            event_time = run.finished_at or run.started_at
+            if not event_time:
+                continue
+            events.append(
+                {
+                    "kind": "run",
+                    "time": event_time,
+                    "tone": "ok" if run.status == "success" else "hot",
+                    "label": f"run: {run.status or 'unknown'}",
+                    "detail": f"trigger={run.trigger or 'manual'} | items={run.item_count}",
+                }
+            )
+
+        for item in recent_results[:6]:
+            event_time = str(item.get("fetched_at", "") or "").strip()
+            if not event_time:
+                continue
+            filters = item.get("watch_filters", {}) if isinstance(item.get("watch_filters"), dict) else {}
+            source_label = str(item.get("source_name") or item.get("source_type") or "unknown").strip() or "unknown"
+            review_state = str(filters.get("state", item.get("review_state", "new")) or "new").strip().lower() or "new"
+            events.append(
+                {
+                    "kind": "result",
+                    "time": event_time,
+                    "tone": "ok" if review_state in {"verified", "escalated"} else "",
+                    "label": f"result: {str(item.get('title', '') or 'untitled').strip() or 'untitled'}",
+                    "detail": f"{source_label} | score={item.get('score', 0)} | state={review_state}",
+                }
+            )
+
+        for alert in recent_alerts[:6]:
+            event_time = str(alert.get("created_at", "") or "").strip()
+            if not event_time:
+                continue
+            extra = alert.get("extra", {}) if isinstance(alert, dict) else {}
+            delivery_errors = extra.get("delivery_errors", {}) if isinstance(extra, dict) else {}
+            delivered = ",".join(alert.get("delivered_channels", []) or ["json"])
+            events.append(
+                {
+                    "kind": "alert",
+                    "time": event_time,
+                    "tone": "hot" if delivery_errors else "ok",
+                    "label": f"alert: {str(alert.get('rule_name', 'threshold') or 'threshold').strip()}",
+                    "detail": f"{delivered or 'json'} | {str(alert.get('summary', '') or '').strip() or 'no summary'}",
+                }
+            )
+
+        return sorted(
+            events,
+            key=lambda row: (_parse_timestamp(row.get("time")) or datetime.fromtimestamp(0, tz=timezone.utc)).timestamp(),
+            reverse=True,
+        )[:10]
+
     def list_watch_results(
         self,
         identifier: str,
@@ -1430,7 +1674,7 @@ class DataPulseReader:
         if mission is None:
             return None
         items = self._watch_result_items(mission, min_confidence=min_confidence)
-        return [item.to_dict() for item in items[: max(0, int(limit))]]
+        return [self._serialize_watch_result(item) for item in items[: max(0, int(limit))]]
 
     def show_watch(self, identifier: str) -> dict[str, Any] | None:
         mission = self.watchlist.get(identifier)
@@ -1441,12 +1685,13 @@ class DataPulseReader:
         payload["last_failure"] = last_failure.to_dict() if last_failure is not None else None
         payload["retry_advice"] = self._watch_retry_advice(mission, last_failure)
         result_items = self._watch_result_items(mission, min_confidence=0.0)
-        payload["recent_results"] = [item.to_dict() for item in result_items[:8]]
+        payload["recent_results"] = [self._serialize_watch_result(item) for item in result_items[:8]]
         payload["result_stats"] = {
             "stored_result_count": len(result_items),
             "returned_result_count": min(8, len(result_items)),
             "latest_result_at": result_items[0].fetched_at if result_items else "",
         }
+        payload["result_filters"] = self._build_watch_result_filters(payload["recent_results"])
         recent_alerts = self.list_alerts(limit=6, mission_id=mission.id)
         payload["recent_alerts"] = recent_alerts
         payload["delivery_stats"] = {
@@ -1460,6 +1705,7 @@ class DataPulseReader:
             ),
             "last_alert_at": recent_alerts[0].get("created_at", "") if recent_alerts else "",
         }
+        payload["timeline_strip"] = self._build_watch_timeline_strip(mission, payload["recent_results"], recent_alerts)
         return payload
 
     def disable_watch(self, identifier: str) -> dict[str, Any] | None:
@@ -1541,15 +1787,16 @@ class DataPulseReader:
             if not isinstance(delivery_errors, dict):
                 delivery_errors = {}
             for route_name in route_names:
-                route = self.alert_routes.get(route_name)
-                channel = str(route.get("channel", "")).strip().lower() if isinstance(route, dict) else ""
+                route_payload = self.alert_routes.get(route_name)
+                route_dict: dict[str, Any] | None = route_payload if isinstance(route_payload, dict) else None
+                channel = str(route_dict.get("channel", "")).strip().lower() if route_dict is not None else ""
                 route_row = route_rows.setdefault(
                     route_name,
                     {
                         "name": route_name,
                         "channel": channel or "unknown",
-                        "configured": isinstance(route, dict),
-                        "status": "missing" if route is None else "idle",
+                        "configured": route_dict is not None,
+                        "status": "missing" if route_dict is None else "idle",
                         "event_count": 0,
                         "delivered_count": 0,
                         "failure_count": 0,
@@ -1632,6 +1879,7 @@ class DataPulseReader:
         status = self.watch_status_snapshot()
         route_health = self.alert_route_health(limit=route_limit)
         recent_alerts = self.list_alerts(limit=alert_limit)
+        watch_summary, watch_health = self._watch_health_snapshot()
 
         collector_summary = {
             "total": 0,
@@ -1682,6 +1930,27 @@ class DataPulseReader:
                     )
             collector_tiers[tier_name] = tier_summary
 
+        collector_drilldown = sorted(
+            [
+                {
+                    "tier": tier_name,
+                    "name": str(entry.get("name", "") or "").strip(),
+                    "status": str(entry.get("status", "ok") or "ok").strip().lower(),
+                    "available": bool(entry.get("available", True)),
+                    "message": str(entry.get("message", "") or "").strip(),
+                    "setup_hint": str(entry.get("setup_hint", "") or "").strip(),
+                }
+                for tier_name, entries in doctor_report.items()
+                for entry in entries
+            ],
+            key=lambda row: (
+                {"error": 0, "warn": 1, "ok": 2}.get(str(row.get("status", "ok")), 99),
+                0 if not bool(row.get("available", True)) else 1,
+                str(row.get("tier", "")),
+                str(row.get("name", "")),
+            ),
+        )
+
         metrics = status.get("metrics", {}) if isinstance(status, dict) else {}
         runs_total = int(metrics.get("runs_total", 0) or 0)
         success_total = int(metrics.get("success_total", 0) or 0)
@@ -1705,6 +1974,73 @@ class DataPulseReader:
             "missing": sum(1 for route in route_health if route.get("status") == "missing"),
             "idle": sum(1 for route in route_health if route.get("status") == "idle"),
         }
+        route_drilldown = [
+            {
+                "name": str(route.get("name", "") or "").strip(),
+                "channel": str(route.get("channel", "unknown") or "unknown").strip().lower(),
+                "status": str(route.get("status", "idle") or "idle").strip().lower(),
+                "configured": bool(route.get("configured", False)),
+                "event_count": int(route.get("event_count", 0) or 0),
+                "delivered_count": int(route.get("delivered_count", 0) or 0),
+                "failure_count": int(route.get("failure_count", 0) or 0),
+                "success_rate": route.get("success_rate"),
+                "last_event_at": str(route.get("last_event_at", "") or "").strip(),
+                "last_delivered_at": str(route.get("last_delivered_at", "") or "").strip(),
+                "last_failed_at": str(route.get("last_failed_at", "") or "").strip(),
+                "last_error": str(route.get("last_error", "") or "").strip(),
+                "last_summary": str(route.get("last_summary", "") or "").strip(),
+                "mission_count": len(route.get("mission_ids", []) or []),
+                "rule_count": len(route.get("rule_names", []) or []),
+                "mission_ids": list(route.get("mission_ids", []) or []),
+                "rule_names": list(route.get("rule_names", []) or []),
+            }
+            for route in route_health
+        ]
+        route_timeline: list[dict[str, Any]] = []
+        for event in self.alert_store.list_events(limit=max(0, int(route_limit))):
+            rule = event.extra.get("rule", {}) if isinstance(event.extra, dict) else {}
+            if not isinstance(rule, dict):
+                continue
+            route_names = _normalize_route_names(rule)
+            if not route_names:
+                continue
+            delivery_errors = event.extra.get("delivery_errors", {}) if isinstance(event.extra, dict) else {}
+            if not isinstance(delivery_errors, dict):
+                delivery_errors = {}
+            delivered_channels = {
+                str(label or "").strip().lower()
+                for label in event.delivered_channels
+                if str(label or "").strip()
+            }
+            for route_name in route_names:
+                route = self.alert_routes.get(route_name)
+                channel = str(route.get("channel", "")).strip().lower() if isinstance(route, dict) else ""
+                route_label = f"{channel}:{route_name}" if channel else route_name
+                error_message = str(
+                    delivery_errors.get(route_label)
+                    or delivery_errors.get(f"route:{route_name}")
+                    or ""
+                ).strip()
+                delivered = route_label in delivered_channels
+                route_timeline.append(
+                    {
+                        "route": route_name,
+                        "channel": channel or "unknown",
+                        "mission_id": event.mission_id,
+                        "mission_name": event.mission_name,
+                        "rule_name": event.rule_name,
+                        "created_at": event.created_at,
+                        "status": "failed" if error_message else "delivered" if delivered else "pending",
+                        "summary": str(event.summary or "").strip(),
+                        "error": error_message,
+                        "delivered_channels": sorted(delivered_channels),
+                    }
+                )
+        route_timeline = sorted(
+            route_timeline,
+            key=lambda row: (_parse_timestamp(row.get("created_at")) or datetime.fromtimestamp(0, tz=timezone.utc)).timestamp(),
+            reverse=True,
+        )[:12]
 
         recent_failures: list[dict[str, Any]] = []
         last_result = status.get("last_result", {}) if isinstance(status, dict) else {}
@@ -1740,9 +2076,14 @@ class DataPulseReader:
             "collector_summary": collector_summary,
             "collector_tiers": collector_tiers,
             "degraded_collectors": degraded_collectors[:8],
+            "collector_drilldown": collector_drilldown[:12],
             "watch_metrics": watch_metrics,
+            "watch_summary": watch_summary,
+            "watch_health": watch_health[:8],
             "route_summary": route_summary,
             "route_health": route_health[:8],
+            "route_drilldown": route_drilldown[:12],
+            "route_timeline": route_timeline,
             "recent_failures": recent_failures,
             "recent_alerts": recent_alerts,
             "daemon": status,

@@ -37,12 +37,12 @@ DataPulse 提供一个统一入口，用于：
 | 平台采集 | `twitter/x`、`reddit`、`youtube`、`bilibili`、`telegram`、`wechat`、`xhs`、`rss`、`arxiv`、`hackernews`、`generic web` |
 | 热点趋势 | `trending`（X/Twitter 趋势页抓取） |
 | 搜索 | `Jina` / `Tavily` / `auto` / `multi`，支持 `--platform`、`--site`、时间窗参数 |
-| 任务化 | 首版 watch mission：`--watch-create`、`--watch-list`、`--watch-show`、`--watch-results`、`--watch-run`、`--watch-run-due`、`--watch-daemon`、`--watch-status`，其中 `--watch-show` 已含最近失败重试建议 |
+| 任务化 | 首版 watch mission：`--watch-create`、`--watch-list`、`--watch-alert-set`、`--watch-alert-clear`、`--watch-show`、`--watch-results`、`--watch-run`、`--watch-run-due`、`--watch-daemon`、`--watch-status`，其中 `--watch-show` 已含最近失败重试建议 |
 | 处置化 | 首版 triage queue：`--triage-list`、`--triage-explain`、`--triage-update`、`--triage-note`、`--triage-stats` |
-| 证据化 | 首版 story workspace：`--story-build`、`--story-list`、`--story-show`、`--story-graph`、`--story-export` |
+| 证据化 | 首版 story workspace：`--story-build`、`--story-list`、`--story-show`、`--story-update`、`--story-graph`、`--story-export` |
 | 告警分发 | threshold alert rule、关键词/标签/域名/时效过滤、JSON/Markdown/Webhook/Feishu/Telegram sink、`--alert-list`、`--alert-route-list`、`--alert-route-health` |
-| 运行状态 | daemon 单实例锁、heartbeat JSON/HTML 状态页、MCP `watch_status` |
-| 浏览器控制台 | `datapulse-console` 本地 G0/G3 GUI，统一 watch / triage / story / alert / route / status 工作台 |
+| 运行状态 | daemon 单实例锁、heartbeat JSON/HTML 状态页、MCP `watch_status`、CLI `--ops-overview`、任务级 watch health / aggregate success-rate |
+| 浏览器控制台 | `datapulse-console` 本地 G0/G3 GUI，统一 watch / triage / story / alert / route / status 工作台，`Mission Cockpit` 已具备 result stream、filter chips、timeline strip 和基础 alert rule 编辑，`Triage Queue` 已具备 first-cut keyboard workflow，`Story Workspace` 已具备基础 story editor |
 | 输出模型 | 统一 `DataPulseItem`（`title/content/url/confidence/score/tags/extra`） |
 | 评分排序 | 置信度 + 权威度 + 互证 + 时效性 |
 | 实体增强 | `--entities` 抽取，`--entity-query` / `--entity-graph` / `--entity-stats` |
@@ -104,6 +104,8 @@ datapulse --alert-list
 
 # richer alert rule + 命名 route
 datapulse --watch-create --watch-name "Launch Ops" --watch-query "OpenAI launch" --watch-alert-route ops-webhook --watch-alert-keyword launch --watch-alert-domain openai.com
+datapulse --watch-alert-set launch-ops --watch-alert-route ops-webhook --watch-alert-keyword launch --watch-alert-domain openai.com --watch-alert-min-score 70
+datapulse --watch-alert-clear launch-ops
 datapulse --alert-route-list
 datapulse --alert-route-health
 
@@ -131,6 +133,7 @@ datapulse --triage-update item-123 --triage-state verified --triage-note-text "c
 datapulse --story-build
 datapulse --story-list
 datapulse --story-show story-openai-launch
+datapulse --story-update story-openai-launch --story-title "OpenAI Launch Watch" --story-status monitoring
 datapulse --story-graph story-openai-launch
 
 ```
@@ -173,20 +176,23 @@ datapulse --list --limit 10
 | 指定时间窗 | `datapulse --search "关键词" --search-freshness week` |
 | 趋势抓取 | `datapulse --trending [us|uk|jp|...] --trending-limit 20` |
 | 持续主题跟踪 | `datapulse --watch-create --watch-name "AI Radar" --watch-query "OpenAI agents"` |
+| 调整任务告警规则 | `datapulse --watch-alert-set <watch_id> --watch-alert-route ops-webhook --watch-alert-keyword launch` |
+| 清空任务告警规则 | `datapulse --watch-alert-clear <watch_id>` |
 | 查看任务驾驶舱（含失败重试建议） | `datapulse --watch-show ai-radar` |
 | 查看任务结果流 | `datapulse --watch-results ai-radar` |
 | 按调度执行任务 | `datapulse --watch-run-due` |
 | 查看告警事件 | `datapulse --alert-list` |
 | 查看告警路由 | `datapulse --alert-route-list` |
 | 查看路由健康 | `datapulse --alert-route-health` |
+| 查看统一运维总览 | `datapulse --ops-overview` |
 | daemon 调度轮询 | `datapulse --watch-daemon --watch-daemon-once` |
 | daemon 状态快照 | `datapulse --watch-status` |
 | triage 队列 | `datapulse --triage-list` |
 | triage 重复项解释 | `datapulse --triage-explain <item_id>` |
 | triage 状态更新 | `datapulse --triage-update <item_id> --triage-state verified` |
 | story 构建 | `datapulse --story-build` |
-| story 查看/导出 | `datapulse --story-show <story_id>` / `datapulse --story-export <story_id>` |
-| 浏览器控制台 | `datapulse-console --port 8765`（含 Story Workspace 只读证据板） |
+| story 查看/编辑/导出 | `datapulse --story-show <story_id>` / `datapulse --story-update <story_id>` / `datapulse --story-export <story_id>` |
+| 浏览器控制台 | `datapulse-console --port 8765`（含 Story Workspace 证据板与基础 story editor） |
 | 实体抽取 | `datapulse <url> --entities --entity-mode fast` |
 | 查询实体 | `datapulse --entity-query OPENAI --entity-limit 20` |
 | 生成摘要 | `datapulse --digest --top-n 3 --secondary-n 7` |
@@ -205,7 +211,7 @@ python -m datapulse.mcp_server --list-tools
 python -m datapulse.mcp_server --call health
 ```
 
-常用工具：`read_url`、`read_batch`、`search_web`、`create_watch`、`list_watches`、`watch_show`、`watch_results`、`run_watch`、`run_due_watches`、`triage_list`、`triage_explain`、`triage_update`、`triage_note`、`triage_stats`、`story_build`、`story_list`、`story_show`、`story_graph`、`story_export`、`list_alerts`、`list_alert_routes`、`alert_route_health`、`watch_status`、`trending`、`query_inbox`、`build_digest`、`doctor`。
+常用工具：`read_url`、`read_batch`、`search_web`、`create_watch`、`list_watches`、`watch_show`、`watch_set_alert_rules`、`watch_results`、`run_watch`、`run_due_watches`、`triage_list`、`triage_explain`、`triage_update`、`triage_note`、`triage_stats`、`story_build`、`story_list`、`story_show`、`story_graph`、`story_export`、`list_alerts`、`list_alert_routes`、`alert_route_health`、`watch_status`、`trending`、`query_inbox`、`build_digest`、`doctor`。
 
 ### Skill 调用
 
