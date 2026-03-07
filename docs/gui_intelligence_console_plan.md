@@ -18,6 +18,27 @@ This is not a decorative dashboard. The UI should become the operating surface f
 - The first release should be local-first and single-user. Multi-user auth is a later concern.
 - The UI should not ship as a generic admin template. It needs an intentional "intelligence console" visual language.
 
+## Lifecycle Contract Alignment
+
+This roadmap now projects the repo-level contract in [intelligence_lifecycle_contract.md](/Users/sunyifei/DataPulse/docs/intelligence_lifecycle_contract.md) instead of describing a parallel GUI feature tree.
+
+Canonical lifecycle:
+
+- `WatchMission -> MissionRun -> DataPulseItem review/triage -> Story/evidence package -> AlertEvent / route delivery / story export`
+
+Stage mapping:
+
+- `G0` provides the cross-lifecycle shell and overview, but does not define new lifecycle nouns.
+- `G1` is the mission/run operating surface for `WatchMission` and `MissionRun`.
+- `G2` is the triage surface for shared `DataPulseItem` review state, notes, and duplicate explanations.
+- `G3` is the evidence surface for persisted `Story` objects, timelines, contradictions, graphs, and story export previews.
+- `G4` is the delivery/ops surface for `AlertEvent`, named routes, route health, and distribution quality observations.
+
+Roadmap rules:
+
+- the browser must stay a Reader-backed projection of the same lifecycle contract used by CLI and MCP
+- later delivery/subscription expansion belongs to the delivery contract follow-up, not to ad hoc GUI-only state
+
 ## Recommended Delivery Shape
 
 ### Frontend
@@ -57,7 +78,7 @@ This is not a decorative dashboard. The UI should become the operating surface f
 
 Goal:
 
-- bring current P6 watch/alert/status capabilities into one web surface
+- bring current mission entry, alert/status, and cross-lifecycle overview capabilities into one web surface
 
 Scope:
 
@@ -87,7 +108,7 @@ Current implementation status:
 
 - `FastAPI` adapter shipped in `datapulse/console_server.py`
 - browser shell shipped as a local-first single-file UI with `/api/overview`
-- current endpoints implemented: `GET /api/overview`, `GET /api/watches`, `GET /api/watches/{id}`, `GET /api/watches/{id}/results`, `POST /api/watches`, `PUT /api/watches/{id}/alert-rules`, `POST /api/watches/{id}/run`, `POST /api/watches/{id}/disable`, `POST /api/watches/run-due`, `GET /api/alerts`, `GET /api/alert-routes`, `GET /api/alert-routes/health`, `GET /api/watch-status`, `GET /api/triage`, `GET /api/triage/{id}/explain`, `POST /api/triage/{id}/state`, `GET /api/triage/stats`
+- current endpoints implemented: `GET /api/overview`, `GET /api/watches`, `GET /api/watches/{id}`, `GET /api/watches/{id}/results`, `POST /api/watches`, `PUT /api/watches/{id}/alert-rules`, `POST /api/watches/{id}/run`, `POST /api/watches/{id}/disable`, `POST /api/watches/run-due`, `GET /api/alerts`, `GET /api/alert-routes`, `GET /api/alert-routes/health`, `GET /api/watch-status`, `GET /api/triage`, `GET /api/triage/stats`, `GET /api/triage/{id}/explain`, `POST /api/triage/{id}/state`, `POST /api/triage/{id}/note`, `GET /api/stories`, `GET /api/stories/{id}`, `PUT /api/stories/{id}`, `GET /api/stories/{id}/graph`, `GET /api/stories/{id}/export`
 - launch entry points: `datapulse-console --port 8765`, `python -m datapulse.console_server --port 8765`, `bash scripts/datapulse_console.sh --port 8765`
 - console smoke script shipped: `bash scripts/datapulse_console_smoke.sh`
 - a lightweight triage queue panel is now available inside the G0 shell, including duplicate explain cards; full keyboard-first analyst workflow still belongs to G2
@@ -215,11 +236,11 @@ Dependency:
 
 ## Suggested Sequence
 
-1. Add `FastAPI` adapter for current P6 objects.
-2. Deliver G0 shell with watch, alerts, routes, and status.
-3. Stabilize P7/P8 domain models.
-4. Expand into G2/G3 workspaces.
-5. Fold P9 ops into the same console.
+1. Keep `WatchMission` and `MissionRun` contracts stable across Reader, CLI, MCP, and API.
+2. Treat `G2` as the shared triage state surface rather than a second queue model.
+3. Treat `G3` as the evidence-preserving story surface, not a presentation-only board.
+4. Fold delivery observations (`AlertEvent`, routes, story export, ops facts) into one route-backed output model before richer subscriptions.
+5. Expand drill-down only after the lifecycle nouns stay stable across all surfaces.
 
 ## Definition of Done
 

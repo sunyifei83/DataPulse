@@ -3,6 +3,14 @@
 ## 目标
 建立 DataPulse 内部统一来源目录与订阅化输出来承接 OpenClaw 联接场景：稳定识别来源、可控订阅范围、可消费 Feed。
 
+## 生命周期投影（L6.2）
+
+- 本文档现在按 [intelligence_lifecycle_contract.md](/Users/sunyifei/DataPulse/docs/intelligence_lifecycle_contract.md) 解释现有路线，而不再把 feed、watch、triage、story 视为互相脱节的能力块。
+- 统一链路以 `WatchMission -> MissionRun -> DataPulseItem(review/triage) -> Story/evidence package -> AlertEvent/route delivery/story export` 为准。
+- `P6` 负责 mission intent 与 run execution，`P7` 负责 triage state/note/action，`P8` 负责 evidence package；当前 delivery/output 面则由 `AlertEvent`、named routes、`build_json_feed / build_rss_feed / build_atom_feed`、`story_export(...)`、`alert_route_health()`、`ops_snapshot()` 共同构成。
+- 当前 feed/digest/story export 都应视为同一 lifecycle 的下游输出，而不是独立于任务、处置、证据之外的第二条产品线。
+- 更丰富的订阅、回调、角色化输出 contract 仍属于后续 `L6.3`，本轮只把现有 repo 事实投影回本路线图。
+
 ## 里程碑
 
 ### P0：来源目录 ✅ (v0.2.0 完成)
@@ -104,6 +112,7 @@
 | 任务化 | 🚧 `WatchMission` 首版（CLI/Reader/MCP + due runner + daemon + richer alert sink + status page） | 后续: 自动重跑 / 故障恢复 / 聚合面板 |
 | 处置化 | 🚧 `TriageQueue` 首版（state/note/action + duplicate explain + CLI/MCP/Console + digest gate） | 后续: keyboard workflow / reviewer SLA |
 | 证据化 | 🚧 `Story Workspace` 首版（story cluster + evidence/timeline/conflict + CLI/MCP + persisted snapshot + console board + entity graph） | 后续: story merge / editor |
+| 分发化 | 🚧 当前有效交付层为 `AlertEvent` + named routes + `build_json_feed / build_rss_feed / build_atom_feed` + `story_export` + `alert_route_health / ops_snapshot` | 后续: `L6.3` 明确订阅/回调 contract，统一角色化 feed 与 route-backed 输出 |
 
 ## 验收建议（本项目）
 
@@ -128,6 +137,7 @@
 
 - GUI 已进入合理建设窗口，但不应独立于领域模型先行。
 - 推荐顺序：先补 HTTP API 适配层，再做本地单用户浏览器控制台。
+- `G0/G1/G2/G3/G4` 应按同一 lifecycle 阅读：`mission -> run -> triage -> story -> delivery`；GUI 负责操作承载，不负责发明第二套对象语义。
 - 当前浏览器控制台已承接 `P6 + P7 + P8 first cut`，并补入 `G1/G4` 控制面：watch、mission cockpit、result stream、result filter chips、timeline strip、retry advice、alert rule editor、alerts、routes、route health、watch health、status、triage、story board。
 - `G2` 的 browser triage workspace 已从基础入口推进到可操作工作台：同屏支持 queue state filter chips、duplicate explain、state transitions、review note history、inline note composer，以及 first-cut keyboard workflow。
 - `G3` 的 browser story workspace 已补入基础 story editor：同屏支持查看 evidence/timeline/graph，并直接回写 story title、summary 与 status。

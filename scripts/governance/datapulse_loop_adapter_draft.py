@@ -87,6 +87,16 @@ def fallback_notes(slice_payload: dict[str, Any], next_slice: dict[str, Any]) ->
     closes_gates = [item for item in next_slice.get("closes_gates", []) if _to_text(item)]
     if closes_gates:
         notes.append(f"closes_gates: {', '.join(closes_gates)}")
+    source_note = dict(slice_payload.get("fact_intake", {}).get("source_note", {}))
+    source_note_path = _to_text(source_note.get("path"))
+    if source_note_path:
+        notes.append(f"source_note: {source_note_path}")
+        selected_heading = _to_text(source_note.get("selected_heading"))
+        if selected_heading:
+            notes.append(f"source_note_heading: {selected_heading}")
+    fact_sources = [_to_text(item) for item in slice_payload.get("fact_sources", []) if _to_text(item)]
+    for item in fact_sources[:3]:
+        notes.append(f"fact_source: {item}")
     notes.append("No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice.")
     return dedupe(notes)
 

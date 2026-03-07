@@ -1,22 +1,30 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T12:58:22Z",
+  "generated_at_utc": "2026-03-07T14:27:43Z",
   "status_kind": "draft_export",
   "wired": false,
   "git": {
-    "head": "31004373db8699eb3217f0c220619cca7f3baf84",
+    "head": "8cb03bcae82954d7d45e92eab6ee4a276531b2d3",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "31004373db8699eb3217f0c220619cca7f3baf84",
+    "upstream_head": "8cb03bcae82954d7d45e92eab6ee4a276531b2d3",
     "head_published_to_upstream": true
   },
   "workspace": {
     "clean": false,
     "dirty_entries": [
-      "M docs/governance/datapulse-auto-continuation-policy.json",
-      " M docs/governance/datapulse-codex-blueprint-loop.draft.md",
-      "?? scripts/governance/ignite_datapulse_codex_loop.sh"
+      "M docs/governance/datapulse-blueprint-plan.draft.json",
+      " M docs/gui_intelligence_console_plan.md",
+      " M docs/source_feed_enhancement_plan.md",
+      " M out/governance/code_landing_status.draft.json",
+      " M out/governance/project_specific_loop_state.draft.json",
+      " M scripts/governance/datapulse_loop_adapter_draft.py",
+      "?? docs/governance/datapulse-external-fact-intake.draft.md",
+      "?? docs/intelligence_delivery_contract.md",
+      "?? docs/intelligence_lifecycle_contract.md",
+      "?? scripts/governance/intake_external_fact_to_working_slice.py",
+      "?? scripts/governance/promote_datapulse_working_slice_to_blueprint.py"
     ],
     "reason": "git status reported local modifications."
   },
@@ -89,35 +97,43 @@
     "head_published_to_upstream": true,
     "required_workflow": "CI",
     "required_run": {
-      "database_id": 22799443213,
-      "head_sha": "31004373db8699eb3217f0c220619cca7f3baf84",
+      "database_id": 22799768921,
+      "head_sha": "8cb03bcae82954d7d45e92eab6ee4a276531b2d3",
       "head_branch": "main",
       "status": "completed",
       "conclusion": "success",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-07T12:55:38Z",
-      "updated_at": "2026-03-07T12:56:18Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22799443213"
+      "created_at": "2026-03-07T13:18:02Z",
+      "updated_at": "2026-03-07T13:18:33Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22799768921"
     },
     "latest_head_ci_run": {
-      "database_id": 22799443213,
-      "head_sha": "31004373db8699eb3217f0c220619cca7f3baf84",
+      "database_id": 22799768921,
+      "head_sha": "8cb03bcae82954d7d45e92eab6ee4a276531b2d3",
       "head_branch": "main",
       "status": "completed",
       "conclusion": "success",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-07T12:55:38Z",
-      "updated_at": "2026-03-07T12:56:18Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22799443213"
+      "created_at": "2026-03-07T13:18:02Z",
+      "updated_at": "2026-03-07T13:18:33Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22799768921"
     },
     "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
-        "docs/governance/datapulse-auto-continuation-policy.json",
-        "docs/governance/datapulse-codex-blueprint-loop.draft.md",
-        "scripts/governance/ignite_datapulse_codex_loop.sh"
+        "docs/governance/datapulse-blueprint-plan.draft.json",
+        "docs/gui_intelligence_console_plan.md",
+        "docs/source_feed_enhancement_plan.md",
+        "out/governance/code_landing_status.draft.json",
+        "out/governance/project_specific_loop_state.draft.json",
+        "scripts/governance/datapulse_loop_adapter_draft.py",
+        "docs/governance/datapulse-external-fact-intake.draft.md",
+        "docs/intelligence_delivery_contract.md",
+        "docs/intelligence_lifecycle_contract.md",
+        "scripts/governance/intake_external_fact_to_working_slice.py",
+        "scripts/governance/promote_datapulse_working_slice_to_blueprint.py"
       ],
       "docs_only": false
     }
@@ -203,16 +219,16 @@
       }
     },
     "latest_head_ci_run": {
-      "database_id": 22799443213,
-      "head_sha": "31004373db8699eb3217f0c220619cca7f3baf84",
+      "database_id": 22799768921,
+      "head_sha": "8cb03bcae82954d7d45e92eab6ee4a276531b2d3",
       "head_branch": "main",
       "status": "completed",
       "conclusion": "success",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-07T12:55:38Z",
-      "updated_at": "2026-03-07T12:56:18Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22799443213"
+      "created_at": "2026-03-07T13:18:02Z",
+      "updated_at": "2026-03-07T13:18:33Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22799768921"
     },
     "latest_head_governance_evidence_run": null
   },

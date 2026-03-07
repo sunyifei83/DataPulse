@@ -68,7 +68,8 @@
     "L2": "completed",
     "L3": "completed",
     "L4": "completed",
-    "L5": "completed"
+    "L5": "completed",
+    "L6": "completed"
   },
   "phases": [
     {
@@ -371,11 +372,95 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L6",
+      "title": "Intelligence Platformization Follow-up",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "L6.1",
+          "title": "Write unified intelligence lifecycle contract for mission-run-triage-story-delivery",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/intelligence_lifecycle_contract.md"
+          ],
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-07T13:53:33Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md",
+              "frontmatter_title": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+              "first_heading": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212"
+            }
+          }
+        },
+        {
+          "id": "L6.2",
+          "title": "Project lifecycle contract into source-feed and GUI roadmap docs",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/source_feed_enhancement_plan.md",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-07T13:53:37Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md",
+              "frontmatter_title": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+              "first_heading": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212"
+            }
+          }
+        },
+        {
+          "id": "L6.3",
+          "title": "Define delivery and subscription contract for route-backed intelligence outputs",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/intelligence_delivery_contract.md"
+          ],
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-07T13:53:40Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md",
+              "frontmatter_title": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+              "first_heading": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212"
+            }
+          }
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
     "id": "no-open-slice",
     "title": "No open slice",
-    "reason": "The reusable control plane, active adapter wiring, and gated auto-continuation policy are now present in this working copy."
-  }
+    "reason": "All current slices are completed in this working copy."
+  },
+  "last_updated_utc": "2026-03-07T15:05:00Z"
 }
