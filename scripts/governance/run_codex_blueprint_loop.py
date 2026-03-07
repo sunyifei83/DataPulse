@@ -1,0 +1,928 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+from datapulse_loop_adapter import DEFAULT_CATALOG_PATH, build_datapulse_loop_runtime
+from datapulse_loop_contracts import DEFAULT_PLAN_PATH, REPO_ROOT, build_code_landing_status, display_path, load_plan
+from run_datapulse_auto_continuation import refresh_governance_snapshots
+
+
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "out" / "codex_blueprint_loop"
+DEFAULT_BUNDLE_DIR = REPO_ROOT / "out" / "ha_latest_release_bundle"
+DEFAULT_PROMPT = "自动推进 DataPulse 蓝图"
+DEFAULT_MODEL = "gpt-5.4"
+DEFAULT_MODEL_REASONING_EFFORT = "xhigh"
+DEFAULT_APPROVAL_POLICY = "never"
+DEFAULT_PROMOTION_MODE = "manual"
+BLOCKED_EXIT_CODE = 2
+PROMOTION_REPO_LANDED = "repo_landed_false"
+PROMOTION_HEAD_NOT_PUSHED = "head_not_pushed"
+AUTO_CI_RESOLVABLE_GATES = {
+    PROMOTION_HEAD_NOT_PUSHED,
+    "ci_run_not_proven",
+    "ci_run_in_progress",
+    "governance_evidence_not_proven",
+    "governance_evidence_in_progress",
+}
+AUTO_CI_HARD_STOP_GATES = {
+    "ci_run_failed",
+    "governance_evidence_failed",
+    "workflow_dispatch_missing",
+    "structured_release_bundle_missing",
+}
+WORKFLOW_RUN_FIELDS = [
+    "databaseId",
+    "headSha",
+    "headBranch",
+    "status",
+    "conclusion",
+    "event",
+    "workflowName",
+    "createdAt",
+    "updatedAt",
+    "url",
+]
+
+
+def _to_text(value: Any) -> str:
+    return str(value).strip() if value is not None else ""
+
+
+def build_subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    if sys.platform == "darwin":
+        env.setdefault("SYSTEM_VERSION_COMPAT", "1")
+    return env
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run a local Codex-driven DataPulse blueprint loop that can land the current ready slice and then re-evaluate state."
+    )
+    parser.add_argument("--codex-bin", default="codex")
+    parser.add_argument("--prompt", default=DEFAULT_PROMPT)
+    parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument(
+        "--model-reasoning-effort",
+        default=DEFAULT_MODEL_REASONING_EFFORT,
+        choices=("low", "medium", "high", "xhigh"),
+    )
+    parser.add_argument(
+        "--ask-for-approval",
+        default=DEFAULT_APPROVAL_POLICY,
+        choices=("untrusted", "on-failure", "on-request", "never"),
+    )
+    parser.add_argument(
+        "--sandbox",
+        default="danger-full-access",
+        choices=("read-only", "workspace-write", "danger-full-access"),
+    )
+    parser.add_argument("--dangerously-bypass-approvals-and-sandbox", action="store_true")
+    parser.add_argument("--max-rounds", type=int, default=6)
+    parser.add_argument(
+        "--plan",
+        type=Path,
+        default=DEFAULT_PLAN_PATH,
+        help="Blueprint plan path. Defaults to the active plan overlay.",
+    )
+    parser.add_argument(
+        "--catalog",
+        type=Path,
+        default=DEFAULT_CATALOG_PATH,
+        help="Slice adapter catalog path.",
+    )
+    parser.add_argument(
+        "--bundle-dir",
+        type=Path,
+        default=DEFAULT_BUNDLE_DIR,
+        help="Structured evidence bundle directory refreshed before and after each round.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=DEFAULT_OUTPUT_DIR,
+        help="Directory for per-round prompts and Codex last-message outputs.",
+    )
+    parser.add_argument(
+        "--obsidian-source",
+        default="",
+        help="Optional Obsidian note or directory to expose via --add-dir during Codex execution.",
+    )
+    parser.add_argument(
+        "--promotion-mode",
+        default=DEFAULT_PROMOTION_MODE,
+        choices=("manual", "auto"),
+        help="When set to auto, the runner may auto-resolve DataPulse's local repo_landed promotion and then drive the current ci_proven evidence path.",
+    )
+    parser.add_argument(
+        "--allow-existing-dirty-worktree",
+        action="store_true",
+        help="Permit auto-promotion to commit a worktree that was already dirty before this loop run started.",
+    )
+    parser.add_argument(
+        "--poll-interval-seconds",
+        type=int,
+        default=15,
+        help="Polling interval used while waiting for CI or governance evidence runs.",
+    )
+    parser.add_argument(
+        "--ci-timeout-seconds",
+        type=int,
+        default=900,
+        help="Timeout used while waiting for a required CI or governance evidence run.",
+    )
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--stdout", action="store_true", help="Accepted for compatibility. JSON is always printed.")
+    return parser.parse_args()
+
+
+def build_codex_exec_command(
+    *,
+    codex_bin: str,
+    prompt: str,
+    model: str,
+    model_reasoning_effort: str,
+    ask_for_approval: str,
+    sandbox: str,
+    dangerous: bool,
+    output_last_message: Path,
+    obsidian_source: Path | None,
+) -> list[str]:
+    command = [
+        codex_bin,
+        "--model",
+        model,
+        "-c",
+        f'model_reasoning_effort="{model_reasoning_effort}"',
+        "--ask-for-approval",
+        ask_for_approval,
+        "--sandbox",
+        sandbox,
+        "exec",
+        "-C",
+        str(REPO_ROOT),
+        "--output-last-message",
+        str(output_last_message),
+    ]
+    if dangerous:
+        command.append("--dangerously-bypass-approvals-and-sandbox")
+    if obsidian_source is not None:
+        add_dir = obsidian_source if obsidian_source.is_dir() else obsidian_source.parent
+        command.extend(["--add-dir", str(add_dir.resolve())])
+    command.append(prompt)
+    return command
+
+
+def resolve_obsidian_source(raw_path: str) -> Path | None:
+    text = _to_text(raw_path)
+    if not text:
+        return None
+    candidate = Path(text).expanduser().resolve()
+    if not candidate.exists():
+        return None
+    return candidate
+
+
+def refresh_runtime(
+    *,
+    plan_path: Path,
+    catalog_path: Path,
+    bundle_dir: Path,
+) -> tuple[dict[str, str], dict[str, Any], dict[str, Any]]:
+    snapshots = refresh_governance_snapshots(bundle_dir.resolve(), plan_path=plan_path.resolve())
+    runtime = build_datapulse_loop_runtime(plan_path, catalog_path)
+    plan = load_plan(plan_path)
+    return snapshots, runtime, plan
+
+
+def git_output(*args: str) -> str:
+    completed = subprocess.run(
+        ["git", *args],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        return ""
+    return completed.stdout.strip()
+
+
+def gh_json(*args: str) -> Any | None:
+    completed = subprocess.run(
+        ["gh", *args],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=build_subprocess_env(),
+    )
+    if completed.returncode != 0:
+        return None
+    content = completed.stdout.strip()
+    if not content:
+        return None
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        return None
+
+
+def workspace_status_lines() -> list[str]:
+    output = git_output("status", "--short")
+    if not output:
+        return []
+    return [line for line in output.splitlines() if _to_text(line)]
+
+
+def changed_paths_from_status_lines(status_lines: list[str]) -> list[str]:
+    paths: list[str] = []
+    for line in status_lines:
+        if len(line) < 3:
+            continue
+        raw_path = line[2:].strip()
+        if " -> " in raw_path:
+            paths.extend([part.strip() for part in raw_path.split(" -> ") if _to_text(part)])
+        elif _to_text(raw_path):
+            paths.append(raw_path)
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for item in paths:
+        if item in seen:
+            continue
+        seen.add(item)
+        deduped.append(item)
+    return deduped
+
+
+def stage_and_commit_all(commit_message: str, *, dry_run: bool) -> dict[str, Any]:
+    status_lines = workspace_status_lines()
+    payload = {
+        "commit_message": commit_message,
+        "changed_paths": changed_paths_from_status_lines(status_lines),
+    }
+    if dry_run:
+        payload["dry_run"] = True
+        return payload
+
+    subprocess.run(["git", "add", "-A"], cwd=REPO_ROOT, check=True)
+    subprocess.run(["git", "commit", "-m", commit_message], cwd=REPO_ROOT, check=True)
+    payload["head"] = git_output("rev-parse", "HEAD")
+    return payload
+
+
+def push_current_branch(branch: str, *, dry_run: bool) -> dict[str, Any]:
+    payload = {
+        "remote": "origin",
+        "branch": branch,
+        "head": git_output("rev-parse", "HEAD"),
+    }
+    if dry_run:
+        payload["dry_run"] = True
+        return payload
+    subprocess.run(["git", "push", "origin", branch], cwd=REPO_ROOT, check=True)
+    payload["upstream_head"] = git_output("rev-parse", "@{u}")
+    return payload
+
+
+def dispatch_workflow(workflow: str, branch: str, *, dry_run: bool) -> dict[str, Any]:
+    payload = {
+        "workflow": workflow,
+        "branch": branch,
+    }
+    if dry_run:
+        payload["dry_run"] = True
+        return payload
+    subprocess.run(
+        ["gh", "workflow", "run", workflow, "--ref", branch],
+        cwd=REPO_ROOT,
+        check=True,
+        env=build_subprocess_env(),
+    )
+    return payload
+
+
+def list_workflow_runs(workflow: str, *, branch: str) -> list[dict[str, Any]]:
+    payload = gh_json("run", "list", "--workflow", workflow, "--branch", branch, "--limit", "20", "--json", ",".join(WORKFLOW_RUN_FIELDS))
+    if not isinstance(payload, list):
+        return []
+    runs: list[dict[str, Any]] = []
+    for item in payload:
+        if isinstance(item, dict):
+            runs.append(item)
+    return runs
+
+
+def normalize_workflow_run(run: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "database_id": int(run.get("databaseId", 0) or 0),
+        "head_sha": _to_text(run.get("headSha")),
+        "head_branch": _to_text(run.get("headBranch")),
+        "status": _to_text(run.get("status")),
+        "conclusion": _to_text(run.get("conclusion")),
+        "event": _to_text(run.get("event")),
+        "workflow_name": _to_text(run.get("workflowName")),
+        "created_at": _to_text(run.get("createdAt")),
+        "updated_at": _to_text(run.get("updatedAt")),
+        "url": _to_text(run.get("url")),
+    }
+
+
+def wait_for_head_workflow_run(
+    workflow: str,
+    *,
+    branch: str,
+    head_sha: str,
+    timeout_seconds: int,
+    poll_interval_seconds: int,
+) -> dict[str, Any]:
+    deadline = time.monotonic() + max(timeout_seconds, 1)
+    last_seen: dict[str, Any] | None = None
+    while time.monotonic() <= deadline:
+        matches: list[dict[str, Any]] = []
+        for run in list_workflow_runs(workflow, branch=branch):
+            normalized = normalize_workflow_run(run)
+            if normalized.get("head_sha") != head_sha:
+                continue
+            if branch and normalized.get("head_branch") != branch:
+                continue
+            matches.append(normalized)
+        if matches:
+            matches.sort(
+                key=lambda item: (
+                    item.get("created_at", ""),
+                    int(item.get("database_id", 0) or 0),
+                ),
+                reverse=True,
+            )
+            last_seen = matches[0]
+            if last_seen.get("status") == "completed":
+                if last_seen.get("conclusion") == "success":
+                    return last_seen
+                raise RuntimeError(
+                    f"{workflow} run for {head_sha} concluded {last_seen.get('conclusion') or 'without_success'}: {last_seen.get('url', '')}"
+                )
+        time.sleep(max(poll_interval_seconds, 1))
+    if last_seen:
+        raise RuntimeError(
+            f"timed out waiting for {workflow} run for {head_sha}; last status={last_seen.get('status')}, conclusion={last_seen.get('conclusion')}"
+        )
+    raise RuntimeError(f"timed out waiting for {workflow} run for {head_sha}; no matching run observed")
+
+
+def build_auto_commit_message(slice_execution_brief: dict[str, Any], round_index: int | None) -> str:
+    slice_id = _to_text(slice_execution_brief.get("slice_id")) or _to_text(slice_execution_brief.get("id"))
+    if slice_id:
+        return f"chore(loop): land {slice_id}"
+    if round_index is not None:
+        return f"chore(loop): land round-{round_index:02d}"
+    return "chore(loop): land blueprint changes"
+
+
+def find_plan_slice(plan: dict[str, Any], slice_id: str) -> dict[str, Any]:
+    target = _to_text(slice_id)
+    if not target:
+        return {}
+    for phase in plan.get("phases", []):
+        for item in phase.get("slices", []):
+            if _to_text(item.get("id")) == target:
+                return dict(item)
+    return {}
+
+
+def run_verification_commands(
+    *,
+    commands: list[str],
+    round_dir: Path,
+    dry_run: bool,
+) -> tuple[list[dict[str, Any]], bool]:
+    results: list[dict[str, Any]] = []
+    if not commands:
+        return results, True
+
+    for index, command_text in enumerate(commands, start=1):
+        stdout_path = round_dir / f"verify-{index:02d}.stdout.log"
+        stderr_path = round_dir / f"verify-{index:02d}.stderr.log"
+        result = {
+            "command": command_text,
+            "stdout_path": str(stdout_path),
+            "stderr_path": str(stderr_path),
+        }
+        if dry_run:
+            result["exit_code"] = 0
+            result["dry_run"] = True
+            results.append(result)
+            continue
+
+        completed = subprocess.run(
+            ["/bin/zsh", "-lc", command_text],
+            cwd=REPO_ROOT,
+            check=False,
+            env=build_subprocess_env(),
+            capture_output=True,
+            text=True,
+        )
+        stdout_path.write_text(completed.stdout or "", encoding="utf-8")
+        stderr_path.write_text(completed.stderr or "", encoding="utf-8")
+        result["exit_code"] = int(completed.returncode)
+        results.append(result)
+        if completed.returncode != 0:
+            return results, False
+    return results, True
+
+
+def supports_auto_repo_landed(runtime: dict[str, Any]) -> bool:
+    remaining = {_to_text(item) for item in runtime.get("remaining_promotion_gates", []) if _to_text(item)}
+    if _to_text(runtime.get("status")) != "stopped":
+        return False
+    if _to_text(runtime.get("reason")) != "promotion_gates_open":
+        return False
+    return PROMOTION_REPO_LANDED in remaining
+
+
+def supports_auto_ci_proven(runtime: dict[str, Any]) -> bool:
+    remaining = {_to_text(item) for item in runtime.get("remaining_promotion_gates", []) if _to_text(item)}
+    if _to_text(runtime.get("status")) != "stopped":
+        return False
+    if _to_text(runtime.get("reason")) != "promotion_gates_open":
+        return False
+    if PROMOTION_REPO_LANDED in remaining:
+        return False
+    if remaining & AUTO_CI_HARD_STOP_GATES:
+        return False
+    return bool(remaining & AUTO_CI_RESOLVABLE_GATES)
+
+
+def evaluate_progress(
+    *,
+    before_runtime: dict[str, Any],
+    after_runtime: dict[str, Any],
+    before_plan: dict[str, Any],
+    after_plan: dict[str, Any],
+    before_status_lines: list[str],
+    after_status_lines: list[str],
+) -> bool:
+    before_slice_id = _to_text(dict(before_runtime.get("next_slice") or {}).get("id"))
+    after_slice_id = _to_text(dict(after_runtime.get("next_slice") or {}).get("id"))
+    if before_slice_id != after_slice_id:
+        return True
+    if _to_text(before_runtime.get("current_level")) != _to_text(after_runtime.get("current_level")):
+        return True
+    if list(before_runtime.get("remaining_promotion_gates", [])) != list(after_runtime.get("remaining_promotion_gates", [])):
+        return True
+    if before_status_lines != after_status_lines:
+        return True
+    before_slice = find_plan_slice(before_plan, before_slice_id)
+    after_slice = find_plan_slice(after_plan, after_slice_id)
+    return before_slice != after_slice
+
+
+def maybe_auto_promote(
+    *,
+    runtime: dict[str, Any],
+    slice_execution_brief: dict[str, Any],
+    round_index: int | None,
+    baseline_dirty_paths: list[str],
+    promotion_mode: str,
+    allow_existing_dirty_worktree: bool,
+    plan_path: Path,
+    catalog_path: Path,
+    bundle_dir: Path,
+    poll_interval_seconds: int,
+    ci_timeout_seconds: int,
+    dry_run: bool,
+) -> tuple[dict[str, Any], dict[str, str], dict[str, Any], list[dict[str, Any]]]:
+    promotions: list[dict[str, Any]] = []
+    snapshots: dict[str, str] = {}
+    plan = load_plan(plan_path)
+    current_runtime = runtime
+
+    if _to_text(promotion_mode).lower() != "auto":
+        return current_runtime, snapshots, plan, promotions
+
+    while supports_auto_repo_landed(current_runtime):
+        if baseline_dirty_paths and not allow_existing_dirty_worktree:
+            raise RuntimeError(
+                "auto repo_landed promotion blocked by preexisting dirty worktree; rerun with --allow-existing-dirty-worktree"
+            )
+        status_lines = workspace_status_lines()
+        if not status_lines:
+            raise RuntimeError("auto repo_landed promotion selected but workspace has no changes to commit")
+
+        commit_message = build_auto_commit_message(slice_execution_brief, round_index)
+        promotion_payload = {
+            "promotion": "repo_landed",
+            **stage_and_commit_all(commit_message, dry_run=dry_run),
+        }
+        promotions.append(promotion_payload)
+        print(json.dumps({"status": "promotion_executed", **promotion_payload}, ensure_ascii=False))
+
+        if dry_run:
+            break
+
+        snapshots, current_runtime, plan = refresh_runtime(
+            plan_path=plan_path,
+            catalog_path=catalog_path,
+            bundle_dir=bundle_dir,
+        )
+        baseline_dirty_paths = changed_paths_from_status_lines(workspace_status_lines())
+
+    while supports_auto_ci_proven(current_runtime):
+        landing_status = build_code_landing_status()
+        git_truth = dict(landing_status.get("git", {}))
+        ci_truth = dict(landing_status.get("ci", {}))
+        branch = _to_text(git_truth.get("branch"))
+        head_sha = _to_text(git_truth.get("head"))
+        head_published = bool(git_truth.get("head_published_to_upstream"))
+        proof_mode = _to_text(ci_truth.get("proof_mode")) or "push_ci_workflow"
+        required_workflow = _to_text(ci_truth.get("required_workflow")) or ("governance-evidence.yml" if proof_mode == "governance_evidence_dispatch" else "CI")
+
+        if not branch or not head_sha:
+            raise RuntimeError("auto ci_proven promotion missing current branch/head truth")
+
+        if not head_published:
+            push_payload = {
+                "promotion": "ci_proven",
+                "step": "push_head",
+                **push_current_branch(branch, dry_run=dry_run),
+            }
+            promotions.append(push_payload)
+            print(json.dumps({"status": "promotion_executed", **push_payload}, ensure_ascii=False))
+            if dry_run:
+                break
+            snapshots, current_runtime, plan = refresh_runtime(
+                plan_path=plan_path,
+                catalog_path=catalog_path,
+                bundle_dir=bundle_dir,
+            )
+            continue
+
+        promotion_payload: dict[str, Any] = {
+            "promotion": "ci_proven",
+            "step": "await_required_workflow",
+            "proof_mode": proof_mode,
+            "workflow": required_workflow,
+            "branch": branch,
+            "head_sha": head_sha,
+        }
+        if proof_mode == "governance_evidence_dispatch":
+            promotion_payload["dispatch"] = dispatch_workflow(required_workflow, branch, dry_run=dry_run)
+        if dry_run:
+            promotions.append(promotion_payload)
+            print(json.dumps({"status": "promotion_executed", **promotion_payload}, ensure_ascii=False))
+            break
+
+        observed_run = wait_for_head_workflow_run(
+            required_workflow,
+            branch=branch,
+            head_sha=head_sha,
+            timeout_seconds=ci_timeout_seconds,
+            poll_interval_seconds=poll_interval_seconds,
+        )
+        promotion_payload["observed_run"] = observed_run
+        promotions.append(promotion_payload)
+        print(json.dumps({"status": "promotion_executed", **promotion_payload}, ensure_ascii=False))
+
+        snapshots, current_runtime, plan = refresh_runtime(
+            plan_path=plan_path,
+            catalog_path=catalog_path,
+            bundle_dir=bundle_dir,
+        )
+
+    return current_runtime, snapshots, plan, promotions
+
+
+def effective_plan_edit_target(plan_path: Path, plan: dict[str, Any]) -> str:
+    base_plan = _to_text(plan.get("_base_plan_path"))
+    if base_plan:
+        return display_path(Path(base_plan))
+    return display_path(plan_path.resolve())
+
+
+def format_list(items: list[str]) -> str:
+    cleaned = [_to_text(item) for item in items if _to_text(item)]
+    if not cleaned:
+        return "- (none)"
+    return "\n".join(f"- {item}" for item in cleaned)
+
+
+def build_codex_prompt_text(
+    *,
+    prompt: str,
+    runtime: dict[str, Any],
+    adapter_entry: dict[str, Any],
+    plan_edit_target: str,
+    promotion_mode: str,
+    obsidian_source: Path | None,
+) -> str:
+    next_slice = dict(runtime.get("next_slice") or {})
+    lines = [
+        prompt,
+        "",
+        "当前任务是推进 DataPulse blueprint loop 的当前 next_slice，并在本轮结束后让 loop 重新评估。",
+        "",
+        "当前 loop 事实：",
+        f"- plan_id: {_to_text(runtime.get('plan_id'))}",
+        f"- current_level: {_to_text(runtime.get('current_level'))}",
+        f"- next_slice: {_to_text(next_slice.get('id'))} / {_to_text(next_slice.get('phase_id'))} / {_to_text(next_slice.get('title'))}",
+        f"- execution_profile: {_to_text(next_slice.get('execution_profile'))}",
+        f"- current_status: {_to_text(runtime.get('status'))}",
+        f"- current_reason: {_to_text(runtime.get('reason'))}",
+        f"- promotion_mode: {_to_text(promotion_mode)}",
+        "",
+        "蓝图与治理约束：",
+        f"- blueprint edit target: {plan_edit_target}",
+        "- confirmed targets must remain structured as phase + slices + status",
+        "- do not introduce Future Track or future_* prose-only planning state",
+        "- only land the current next_slice unless the current slice cannot be completed without a tightly-scoped prerequisite",
+        "- keep scheduled governance workflow read-only; do not turn .github/workflows/governance-loop-auto.yml into a business executor",
+        "- do not hand-edit out/governance or out/*release_bundle snapshots unless a generated exporter requires regeneration",
+        "",
+        "当前 slice adapter：",
+        f"- execute_mode: {_to_text(adapter_entry.get('execute_mode')) or 'unspecified'}",
+        f"- adapter_type: {_to_text(adapter_entry.get('adapter_type')) or 'unspecified'}",
+        f"- summary: {_to_text(adapter_entry.get('summary')) or 'unspecified'}",
+        "- candidate_commands:",
+        format_list(list(adapter_entry.get("candidate_commands", []))),
+        "- verification_commands:",
+        format_list(list(adapter_entry.get("verification_commands", []))),
+        "- target_artifacts:",
+        format_list(list(adapter_entry.get("target_artifacts", []))),
+        "- notes:",
+        format_list(list(adapter_entry.get("notes", []))),
+        f"- exit_condition: {_to_text(adapter_entry.get('exit_condition')) or 'unspecified'}",
+        "",
+        "完成标准：",
+        f"- the repo should reflect the landing of {_to_text(next_slice.get('id'))}",
+        "- update the structured blueprint slice status to match reality",
+        "- if the slice lands, re-run or leave enough changes so the governance exporters can reflect the new state",
+        "- if the slice cannot land safely, leave the repo in a truthful blocked state rather than faking completion",
+    ]
+    if obsidian_source is not None:
+        lines.extend(
+            [
+                "",
+                f"外部事实补充路径可读取：{obsidian_source}",
+                "- if you need external fact wording, read it from the provided Obsidian path and then land only the repo-relevant structured truth.",
+            ]
+        )
+    return "\n".join(lines).strip() + "\n"
+
+
+def stop_snapshot(runtime: dict[str, Any]) -> dict[str, Any]:
+    payload = {
+        "status": _to_text(runtime.get("status")) or "stopped",
+        "reason": _to_text(runtime.get("reason")) or "loop_stopped",
+        "current_level": _to_text(runtime.get("current_level")),
+        "next_slice": _to_text(dict(runtime.get("next_slice") or {}).get("id")),
+        "blocking_facts": list(runtime.get("effective_blocking_facts", [])),
+        "remaining_promotion_gates": list(runtime.get("remaining_promotion_gates", [])),
+    }
+    return payload
+
+
+def run_round(
+    *,
+    command: list[str],
+    output_dir: Path,
+    round_index: int,
+    prompt_text: str,
+    dry_run: bool,
+) -> int:
+    round_dir = output_dir / f"round-{round_index:02d}"
+    round_dir.mkdir(parents=True, exist_ok=True)
+    (round_dir / "prompt.txt").write_text(prompt_text, encoding="utf-8")
+    (round_dir / "command.json").write_text(json.dumps(command, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    print(f"[round {round_index}] {' '.join(command)}")
+    if dry_run:
+        return 0
+    completed = subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        check=False,
+        env=build_subprocess_env(),
+    )
+    return int(completed.returncode)
+
+
+def main() -> int:
+    args = parse_args()
+    output_dir = args.output_dir.expanduser().resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    obsidian_source = resolve_obsidian_source(args.obsidian_source)
+
+    snapshots, runtime, plan = refresh_runtime(
+        plan_path=args.plan,
+        catalog_path=args.catalog,
+        bundle_dir=args.bundle_dir,
+    )
+    baseline_dirty_paths = changed_paths_from_status_lines(workspace_status_lines())
+    initial_payload = {
+        "status": _to_text(runtime.get("status")),
+        "reason": _to_text(runtime.get("reason")),
+        "current_level": _to_text(runtime.get("current_level")),
+        "next_slice": _to_text(dict(runtime.get("next_slice") or {}).get("id")),
+        "snapshots_refreshed": snapshots,
+    }
+    print(json.dumps({"status": "runtime_refreshed", **initial_payload}, ensure_ascii=False))
+
+    try:
+        runtime, promotion_snapshots, plan, _ = maybe_auto_promote(
+            runtime=runtime,
+            slice_execution_brief=dict(runtime.get("slice_execution_brief") or runtime.get("adapter_entry") or {}),
+            round_index=None,
+            baseline_dirty_paths=baseline_dirty_paths,
+            promotion_mode=str(args.promotion_mode),
+            allow_existing_dirty_worktree=bool(args.allow_existing_dirty_worktree),
+            plan_path=args.plan,
+            catalog_path=args.catalog,
+            bundle_dir=args.bundle_dir,
+            poll_interval_seconds=int(args.poll_interval_seconds),
+            ci_timeout_seconds=int(args.ci_timeout_seconds),
+            dry_run=bool(args.dry_run),
+        )
+        if promotion_snapshots:
+            snapshots = promotion_snapshots
+    except RuntimeError as exc:
+        print(json.dumps({"status": "blocked", "reason": "auto_promotion_blocked", "detail": str(exc)}, ensure_ascii=False))
+        return BLOCKED_EXIT_CODE
+
+    if _to_text(runtime.get("status")) == "blocked":
+        print(json.dumps(stop_snapshot(runtime), ensure_ascii=False))
+        return BLOCKED_EXIT_CODE
+    if _to_text(runtime.get("status")) == "stopped":
+        print(json.dumps(stop_snapshot(runtime), ensure_ascii=False))
+        return 0
+
+    for round_index in range(1, max(int(args.max_rounds), 1) + 1):
+        runtime = build_datapulse_loop_runtime(args.plan, args.catalog)
+        before_runtime = dict(runtime)
+        next_slice = dict(runtime.get("next_slice") or {})
+        adapter_entry = dict(runtime.get("slice_execution_brief") or runtime.get("adapter_entry") or {})
+        plan = load_plan(args.plan)
+        before_status_lines = workspace_status_lines()
+        before_plan = plan
+        prompt_text = build_codex_prompt_text(
+            prompt=str(args.prompt),
+            runtime=runtime,
+            adapter_entry=adapter_entry,
+            plan_edit_target=effective_plan_edit_target(args.plan, plan),
+            promotion_mode=str(args.promotion_mode),
+            obsidian_source=obsidian_source,
+        )
+        round_dir = output_dir / f"round-{round_index:02d}"
+        output_last_message = round_dir / "last_message.txt"
+        command = build_codex_exec_command(
+            codex_bin=str(args.codex_bin),
+            prompt=prompt_text,
+            model=str(args.model),
+            model_reasoning_effort=str(args.model_reasoning_effort),
+            ask_for_approval=str(args.ask_for_approval),
+            sandbox=str(args.sandbox),
+            dangerous=bool(args.dangerously_bypass_approvals_and_sandbox),
+            output_last_message=output_last_message,
+            obsidian_source=obsidian_source,
+        )
+        exit_code = run_round(
+            command=command,
+            output_dir=output_dir,
+            round_index=round_index,
+            prompt_text=prompt_text,
+            dry_run=bool(args.dry_run),
+        )
+        if exit_code != 0:
+            print(json.dumps({"status": "failed", "round": round_index, "exit_code": exit_code}, ensure_ascii=False))
+            return exit_code
+
+        verification_results, verification_ok = run_verification_commands(
+            commands=list(adapter_entry.get("verification_commands", [])),
+            round_dir=round_dir,
+            dry_run=bool(args.dry_run),
+        )
+        print(
+            json.dumps(
+                {
+                    "status": "verification_completed",
+                    "round": round_index,
+                    "ok": verification_ok,
+                    "results": verification_results,
+                },
+                ensure_ascii=False,
+            )
+        )
+        if not verification_ok:
+            print(
+                json.dumps(
+                    {
+                        "status": "blocked",
+                        "reason": "post_round_verification_failed",
+                        "round": round_index,
+                        "verification_results": verification_results,
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return BLOCKED_EXIT_CODE
+
+        snapshots, runtime, _ = refresh_runtime(
+            plan_path=args.plan,
+            catalog_path=args.catalog,
+            bundle_dir=args.bundle_dir,
+        )
+        after_plan = load_plan(args.plan)
+        after_status_lines = workspace_status_lines()
+
+        if not args.dry_run and not evaluate_progress(
+            before_runtime=before_runtime,
+            after_runtime=runtime,
+            before_plan=before_plan,
+            after_plan=after_plan,
+            before_status_lines=before_status_lines,
+            after_status_lines=after_status_lines,
+        ):
+            print(
+                json.dumps(
+                    {
+                        "status": "blocked",
+                        "reason": "no_progress_detected",
+                        "round": round_index,
+                        "next_slice": _to_text(next_slice.get("id")),
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return BLOCKED_EXIT_CODE
+
+        try:
+            runtime, promotion_snapshots, _, promotions = maybe_auto_promote(
+                runtime=runtime,
+                slice_execution_brief=adapter_entry,
+                round_index=round_index,
+                baseline_dirty_paths=baseline_dirty_paths,
+                promotion_mode=str(args.promotion_mode),
+                allow_existing_dirty_worktree=bool(args.allow_existing_dirty_worktree),
+                plan_path=args.plan,
+                catalog_path=args.catalog,
+                bundle_dir=args.bundle_dir,
+                poll_interval_seconds=int(args.poll_interval_seconds),
+                ci_timeout_seconds=int(args.ci_timeout_seconds),
+                dry_run=bool(args.dry_run),
+            )
+            if promotions and promotion_snapshots:
+                snapshots = promotion_snapshots
+        except RuntimeError as exc:
+            print(
+                json.dumps(
+                    {
+                        "status": "blocked",
+                        "reason": "auto_promotion_blocked",
+                        "round": round_index,
+                        "detail": str(exc),
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return BLOCKED_EXIT_CODE
+
+        status_text = _to_text(runtime.get("status"))
+        progress_payload = {
+            "status": "continue",
+            "round": round_index,
+            "current_level": _to_text(runtime.get("current_level")),
+            "next_slice": _to_text(dict(runtime.get("next_slice") or {}).get("id")),
+            "runtime_status": status_text,
+            "runtime_reason": _to_text(runtime.get("reason")),
+            "snapshots_refreshed": snapshots,
+        }
+        print(json.dumps(progress_payload, ensure_ascii=False))
+        baseline_dirty_paths = changed_paths_from_status_lines(workspace_status_lines())
+
+        if status_text == "blocked":
+            payload = stop_snapshot(runtime)
+            payload["round"] = round_index
+            print(json.dumps(payload, ensure_ascii=False))
+            return BLOCKED_EXIT_CODE
+        if status_text == "stopped":
+            payload = stop_snapshot(runtime)
+            payload["round"] = round_index
+            print(json.dumps(payload, ensure_ascii=False))
+            return 0
+
+        # Keep looping while the repo remains ready and max_rounds is not exhausted.
+        if _to_text(dict(runtime.get("next_slice") or {}).get("id")) == _to_text(next_slice.get("id")) and args.dry_run:
+            continue
+
+    print(json.dumps({"status": "max_rounds_reached", "max_rounds": int(args.max_rounds)}, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

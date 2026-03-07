@@ -10,6 +10,7 @@ Created: 2026-03-07
 - No existing script, workflow, CLI entrypoint, or release gate reads these files.
 - The JSON files in this folder are draft/example contracts, not active truth sources.
 - Confirmed loop targets must be declared as structured `phase + slices + status`, not as prose-only future buckets.
+- The scheduled governance workflow remains read-only even when a local Codex slice-execution companion exists.
 
 ## Goal
 
@@ -156,6 +157,9 @@ Blueprint-first driver materials added in this change:
 18. `scripts/governance/verify_governance_loop_activation_intent.py`
 19. `scripts/governance/export_governance_loop_activation_preview.py`
 20. `scripts/governance/verify_governance_loop_activation_preview.py`
+21. `scripts/governance/run_codex_blueprint_loop.py`
+22. `docs/governance/datapulse-codex-blueprint-loop.draft.md`
+23. `scripts/governance/export_datapulse_slice_execution_brief.py`
 
 Working-copy mode materials added in this change:
 

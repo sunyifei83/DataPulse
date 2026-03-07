@@ -17,6 +17,12 @@ def parse_args() -> argparse.Namespace:
         description="Export a manual-only structured release bundle for DataPulse without wiring active release workflows."
     )
     parser.add_argument(
+        "--plan",
+        type=Path,
+        default=DEFAULT_PLAN_PATH,
+        help="Blueprint plan path. Defaults to the active plan overlay.",
+    )
+    parser.add_argument(
         "--out-dir",
         type=Path,
         default=DEFAULT_BUNDLE_DIR,
@@ -85,7 +91,7 @@ def main() -> int:
     args = parse_args()
     bundle_dir = args.out_dir.resolve()
     notes_file = (REPO_ROOT / args.notes_file).resolve() if not args.notes_file.is_absolute() else args.notes_file.resolve()
-    plan = load_plan(DEFAULT_PLAN_PATH)
+    plan = load_plan(args.plan.resolve())
     auto_policy = dict(plan.get("activation", {}).get("auto_continuation", {}))
     manifest = build_manifest(
         bundle_dir,
@@ -105,6 +111,8 @@ def main() -> int:
         [
             "python3",
             "scripts/governance/export_datapulse_loop_adapter_bundle.py",
+            "--plan",
+            str(args.plan.resolve()),
             "--out-dir",
             str(bundle_dir),
         ],
@@ -115,6 +123,8 @@ def main() -> int:
         [
             "python3",
             "scripts/governance/export_datapulse_evidence_bundle.py",
+            "--plan",
+            str(args.plan.resolve()),
             "--out-dir",
             str(bundle_dir),
             *(["--tag", args.tag.strip()] if args.tag.strip() else []),

@@ -16,6 +16,18 @@ DRAFT_PLAN_PATH = REPO_ROOT / "docs/governance/datapulse-blueprint-plan.draft.js
 ACTIVE_PLAN_PATH = REPO_ROOT / "docs/governance/datapulse-blueprint-plan.json"
 DEFAULT_PLAN_PATH = ACTIVE_PLAN_PATH if ACTIVE_PLAN_PATH.exists() else DRAFT_PLAN_PATH
 DEFAULT_OUT_DIR = REPO_ROOT / "out/governance"
+WORKFLOW_RUN_FIELDS = [
+    "databaseId",
+    "headSha",
+    "headBranch",
+    "status",
+    "conclusion",
+    "event",
+    "workflowName",
+    "createdAt",
+    "updatedAt",
+    "url",
+]
 
 
 def utc_now() -> str:
@@ -80,6 +92,25 @@ def git_output(*args: str) -> str:
     return completed.stdout.strip()
 
 
+def gh_json(*args: str) -> Any | None:
+    completed = subprocess.run(
+        ["gh", *args],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        return None
+    content = completed.stdout.strip()
+    if not content:
+        return None
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        return None
+
+
 def repo_workspace_clean() -> tuple[bool, list[str]]:
     status = git_output("status", "--short")
     if not status:
@@ -90,9 +121,9 @@ def repo_workspace_clean() -> tuple[bool, list[str]]:
 def changed_paths_from_status_lines(status_lines: list[str]) -> list[str]:
     paths: list[str] = []
     for line in status_lines:
-        if len(line) < 4:
+        if len(line) < 3:
             continue
-        raw_path = line[3:].strip()
+        raw_path = line[2:].strip()
         if " -> " in raw_path:
             parts = [part.strip() for part in raw_path.split(" -> ") if part.strip()]
             paths.extend(parts)
@@ -276,6 +307,90 @@ def workflow_push_tag_release_enabled(workflow_path: Path) -> bool:
     return "push:" in content and "tags:" in content
 
 
+def git_upstream_ref() -> str:
+    return git_output("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+
+
+def git_upstream_head() -> str:
+    return git_output("rev-parse", "@{u}")
+
+
+def current_head_published(head_sha: str) -> tuple[bool, str, str]:
+    upstream_ref = git_upstream_ref()
+    upstream_head = git_upstream_head()
+    return bool(head_sha and upstream_head and upstream_head == head_sha), upstream_ref, upstream_head
+
+
+def list_github_workflow_runs(workflow: str, *, branch: str = "", limit: int = 20) -> list[dict[str, Any]]:
+    args = ["run", "list", "--workflow", workflow, "--limit", str(limit), "--json", ",".join(WORKFLOW_RUN_FIELDS)]
+    if branch:
+        args.extend(["--branch", branch])
+    payload = gh_json(*args)
+    if not isinstance(payload, list):
+        return []
+    runs: list[dict[str, Any]] = []
+    for item in payload:
+        if isinstance(item, dict):
+            runs.append(item)
+    return runs
+
+
+def normalize_workflow_run(run: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "database_id": int(run.get("databaseId", 0) or 0),
+        "head_sha": str(run.get("headSha", "")).strip(),
+        "head_branch": str(run.get("headBranch", "")).strip(),
+        "status": str(run.get("status", "")).strip(),
+        "conclusion": str(run.get("conclusion", "")).strip(),
+        "event": str(run.get("event", "")).strip(),
+        "workflow_name": str(run.get("workflowName", "")).strip(),
+        "created_at": str(run.get("createdAt", "")).strip(),
+        "updated_at": str(run.get("updatedAt", "")).strip(),
+        "url": str(run.get("url", "")).strip(),
+    }
+
+
+def latest_workflow_run_for_head(workflow: str, *, head_sha: str, branch: str) -> dict[str, Any] | None:
+    if not head_sha:
+        return None
+    matches: list[dict[str, Any]] = []
+    for run in list_github_workflow_runs(workflow, branch=branch):
+        normalized = normalize_workflow_run(run)
+        if normalized.get("head_sha") != head_sha:
+            continue
+        if branch and normalized.get("head_branch") != branch:
+            continue
+        matches.append(normalized)
+    if not matches:
+        return None
+    matches.sort(
+        key=lambda item: (
+            item.get("created_at", ""),
+            int(item.get("database_id", 0) or 0),
+        ),
+        reverse=True,
+    )
+    return matches[0]
+
+
+def workflow_run_reason(prefix: str, run: dict[str, Any] | None) -> str:
+    if run is None:
+        return f"{prefix}_not_proven"
+    status = str(run.get("status", "")).strip()
+    conclusion = str(run.get("conclusion", "")).strip()
+    if status and status != "completed":
+        return f"{prefix}_in_progress"
+    if conclusion != "success":
+        return f"{prefix}_failed"
+    return ""
+
+
+def workflow_run_success(run: dict[str, Any] | None) -> bool:
+    if run is None:
+        return False
+    return str(run.get("status", "")).strip() == "completed" and str(run.get("conclusion", "")).strip() == "success"
+
+
 def structured_release_bundle_available() -> bool:
     candidates = [
         REPO_ROOT / "out/ha_latest_release_bundle",
@@ -347,9 +462,15 @@ def verification_contracts(local_report: dict[str, Any] | None, remote_report: d
 def build_code_landing_status() -> dict[str, Any]:
     workspace_clean, dirty_entries = repo_workspace_clean()
     docs_only_skip_active, change_paths = ci_docs_only_skip_active(workspace_clean, dirty_entries)
+    head_sha = git_output("rev-parse", "HEAD")
+    branch = git_output("branch", "--show-current")
+    head_published, upstream_ref, upstream_head = current_head_published(head_sha)
     local_report = parse_local_report(latest_artifact_file("local_report.md"))
     remote_report = parse_remote_report(latest_artifact_file("remote_report.md"))
     emergency_state = parse_emergency_state(latest_artifact_file("emergency_state.json"))
+    structured_bundle_ready = structured_release_bundle_available()
+    ci_head_run = latest_workflow_run_for_head("CI", head_sha=head_sha, branch=branch)
+    governance_head_run = latest_workflow_run_for_head("governance-evidence.yml", head_sha=head_sha, branch=branch)
 
     verification = verification_contracts(local_report, remote_report)
     verification_gateable = all(
@@ -375,15 +496,25 @@ def build_code_landing_status() -> dict[str, Any]:
     workflow_dispatch_ready = bool(dispatch_entrypoints)
     tag_push_release_enabled = workflow_push_tag_release_enabled(release_workflow)
     mixed_release_policy = tag_push_release_enabled
+    ci_proof_mode = "governance_evidence_dispatch" if docs_only_skip_active else "push_ci_workflow"
+    ci_proof_run = governance_head_run if docs_only_skip_active else ci_head_run
     ci_proven_reasons: list[str] = []
     if repo_landed_reasons:
         ci_proven_reasons.append("repo_landed_false")
+    if not head_published:
+        ci_proven_reasons.append("head_not_pushed")
     if docs_only_skip_active:
-        ci_proven_reasons.append("docs_only_changes_skip_ci")
-    if not workflow_dispatch_ready:
-        ci_proven_reasons.append("workflow_dispatch_missing")
-    if not structured_release_bundle_available():
-        ci_proven_reasons.append("structured_release_bundle_missing")
+        if not workflow_dispatch_ready:
+            ci_proven_reasons.append("workflow_dispatch_missing")
+        if not structured_bundle_ready:
+            ci_proven_reasons.append("structured_release_bundle_missing")
+        ci_reason = workflow_run_reason("governance_evidence", governance_head_run)
+        if ci_reason:
+            ci_proven_reasons.append(ci_reason)
+    else:
+        ci_reason = workflow_run_reason("ci_run", ci_head_run)
+        if ci_reason:
+            ci_proven_reasons.append(ci_reason)
 
     gate_groups = {
         "execution_safety": dedupe(
@@ -405,12 +536,13 @@ def build_code_landing_status() -> dict[str, Any]:
         "ci_policy": dedupe(
             [
                 "docs_only_changes_skip_ci" if docs_only_skip_active else "",
+                "head_not_pushed" if not head_published else "",
             ]
         ),
         "release_governance": dedupe(
             [
                 "workflow_dispatch_missing" if not workflow_dispatch_ready else "",
-                "structured_release_bundle_missing" if not structured_release_bundle_available() else "",
+                "structured_release_bundle_missing" if not structured_bundle_ready else "",
                 "mixed_release_policy" if mixed_release_policy else "",
             ]
         ),
@@ -423,8 +555,11 @@ def build_code_landing_status() -> dict[str, Any]:
         "status_kind": "draft_export",
         "wired": False,
         "git": {
-            "head": git_output("rev-parse", "HEAD"),
-            "branch": git_output("branch", "--show-current"),
+            "head": head_sha,
+            "branch": branch,
+            "upstream_ref": upstream_ref,
+            "upstream_head": upstream_head,
+            "head_published_to_upstream": head_published,
         },
         "workspace": {
             "clean": workspace_clean,
@@ -437,6 +572,12 @@ def build_code_landing_status() -> dict[str, Any]:
             "truth_source": ".github/workflows/ci.yml",
             "docs_only_changes_skip_ci": docs_only_skip_active,
             "docs_paths_ignore_configured": ci_paths_ignore_configured(),
+            "proof_mode": ci_proof_mode,
+            "head_published_to_upstream": head_published,
+            "required_workflow": "governance-evidence.yml" if docs_only_skip_active else "CI",
+            "required_run": ci_proof_run,
+            "latest_head_ci_run": ci_head_run,
+            "latest_head_governance_evidence_run": governance_head_run,
             "change_scope": {
                 "paths": change_paths,
                 "docs_only": docs_only_skip_active,
@@ -447,7 +588,7 @@ def build_code_landing_status() -> dict[str, Any]:
             "workflow_dispatch_available": workflow_dispatch_ready,
             "workflow_dispatch_entrypoints": dispatch_entrypoints,
             "tag_push_release_enabled": tag_push_release_enabled,
-            "structured_release_bundle": structured_release_bundle_available(),
+            "structured_release_bundle": structured_bundle_ready,
             "policy_gates": ["mixed_release_policy"] if mixed_release_policy else [],
             "truth_sources": [
                 "scripts/release_publish.sh",
@@ -470,6 +611,8 @@ def build_code_landing_status() -> dict[str, Any]:
             "latest_local_report": local_report,
             "latest_remote_report": remote_report,
             "latest_emergency_state": emergency_state,
+            "latest_head_ci_run": ci_head_run,
+            "latest_head_governance_evidence_run": governance_head_run,
         },
         "evidence_paths": {
             "local_report": "artifacts/openclaw_datapulse_<RUN_ID>/local_report.md",

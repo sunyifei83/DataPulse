@@ -74,7 +74,7 @@ def run_capture(command: list[str]) -> str:
     return completed.stdout.strip()
 
 
-def refresh_governance_snapshots(bundle_dir: Path) -> dict[str, str]:
+def refresh_governance_snapshots(bundle_dir: Path, *, plan_path: Path = DEFAULT_PLAN_PATH) -> dict[str, str]:
     return {
         "code_landing_status": run_capture(
             [
@@ -88,6 +88,8 @@ def refresh_governance_snapshots(bundle_dir: Path) -> dict[str, str]:
             [
                 "python3",
                 "scripts/governance/export_datapulse_project_loop_state.py",
+                "--plan",
+                str(plan_path),
                 "--output",
                 "out/governance/project_specific_loop_state.draft.json",
             ]
@@ -96,6 +98,8 @@ def refresh_governance_snapshots(bundle_dir: Path) -> dict[str, str]:
             [
                 "python3",
                 "scripts/governance/export_datapulse_structured_release_bundle.py",
+                "--plan",
+                str(plan_path),
                 "--out-dir",
                 str(bundle_dir),
                 "--probe-ha-readiness",
@@ -156,6 +160,27 @@ def decision_for_runtime(policy: dict[str, Any], runtime: dict[str, Any]) -> dic
     }
 
 
+def companion_slice_execution_entrypoint(policy: dict[str, Any], runtime: dict[str, Any]) -> dict[str, Any]:
+    entrypoint = dict(policy.get("companion_entrypoints", {}).get("local_codex_blueprint_loop", {}))
+    if not entrypoint:
+        return {}
+    runtime_status = str(runtime.get("status", ""))
+    next_slice = dict(runtime.get("next_slice", {}))
+    eligible_now = runtime_status == "ready" and str(next_slice.get("category", "")) != "complete"
+    return {
+        "enabled": bool(entrypoint.get("enabled", False)),
+        "trigger_mode": str(entrypoint.get("trigger_mode", "")),
+        "runner": str(entrypoint.get("runner", "")),
+        "recommended_command": str(entrypoint.get("recommended_command", "")),
+        "side_effect_mode": str(entrypoint.get("side_effect_mode", "")),
+        "guardrails": list(entrypoint.get("guardrails", [])),
+        "eligible_now": eligible_now,
+        "reason_if_not_eligible": "" if eligible_now else runtime_status or "runtime_not_ready",
+        "next_slice": dict(runtime.get("next_slice", {})),
+        "slice_execution_brief": dict(runtime.get("slice_execution_brief", {})),
+    }
+
+
 def build_payload(
     *,
     policy: dict[str, Any],
@@ -176,6 +201,7 @@ def build_payload(
         },
         "snapshots_refreshed": snapshots_refreshed,
         "decision": decision,
+        "companion_slice_execution": companion_slice_execution_entrypoint(policy, runtime),
         "control_plane_contract": {
             "healthy_environment_behavior": "continue_without_human_handoff",
             "abnormal_environment_behavior": "stop_on_machine_decidable_blockers",
@@ -188,7 +214,7 @@ def main() -> int:
     args = parse_args()
     snapshots_refreshed: dict[str, str] = {}
     if args.write_governance_snapshots:
-        snapshots_refreshed = refresh_governance_snapshots(args.bundle_dir.resolve())
+        snapshots_refreshed = refresh_governance_snapshots(args.bundle_dir.resolve(), plan_path=args.plan.resolve())
 
     policy = load_policy(args.policy.resolve())
     runtime = build_datapulse_loop_runtime(args.plan, args.catalog)

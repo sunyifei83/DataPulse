@@ -2,12 +2,12 @@
   "valid": true,
   "schema_version": "datapulse_ha_delivery_landing.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T11:59:53Z",
+  "generated_at_utc": "2026-03-07T12:49:12Z",
   "wired": false,
   "source_adapter_bundle": {
     "source_kind": "derived_temp_bundle",
-    "bundle_dir": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpgw1wtjss/adapter_bundle",
-    "manifest_path": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpgw1wtjss/adapter_bundle/adapter_bundle_manifest.draft.json",
+    "bundle_dir": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpvum_1zje/adapter_bundle",
+    "manifest_path": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpvum_1zje/adapter_bundle/adapter_bundle_manifest.draft.json",
     "ephemeral": true
   },
   "source_ha_delivery_facts": {
@@ -64,6 +64,16 @@
       "status": "open",
       "items": [
         {
+          "fact": "ci_run_not_proven",
+          "category": "machine_blocker",
+          "summary": "This is a machine-decidable operating blocker and should not be promoted into reusable-core coupling."
+        },
+        {
+          "fact": "head_not_pushed",
+          "category": "machine_blocker",
+          "summary": "This is a machine-decidable operating blocker and should not be promoted into reusable-core coupling."
+        },
+        {
           "fact": "repo_landed_false",
           "category": "derived_promotion_gate",
           "summary": "Repository promotion is currently unsatisfied. Treat the more specific machine facts as the real blockers instead of coupling this derived gate into activation design."
@@ -94,6 +104,8 @@
   "fact_projection": {
     "repo_governance_surface_ids": [],
     "runtime_cutover_window_facts": [
+      "ci_run_not_proven",
+      "head_not_pushed",
       "repo_landed_false",
       "workspace_dirty"
     ],
@@ -103,6 +115,8 @@
     "release_structuring_facts": [],
     "release_structuring_projection": [],
     "machine_blockers": [
+      "ci_run_not_proven",
+      "head_not_pushed",
       "repo_landed_false",
       "workspace_dirty"
     ]
@@ -120,6 +134,8 @@
       "target_pipeline_class_reached": true
     },
     "stop_on_machine_blockers": [
+      "ci_run_not_proven",
+      "head_not_pushed",
       "repo_landed_false",
       "workspace_dirty"
     ],
@@ -127,6 +143,8 @@
       "next_missing_level": "ha_release_structured",
       "repo_governance_surfaces": [],
       "runtime_facts": [
+        "ci_run_not_proven",
+        "head_not_pushed",
         "repo_landed_false",
         "workspace_dirty"
       ],
@@ -134,6 +152,6 @@
     }
   },
   "recommended_actions": [
-    "Resolve runtime cutover window facts separately from architecture work: repo_landed_false, workspace_dirty"
+    "Resolve runtime cutover window facts separately from architecture work: ci_run_not_proven, head_not_pushed, repo_landed_false, workspace_dirty"
   ]
 }

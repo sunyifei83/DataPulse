@@ -18,8 +18,150 @@ from loop_core_draft import build_reuse_summary, build_trust_summary, dedupe, ev
 DEFAULT_CATALOG_PATH = REPO_ROOT / "docs/governance/datapulse-slice-adapter-catalog.draft.json"
 
 
+def _to_text(value: Any) -> str:
+    return str(value).strip() if value is not None else ""
+
+
 def load_datapulse_catalog(path: Path = DEFAULT_CATALOG_PATH) -> dict[str, Any]:
     return read_json(path)
+
+
+def find_plan_slice(plan: dict[str, Any], slice_id: str) -> dict[str, Any]:
+    target = _to_text(slice_id)
+    if not target:
+        return {}
+    for phase in plan.get("phases", []):
+        for item in phase.get("slices", []):
+            if _to_text(item.get("id")) == target:
+                return dict(item)
+    return {}
+
+
+def default_execute_mode(execution_profile: str, category: str) -> str:
+    profile = _to_text(execution_profile).lower()
+    category_text = _to_text(category).lower()
+    if profile == "draft_only":
+        return "manual_edit"
+    if profile == "local_wrapper":
+        return "manual_local_command"
+    if profile == "workflow_change":
+        return "manual_edit"
+    if profile == "release_policy_change":
+        return "manual_analysis"
+    if profile == "runtime_validation":
+        return "manual_validation"
+    if category_text == "promotion":
+        return "promotion_managed_by_loop"
+    return "manual_edit"
+
+
+def fallback_candidate_commands(slice_payload: dict[str, Any]) -> list[str]:
+    commands = [_to_text(item) for item in slice_payload.get("verification_commands", []) if _to_text(item)]
+    if commands:
+        return dedupe(commands)
+
+    targets = [
+        _to_text(item)
+        for item in [*slice_payload.get("artifacts", []), *slice_payload.get("draft_artifacts", [])]
+        if _to_text(item)
+    ]
+    generated: list[str] = []
+    for item in targets:
+        if item.endswith(".py"):
+            generated.append(f"python3 {item} --help")
+        elif item.endswith(".sh"):
+            generated.append(f"bash -n {item}")
+        else:
+            generated.append(f"sed -n '1,220p' {item}")
+    return dedupe(generated)
+
+
+def fallback_notes(slice_payload: dict[str, Any], next_slice: dict[str, Any]) -> list[str]:
+    notes: list[str] = []
+    exit_condition = _to_text(slice_payload.get("exit_condition"))
+    if exit_condition:
+        notes.append(f"exit_condition: {exit_condition}")
+    promotion_scope = _to_text(next_slice.get("promotion_scope"))
+    if promotion_scope:
+        notes.append(f"promotion_scope: {promotion_scope}")
+    closes_gates = [item for item in next_slice.get("closes_gates", []) if _to_text(item)]
+    if closes_gates:
+        notes.append(f"closes_gates: {', '.join(closes_gates)}")
+    notes.append("No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice.")
+    return dedupe(notes)
+
+
+def build_datapulse_slice_execution_brief(
+    plan: dict[str, Any],
+    catalog: dict[str, Any],
+    next_slice: dict[str, Any],
+) -> dict[str, Any]:
+    slice_id = _to_text(next_slice.get("id"))
+    if not slice_id or slice_id == "no-open-slice":
+        return {}
+
+    catalog_entry = dict(catalog.get("slices", {}).get(slice_id, {}))
+    plan_slice = find_plan_slice(plan, slice_id)
+    summary = _to_text(catalog_entry.get("summary")) or _to_text(plan_slice.get("title")) or _to_text(next_slice.get("title"))
+    target_artifacts = dedupe(
+        [
+            _to_text(item)
+            for item in [
+                *catalog_entry.get("target_artifacts", []),
+                *plan_slice.get("artifacts", []),
+                *plan_slice.get("draft_artifacts", []),
+            ]
+            if _to_text(item)
+        ]
+    )
+    candidate_commands = dedupe(
+        [
+            _to_text(item)
+            for item in [
+                *catalog_entry.get("candidate_commands", []),
+                *fallback_candidate_commands(plan_slice),
+            ]
+            if _to_text(item)
+        ]
+    )
+    verification_commands = dedupe(
+        [
+            _to_text(item)
+            for item in plan_slice.get("verification_commands", [])
+            if _to_text(item)
+        ]
+    )
+    notes = dedupe(
+        [
+            _to_text(item)
+            for item in [
+                *catalog_entry.get("notes", []),
+                *fallback_notes(plan_slice, next_slice),
+            ]
+            if _to_text(item)
+        ]
+    )
+
+    return {
+        "slice_id": slice_id,
+        "phase_id": _to_text(next_slice.get("phase_id")),
+        "title": _to_text(next_slice.get("title")),
+        "category": _to_text(next_slice.get("category")),
+        "execution_profile": _to_text(next_slice.get("execution_profile")),
+        "adapter_type": _to_text(catalog_entry.get("adapter_type")) or _to_text(next_slice.get("execution_profile")) or "structured_slice",
+        "execute_mode": _to_text(catalog_entry.get("execute_mode"))
+        or default_execute_mode(next_slice.get("execution_profile", ""), next_slice.get("category", "")),
+        "summary": summary,
+        "candidate_commands": candidate_commands,
+        "verification_commands": verification_commands,
+        "target_artifacts": target_artifacts,
+        "exit_condition": _to_text(plan_slice.get("exit_condition")),
+        "notes": notes,
+        "source": {
+            "catalog_entry": bool(catalog_entry),
+            "plan_slice": bool(plan_slice),
+        },
+    }
 
 
 def resolve_datapulse_adapter_entry(catalog: dict[str, Any], slice_id: str) -> dict[str, Any]:
@@ -38,7 +180,7 @@ def build_datapulse_loop_runtime(
     loop_state = build_project_loop_state(plan, code_landing_status)
     next_slice = dict(loop_state.get("next_slice", {}))
     catalog = load_datapulse_catalog(catalog_path)
-    adapter_entry = resolve_datapulse_adapter_entry(catalog, next_slice.get("id", ""))
+    adapter_entry = build_datapulse_slice_execution_brief(plan, catalog, next_slice)
     status, reason, effective_blockers = evaluate_loop_status(loop_state, ignored)
 
     return {
@@ -58,6 +200,7 @@ def build_datapulse_loop_runtime(
         "trust_summary": build_trust_summary(loop_state),
         "reuse_summary": build_reuse_summary(loop_state),
         "adapter_entry": adapter_entry,
+        "slice_execution_brief": adapter_entry,
         "decoupling_summary": {
             "blocking_facts_scope": "current-next-slice-only",
             "remaining_gates_scope": "global-open-gates",

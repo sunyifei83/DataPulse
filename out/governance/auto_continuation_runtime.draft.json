@@ -27,6 +27,20 @@
       ],
       "side_effect_mode": "read_only_governance_refresh"
     },
+    "companion_entrypoints": {
+      "local_codex_blueprint_loop": {
+        "enabled": true,
+        "trigger_mode": "local_manual_or_supervised",
+        "runner": "scripts/governance/run_codex_blueprint_loop.py",
+        "recommended_command": "SYSTEM_VERSION_COMPAT=1 uv run python scripts/governance/run_codex_blueprint_loop.py --model gpt-5.4 --model-reasoning-effort xhigh --ask-for-approval never --dangerously-bypass-approvals-and-sandbox --promotion-mode auto",
+        "side_effect_mode": "repo_mutating_slice_execution",
+        "guardrails": [
+          "Use this companion entrypoint only from a controlled local environment.",
+          "Keep the scheduled governance workflow read-only.",
+          "Let the Codex loop land only the current next_slice and then re-evaluate state."
+        ]
+      }
+    },
     "guardrails": [
       "Do not invoke business entrypoints from the auto-continuation workflow.",
       "Do not mutate release assets or tags from the auto-continuation workflow.",
@@ -50,7 +64,9 @@
     "ignored_blocking_facts": [],
     "remaining_promotion_gates": [
       "workspace_dirty",
-      "repo_landed_false"
+      "repo_landed_false",
+      "head_not_pushed",
+      "ci_run_not_proven"
     ],
     "pipeline_contract": {
       "objective": "trusted_delivery_pipeline",
@@ -128,6 +144,7 @@
       "missing_for_active_reuse": []
     },
     "adapter_entry": {},
+    "slice_execution_brief": {},
     "decoupling_summary": {
       "blocking_facts_scope": "current-next-slice-only",
       "remaining_gates_scope": "global-open-gates",
@@ -151,8 +168,30 @@
     "machine_decidable": true,
     "blocking_facts": [
       "workspace_dirty",
-      "repo_landed_false"
+      "repo_landed_false",
+      "head_not_pushed",
+      "ci_run_not_proven"
     ]
+  },
+  "companion_slice_execution": {
+    "enabled": true,
+    "trigger_mode": "local_manual_or_supervised",
+    "runner": "scripts/governance/run_codex_blueprint_loop.py",
+    "recommended_command": "SYSTEM_VERSION_COMPAT=1 uv run python scripts/governance/run_codex_blueprint_loop.py --model gpt-5.4 --model-reasoning-effort xhigh --ask-for-approval never --dangerously-bypass-approvals-and-sandbox --promotion-mode auto",
+    "side_effect_mode": "repo_mutating_slice_execution",
+    "guardrails": [
+      "Use this companion entrypoint only from a controlled local environment.",
+      "Keep the scheduled governance workflow read-only.",
+      "Let the Codex loop land only the current next_slice and then re-evaluate state."
+    ],
+    "eligible_now": false,
+    "reason_if_not_eligible": "stopped",
+    "next_slice": {
+      "id": "no-open-slice",
+      "title": "No open slice",
+      "category": "complete"
+    },
+    "slice_execution_brief": {}
   },
   "control_plane_contract": {
     "healthy_environment_behavior": "continue_without_human_handoff",

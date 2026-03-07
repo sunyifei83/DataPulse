@@ -4,7 +4,11 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
+
+env:
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
   export-structured-release-bundle:

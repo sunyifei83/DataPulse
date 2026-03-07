@@ -6,7 +6,11 @@ on:
     - cron: "17 * * * *"
 
 permissions:
+  actions: read
   contents: read
+
+env:
+  GH_TOKEN: ${{ github.token }}
 
 concurrency:
   group: governance-loop-auto
