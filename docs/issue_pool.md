@@ -132,3 +132,22 @@
   - `uv run pytest tests/test_twitter_collector.py tests/test_reader_confidence_flags.py tests/test_integration.py tests/test_confidence.py -q` → `27 passed`
   - 实链复现（目标 X URL）确认：`media_extraction_degraded` 透传、`error_code=auth_missing`
 - 当前状态：`DONE`
+
+## WQ-2026-03-09-01（Open issue #47/#48 HA 闭环交付）
+
+- 触发时间：`2026-03-09`
+- 阶段：`issue 事实复核` → `实现级修复` → `Decisive 判定`
+- 触发分支：`main`
+- 责任人：`@sunyifei83`
+- 目标范围：GitHub `open` issue `#47 #48`
+- 交付事实：
+  - 文档：`/Users/sunyifei/DataPulse/docs/openclaw_issue_47_48_ha_delivery_2026-03-09.md`
+  - 实现：`root SKILL.md`、`generic collector` 与对应测试补齐
+- 修复摘要：
+  - `#47`：新增仓库根 `SKILL.md`，补齐 OpenClaw 识别所需 YAML frontmatter
+  - `#48`：`GenericCollector` 改为使用系统 trust roots + requests CA bundle + optional custom CA 的合并 SSL context，消除 `datapulse_skill.run()` 首次 HTTPS 读取的 SSL warning
+- 复验：
+  - `uv run pytest tests/test_collectors.py tests/test_doctor.py tests/test_generic_collector_ssl.py tests/test_skill_packaging.py -q` → `93 passed`
+  - `uv run ruff check datapulse/collectors/generic.py tests/test_generic_collector_ssl.py tests/test_skill_packaging.py datapulse_skill/__init__.py` → `All checks passed`
+  - 实链复现：`DATAPULSE_LOG_LEVEL=INFO uv run python ... run("read https://example.com")` 直接返回 `Example Domain`，无 `SSL CERTIFICATE_VERIFY_FAILED` warning
+- 当前状态：`DONE`
