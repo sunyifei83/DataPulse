@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
 from datapulse.console_server import CONSOLE_TITLE, create_app
+from datapulse.core.alerts import AlertEvent
+from datapulse.core.models import DataPulseItem, SourceType
+from datapulse.core.story import Story, StoryEvidence
+from datapulse.core.watchlist import MissionRun
+from datapulse.reader import DataPulseReader
 
 
 class _ConsoleReader:
@@ -288,6 +294,71 @@ class _ConsoleReader:
             "last_error": "",
         }
 
+    def governance_scorecard_snapshot(self):
+        return {
+            "generated_at": "2026-03-06T00:00:30+00:00",
+            "mission_scope": {"total": 2, "enabled": 1, "disabled": 1, "items": 2, "stories": 1},
+            "signals": {
+                "coverage": {
+                    "id": "coverage",
+                    "label": "Coverage",
+                    "status": "ok",
+                    "value": 1.0,
+                    "unit": "ratio",
+                    "display": "3/3 declared touchpoints observed",
+                    "detail": "Matches enabled mission platforms, sites, and coverage_targets against persisted watch results.",
+                    "expected_targets_total": 3,
+                    "covered_targets_total": 3,
+                },
+                "freshness": {
+                    "id": "freshness",
+                    "label": "Freshness",
+                    "status": "watch",
+                    "value": 0.5,
+                    "unit": "ratio",
+                    "display": "1/2 SLA-backed missions are fresh",
+                    "detail": "Uses mission_intent.freshness_max_age_hours and each mission's latest persisted result timestamp.",
+                    "missions_with_sla": 2,
+                    "fresh_missions": 1,
+                },
+                "alert_yield": {
+                    "id": "alert_yield",
+                    "label": "Alert Yield",
+                    "status": "ok",
+                    "value": 0.5,
+                    "unit": "alerts_per_successful_run",
+                    "display": "1 alerts across 2 successful runs",
+                    "detail": "Compares persisted AlertEvent rows against successful MissionRun records for enabled missions.",
+                    "alert_count": 1,
+                    "successful_runs": 2,
+                },
+                "triage_throughput": {
+                    "id": "triage_throughput",
+                    "label": "Triage Throughput",
+                    "status": "ok",
+                    "value": 0.5,
+                    "unit": "acted_item_ratio",
+                    "display": "1/2 items moved beyond new",
+                    "detail": "Measures how much of the persisted inbox has received analyst triage state changes or notes.",
+                    "total_items": 2,
+                    "acted_on_items": 1,
+                },
+                "story_conversion": {
+                    "id": "story_conversion",
+                    "label": "Story Conversion",
+                    "status": "ok",
+                    "value": 1.0,
+                    "unit": "conversion_ratio",
+                    "display": "1/1 triaged items referenced by stories",
+                    "detail": "Tracks how much reviewed evidence is already represented in persisted story objects.",
+                    "story_count": 1,
+                    "eligible_item_count": 1,
+                    "converted_item_count": 1,
+                },
+            },
+            "summary": {"signal_count": 5, "ok": 4, "watch": 1, "missing": 0},
+        }
+
     def ops_snapshot(self):
         return {
             "collector_summary": {
@@ -427,6 +498,7 @@ class _ConsoleReader:
                 }
             ],
             "recent_alerts": self.list_alerts(),
+            "governance_scorecard": self.governance_scorecard_snapshot(),
             "daemon": self.watch_status_snapshot(),
         }
 
@@ -786,6 +858,7 @@ def test_console_routes_and_status():
     health = client.get("/api/alert-routes/health?limit=20")
     status = client.get("/api/watch-status")
     ops = client.get("/api/ops")
+    scorecard = client.get("/api/ops/scorecard")
 
     assert routes.status_code == 200
     assert routes.json()[0]["name"] == "ops-webhook"
@@ -802,6 +875,11 @@ def test_console_routes_and_status():
     assert ops.json()["route_drilldown"][0]["name"] == "ops-webhook"
     assert ops.json()["route_timeline"][0]["route"] == "ops-webhook"
     assert ops.json()["degraded_collectors"][0]["name"] == "twitter"
+    assert ops.json()["governance_scorecard"]["signals"]["coverage"]["covered_targets_total"] == 3
+    assert ops.json()["governance_scorecard"]["signals"]["freshness"]["status"] == "watch"
+    assert scorecard.status_code == 200
+    assert scorecard.json()["summary"]["signal_count"] == 5
+    assert scorecard.json()["signals"]["story_conversion"]["converted_item_count"] == 1
 
 
 def test_console_watch_detail_route():
@@ -881,3 +959,205 @@ def test_console_story_routes():
     assert export.status_code == 200
     assert export.headers["content-type"].startswith("text/markdown")
     assert export.text.startswith("# OpenAI Launch")
+
+
+def test_console_ops_scorecard_with_real_reader(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
+    monkeypatch.setenv("DATAPULSE_STORIES_PATH", str(tmp_path / "stories.json"))
+    monkeypatch.setenv("DATAPULSE_ALERTS_PATH", str(tmp_path / "alerts.json"))
+    monkeypatch.setenv("DATAPULSE_ALERT_ROUTING_PATH", str(tmp_path / "routes.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    fresh_at = (now - timedelta(hours=2)).isoformat()
+    stale_at = (now - timedelta(hours=72)).isoformat()
+
+    launch_watch = reader.create_watch(
+        name="Launch Radar",
+        query="OpenAI launch",
+        mission_intent={
+            "freshness_max_age_hours": 48,
+            "coverage_targets": ["OpenAI Blog"],
+        },
+        platforms=["twitter"],
+        sites=["openai.com"],
+        schedule="@hourly",
+    )
+    community_watch = reader.create_watch(
+        name="Community Radar",
+        query="OpenAI forum",
+        mission_intent={
+            "freshness_max_age_hours": 24,
+            "coverage_targets": ["Example Community"],
+        },
+        platforms=["reddit"],
+        sites=["example.com"],
+        schedule="@daily",
+    )
+
+    reader.watchlist.record_run(
+        launch_watch["id"],
+        MissionRun(
+            mission_id=launch_watch["id"],
+            status="success",
+            item_count=1,
+            finished_at=fresh_at,
+        ),
+    )
+    reader.watchlist.record_run(
+        community_watch["id"],
+        MissionRun(
+            mission_id=community_watch["id"],
+            status="success",
+            item_count=1,
+            finished_at=stale_at,
+        ),
+    )
+
+    for item in (
+        DataPulseItem(
+            id="item-1",
+            source_type=SourceType.TWITTER,
+            source_name="OpenAI Blog",
+            title="OpenAI launch update",
+            content="launch " * 20,
+            url="https://openai.com/blog/launch",
+            parser="twitter",
+            fetched_at=fresh_at,
+            score=91,
+            confidence=0.96,
+            review_state="verified",
+            tags=["twitter"],
+            extra={
+                "watch_mission_id": launch_watch["id"],
+                "watch_mission_name": launch_watch["name"],
+            },
+        ),
+        DataPulseItem(
+            id="item-2",
+            source_type=SourceType.REDDIT,
+            source_name="Example Community",
+            title="Community reaction",
+            content="community " * 20,
+            url="https://example.com/thread/openai",
+            parser="reddit",
+            fetched_at=stale_at,
+            score=67,
+            confidence=0.74,
+            review_state="triaged",
+            tags=["reddit"],
+            extra={
+                "watch_mission_id": community_watch["id"],
+                "watch_mission_name": community_watch["name"],
+            },
+        ),
+        DataPulseItem(
+            id="item-3",
+            source_type=SourceType.GENERIC,
+            source_name="Newswire",
+            title="Loose lead",
+            content="lead " * 20,
+            url="https://news.example.net/lead",
+            parser="generic",
+            fetched_at=fresh_at,
+            score=40,
+            confidence=0.55,
+            review_state="new",
+        ),
+    ):
+        reader.inbox.add(item, fingerprint_dedup=False)
+    reader.inbox.save()
+
+    reader.alert_store.add(
+        AlertEvent(
+            mission_id=launch_watch["id"],
+            mission_name=launch_watch["name"],
+            rule_name="launch-threshold",
+            item_ids=["item-1"],
+            summary="Launch Radar triggered launch-threshold",
+        ),
+        cooldown_seconds=0,
+    )
+    reader.story_store.replace_stories(
+        [
+            Story(
+                title="Launch Story",
+                summary="Launch storyline",
+                status="active",
+                item_count=2,
+                source_count=2,
+                primary_item_id="item-1",
+                primary_evidence=[
+                    StoryEvidence(
+                        item_id="item-1",
+                        title="OpenAI launch update",
+                        url="https://openai.com/blog/launch",
+                        source_name="OpenAI Blog",
+                        source_type="twitter",
+                        review_state="verified",
+                    )
+                ],
+                secondary_evidence=[
+                    StoryEvidence(
+                        item_id="item-2",
+                        title="Community reaction",
+                        url="https://example.com/thread/openai",
+                        source_name="Example Community",
+                        source_type="reddit",
+                        review_state="triaged",
+                    )
+                ],
+                governance={"delivery_risk": {"status": "ready"}},
+            )
+        ]
+    )
+
+    monkeypatch.setattr(reader, "doctor", lambda: {"tier_0": [], "tier_1": [], "tier_2": []})
+    monkeypatch.setattr(
+        reader,
+        "watch_status_snapshot",
+        lambda: {
+            "state": "running",
+            "heartbeat_at": now.isoformat(),
+            "last_error": "",
+            "metrics": {
+                "cycles_total": 2,
+                "runs_total": 2,
+                "success_total": 2,
+                "error_total": 0,
+                "alerts_total": 1,
+            },
+        },
+    )
+
+    client = TestClient(create_app(reader_factory=lambda: reader))
+    ops_response = client.get("/api/ops")
+    scorecard_response = client.get("/api/ops/scorecard")
+
+    assert ops_response.status_code == 200
+    assert scorecard_response.status_code == 200
+
+    ops_payload = ops_response.json()
+    scorecard = ops_payload["governance_scorecard"]
+    scorecard_direct = scorecard_response.json()
+    signals = scorecard["signals"]
+
+    assert scorecard["summary"]["signal_count"] == 5
+    assert signals["coverage"]["status"] == "ok"
+    assert signals["coverage"]["expected_targets_total"] == 6
+    assert signals["coverage"]["covered_targets_total"] == 6
+    assert signals["freshness"]["status"] == "watch"
+    assert signals["freshness"]["missions_with_sla"] == 2
+    assert signals["freshness"]["fresh_missions"] == 1
+    assert signals["alert_yield"]["status"] == "ok"
+    assert signals["alert_yield"]["alert_count"] == 1
+    assert signals["alert_yield"]["successful_runs"] == 2
+    assert signals["triage_throughput"]["status"] == "ok"
+    assert signals["triage_throughput"]["acted_on_items"] == 2
+    assert signals["triage_throughput"]["total_items"] == 3
+    assert signals["story_conversion"]["status"] == "ok"
+    assert signals["story_conversion"]["eligible_item_count"] == 2
+    assert signals["story_conversion"]["converted_item_count"] == 2
+    assert scorecard_direct["summary"] == scorecard["summary"]
+    assert scorecard_direct["mission_scope"] == scorecard["mission_scope"]
+    assert scorecard_direct["signals"] == scorecard["signals"]

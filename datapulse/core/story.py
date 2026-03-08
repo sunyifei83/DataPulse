@@ -14,6 +14,7 @@ from .entities import normalize_entity_name
 from .entity_store import EntityStore
 from .models import DataPulseItem
 from .semantic import build_semantic_review
+from .triage import build_item_governance, evidence_grade_priority
 from .utils import content_fingerprint, generate_slug, get_domain, stories_path_from_env
 
 
@@ -95,6 +96,7 @@ class StoryEvidence:
     review_state: str = "new"
     role: str = "secondary"
     entities: list[str] = field(default_factory=list)
+    governance: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.item_id = str(self.item_id or "").strip()
@@ -113,6 +115,7 @@ class StoryEvidence:
         except Exception:
             self.confidence = 0.0
         self.entities = [str(entity).strip() for entity in self.entities if str(entity).strip()]
+        self.governance = dict(self.governance or {})
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -197,6 +200,7 @@ class Story:
     timeline: list[StoryTimelineEvent] = field(default_factory=list)
     contradictions: list[StoryConflict] = field(default_factory=list)
     semantic_review: dict[str, Any] = field(default_factory=dict)
+    governance: dict[str, Any] = field(default_factory=dict)
     generated_at: str = ""
     updated_at: str = ""
     id: str = ""
@@ -251,6 +255,7 @@ class Story:
             if isinstance(conflict, (StoryConflict, dict))
         ]
         self.semantic_review = dict(self.semantic_review or {})
+        self.governance = dict(self.governance or {})
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -346,6 +351,13 @@ class StoryStore:
         for story in stories:
             candidate = story if isinstance(story, Story) else Story.from_dict(story)
             candidate.id = self._unique_id(candidate.id, set(normalized))
+            provenance = (
+                candidate.governance.get("provenance", {})
+                if isinstance(candidate.governance, dict)
+                else {}
+            )
+            if isinstance(provenance, dict):
+                provenance["story_id"] = candidate.id
             normalized[candidate.id] = candidate
         self.stories = normalized
         self.save()
@@ -454,7 +466,114 @@ def _story_summary(title: str, *, item_count: int, source_count: int, entities: 
     return lead
 
 
+def _max_risk_level(left: str, right: str) -> str:
+    priority = {"none": 0, "low": 1, "medium": 2, "high": 3}
+    return left if priority.get(left, 0) >= priority.get(right, 0) else right
+
+
+def _aggregate_story_evidence_grade(governances: list[dict[str, Any]]) -> str:
+    if not governances:
+        return "working"
+    ranks = [evidence_grade_priority(row.get("evidence_grade")) for row in governances]
+    if ranks and min(ranks) >= evidence_grade_priority("verified"):
+        return "verified"
+    if ranks and min(ranks) >= evidence_grade_priority("reviewed"):
+        return "reviewed"
+    return "working"
+
+
+def _build_story_governance(
+    *,
+    story_id: str,
+    primary_item_id: str,
+    source_names: list[str],
+    evidence_rows: list[StoryEvidence],
+    contradictions: list[StoryConflict],
+    generated_at: str,
+) -> dict[str, Any]:
+    primary_governances = [
+        dict(evidence.governance)
+        for evidence in evidence_rows
+        if evidence.role == "primary" and isinstance(evidence.governance, dict)
+    ]
+    all_governances = [
+        dict(evidence.governance)
+        for evidence in evidence_rows
+        if isinstance(evidence.governance, dict)
+    ]
+    aggregated = primary_governances or all_governances
+    evidence_grade = _aggregate_story_evidence_grade(aggregated)
+    evidence_score = round(
+        sum(float(row.get("evidence_score", 0.0) or 0.0) for row in aggregated) / max(1, len(aggregated)),
+        4,
+    )
+
+    delivery_status = "ready"
+    delivery_level = "low"
+    delivery_reasons: list[str] = []
+
+    if contradictions:
+        delivery_status = "review_required"
+        delivery_level = "high"
+        delivery_reasons.append("Story contains unresolved contradiction signals.")
+    if any(str(row.get("evidence_grade", "working")).strip().lower() == "working" for row in aggregated):
+        delivery_status = "review_required"
+        delivery_level = _max_risk_level(delivery_level, "medium")
+        delivery_reasons.append("Primary story evidence still includes working-grade signals.")
+    if len(source_names) <= 1:
+        delivery_status = "review_required"
+        delivery_level = _max_risk_level(delivery_level, "medium")
+        delivery_reasons.append("Story is currently backed by a single source.")
+
+    provenance_chain: list[dict[str, Any]] = []
+    review_states: dict[str, int] = {}
+    for evidence in evidence_rows:
+        governance = evidence.governance if isinstance(evidence.governance, dict) else {}
+        provenance = governance.get("provenance", {}) if isinstance(governance.get("provenance"), dict) else {}
+        review_state = str(governance.get("review_state") or evidence.review_state).strip().lower() or "new"
+        review_states[review_state] = review_states.get(review_state, 0) + 1
+        provenance_chain.append(
+            {
+                "item_id": evidence.item_id,
+                "role": evidence.role,
+                "title": evidence.title,
+                "source_name": evidence.source_name,
+                "source_type": evidence.source_type,
+                "review_state": review_state,
+                "evidence_grade": str(governance.get("evidence_grade", "working")).strip().lower() or "working",
+                "url": evidence.url,
+                "fetched_at": provenance.get("fetched_at", evidence.fetched_at),
+            }
+        )
+
+    return {
+        "subject": "story",
+        "evidence_grade": evidence_grade,
+        "evidence_score": evidence_score,
+        "provenance": {
+            "kind": "story",
+            "story_id": story_id,
+            "primary_item_id": primary_item_id,
+            "item_ids": [row["item_id"] for row in provenance_chain if row.get("item_id")],
+            "source_names": list(source_names),
+            "review_states": review_states,
+            "evidence_chain": provenance_chain,
+            "generated_at": generated_at,
+        },
+        "delivery_risk": {
+            "surface": "story_package",
+            "status": delivery_status,
+            "level": delivery_level,
+            "reasons": delivery_reasons,
+            "route_observations": [],
+        },
+    }
+
+
 def render_story_markdown(story: Story) -> str:
+    governance = story.governance if isinstance(story.governance, dict) else {}
+    delivery_risk = governance.get("delivery_risk", {}) if isinstance(governance.get("delivery_risk"), dict) else {}
+    provenance = governance.get("provenance", {}) if isinstance(governance.get("provenance"), dict) else {}
     lines = [
         f"# {story.title}",
         "",
@@ -464,12 +583,25 @@ def render_story_markdown(story: Story) -> str:
         f"- source_count: {story.source_count}",
         f"- score: {story.score}",
         f"- confidence: {story.confidence:.3f}",
+        f"- evidence_grade: {governance.get('evidence_grade', 'working')}",
+        f"- delivery_status: {delivery_risk.get('status', 'review_required')}",
+        f"- delivery_risk: {delivery_risk.get('level', 'medium')}",
         f"- generated_at: {story.generated_at}",
         "",
         story.summary,
         "",
-        "## Entities",
+        "## Governance",
+        f"- primary_item_id: {provenance.get('primary_item_id', story.primary_item_id)}",
+        f"- evidence_items: {len(provenance.get('item_ids', [])) if isinstance(provenance.get('item_ids'), list) else 0}",
+        f"- sources: {', '.join(provenance.get('source_names', story.source_names)) if isinstance(provenance.get('source_names'), list) else ', '.join(story.source_names)}",
     ]
+    for reason in delivery_risk.get("reasons", []) if isinstance(delivery_risk.get("reasons"), list) else []:
+        lines.append(f"- delivery_note: {reason}")
+
+    lines.extend([
+        "",
+        "## Entities",
+    ])
     for entity in story.entities:
         lines.append(f"- {entity}")
     if not story.entities:
@@ -477,18 +609,22 @@ def render_story_markdown(story: Story) -> str:
 
     lines.extend(["", "## Primary Evidence"])
     for evidence in story.primary_evidence:
+        evidence_governance = evidence.governance if isinstance(evidence.governance, dict) else {}
         lines.append(
             f"- [{evidence.title}]({evidence.url}) | {evidence.source_name} | "
-            f"score={evidence.score} confidence={evidence.confidence:.3f} state={evidence.review_state}"
+            f"score={evidence.score} confidence={evidence.confidence:.3f} state={evidence.review_state} "
+            f"grade={evidence_governance.get('evidence_grade', 'working')}"
         )
     if not story.primary_evidence:
         lines.append("- none")
 
     lines.extend(["", "## Secondary Evidence"])
     for evidence in story.secondary_evidence:
+        evidence_governance = evidence.governance if isinstance(evidence.governance, dict) else {}
         lines.append(
             f"- [{evidence.title}]({evidence.url}) | {evidence.source_name} | "
-            f"score={evidence.score} confidence={evidence.confidence:.3f} state={evidence.review_state}"
+            f"score={evidence.score} confidence={evidence.confidence:.3f} state={evidence.review_state} "
+            f"grade={evidence_governance.get('evidence_grade', 'working')}"
         )
     if not story.secondary_evidence:
         lines.append("- none")
@@ -746,6 +882,7 @@ def build_story_clusters(
                     review_state=item.review_state,
                     role=role,
                     entities=row["entity_labels"],
+                    governance=build_item_governance(item),
                 )
             )
 
@@ -786,6 +923,9 @@ def build_story_clusters(
         avg_score = round(sum(item.score for item in top_slice) / max(1, len(top_slice)), 2)
         avg_confidence = round(sum(item.confidence for item in top_slice) / max(1, len(top_slice)), 4)
         title = exemplar["item"].title
+        story_id = generate_slug(title, max_length=48)
+        primary_item_id = primary_evidence[0].item_id if primary_evidence else ""
+        generated_at = _utcnow()
         story = Story(
             title=title,
             summary=_story_summary(
@@ -800,7 +940,7 @@ def build_story_clusters(
             confidence=avg_confidence,
             item_count=len(cluster_items),
             source_count=len(source_names),
-            primary_item_id=primary_evidence[0].item_id if primary_evidence else "",
+            primary_item_id=primary_item_id,
             entities=entities,
             source_names=source_names,
             primary_evidence=primary_evidence,
@@ -808,7 +948,16 @@ def build_story_clusters(
             timeline=timeline,
             contradictions=contradictions,
             semantic_review=semantic_review,
-            id=generate_slug(title, max_length=48),
+            generated_at=generated_at,
+            governance=_build_story_governance(
+                story_id=story_id,
+                primary_item_id=primary_item_id,
+                source_names=source_names,
+                evidence_rows=evidence_rows,
+                contradictions=contradictions,
+                generated_at=generated_at,
+            ),
+            id=story_id,
         )
         stories.append(story)
 

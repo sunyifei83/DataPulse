@@ -27,6 +27,111 @@ class SourceType(str, Enum):
     MANUAL = "manual"
 
 
+class SourceGovernanceClass(str, Enum):
+    PUBLISHER = "publisher"
+    PLATFORM = "platform"
+    AGGREGATOR = "aggregator"
+    ANALYST = "analyst"
+    GENERIC = "generic"
+
+
+class SourceCollectionMode(str, Enum):
+    PUBLIC_WEB = "public_web"
+    API = "api"
+    SEARCH_GATEWAY = "search_gateway"
+    MANUAL_FACT = "manual_fact"
+    HYBRID = "hybrid"
+
+
+class SourceAuthorityLevel(str, Enum):
+    OFFICIAL = "official"
+    PRIMARY = "primary"
+    SECONDARY = "secondary"
+    COMMUNITY = "community"
+    UNVERIFIED = "unverified"
+
+
+class SourceSensitivity(str, Enum):
+    PUBLIC = "public"
+    REVIEW_REQUIRED = "review_required"
+    ELEVATED = "elevated"
+
+
+def _coerce_enum(enum_cls: type[Enum], value: Any, default: Enum) -> Enum:
+    if isinstance(value, enum_cls):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        try:
+            return enum_cls(normalized)
+        except ValueError:
+            return default
+    return default
+
+
+def _normalize_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    seen: list[str] = []
+    for item in value:
+        text = str(item).strip()
+        if text and text not in seen:
+            seen.append(text)
+    return seen
+
+
+@dataclass
+class SourceGovernance:
+    source_class: SourceGovernanceClass = SourceGovernanceClass.GENERIC
+    collection_mode: SourceCollectionMode = SourceCollectionMode.PUBLIC_WEB
+    authority: SourceAuthorityLevel = SourceAuthorityLevel.SECONDARY
+    sensitivity: SourceSensitivity = SourceSensitivity.PUBLIC
+    compliance_hints: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.source_class = _coerce_enum(
+            SourceGovernanceClass,
+            self.source_class,
+            SourceGovernanceClass.GENERIC,
+        )
+        self.collection_mode = _coerce_enum(
+            SourceCollectionMode,
+            self.collection_mode,
+            SourceCollectionMode.PUBLIC_WEB,
+        )
+        self.authority = _coerce_enum(
+            SourceAuthorityLevel,
+            self.authority,
+            SourceAuthorityLevel.SECONDARY,
+        )
+        self.sensitivity = _coerce_enum(
+            SourceSensitivity,
+            self.sensitivity,
+            SourceSensitivity.PUBLIC,
+        )
+        self.compliance_hints = _normalize_string_list(self.compliance_hints)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "source_class": self.source_class.value,
+            "collection_mode": self.collection_mode.value,
+            "authority": self.authority.value,
+            "sensitivity": self.sensitivity.value,
+            "compliance_hints": list(self.compliance_hints),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> "SourceGovernance":
+        payload = data if isinstance(data, dict) else {}
+        return cls(
+            source_class=payload.get("source_class", SourceGovernanceClass.GENERIC.value),
+            collection_mode=payload.get("collection_mode", SourceCollectionMode.PUBLIC_WEB.value),
+            authority=payload.get("authority", SourceAuthorityLevel.SECONDARY.value),
+            sensitivity=payload.get("sensitivity", SourceSensitivity.PUBLIC.value),
+            compliance_hints=payload.get("compliance_hints", []),
+        )
+
+
 class MediaType(str, Enum):
     TEXT = "text"
     VIDEO = "video"

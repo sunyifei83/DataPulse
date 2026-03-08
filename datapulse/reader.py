@@ -26,9 +26,9 @@ from datapulse.core.search_gateway import SearchGateway, SearchHit
 from datapulse.core.source_catalog import SourceCatalog
 from datapulse.core.storage import UnifiedInbox, output_record_md, project_markdown
 from datapulse.core.story import StoryStore, build_story_clusters, build_story_graph, render_story_markdown
-from datapulse.core.triage import TriageQueue, is_digest_candidate
+from datapulse.core.triage import TriageQueue, is_digest_candidate, normalize_review_state, serialize_item_with_governance
 from datapulse.core.utils import content_fingerprint, inbox_path_from_env, normalize_language
-from datapulse.core.watchlist import MissionRun, WatchlistStore, WatchMission
+from datapulse.core.watchlist import MissionIntent, MissionRun, WatchlistStore, WatchMission
 
 logger = logging.getLogger("datapulse.reader")
 
@@ -117,6 +117,7 @@ class DataPulseReader:
 
     def _serialize_watch_mission(self, mission: WatchMission) -> dict[str, Any]:
         payload = mission.to_dict()
+        payload["intent_summary"] = self._build_watch_intent_summary(mission.mission_intent)
         payload["schedule_label"] = describe_schedule(mission.schedule)
         payload["is_due"] = is_watch_due(mission)
         payload["next_run_at"] = next_run_at(mission)
@@ -138,6 +139,44 @@ class DataPulseReader:
             "last_error": mission.last_run_error or "",
         }
         return payload
+
+    @staticmethod
+    def _build_watch_intent_summary(intent: MissionIntent) -> dict[str, Any]:
+        def _preview(values: list[str], *, limit: int = 3) -> str:
+            if not values:
+                return ""
+            visible = values[:limit]
+            preview = ", ".join(visible)
+            if len(values) > limit:
+                preview = f"{preview}, +{len(values) - limit} more"
+            return preview
+
+        scope_parts: list[str] = []
+        if intent.scope_entities:
+            scope_parts.append(f"entities={_preview(intent.scope_entities)}")
+        if intent.scope_topics:
+            scope_parts.append(f"topics={_preview(intent.scope_topics)}")
+        if intent.scope_regions:
+            scope_parts.append(f"regions={_preview(intent.scope_regions)}")
+        if intent.scope_window:
+            scope_parts.append(f"window={intent.scope_window}")
+
+        freshness_parts: list[str] = []
+        if intent.freshness_expectation:
+            freshness_parts.append(intent.freshness_expectation)
+        if intent.freshness_max_age_hours > 0:
+            freshness_parts.append(f"max_age<={intent.freshness_max_age_hours}h")
+
+        coverage_preview = _preview(intent.coverage_targets)
+        return {
+            "has_intent": intent.has_content(),
+            "demand_intent": intent.demand_intent,
+            "key_questions": list(intent.key_questions),
+            "scope": " | ".join(scope_parts),
+            "freshness": " | ".join(freshness_parts),
+            "coverage": coverage_preview,
+            "coverage_target_count": len(intent.coverage_targets),
+        }
 
     @staticmethod
     def _latest_failed_run(mission: WatchMission) -> MissionRun | None:
@@ -339,6 +378,402 @@ class DataPulseReader:
         if limit is not None:
             rows = rows[: max(0, int(limit))]
         return summary, rows
+
+    @staticmethod
+    def _scorecard_signal(
+        *,
+        signal_id: str,
+        label: str,
+        status: str,
+        value: float | None,
+        unit: str,
+        display: str,
+        detail: str,
+        **extra: Any,
+    ) -> dict[str, Any]:
+        payload = {
+            "id": signal_id,
+            "label": label,
+            "status": status,
+            "value": round(value, 4) if isinstance(value, (int, float)) else None,
+            "unit": unit,
+            "display": display,
+            "detail": detail,
+        }
+        payload.update(extra)
+        return payload
+
+    @staticmethod
+    def _normalize_scorecard_label(value: Any) -> str:
+        text = str(value or "").strip().casefold()
+        if text.startswith("www."):
+            text = text[4:]
+        return text
+
+    @classmethod
+    def _coverage_expectations(cls, mission: WatchMission) -> list[dict[str, str]]:
+        expected: list[dict[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+
+        def add(kind: str, raw: Any) -> None:
+            label = str(raw or "").strip()
+            key = cls._normalize_scorecard_label(label)
+            if not key:
+                return
+            marker = (kind, key)
+            if marker in seen:
+                return
+            seen.add(marker)
+            expected.append({"kind": kind, "label": label, "key": key})
+
+        for platform in mission.platforms:
+            add("platform", platform)
+        for site in mission.sites:
+            add("site", site)
+        for target in mission.mission_intent.coverage_targets:
+            add("coverage_target", target)
+        return expected
+
+    @classmethod
+    def _coverage_observation_labels(cls, item: DataPulseItem) -> set[str]:
+        labels: set[str] = set()
+        for raw in [item.source_name, item.source_type.value, item.parser, *item.tags]:
+            key = cls._normalize_scorecard_label(raw)
+            if key:
+                labels.add(key)
+        try:
+            domain = str(urlparse(str(item.url or "")).netloc or "").strip().lower()
+        except ValueError:
+            domain = ""
+        if domain.startswith("www."):
+            domain = domain[4:]
+        if domain:
+            labels.add(domain)
+        for raw in _normalize_string_list(item.extra.get("search_sources")):
+            key = cls._normalize_scorecard_label(raw)
+            if key:
+                labels.add(key)
+            try:
+                source_domain = str(urlparse(raw).netloc or "").strip().lower()
+            except ValueError:
+                source_domain = ""
+            if source_domain.startswith("www."):
+                source_domain = source_domain[4:]
+            if source_domain:
+                labels.add(source_domain)
+        return labels
+
+    @classmethod
+    def _coverage_target_hit(cls, target: str, observed_labels: set[str]) -> bool:
+        if not target:
+            return False
+        if target in observed_labels:
+            return True
+        if len(target) < 4:
+            return False
+        return any(target in candidate or candidate in target for candidate in observed_labels)
+
+    def governance_scorecard_snapshot(self) -> dict[str, Any]:
+        enabled_missions = self.watchlist.list_missions(include_disabled=False)
+        all_missions = self.watchlist.list_missions(include_disabled=True)
+        all_items = list(self.inbox.items)
+        all_stories = self.story_store.list_stories(limit=5000, min_items=1)
+        triage_stats = self.triage.stats()
+        enabled_mission_ids = {mission.id for mission in enabled_missions}
+        now = datetime.now(timezone.utc)
+
+        mission_items: dict[str, list[DataPulseItem]] = {}
+        for item in all_items:
+            mission_id = str(item.extra.get("watch_mission_id", "") or "").strip()
+            if not mission_id:
+                continue
+            mission_items.setdefault(mission_id, []).append(item)
+
+        coverage_expected_total = 0
+        coverage_hit_total = 0
+        missions_with_targets = 0
+        missions_without_targets = 0
+        uncovered_targets: list[dict[str, Any]] = []
+        for mission in enabled_missions:
+            expected = self._coverage_expectations(mission)
+            if not expected:
+                missions_without_targets += 1
+                continue
+            missions_with_targets += 1
+            observed_labels: set[str] = set()
+            for item in mission_items.get(mission.id, []):
+                observed_labels.update(self._coverage_observation_labels(item))
+            for row in expected:
+                coverage_expected_total += 1
+                if self._coverage_target_hit(row["key"], observed_labels):
+                    coverage_hit_total += 1
+                    continue
+                uncovered_targets.append(
+                    {
+                        "mission_id": mission.id,
+                        "mission_name": mission.name,
+                        "kind": row["kind"],
+                        "target": row["label"],
+                    }
+                )
+        coverage_rate = (
+            round(coverage_hit_total / coverage_expected_total, 4)
+            if coverage_expected_total > 0
+            else None
+        )
+        coverage_signal = self._scorecard_signal(
+            signal_id="coverage",
+            label="Coverage",
+            status=(
+                "missing"
+                if coverage_expected_total <= 0
+                else "ok"
+                if (coverage_rate or 0.0) >= 0.7
+                else "watch"
+            ),
+            value=coverage_rate,
+            unit="ratio",
+            display=(
+                "No coverage touchpoint declared on enabled missions."
+                if coverage_expected_total <= 0
+                else f"{coverage_hit_total}/{coverage_expected_total} declared touchpoints observed"
+            ),
+            detail="Matches enabled mission platforms, sites, and coverage_targets against persisted watch results.",
+            expected_targets_total=coverage_expected_total,
+            covered_targets_total=coverage_hit_total,
+            missions_with_targets=missions_with_targets,
+            missions_without_targets=missions_without_targets,
+            uncovered_targets=uncovered_targets[:8],
+        )
+
+        freshness_sla_missions = 0
+        freshness_text_only_missions = 0
+        fresh_missions = 0
+        stale_missions: list[dict[str, Any]] = []
+        missing_freshness_results = 0
+        for mission in enabled_missions:
+            max_age_hours = max(0, int(mission.mission_intent.freshness_max_age_hours or 0))
+            if max_age_hours <= 0:
+                if mission.mission_intent.freshness_expectation:
+                    freshness_text_only_missions += 1
+                continue
+            freshness_sla_missions += 1
+            latest_result = max(
+                mission_items.get(mission.id, []),
+                key=lambda item: (_parse_timestamp(item.fetched_at) or datetime.fromtimestamp(0, tz=timezone.utc)).timestamp(),
+                default=None,
+            )
+            latest_ts = _parse_timestamp(getattr(latest_result, "fetched_at", "")) if latest_result is not None else None
+            if latest_ts is None:
+                missing_freshness_results += 1
+                stale_missions.append(
+                    {
+                        "mission_id": mission.id,
+                        "mission_name": mission.name,
+                        "freshness_max_age_hours": max_age_hours,
+                        "latest_result_at": "",
+                        "age_hours": None,
+                    }
+                )
+                continue
+            age_hours = round(max(0.0, (now - latest_ts).total_seconds() / 3600), 2)
+            if age_hours <= max_age_hours:
+                fresh_missions += 1
+                continue
+            stale_missions.append(
+                {
+                    "mission_id": mission.id,
+                    "mission_name": mission.name,
+                    "freshness_max_age_hours": max_age_hours,
+                    "latest_result_at": latest_result.fetched_at,
+                    "age_hours": age_hours,
+                }
+            )
+        freshness_rate = (
+            round(fresh_missions / freshness_sla_missions, 4)
+            if freshness_sla_missions > 0
+            else None
+        )
+        freshness_signal = self._scorecard_signal(
+            signal_id="freshness",
+            label="Freshness",
+            status=(
+                "missing"
+                if freshness_sla_missions <= 0
+                else "ok"
+                if (freshness_rate or 0.0) >= 0.7
+                else "watch"
+            ),
+            value=freshness_rate,
+            unit="ratio",
+            display=(
+                "No mission defines a numeric freshness SLA yet."
+                if freshness_sla_missions <= 0
+                else f"{fresh_missions}/{freshness_sla_missions} SLA-backed missions are fresh"
+            ),
+            detail="Uses mission_intent.freshness_max_age_hours and each mission's latest persisted result timestamp.",
+            missions_with_sla=freshness_sla_missions,
+            missions_with_text_only_expectation=freshness_text_only_missions,
+            fresh_missions=fresh_missions,
+            stale_missions=max(0, freshness_sla_missions - fresh_missions),
+            missing_results=missing_freshness_results,
+            stale_mission_detail=stale_missions[:8],
+        )
+
+        successful_runs = sum(
+            1
+            for mission in enabled_missions
+            for run in mission.runs
+            if str(run.status or "").strip().lower() == "success"
+        )
+        alert_events = [
+            event
+            for event in self.alert_store.events
+            if event.mission_id in enabled_mission_ids
+        ]
+        alert_count = len(alert_events)
+        alerting_missions = len({event.mission_id for event in alert_events if str(event.mission_id or "").strip()})
+        alert_yield_rate = round(alert_count / successful_runs, 4) if successful_runs > 0 else None
+        alert_yield_signal = self._scorecard_signal(
+            signal_id="alert_yield",
+            label="Alert Yield",
+            status=(
+                "missing"
+                if successful_runs <= 0
+                else "watch"
+                if alert_count <= 0 or (alert_yield_rate or 0.0) > 1.5
+                else "ok"
+            ),
+            value=alert_yield_rate,
+            unit="alerts_per_successful_run",
+            display=(
+                "No successful mission run recorded yet."
+                if successful_runs <= 0
+                else f"{alert_count} alerts across {successful_runs} successful runs"
+            ),
+            detail="Compares persisted AlertEvent rows against successful MissionRun records for enabled missions.",
+            alert_count=alert_count,
+            successful_runs=successful_runs,
+            alerting_missions=alerting_missions,
+        )
+
+        triage_total = int(triage_stats.get("total", 0) or 0)
+        triage_states = triage_stats.get("states", {}) if isinstance(triage_stats.get("states"), dict) else {}
+        new_items = int(triage_states.get("new", 0) or 0)
+        triage_acted_on = max(0, triage_total - new_items)
+        triage_closed = int(triage_stats.get("closed_count", 0) or 0)
+        triage_rate = round(triage_acted_on / triage_total, 4) if triage_total > 0 else None
+        closed_rate = round(triage_closed / triage_total, 4) if triage_total > 0 else None
+        triage_signal = self._scorecard_signal(
+            signal_id="triage_throughput",
+            label="Triage Throughput",
+            status=(
+                "missing"
+                if triage_total <= 0
+                else "ok"
+                if (triage_rate or 0.0) >= 0.6 or (closed_rate or 0.0) >= 0.35
+                else "watch"
+            ),
+            value=triage_rate,
+            unit="acted_item_ratio",
+            display=(
+                "No inbox item has entered triage yet."
+                if triage_total <= 0
+                else f"{triage_acted_on}/{triage_total} items moved beyond new"
+            ),
+            detail="Measures how much of the persisted inbox has received analyst triage state changes or notes.",
+            total_items=triage_total,
+            acted_on_items=triage_acted_on,
+            closed_items=triage_closed,
+            open_items=int(triage_stats.get("open_count", 0) or 0),
+            note_count=int(triage_stats.get("note_count", 0) or 0),
+            closed_rate=closed_rate,
+        )
+
+        story_item_ids = {
+            str(evidence.item_id or "").strip()
+            for story in all_stories
+            for evidence in [*story.primary_evidence, *story.secondary_evidence]
+            if str(evidence.item_id or "").strip()
+        }
+        delivery_ready_stories = 0
+        for story in all_stories:
+            governance = story.governance if isinstance(story.governance, dict) else {}
+            delivery_risk = governance.get("delivery_risk", {}) if isinstance(governance.get("delivery_risk"), dict) else {}
+            if str(delivery_risk.get("status", "") or "").strip().lower() == "ready":
+                delivery_ready_stories += 1
+        eligible_story_items = [
+            item
+            for item in all_items
+            if normalize_review_state(item.review_state, processed=item.processed) in {"triaged", "verified", "escalated"}
+        ]
+        eligible_story_item_ids = {
+            str(item.id or "").strip()
+            for item in eligible_story_items
+            if str(item.id or "").strip()
+        }
+        converted_story_items = len(eligible_story_item_ids & story_item_ids)
+        story_conversion_rate = (
+            round(converted_story_items / len(eligible_story_item_ids), 4)
+            if eligible_story_item_ids
+            else None
+        )
+        story_signal = self._scorecard_signal(
+            signal_id="story_conversion",
+            label="Story Conversion",
+            status=(
+                "missing"
+                if not eligible_story_item_ids
+                else "ok"
+                if (story_conversion_rate or 0.0) >= 0.4
+                else "watch"
+            ),
+            value=story_conversion_rate,
+            unit="conversion_ratio",
+            display=(
+                "No triaged item is ready for story conversion yet."
+                if not eligible_story_item_ids
+                else f"{converted_story_items}/{len(eligible_story_item_ids)} triaged items referenced by stories"
+            ),
+            detail="Tracks how much reviewed evidence is already represented in persisted story objects.",
+            story_count=len(all_stories),
+            ready_story_count=delivery_ready_stories,
+            eligible_item_count=len(eligible_story_item_ids),
+            converted_item_count=converted_story_items,
+        )
+
+        signals = {
+            signal["id"]: signal
+            for signal in (
+                coverage_signal,
+                freshness_signal,
+                alert_yield_signal,
+                triage_signal,
+                story_signal,
+            )
+        }
+        status_counts = {"ok": 0, "watch": 0, "missing": 0}
+        for signal in signals.values():
+            status_name = str(signal.get("status", "missing") or "missing").strip().lower()
+            status_counts[status_name] = status_counts.get(status_name, 0) + 1
+
+        return {
+            "generated_at": _utcnow_z(),
+            "mission_scope": {
+                "total": len(all_missions),
+                "enabled": len(enabled_missions),
+                "disabled": max(0, len(all_missions) - len(enabled_missions)),
+                "items": len(all_items),
+                "stories": len(all_stories),
+            },
+            "signals": signals,
+            "summary": {
+                "signal_count": len(signals),
+                "ok": status_counts.get("ok", 0),
+                "watch": status_counts.get("watch", 0),
+                "missing": status_counts.get("missing", 0),
+            },
+        }
 
     def _run_jina_search(
         self,
@@ -1414,7 +1849,7 @@ class DataPulseReader:
             states=states,
             include_closed=include_closed,
         )
-        return [item.to_dict() for item in items]
+        return [serialize_item_with_governance(item) for item in items]
 
     def triage_update(
         self,
@@ -1434,7 +1869,7 @@ class DataPulseReader:
         )
         if item is None:
             return None
-        return item.to_dict()
+        return serialize_item_with_governance(item)
 
     def triage_note(
         self,
@@ -1446,7 +1881,7 @@ class DataPulseReader:
         item = self.triage.add_note(item_id, note=note, author=author)
         if item is None:
             return None
-        return item.to_dict()
+        return serialize_item_with_governance(item)
 
     def triage_stats(self, *, min_confidence: float = 0.0) -> dict[str, Any]:
         return self.triage.stats(min_confidence=min_confidence)
@@ -1468,6 +1903,7 @@ class DataPulseReader:
         *,
         name: str,
         query: str,
+        mission_intent: dict[str, Any] | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
         schedule: str = "manual",
@@ -1479,6 +1915,7 @@ class DataPulseReader:
         mission = self.watchlist.create_mission(
             name=name,
             query=query,
+            mission_intent=mission_intent,
             platforms=platforms,
             sites=sites,
             schedule=schedule,
@@ -1487,7 +1924,7 @@ class DataPulseReader:
             alert_rules=alert_rules,
             enabled=enabled,
         )
-        return mission.to_dict()
+        return self._serialize_watch_mission(mission)
 
     def set_watch_alert_rules(
         self,
@@ -1729,11 +2166,14 @@ class DataPulseReader:
     def _tag_items_with_watch(self, mission: WatchMission, items: list[DataPulseItem]) -> None:
         if not items:
             return
+        intent_payload = mission.mission_intent.to_dict() if mission.mission_intent.has_content() else {}
         changed = False
         for item in items:
             item.extra["watch_mission_id"] = mission.id
             item.extra["watch_mission_name"] = mission.name
             item.extra["watch_query"] = mission.query
+            if intent_payload:
+                item.extra["watch_mission_intent"] = dict(intent_payload)
             if "watch" not in item.tags:
                 item.tags.append("watch")
 
@@ -1743,6 +2183,8 @@ class DataPulseReader:
                 stored.extra["watch_mission_id"] = mission.id
                 stored.extra["watch_mission_name"] = mission.name
                 stored.extra["watch_query"] = mission.query
+                if intent_payload:
+                    stored.extra["watch_mission_intent"] = dict(intent_payload)
                 if "watch" not in stored.tags:
                     stored.tags.append("watch")
                 changed = True
@@ -1892,6 +2334,7 @@ class DataPulseReader:
         route_health = self.alert_route_health(limit=route_limit)
         recent_alerts = self.list_alerts(limit=alert_limit)
         watch_summary, watch_health = self._watch_health_snapshot()
+        governance_scorecard = self.governance_scorecard_snapshot()
 
         collector_summary = {
             "total": 0,
@@ -2098,6 +2541,7 @@ class DataPulseReader:
             "route_timeline": route_timeline,
             "recent_failures": recent_failures,
             "recent_alerts": recent_alerts,
+            "governance_scorecard": governance_scorecard,
             "daemon": status,
         }
 
@@ -2167,7 +2611,7 @@ class DataPulseReader:
             )
             updated = self.watchlist.record_run(mission.id, run) or mission
             return {
-                "mission": updated.to_dict(),
+                "mission": self._serialize_watch_mission(updated),
                 "run": run.to_dict(),
                 "items": [item.to_dict() for item in items],
                 "alert_events": alert_events,

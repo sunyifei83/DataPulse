@@ -18,6 +18,17 @@ class TestWatchlistStore:
         mission = store.create_mission(
             name="OpenAI Radar",
             query="OpenAI inference stack",
+            mission_intent={
+                "demand_intent": "Track launch signals that could shift enterprise demand.",
+                "key_questions": ["What changed?", "Why now?"],
+                "scope_entities": ["OpenAI", "Anthropic", "openai"],
+                "scope_topics": ["Agents", "Pricing"],
+                "scope_regions": ["US", "EU"],
+                "scope_window": "last 7 days",
+                "freshness_expectation": "same day escalation",
+                "freshness_max_age_hours": 24,
+                "coverage_targets": ["official statements", "developer reaction", "pricing pages"],
+            },
             platforms=["twitter", "reddit", "twitter"],
             sites=["openai.com", "reddit.com", "openai.com"],
             top_n=8,
@@ -29,6 +40,19 @@ class TestWatchlistStore:
         assert restored is not None
         assert restored.name == "OpenAI Radar"
         assert restored.query == "OpenAI inference stack"
+        assert restored.mission_intent.demand_intent == "Track launch signals that could shift enterprise demand."
+        assert restored.mission_intent.key_questions == ["What changed?", "Why now?"]
+        assert restored.mission_intent.scope_entities == ["OpenAI", "Anthropic"]
+        assert restored.mission_intent.scope_topics == ["Agents", "Pricing"]
+        assert restored.mission_intent.scope_regions == ["US", "EU"]
+        assert restored.mission_intent.scope_window == "last 7 days"
+        assert restored.mission_intent.freshness_expectation == "same day escalation"
+        assert restored.mission_intent.freshness_max_age_hours == 24
+        assert restored.mission_intent.coverage_targets == [
+            "official statements",
+            "developer reaction",
+            "pricing pages",
+        ]
         assert restored.platforms == ["twitter", "reddit"]
         assert restored.sites == ["openai.com", "reddit.com"]
         assert restored.top_n == 8
@@ -69,6 +93,14 @@ async def test_reader_run_watch_records_metadata(tmp_path, monkeypatch):
     mission = reader.create_watch(
         name="AI Radar",
         query="OpenAI agents",
+        mission_intent={
+            "demand_intent": "Track agent announcements that can change roadmap posture.",
+            "scope_entities": ["OpenAI"],
+            "scope_topics": ["agents"],
+            "freshness_expectation": "same day review",
+            "freshness_max_age_hours": 24,
+            "coverage_targets": ["official release notes", "developer discussion"],
+        },
         platforms=["twitter"],
         top_n=3,
     )
@@ -95,8 +127,15 @@ async def test_reader_run_watch_records_metadata(tmp_path, monkeypatch):
     assert payload["run"]["item_count"] == 1
     assert payload["mission"]["last_run_count"] == 1
     assert payload["mission"]["last_run_status"] == "success"
+    assert payload["mission"]["mission_intent"]["demand_intent"] == "Track agent announcements that can change roadmap posture."
+    assert payload["mission"]["intent_summary"]["freshness"] == "same day review | max_age<=24h"
     assert payload["items"][0]["extra"]["watch_mission_id"] == mission["id"]
+    assert payload["items"][0]["extra"]["watch_mission_intent"]["coverage_targets"] == [
+        "official release notes",
+        "developer discussion",
+    ]
     assert reader.inbox.items[0].extra["watch_mission_name"] == "AI Radar"
+    assert reader.inbox.items[0].extra["watch_mission_intent"]["scope_topics"] == ["agents"]
     assert "watch" in reader.inbox.items[0].tags
 
 
@@ -109,6 +148,14 @@ async def test_reader_show_watch_returns_cockpit_detail(tmp_path, monkeypatch):
     mission = reader.create_watch(
         name="Launch Ops",
         query="OpenAI launch",
+        mission_intent={
+            "demand_intent": "Detect launch signals that warrant analyst escalation.",
+            "key_questions": ["What shipped?", "Who is affected?"],
+            "scope_entities": ["OpenAI"],
+            "scope_topics": ["launch"],
+            "freshness_expectation": "same day escalation",
+            "coverage_targets": ["official post", "ecosystem reaction"],
+        },
         alert_rules=[
             {
                 "name": "threshold",
@@ -139,10 +186,17 @@ async def test_reader_show_watch_returns_cockpit_detail(tmp_path, monkeypatch):
 
     assert payload is not None
     assert payload["id"] == mission["id"]
+    assert payload["mission_intent"]["demand_intent"] == "Detect launch signals that warrant analyst escalation."
+    assert payload["intent_summary"]["scope"] == "entities=OpenAI | topics=launch"
+    assert payload["intent_summary"]["coverage"] == "official post, ecosystem reaction"
     assert payload["run_stats"]["total"] == 1
     assert payload["run_stats"]["success"] == 1
     assert payload["recent_results"][0]["title"] == "OpenAI launch result"
     assert payload["recent_results"][0]["extra"]["watch_mission_id"] == mission["id"]
+    assert payload["recent_results"][0]["extra"]["watch_mission_intent"]["key_questions"] == [
+        "What shipped?",
+        "Who is affected?",
+    ]
     assert payload["recent_results"][0]["watch_filters"]["domain"] == "example.com"
     assert payload["result_stats"]["stored_result_count"] == 1
     assert payload["result_stats"]["returned_result_count"] == 1

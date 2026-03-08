@@ -164,6 +164,111 @@
         "Keep browser smoke manual-capable so operators can validate the shell before local Codex ignition.",
         "Do not silently convert browser smoke into a mandatory lightweight gate for every fast smoke path."
       ]
+    },
+    "L8.1": {
+      "adapter_type": "governance_projection",
+      "execute_mode": "manual_edit",
+      "summary": "Translate the external commercial-intelligence note into a repo-specific governance blueprint and follow-up slice map.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/commercial_intelligence_governance_blueprint.md",
+        "sed -n '1,240p' docs/intelligence_lifecycle_contract.md",
+        "sed -n '1,240p' docs/intelligence_delivery_contract.md"
+      ],
+      "target_artifacts": [
+        "docs/commercial_intelligence_governance_blueprint.md"
+      ],
+      "notes": [
+        "Keep the document repo-scoped: map the external note onto DataPulse objects instead of restating generic market-intelligence theory.",
+        "Use the document to justify future blueprint slices, not to bypass the blueprint."
+      ]
+    },
+    "L8.2": {
+      "adapter_type": "source_governance_contract",
+      "execute_mode": "manual_edit",
+      "summary": "Define a unified source-governance contract for public-source intelligence intake, covering source class, collection mode, authority, sensitivity, and compliance hints.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/commercial_intelligence_governance_blueprint.md",
+        "sed -n '1,260p' datapulse/core/source_catalog.py",
+        "sed -n '1,240p' datapulse/core/models.py",
+        "sed -n '1,220p' docs/search_gateway_config.md"
+      ],
+      "target_artifacts": [
+        "docs/intelligence_source_governance_contract.md",
+        "datapulse/core/source_catalog.py",
+        "datapulse/core/models.py",
+        "docs/search_gateway_config.md"
+      ],
+      "notes": [
+        "Treat public-web, API, search-gateway, and manual fact intake as first-class collection modes.",
+        "Do not let the contract imply that DataPulse auto-decides legal compliance; keep it to governance hints and operator-visible boundaries."
+      ]
+    },
+    "L8.3": {
+      "adapter_type": "mission_intent_contract",
+      "execute_mode": "manual_implementation",
+      "summary": "Project analyst demand-intent fields into WatchMission and mission-facing surfaces without forking lifecycle semantics.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/commercial_intelligence_governance_blueprint.md",
+        "sed -n '1,260p' datapulse/core/watchlist.py",
+        "sed -n '1,260p' datapulse/reader.py",
+        "uv run pytest tests/test_watchlist.py tests/test_cli.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/core/watchlist.py",
+        "datapulse/reader.py",
+        "tests/test_watchlist.py",
+        "tests/test_cli.py"
+      ],
+      "notes": [
+        "Map KIT/KIQ-like ideas into repo language such as demand intent, scope, freshness, and coverage targets.",
+        "Keep WatchMission as the durable mission-intent object across CLI, MCP, and console."
+      ]
+    },
+    "L8.4": {
+      "adapter_type": "evidence_governance",
+      "execute_mode": "manual_implementation",
+      "summary": "Carry evidence-grade, provenance, and delivery-risk governance through triage, story, and alert outputs.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/commercial_intelligence_governance_blueprint.md",
+        "sed -n '1,260p' datapulse/core/triage.py",
+        "sed -n '1,260p' datapulse/core/story.py",
+        "sed -n '1,260p' datapulse/core/alerts.py",
+        "uv run pytest tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/core/triage.py",
+        "datapulse/core/story.py",
+        "datapulse/core/alerts.py",
+        "tests/test_triage.py",
+        "tests/test_story.py",
+        "tests/test_alerts.py"
+      ],
+      "notes": [
+        "Evidence-grade semantics must preserve provenance back to items, review state, and sources.",
+        "Delivery risk belongs in alert and route observations, not as a replacement for underlying evidence truth."
+      ]
+    },
+    "L8.5": {
+      "adapter_type": "governance_scorecard",
+      "execute_mode": "manual_implementation",
+      "summary": "Expose intelligence governance scorecard signals in reader and console ops surfaces.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/commercial_intelligence_governance_blueprint.md",
+        "sed -n '1,260p' datapulse/reader.py",
+        "sed -n '1,260p' datapulse/console_server.py",
+        "sed -n '1,220p' docs/gui_intelligence_console_plan.md",
+        "uv run pytest tests/test_console_server.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/reader.py",
+        "datapulse/console_server.py",
+        "docs/gui_intelligence_console_plan.md",
+        "tests/test_console_server.py"
+      ],
+      "notes": [
+        "Prefer scorecard signals that reflect intelligence usefulness, not only collector uptime.",
+        "Coverage, freshness, alert yield, triage throughput, and story conversion should stay derivable from existing lifecycle objects."
+      ]
     }
   }
 }

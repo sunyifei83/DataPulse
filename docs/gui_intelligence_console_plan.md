@@ -109,7 +109,7 @@ Current implementation status:
 - `FastAPI` adapter shipped in `datapulse/console_server.py`
 - the shell markup bundle is now split into `datapulse/console_markup.py`, keeping `console_server.py` focused on FastAPI routing and Reader-backed API projections
 - browser shell shipped as a local-first single-file UI with `/api/overview`
-- current endpoints implemented: `GET /api/overview`, `GET /api/watches`, `GET /api/watches/{id}`, `GET /api/watches/{id}/results`, `POST /api/watches`, `PUT /api/watches/{id}/alert-rules`, `POST /api/watches/{id}/run`, `POST /api/watches/{id}/disable`, `POST /api/watches/run-due`, `GET /api/alerts`, `GET /api/alert-routes`, `GET /api/alert-routes/health`, `GET /api/watch-status`, `GET /api/triage`, `GET /api/triage/stats`, `GET /api/triage/{id}/explain`, `POST /api/triage/{id}/state`, `POST /api/triage/{id}/note`, `GET /api/stories`, `GET /api/stories/{id}`, `PUT /api/stories/{id}`, `GET /api/stories/{id}/graph`, `GET /api/stories/{id}/export`
+- current endpoints implemented: `GET /api/overview`, `GET /api/watches`, `GET /api/watches/{id}`, `GET /api/watches/{id}/results`, `POST /api/watches`, `PUT /api/watches/{id}/alert-rules`, `POST /api/watches/{id}/run`, `POST /api/watches/{id}/disable`, `POST /api/watches/run-due`, `GET /api/alerts`, `GET /api/alert-routes`, `GET /api/alert-routes/health`, `GET /api/watch-status`, `GET /api/ops`, `GET /api/ops/scorecard`, `GET /api/triage`, `GET /api/triage/stats`, `GET /api/triage/{id}/explain`, `POST /api/triage/{id}/state`, `POST /api/triage/{id}/note`, `GET /api/stories`, `GET /api/stories/{id}`, `PUT /api/stories/{id}`, `GET /api/stories/{id}/graph`, `GET /api/stories/{id}/export`
 - launch entry points: `datapulse-console --port 8765`, `python -m datapulse.console_server --port 8765`, `bash scripts/datapulse_console.sh --port 8765`
 - console smoke script shipped: `bash scripts/datapulse_console_smoke.sh`
 - extended browser smoke now exists as `uv run --with playwright python scripts/datapulse_console_browser_smoke.py`, with `DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh` as the convenience path
@@ -219,6 +219,7 @@ Current implementation status:
 
 - the read-only ops board now surfaces collector tier breakdown, aggregate watch success metrics, and a watch health board alongside route delivery health
 - the ops board now also includes collector drill-down and route drill-down slices so operators can see remediation hints, mission counts, rule counts, and latest route failure detail without leaving the shell
+- the Reader-backed ops surface now also exports an intelligence governance scorecard for coverage, freshness, alert yield, triage throughput, and story conversion through both `GET /api/ops` and `GET /api/ops/scorecard`
 - current parity outside the browser: `datapulse --ops-overview` and `ops_overview(...)`
 - current ops scope now also includes route delivery timeline, so recent route attempts can be inspected without leaving the shell
 

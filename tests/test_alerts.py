@@ -52,11 +52,15 @@ async def test_watch_alert_rule_triggers_and_writes_markdown(tmp_path, monkeypat
     payload = await reader.run_watch(mission["id"])
 
     assert len(payload["alert_events"]) == 1
+    assert payload["alert_events"][0]["governance"]["evidence_grade"] == "working"
+    assert payload["alert_events"][0]["governance"]["delivery_risk"]["status"] == "review_required"
     alerts = reader.list_alerts(limit=10)
     assert len(alerts) == 1
     assert alerts[0]["rule_name"] == "threshold"
+    assert alerts[0]["governance"]["provenance"]["mission_id"] == mission["id"]
     markdown = Path(tmp_path / "alerts.md").read_text(encoding="utf-8")
     assert "AI Radar | threshold" in markdown
+    assert "evidence_grade: working" in markdown
     assert "OpenAI agents result" in markdown
 
 
@@ -161,6 +165,8 @@ async def test_watch_alert_external_channels_dispatch(tmp_path, monkeypatch):
     assert "webhook" in delivered
     assert "feishu" in delivered
     assert "telegram" in delivered
+    observations = payload["alert_events"][0]["governance"]["delivery_risk"]["route_observations"]
+    assert any(row["label"] == "webhook" and row["status"] == "delivered" for row in observations)
     assert len(calls) == 3
     assert calls[0][0] == "https://hooks.example.com/datapulse"
     assert calls[1][0] == "https://open.feishu.cn/hook/abc"
@@ -270,6 +276,9 @@ async def test_watch_alert_rich_filters_and_named_routes(tmp_path, monkeypatch):
     delivered = payload["alert_events"][0]["delivered_channels"]
     assert "webhook:ops-webhook" in delivered
     assert "telegram:ops-telegram" in delivered
+    observations = payload["alert_events"][0]["governance"]["delivery_risk"]["route_observations"]
+    assert any(row["label"] == "webhook:ops-webhook" and row["status"] == "delivered" for row in observations)
+    assert any(row["label"] == "telegram:ops-telegram" and row["status"] == "delivered" for row in observations)
     assert len(calls) == 2
     assert calls[0][0] == "https://hooks.example.com/ops"
     assert calls[1][0] == "https://api.telegram.org/botbot-token/sendMessage"
@@ -350,6 +359,7 @@ async def test_alert_route_health_reports_degraded_named_route(tmp_path, monkeyp
 
     await reader.run_watch(mission["id"])
     health = reader.alert_route_health(limit=10)
+    alerts = reader.list_alerts(limit=10)
 
     assert len(health) == 1
     assert health[0]["name"] == "ops-webhook"
@@ -357,3 +367,4 @@ async def test_alert_route_health_reports_degraded_named_route(tmp_path, monkeyp
     assert health[0]["delivered_count"] == 0
     assert health[0]["failure_count"] == 1
     assert "webhook_url is required" in health[0]["last_error"]
+    assert alerts[0]["governance"]["delivery_risk"]["status"] == "degraded"

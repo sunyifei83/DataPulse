@@ -70,7 +70,8 @@
     "L4": "completed",
     "L5": "completed",
     "L6": "completed",
-    "L7": "completed"
+    "L7": "completed",
+    "L8": "completed"
   },
   "phases": [
     {
@@ -534,6 +535,154 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L8",
+      "title": "Commercial Intelligence Governance Uplift",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "L8.1",
+          "title": "Write repo-specific commercial intelligence governance blueprint",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "sed -n '1,260p' docs/commercial_intelligence_governance_blueprint.md"
+          ],
+          "artifacts": [
+            "docs/commercial_intelligence_governance_blueprint.md"
+          ],
+          "exit_condition": "The repo-specific commercial intelligence governance blueprint exists and maps source, mission, evidence, delivery, and scorecard follow-ups to DataPulse anchors.",
+          "fact_sources": [
+            "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+          ],
+          "notes": [
+            "Derived from the user-provided commercial intelligence collection and governance note."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T12:49:57Z",
+            "source_count": 1
+          }
+        },
+        {
+          "id": "L8.2",
+          "title": "Define source governance contract for public-source intelligence intake",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/core/models.py datapulse/core/source_catalog.py",
+            "pytest tests/test_source_catalog.py -q",
+            "sed -n '1,260p' docs/intelligence_source_governance_contract.md"
+          ],
+          "artifacts": [
+            "docs/intelligence_source_governance_contract.md",
+            "datapulse/core/source_catalog.py",
+            "datapulse/core/models.py",
+            "docs/search_gateway_config.md"
+          ],
+          "exit_condition": "A source-governance contract defines source class, collection mode, authority, sensitivity, and compliance hints and maps them to SourceCatalog and search gateway surfaces.",
+          "fact_sources": [
+            "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+          ],
+          "notes": [
+            "Derived from the repo-adapted commercial intelligence governance blueprint."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T12:50:10Z",
+            "source_count": 1
+          }
+        },
+        {
+          "id": "L8.3",
+          "title": "Project demand-intent fields into WatchMission and mission surfaces",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "uv run pytest tests/test_watchlist.py tests/test_cli.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/watchlist.py",
+            "datapulse/reader.py",
+            "tests/test_watchlist.py",
+            "tests/test_cli.py"
+          ],
+          "exit_condition": "WatchMission and mission-facing surfaces can carry analyst demand intent, scope, and freshness expectations without forking lifecycle semantics.",
+          "fact_sources": [
+            "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+          ],
+          "notes": [
+            "Derived from the repo-adapted commercial intelligence governance blueprint."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T12:50:27Z",
+            "source_count": 1
+          }
+        },
+        {
+          "id": "L8.4",
+          "title": "Carry evidence-grade and delivery-risk governance through triage, story, and alert outputs",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "uv run pytest tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/triage.py",
+            "datapulse/core/story.py",
+            "datapulse/core/alerts.py",
+            "tests/test_triage.py",
+            "tests/test_story.py",
+            "tests/test_alerts.py"
+          ],
+          "exit_condition": "Triage, story, and alert outputs share explicit evidence-grade, provenance, and delivery-risk governance semantics.",
+          "fact_sources": [
+            "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+          ],
+          "notes": [
+            "Derived from the repo-adapted commercial intelligence governance blueprint."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T12:50:50Z",
+            "source_count": 1
+          }
+        },
+        {
+          "id": "L8.5",
+          "title": "Expose intelligence governance scorecard signals in reader and console ops surfaces",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "uv run pytest tests/test_console_server.py -q"
+          ],
+          "artifacts": [
+            "datapulse/reader.py",
+            "datapulse/console_server.py",
+            "docs/gui_intelligence_console_plan.md",
+            "tests/test_console_server.py"
+          ],
+          "exit_condition": "Reader and console ops surfaces expose scorecard signals for coverage, freshness, alert yield, triage throughput, and story conversion.",
+          "fact_sources": [
+            "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+          ],
+          "notes": [
+            "Derived from the repo-adapted commercial intelligence governance blueprint."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T12:50:59Z",
+            "source_count": 1
+          }
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
@@ -541,5 +690,5 @@
     "title": "No open slice",
     "reason": "All current slices are completed in this working copy."
   },
-  "last_updated_utc": "2026-03-08T00:00:00Z"
+  "last_updated_utc": "2026-03-08T13:45:45Z"
 }

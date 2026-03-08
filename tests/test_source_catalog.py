@@ -108,6 +108,8 @@ class TestSourceRecord:
         rec = SourceRecord.from_dict({"name": "X", "source_type": "generic"})
         assert rec.tier == 2
         assert rec.authority_weight == 0.5
+        assert rec.governance.collection_mode.value == "public_web"
+        assert "no_automated_legal_determination" in rec.governance.compliance_hints
 
     def test_from_dict_with_tier(self):
         raw = {
@@ -231,16 +233,19 @@ class TestSourceCatalog:
         catalog = SourceCatalog(str(tmp_catalog))
         result = catalog.resolve_source("https://x.com/techuser/status/123")
         assert result.get("source_type") == "twitter"
+        assert result.get("governance", {}).get("collection_mode") == "public_web"
 
     def test_resolve_source_unknown(self, tmp_catalog: Path):
         catalog = SourceCatalog(str(tmp_catalog))
         result = catalog.resolve_source("https://unknown-site.com/page")
         assert "source_type" in result
+        assert result.get("governance", {}).get("authority") == "secondary"
 
     def test_register_auto_source(self, tmp_catalog: Path):
         catalog = SourceCatalog(str(tmp_catalog))
         rec = catalog.register_auto_source("New Source", "generic", "https://new.com")
         assert rec.id in catalog.sources
+        assert rec.governance.collection_mode.value == "public_web"
         # Second call returns same record
         rec2 = catalog.register_auto_source("New Source", "generic", "https://new.com")
         assert rec2.id == rec.id
@@ -322,6 +327,7 @@ class TestSourceCatalog:
         result = catalog.resolve_source("https://github.com/OpenLineage/OpenLineage")
         assert result.get("source_id") == "builtin_github"
         assert result.get("source_type") == "github"
+        assert result.get("governance", {}).get("authority") == "primary"
 
     def test_bootstrap_defaults_do_not_filter_without_subscriptions(self, tmp_path: Path, monkeypatch):
         monkeypatch.chdir(tmp_path)

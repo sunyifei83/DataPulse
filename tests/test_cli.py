@@ -48,6 +48,16 @@ class _WatchReader:
             "id": "ai-radar",
             "name": kwargs["name"],
             "query": kwargs["query"],
+            "mission_intent": kwargs.get("mission_intent", {}) or {},
+            "intent_summary": {
+                "has_intent": True,
+                "demand_intent": "Track AI launches that could change competitive posture.",
+                "key_questions": ["What changed?"],
+                "scope": "entities=OpenAI | topics=agents",
+                "freshness": "same day review | max_age<=24h",
+                "coverage": "official blog, developer reaction",
+                "coverage_target_count": 2,
+            },
             "platforms": kwargs.get("platforms", []) or [],
             "sites": kwargs.get("sites", []) or [],
             "top_n": kwargs.get("top_n", 5),
@@ -71,6 +81,15 @@ class _WatchReader:
                 "id": "ai-radar",
                 "name": "AI Radar",
                 "query": "OpenAI agents",
+                "intent_summary": {
+                    "has_intent": True,
+                    "demand_intent": "Track AI launches that could change competitive posture.",
+                    "key_questions": ["What changed?"],
+                    "scope": "entities=OpenAI | topics=agents",
+                    "freshness": "same day review | max_age<=24h",
+                    "coverage": "official blog, developer reaction",
+                    "coverage_target_count": 2,
+                },
                 "platforms": ["twitter"],
                 "sites": ["openai.com"],
                 "top_n": 5,
@@ -108,6 +127,26 @@ class _WatchReader:
             "id": "ai-radar",
             "name": "AI Radar",
             "query": "OpenAI agents",
+            "mission_intent": {
+                "demand_intent": "Track AI launches that could change competitive posture.",
+                "key_questions": ["What changed?", "How fast should we react?"],
+                "scope_entities": ["OpenAI"],
+                "scope_topics": ["agents"],
+                "scope_regions": ["US"],
+                "scope_window": "last 7 days",
+                "freshness_expectation": "same day review",
+                "freshness_max_age_hours": 24,
+                "coverage_targets": ["official blog", "developer reaction"],
+            },
+            "intent_summary": {
+                "has_intent": True,
+                "demand_intent": "Track AI launches that could change competitive posture.",
+                "key_questions": ["What changed?", "How fast should we react?"],
+                "scope": "entities=OpenAI | topics=agents | regions=US | window=last 7 days",
+                "freshness": "same day review | max_age<=24h",
+                "coverage": "official blog, developer reaction",
+                "coverage_target_count": 2,
+            },
             "enabled": True,
             "schedule": "@hourly",
             "schedule_label": "hourly",
@@ -760,6 +799,8 @@ def test_watch_list_prints_rows(monkeypatch, capsys):
     assert "Watch missions: 2" in out
     assert "ai-radar: AI Radar | enabled" in out
     assert "schedule=hourly | due=yes | alerts=1" in out
+    assert "intent: Track AI launches that could change competitive posture." in out
+    assert "freshness: same day review | max_age<=24h" in out
     assert "old-watch: Old Watch | disabled" in out
 
 
@@ -797,6 +838,11 @@ def test_watch_show_prints_cockpit_detail(monkeypatch, capsys):
 
     assert "id: ai-radar" in out
     assert "next_run_at: 2026-03-06T01:00:00+00:00" in out
+    assert "mission_intent:" in out
+    assert "demand_intent: Track AI launches that could change competitive posture." in out
+    assert "scope_entities: OpenAI" in out
+    assert "freshness: same day review | max_age<=24h" in out
+    assert "coverage_targets: official blog, developer reaction" in out
     assert "run_total: 2" in out
     assert "recent_runs:" in out
     assert "temporary upstream failure" in out

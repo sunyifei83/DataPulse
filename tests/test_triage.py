@@ -77,6 +77,9 @@ def test_triage_update_persists_note_and_duplicate_of(tmp_path):
     assert payload is not None
     assert payload["review_state"] == "duplicate"
     assert payload["duplicate_of"] == "item-2"
+    assert payload["governance"]["evidence_grade"] == "discarded"
+    assert payload["governance"]["provenance"]["duplicate_of"] == "item-2"
+    assert payload["governance"]["delivery_risk"]["status"] == "suppressed"
     stored = next(item for item in reloaded.inbox.items if item.id == "item-1")
     assert stored.review_state == "duplicate"
     assert stored.review_notes[0]["note"] == "same story as canonical"
@@ -95,6 +98,8 @@ def test_triage_list_defaults_to_open_states(tmp_path):
     payload = reader.triage_list(limit=10)
 
     assert [item["id"] for item in payload] == ["item-1"]
+    assert payload[0]["governance"]["evidence_grade"] == "working"
+    assert payload[0]["governance"]["provenance"]["item_id"] == "item-1"
 
 
 def test_triage_stats_counts_states(tmp_path):
@@ -112,6 +117,8 @@ def test_triage_stats_counts_states(tmp_path):
     assert payload["total"] == 3
     assert payload["open_count"] == 2
     assert payload["states"]["verified"] == 1
+    assert payload["evidence_grade_counts"]["verified"] == 1
+    assert payload["delivery_risk_counts"]["high"] >= 1
 
 
 def test_triage_explain_duplicate_ranks_candidate(tmp_path):
@@ -128,6 +135,8 @@ def test_triage_explain_duplicate_ranks_candidate(tmp_path):
 
     assert payload is not None
     assert payload["item"]["id"] == "item-1"
+    assert payload["item"]["governance"]["provenance"]["item_id"] == "item-1"
     assert payload["candidate_count"] >= 1
     assert payload["candidates"][0]["id"] == "item-2"
     assert "same_domain" in payload["candidates"][0]["signals"]
+    assert payload["candidates"][0]["governance"]["provenance"]["source_name"] == "source"

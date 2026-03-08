@@ -27,6 +27,21 @@ def _dedup_lower(values: list[str]) -> list[str]:
     return out
 
 
+def _dedup_text(values: list[Any]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        value = str(raw or "").strip()
+        if not value:
+            continue
+        key = value.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(value)
+    return out
+
+
 @dataclass
 class MissionRun:
     mission_id: str
@@ -63,9 +78,60 @@ class MissionRun:
 
 
 @dataclass
+class MissionIntent:
+    demand_intent: str = ""
+    key_questions: list[str] = field(default_factory=list)
+    scope_entities: list[str] = field(default_factory=list)
+    scope_topics: list[str] = field(default_factory=list)
+    scope_regions: list[str] = field(default_factory=list)
+    scope_window: str = ""
+    freshness_expectation: str = ""
+    freshness_max_age_hours: int = 0
+    coverage_targets: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.demand_intent = str(self.demand_intent or "").strip()
+        self.key_questions = _dedup_text(self.key_questions)
+        self.scope_entities = _dedup_text(self.scope_entities)
+        self.scope_topics = _dedup_text(self.scope_topics)
+        self.scope_regions = _dedup_text(self.scope_regions)
+        self.scope_window = str(self.scope_window or "").strip()
+        self.freshness_expectation = str(self.freshness_expectation or "").strip()
+        try:
+            self.freshness_max_age_hours = max(0, int(self.freshness_max_age_hours))
+        except Exception:
+            self.freshness_max_age_hours = 0
+        self.coverage_targets = _dedup_text(self.coverage_targets)
+
+    def has_content(self) -> bool:
+        return any(
+            (
+                self.demand_intent,
+                self.key_questions,
+                self.scope_entities,
+                self.scope_topics,
+                self.scope_regions,
+                self.scope_window,
+                self.freshness_expectation,
+                self.freshness_max_age_hours > 0,
+                self.coverage_targets,
+            )
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "MissionIntent":
+        valid = {f.name for f in cls.__dataclass_fields__.values()}
+        return cls(**{k: v for k, v in data.items() if k in valid})
+
+
+@dataclass
 class WatchMission:
     name: str
     query: str
+    mission_intent: MissionIntent = field(default_factory=MissionIntent)
     platforms: list[str] = field(default_factory=list)
     sites: list[str] = field(default_factory=list)
     schedule: str = "manual"
@@ -96,6 +162,13 @@ class WatchMission:
             self.created_at = now
         if not self.updated_at:
             self.updated_at = self.created_at
+        if isinstance(self.mission_intent, MissionIntent):
+            normalized_intent = self.mission_intent
+        elif isinstance(self.mission_intent, dict):
+            normalized_intent = MissionIntent.from_dict(self.mission_intent)
+        else:
+            normalized_intent = MissionIntent()
+        self.mission_intent = normalized_intent
         self.platforms = _dedup_lower(self.platforms)
         self.sites = _dedup_lower(self.sites)
         self.schedule = str(self.schedule or "manual").strip().lower() or "manual"
@@ -132,6 +205,11 @@ class WatchMission:
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["runs"] = [run.to_dict() for run in self.runs]
+        payload["mission_intent"] = (
+            self.mission_intent.to_dict()
+            if self.mission_intent.has_content()
+            else {}
+        )
         return payload
 
     @classmethod
@@ -218,6 +296,7 @@ class WatchlistStore:
         *,
         name: str,
         query: str,
+        mission_intent: dict[str, Any] | MissionIntent | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
         schedule: str = "manual",
@@ -229,6 +308,7 @@ class WatchlistStore:
         mission = WatchMission(
             name=name,
             query=query,
+            mission_intent=mission_intent or MissionIntent(),
             platforms=list(platforms or []),
             sites=list(sites or []),
             schedule=schedule,

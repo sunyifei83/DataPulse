@@ -76,7 +76,7 @@ def fallback_candidate_commands(slice_payload: dict[str, Any]) -> list[str]:
     return dedupe(generated)
 
 
-def fallback_notes(slice_payload: dict[str, Any], next_slice: dict[str, Any]) -> list[str]:
+def fallback_notes(slice_payload: dict[str, Any], next_slice: dict[str, Any], *, catalog_entry_exists: bool) -> list[str]:
     notes: list[str] = []
     exit_condition = _to_text(slice_payload.get("exit_condition"))
     if exit_condition:
@@ -97,7 +97,8 @@ def fallback_notes(slice_payload: dict[str, Any], next_slice: dict[str, Any]) ->
     fact_sources = [_to_text(item) for item in slice_payload.get("fact_sources", []) if _to_text(item)]
     for item in fact_sources[:3]:
         notes.append(f"fact_source: {item}")
-    notes.append("No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice.")
+    if not catalog_entry_exists:
+        notes.append("No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice.")
     return dedupe(notes)
 
 
@@ -146,7 +147,7 @@ def build_datapulse_slice_execution_brief(
             _to_text(item)
             for item in [
                 *catalog_entry.get("notes", []),
-                *fallback_notes(plan_slice, next_slice),
+                *fallback_notes(plan_slice, next_slice, catalog_entry_exists=bool(catalog_entry)),
             ]
             if _to_text(item)
         ]

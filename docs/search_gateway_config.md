@@ -41,6 +41,24 @@
   - 模板文件保留占位符（如 `.env.openclaw.example`），不承载任何明文凭据。
   - 敏感变量优先从运行时上下文注入，避免把同一份凭据写到本地与应用文件。
 
+## 来源治理映射
+
+搜索网关属于“provider 侧治理面”，不是底层网页或 API 事实本身的最终分类面。与 [intelligence_source_governance_contract.md](/Users/sunyifei/DataPulse/docs/intelligence_source_governance_contract.md) 对齐时，应采用以下约束：
+
+| 网关层字段 | 合同取值 | 说明 |
+| --- | --- | --- |
+| `source_class` | `aggregator` | `jina`、`tavily` 这类 provider 是发现中介，不是底层内容权威本身 |
+| `collection_mode` | `search_gateway` | 通过统一搜索 provider 执行发现、fallback 与聚合 |
+| `authority` | `secondary` | provider 返回的是候选线索，不自动等于高权威证据 |
+| `sensitivity` | `review_required` | 搜索结果需要后续归因、核验与人工判断 |
+| `compliance_hints` | `search_results_require_verification`、`respect_source_terms`、`operator_review_required`、`no_automated_legal_determination` | 仅提供治理提醒，不做自动法律裁决 |
+
+落地规则：
+
+- `SearchGateway` 负责 provider 选择、重试、熔断和审计元数据，不负责替底层 URL 做最终合规判定。
+- provider 返回的 URL 仍应进入 `SourceCatalog.resolve_source()` 或人工审阅，再落到 `public_web` / `api` / `manual_fact` 等最终来源语义。
+- 搜索审计字段（如 `provider_chain`、`attempts`、`cross_validation`）属于发现 provenance，不代表“已验证”或“已获合规批准”。
+
 ## 验收命令
 - `python3 -m datapulse.mcp_server --help`
 - `python3 -m datapulse.mcp_server --list-tools`

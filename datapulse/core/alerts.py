@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 import requests
 
 from .models import DataPulseItem
+from .triage import build_item_governance, evidence_grade_priority, serialize_item_with_governance
 from .utils import alert_routing_path_from_env, alerts_markdown_path_from_env, alerts_path_from_env
 from .watchlist import WatchMission
 
@@ -47,6 +48,7 @@ class AlertEvent:
     delivered_channels: list[str] = field(default_factory=list)
     id: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
+    governance: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.created_at:
@@ -57,6 +59,7 @@ class AlertEvent:
         if not self.id:
             seed = f"{self.mission_id}:{self.rule_name}:{self.created_at}:{','.join(self.item_ids[:3])}"
             self.id = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:12]
+        self.governance = dict(self.governance or {})
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -209,25 +212,43 @@ class AlertRouteStore:
 def append_alert_markdown(event: AlertEvent, items: list[DataPulseItem], *, path: str | None = None) -> str:
     target = Path(path or alerts_markdown_path_from_env()).expanduser()
     target.parent.mkdir(parents=True, exist_ok=True)
+    governance = event.governance if isinstance(event.governance, dict) else {}
+    delivery_risk = governance.get("delivery_risk", {}) if isinstance(governance.get("delivery_risk"), dict) else {}
     with target.open("a", encoding="utf-8") as handle:
         handle.write(f"\n## {event.mission_name} | {event.rule_name}\n")
         handle.write(f"- created_at: {event.created_at}\n")
         handle.write(f"- mission_id: {event.mission_id}\n")
         handle.write(f"- alert_id: {event.id}\n")
         handle.write(f"- summary: {event.summary}\n")
+        handle.write(f"- evidence_grade: {governance.get('evidence_grade', 'working')}\n")
+        handle.write(f"- delivery_status: {delivery_risk.get('status', 'recorded')}\n")
+        handle.write(f"- delivery_risk: {delivery_risk.get('level', 'medium')}\n")
+        for reason in delivery_risk.get("reasons", []) if isinstance(delivery_risk.get("reasons"), list) else []:
+            handle.write(f"- delivery_note: {reason}\n")
         for item in items[:5]:
-            handle.write(f"- [{item.title}]({item.url}) | score={item.score} confidence={item.confidence:.3f}\n")
+            item_governance = build_item_governance(item)
+            handle.write(
+                f"- [{item.title}]({item.url}) | score={item.score} confidence={item.confidence:.3f} "
+                f"grade={item_governance.get('evidence_grade', 'working')}\n"
+            )
         handle.write("\n---\n")
     return str(target)
 
 
 def _alert_text(event: AlertEvent, items: list[DataPulseItem]) -> str:
+    governance = event.governance if isinstance(event.governance, dict) else {}
+    delivery_risk = governance.get("delivery_risk", {}) if isinstance(governance.get("delivery_risk"), dict) else {}
     lines = [
         f"[DataPulse] {event.mission_name} / {event.rule_name}",
         event.summary,
+        f"evidence_grade={governance.get('evidence_grade', 'working')} delivery={delivery_risk.get('status', 'recorded')}/{delivery_risk.get('level', 'medium')}",
     ]
     for item in items[:5]:
-        lines.append(f"- {item.title} | score={item.score} confidence={item.confidence:.3f} | {item.url}")
+        item_governance = build_item_governance(item)
+        lines.append(
+            f"- {item.title} | score={item.score} confidence={item.confidence:.3f} "
+            f"| grade={item_governance.get('evidence_grade', 'working')} | {item.url}"
+        )
     return "\n".join(lines)
 
 
@@ -289,6 +310,173 @@ def _normalize_route_names(rule: dict[str, Any]) -> list[str]:
     return _normalize_string_list(rule.get("route"))
 
 
+def _max_risk_level(left: str, right: str) -> str:
+    priority = {"none": 0, "low": 1, "medium": 2, "high": 3}
+    return left if priority.get(left, 0) >= priority.get(right, 0) else right
+
+
+def _aggregate_alert_evidence_grade(governances: list[dict[str, Any]]) -> str:
+    if not governances:
+        return "working"
+    ranks = [evidence_grade_priority(row.get("evidence_grade")) for row in governances]
+    if ranks and min(ranks) >= evidence_grade_priority("verified"):
+        return "verified"
+    if ranks and min(ranks) >= evidence_grade_priority("reviewed"):
+        return "reviewed"
+    return "working"
+
+
+def _build_route_observations(
+    rule: dict[str, Any],
+    *,
+    delivered_channels: list[str] | None = None,
+    delivery_errors: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    delivered = {str(label or "").strip().lower() for label in delivered_channels or [] if str(label or "").strip()}
+    errors = delivery_errors if isinstance(delivery_errors, dict) else {}
+    observations: list[dict[str, Any]] = [
+        {
+            "kind": "record",
+            "label": "json",
+            "channel": "json",
+            "route_name": "",
+            "status": "recorded",
+            "error": "",
+        }
+    ]
+
+    for channel in _normalize_rule_channels(rule):
+        if channel == "json":
+            continue
+        error_message = str(errors.get(channel, "") or "").strip()
+        if channel in delivered:
+            status = "delivered"
+        elif error_message:
+            status = "failed"
+        else:
+            status = "pending"
+        observations.append(
+            {
+                "kind": "direct_channel",
+                "label": channel,
+                "channel": channel,
+                "route_name": "",
+                "status": status,
+                "error": error_message,
+            }
+        )
+
+    routing = AlertRouteStore()
+    for route_name in _normalize_route_names(rule):
+        route = routing.get(route_name)
+        channel = str(route.get("channel", "")).strip().lower() if isinstance(route, dict) else ""
+        label = f"{channel}:{route_name}" if channel else f"route:{route_name}"
+        error_message = str(errors.get(label) or errors.get(f"route:{route_name}") or "").strip()
+        if route is None:
+            status = "missing"
+        elif label in delivered:
+            status = "delivered"
+        elif error_message:
+            status = "failed"
+        else:
+            status = "pending"
+        observations.append(
+            {
+                "kind": "named_route",
+                "label": label,
+                "channel": channel or "unknown",
+                "route_name": route_name,
+                "status": status,
+                "error": error_message,
+            }
+        )
+    return observations
+
+
+def _build_alert_governance(
+    event: AlertEvent,
+    items: list[DataPulseItem],
+    *,
+    delivered_channels: list[str] | None = None,
+    delivery_errors: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    rule = event.extra.get("rule", {}) if isinstance(event.extra, dict) else {}
+    if not isinstance(rule, dict):
+        rule = {}
+    item_governances = [build_item_governance(item) for item in items]
+    aggregated = item_governances[:3] or item_governances
+    evidence_grade = _aggregate_alert_evidence_grade(aggregated)
+    evidence_score = round(
+        sum(float(row.get("evidence_score", 0.0) or 0.0) for row in aggregated) / max(1, len(aggregated)),
+        4,
+    )
+    route_observations = _build_route_observations(
+        rule,
+        delivered_channels=delivered_channels or event.delivered_channels,
+        delivery_errors=delivery_errors,
+    )
+
+    delivery_status = "recorded"
+    delivery_level = "low"
+    delivery_reasons: list[str] = []
+    push_observations = [row for row in route_observations if row.get("kind") != "record"]
+
+    if evidence_grade != "verified":
+        delivery_status = "review_required"
+        delivery_level = "medium"
+        delivery_reasons.append("Alert is backed by evidence that is still actionable but not fully verified.")
+    if any(row.get("status") in {"failed", "missing"} for row in push_observations):
+        delivery_status = "degraded"
+        delivery_level = "high"
+        delivery_reasons.append("One or more delivery targets failed or are missing route configuration.")
+    elif any(row.get("status") == "pending" for row in push_observations):
+        delivery_status = "review_required"
+        delivery_level = _max_risk_level(delivery_level, "medium")
+        delivery_reasons.append("Some delivery targets are configured but not yet observed as delivered.")
+    elif push_observations and evidence_grade == "verified":
+        delivery_status = "delivered"
+
+    provenance_chain: list[dict[str, Any]] = []
+    for item, governance in zip(items, item_governances):
+        provenance = governance.get("provenance", {}) if isinstance(governance.get("provenance"), dict) else {}
+        provenance_chain.append(
+            {
+                "item_id": provenance.get("item_id", item.id),
+                "source_name": provenance.get("source_name", item.source_name),
+                "source_type": provenance.get("source_type", item.source_type.value),
+                "review_state": governance.get("review_state", "new"),
+                "evidence_grade": governance.get("evidence_grade", "working"),
+                "url": provenance.get("url", item.url),
+            }
+        )
+
+    return {
+        "subject": "alert",
+        "evidence_grade": evidence_grade,
+        "evidence_score": evidence_score,
+        "provenance": {
+            "kind": "alert",
+            "alert_id": event.id,
+            "mission_id": event.mission_id,
+            "mission_name": event.mission_name,
+            "rule_name": event.rule_name,
+            "item_ids": list(event.item_ids),
+            "source_names": sorted({item.source_name for item in items}),
+            "route_names": _normalize_route_names(rule),
+            "channels": list(event.channels),
+            "evidence_chain": provenance_chain,
+            "created_at": event.created_at,
+        },
+        "delivery_risk": {
+            "surface": "alert_delivery",
+            "status": delivery_status,
+            "level": delivery_level,
+            "reasons": delivery_reasons,
+            "route_observations": route_observations,
+        },
+    }
+
+
 def _resolve_delivery_targets(rule: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, str]]:
     targets: list[dict[str, Any]] = []
     errors: dict[str, str] = {}
@@ -338,6 +526,8 @@ def dispatch_alert_event(
 ) -> tuple[list[str], dict[str, str]]:
     rule = event.extra.get("rule", {}) if isinstance(event.extra, dict) else {}
     targets, errors = _resolve_delivery_targets(rule)
+    if not event.governance:
+        event.governance = _build_alert_governance(event, items, delivery_errors=errors)
     delivered = ["json"]
     text = _alert_text(event, items)
     timeout = float(rule.get("timeout_seconds", 10.0) or 10.0)
@@ -359,7 +549,7 @@ def dispatch_alert_event(
                     url,
                     {
                         "alert": event.to_dict(),
-                        "items": [item.to_dict() for item in items[:10]],
+                        "items": [serialize_item_with_governance(item) for item in items[:10]],
                     },
                     timeout=float(config.get("timeout_seconds", timeout) or timeout),
                     headers=config.get("headers") if isinstance(config.get("headers"), dict) else None,
@@ -389,6 +579,12 @@ def dispatch_alert_event(
             errors[label or channel] = str(exc)
             continue
         delivered.append(label or channel)
+    event.governance = _build_alert_governance(
+        event,
+        items,
+        delivered_channels=delivered,
+        delivery_errors=errors,
+    )
     return delivered, errors
 
 
@@ -547,6 +743,7 @@ def evaluate_watch_alerts(
                 "top_item_title": matches[0].title if matches else "",
             },
         )
+        event.governance = _build_alert_governance(event, matches)
         cooldown_seconds = int(raw_rule.get("cooldown_seconds", 0) or 0)
         events.append((event, matches, cooldown_seconds))
     return events

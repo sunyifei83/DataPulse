@@ -1,0 +1,59 @@
+{
+  "schema_version": "datapulse_slice_execution_brief.v1",
+  "project": "DataPulse",
+  "status": "ready",
+  "reason": "awaiting_manual_slice_execution",
+  "current_level": "manual_only",
+  "next_slice": {
+    "id": "L8.5",
+    "title": "Expose intelligence governance scorecard signals in reader and console ops surfaces",
+    "category": "manual",
+    "phase_id": "L8",
+    "execution_profile": "local_wrapper",
+    "promotion_scope": "none",
+    "closes_gates": []
+  },
+  "slice_execution_brief": {
+    "slice_id": "L8.5",
+    "phase_id": "L8",
+    "title": "Expose intelligence governance scorecard signals in reader and console ops surfaces",
+    "category": "manual",
+    "execution_profile": "local_wrapper",
+    "adapter_type": "governance_scorecard",
+    "execute_mode": "manual_implementation",
+    "summary": "Expose intelligence governance scorecard signals in reader and console ops surfaces.",
+    "candidate_commands": [
+      "sed -n '1,260p' docs/commercial_intelligence_governance_blueprint.md",
+      "sed -n '1,260p' datapulse/reader.py",
+      "sed -n '1,260p' datapulse/console_server.py",
+      "sed -n '1,220p' docs/gui_intelligence_console_plan.md",
+      "uv run pytest tests/test_console_server.py -q"
+    ],
+    "verification_commands": [
+      "uv run pytest tests/test_console_server.py -q"
+    ],
+    "target_artifacts": [
+      "datapulse/reader.py",
+      "datapulse/console_server.py",
+      "docs/gui_intelligence_console_plan.md",
+      "tests/test_console_server.py"
+    ],
+    "exit_condition": "Reader and console ops surfaces expose scorecard signals for coverage, freshness, alert yield, triage throughput, and story conversion.",
+    "notes": [
+      "Prefer scorecard signals that reflect intelligence usefulness, not only collector uptime.",
+      "Coverage, freshness, alert yield, triage throughput, and story conversion should stay derivable from existing lifecycle objects.",
+      "exit_condition: Reader and console ops surfaces expose scorecard signals for coverage, freshness, alert yield, triage throughput, and story conversion.",
+      "promotion_scope: none",
+      "fact_source: conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+    ],
+    "source": {
+      "catalog_entry": true,
+      "plan_slice": true
+    }
+  },
+  "blocking_facts": [],
+  "remaining_promotion_gates": [
+    "workspace_dirty",
+    "repo_landed_false"
+  ]
+}

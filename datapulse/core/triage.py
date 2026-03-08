@@ -37,10 +37,47 @@ REVIEW_STATE_SCORES = {
     "ignored": -1.0,
     "escalated": 0.6,
 }
+EVIDENCE_GRADE_PRIORITY = {
+    "discarded": 0,
+    "working": 1,
+    "reviewed": 2,
+    "verified": 3,
+}
+DELIVERY_RISK_PRIORITY = {
+    "none": 0,
+    "low": 1,
+    "medium": 2,
+    "high": 3,
+}
 
 
 def _utcnow() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _normalize_string_list(values: Any) -> list[str]:
+    if values is None:
+        return []
+    if isinstance(values, str):
+        values = [values]
+    if not isinstance(values, list):
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        value = str(raw or "").strip()
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        normalized.append(value)
+    return normalized
+
+
+def _clamp_confidence(value: Any) -> float:
+    try:
+        return max(0.0, min(1.0, float(value)))
+    except Exception:
+        return 0.0
 
 
 def normalize_review_state(value: str | None, *, processed: bool = False) -> str:
@@ -60,6 +97,20 @@ def review_state_priority(state: str | None) -> int:
 def review_state_score(state: str | None) -> float:
     normalized = normalize_review_state(state)
     return REVIEW_STATE_SCORES.get(normalized, 0.0)
+
+
+def evidence_grade_priority(value: str | None) -> int:
+    normalized = str(value or "").strip().lower()
+    return EVIDENCE_GRADE_PRIORITY.get(normalized, EVIDENCE_GRADE_PRIORITY["working"])
+
+
+def delivery_risk_priority(value: str | None) -> int:
+    normalized = str(value or "").strip().lower()
+    return DELIVERY_RISK_PRIORITY.get(normalized, DELIVERY_RISK_PRIORITY["medium"])
+
+
+def _max_delivery_risk_level(left: str, right: str) -> str:
+    return left if delivery_risk_priority(left) >= delivery_risk_priority(right) else right
 
 
 def is_open_review_state(state: str | None) -> bool:
@@ -105,6 +156,101 @@ def build_review_action(
         payload["note"] = note.strip()
     if duplicate_of:
         payload["duplicate_of"] = duplicate_of.strip()
+    return payload
+
+
+def build_item_provenance(item: "DataPulseItem") -> dict[str, Any]:
+    search_sources = _normalize_string_list(item.extra.get("search_sources"))
+    source_refs = _normalize_string_list([item.source_name, *search_sources])
+    return {
+        "kind": "item",
+        "item_id": item.id,
+        "url": item.url,
+        "source_name": item.source_name,
+        "source_type": item.source_type.value,
+        "fetched_at": item.fetched_at,
+        "review_state": normalize_review_state(item.review_state, processed=item.processed),
+        "duplicate_of": item.duplicate_of or "",
+        "watch_mission_id": str(item.extra.get("watch_mission_id", "") or "").strip(),
+        "watch_mission_name": str(item.extra.get("watch_mission_name", "") or "").strip(),
+        "search_query": str(item.extra.get("search_query", "") or "").strip(),
+        "search_provider": str(item.extra.get("search_provider", "") or "").strip(),
+        "source_refs": source_refs,
+        "review_note_count": len(item.review_notes),
+        "review_action_count": len(item.review_actions),
+    }
+
+
+def build_item_governance(item: "DataPulseItem") -> dict[str, Any]:
+    review_state = normalize_review_state(item.review_state, processed=item.processed)
+    confidence = _clamp_confidence(item.confidence)
+    review_signal = {
+        "new": 0.2,
+        "triaged": 0.55,
+        "verified": 1.0,
+        "duplicate": 0.0,
+        "ignored": 0.0,
+        "escalated": 0.7,
+    }.get(review_state, 0.2)
+    evidence_score = round((confidence * 0.6) + (review_signal * 0.4), 4)
+
+    if review_state in {"duplicate", "ignored"}:
+        evidence_grade = "discarded"
+        evidence_score = 0.0
+    elif review_state == "verified":
+        evidence_grade = "verified"
+        evidence_score = max(evidence_score, 0.9)
+    elif review_state in {"triaged", "escalated"} and confidence >= 0.4:
+        evidence_grade = "reviewed"
+    else:
+        evidence_grade = "working"
+
+    delivery_status = "ready"
+    delivery_level = "low"
+    delivery_reasons: list[str] = []
+
+    if review_state in {"duplicate", "ignored"}:
+        delivery_status = "suppressed"
+        delivery_level = "high"
+        delivery_reasons.append("Item is excluded from downstream evidence because review_state is terminal.")
+    elif review_state == "new":
+        delivery_status = "review_required"
+        delivery_level = "high"
+        delivery_reasons.append("Item has not been triaged yet.")
+    else:
+        if evidence_grade != "verified":
+            delivery_status = "review_required"
+            delivery_level = "medium"
+            delivery_reasons.append("Item remains actionable evidence, but it is not yet fully verified.")
+        if confidence < 0.55:
+            delivery_status = "review_required"
+            delivery_level = _max_delivery_risk_level(delivery_level, "high")
+            delivery_reasons.append("Item confidence is below the default delivery comfort threshold (0.55).")
+        if review_state == "escalated":
+            delivery_status = "review_required"
+            delivery_level = _max_delivery_risk_level(delivery_level, "medium")
+            delivery_reasons.append("Escalated review state still requires analyst confirmation before broad delivery.")
+
+    return {
+        "subject": "item",
+        "evidence_grade": evidence_grade,
+        "evidence_score": evidence_score,
+        "review_state": review_state,
+        "confidence": confidence,
+        "provenance": build_item_provenance(item),
+        "delivery_risk": {
+            "surface": "pre_delivery",
+            "status": delivery_status,
+            "level": delivery_level,
+            "reasons": delivery_reasons,
+            "route_observations": [],
+        },
+    }
+
+
+def serialize_item_with_governance(item: "DataPulseItem") -> dict[str, Any]:
+    payload = item.to_dict()
+    payload["governance"] = build_item_governance(item)
     return payload
 
 
@@ -247,6 +393,19 @@ class TriageQueue:
         open_count = sum(count for state, count in counts.items() if state in OPEN_REVIEW_STATES)
         closed_count = sum(count for state, count in counts.items() if state in TERMINAL_REVIEW_STATES)
         note_count = sum(len(item.review_notes) for item in filtered)
+        evidence_grade_counts = {grade: 0 for grade in EVIDENCE_GRADE_PRIORITY}
+        delivery_risk_counts = {level: 0 for level in DELIVERY_RISK_PRIORITY}
+        for item in filtered:
+            governance = build_item_governance(item)
+            evidence_grade = str(governance.get("evidence_grade", "working")).strip().lower() or "working"
+            delivery_risk = governance.get("delivery_risk", {})
+            delivery_level = (
+                str(delivery_risk.get("level", "medium")).strip().lower()
+                if isinstance(delivery_risk, dict)
+                else "medium"
+            )
+            evidence_grade_counts[evidence_grade] = evidence_grade_counts.get(evidence_grade, 0) + 1
+            delivery_risk_counts[delivery_level] = delivery_risk_counts.get(delivery_level, 0) + 1
         return {
             "total": len(filtered),
             "open_count": open_count,
@@ -254,6 +413,8 @@ class TriageQueue:
             "states": counts,
             "note_count": note_count,
             "processed_count": sum(1 for item in filtered if item.processed),
+            "evidence_grade_counts": evidence_grade_counts,
+            "delivery_risk_counts": delivery_risk_counts,
         }
 
     def explain_duplicate(self, item_id: str, *, limit: int = 5) -> dict[str, Any] | None:
@@ -304,6 +465,7 @@ class TriageQueue:
                     "fingerprint_match": fingerprint_match,
                     "signals": signals,
                     "suggested_primary_id": item.id if keep_current else other.id,
+                    "governance": build_item_governance(other),
                 }
             )
 
@@ -319,6 +481,7 @@ class TriageQueue:
                 "title": item.title,
                 "url": item.url,
                 "review_state": normalize_review_state(item.review_state, processed=item.processed),
+                "governance": build_item_governance(item),
             },
             "candidate_count": candidate_count,
             "returned_count": len(top),

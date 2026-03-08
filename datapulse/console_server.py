@@ -214,6 +214,10 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     def ops_snapshot() -> dict[str, Any]:
         return reader_factory().ops_snapshot()
 
+    @app.get("/api/ops/scorecard")
+    def ops_scorecard() -> dict[str, Any]:
+        return reader_factory().governance_scorecard_snapshot()
+
     @app.get("/api/stories")
     def list_stories(limit: int = 8, min_items: int = 2) -> list[dict[str, Any]]:
         return reader_factory().list_stories(limit=limit, min_items=min_items)

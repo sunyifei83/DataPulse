@@ -12,7 +12,15 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from .models import DataPulseItem, SourceType
+from .models import (
+    DataPulseItem,
+    SourceAuthorityLevel,
+    SourceCollectionMode,
+    SourceGovernance,
+    SourceGovernanceClass,
+    SourceSensitivity,
+    SourceType,
+)
 from .utils import generate_slug, resolve_platform_hint
 
 JSONSource = dict[str, Any]
@@ -39,11 +47,153 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return default
 
 
+def _primary_source_type_value(source_type: str) -> str:
+    parts = [part.strip() for part in str(source_type or "").split("|") if part.strip()]
+    if not parts:
+        return SourceType.GENERIC.value
+    return parts[0].lower()
+
+
+def _normalize_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    seen: list[str] = []
+    for item in value:
+        text = str(item).strip()
+        if text and text not in seen:
+            seen.append(text)
+    return seen
+
+
+def _default_source_class(source_type: str) -> SourceGovernanceClass:
+    normalized = _primary_source_type_value(source_type)
+    if normalized == SourceType.MANUAL.value:
+        return SourceGovernanceClass.ANALYST
+    if normalized in {"github", SourceType.TWITTER.value, SourceType.REDDIT.value, SourceType.YOUTUBE.value, SourceType.BILIBILI.value, SourceType.TELEGRAM.value, SourceType.WECHAT.value, SourceType.XHS.value, SourceType.HACKERNEWS.value}:
+        return SourceGovernanceClass.PLATFORM
+    if normalized in {SourceType.RSS.value, SourceType.ARXIV.value}:
+        return SourceGovernanceClass.PUBLISHER
+    return SourceGovernanceClass.GENERIC
+
+
+def _default_collection_mode(source_type: str, config: dict[str, Any]) -> SourceCollectionMode:
+    normalized = _primary_source_type_value(source_type)
+    explicit = str(config.get("collection_mode", "") or config.get("mode", "")).strip().lower()
+    if explicit:
+        try:
+            return SourceCollectionMode(explicit)
+        except ValueError:
+            pass
+    if normalized == SourceType.MANUAL.value:
+        return SourceCollectionMode.MANUAL_FACT
+    if any(str(config.get(key, "")).strip() for key in ("api_base", "api_url", "api_endpoint")):
+        return SourceCollectionMode.API
+    return SourceCollectionMode.PUBLIC_WEB
+
+
+def _default_authority(source_type: str, source_class: SourceGovernanceClass) -> SourceAuthorityLevel:
+    normalized = _primary_source_type_value(source_type)
+    if normalized in {"github", SourceType.RSS.value, SourceType.ARXIV.value}:
+        return SourceAuthorityLevel.PRIMARY
+    if source_class == SourceGovernanceClass.ANALYST:
+        return SourceAuthorityLevel.SECONDARY
+    if source_class == SourceGovernanceClass.PLATFORM:
+        return SourceAuthorityLevel.COMMUNITY
+    if source_class == SourceGovernanceClass.AGGREGATOR:
+        return SourceAuthorityLevel.SECONDARY
+    if source_class == SourceGovernanceClass.PUBLISHER:
+        return SourceAuthorityLevel.PRIMARY
+    return SourceAuthorityLevel.SECONDARY
+
+
+def _default_sensitivity(
+    source_type: str,
+    collection_mode: SourceCollectionMode,
+) -> SourceSensitivity:
+    normalized = _primary_source_type_value(source_type)
+    if collection_mode in {SourceCollectionMode.SEARCH_GATEWAY, SourceCollectionMode.MANUAL_FACT}:
+        return SourceSensitivity.REVIEW_REQUIRED
+    if normalized in {SourceType.TELEGRAM.value, SourceType.WECHAT.value, SourceType.XHS.value}:
+        return SourceSensitivity.REVIEW_REQUIRED
+    return SourceSensitivity.PUBLIC
+
+
+def _default_compliance_hints(collection_mode: SourceCollectionMode) -> list[str]:
+    if collection_mode == SourceCollectionMode.API:
+        return [
+            "public_content_only",
+            "respect_source_terms",
+            "respect_rate_limits",
+            "api_terms_apply",
+            "no_automated_legal_determination",
+        ]
+    if collection_mode == SourceCollectionMode.SEARCH_GATEWAY:
+        return [
+            "search_results_require_verification",
+            "respect_source_terms",
+            "operator_review_required",
+            "no_automated_legal_determination",
+        ]
+    if collection_mode == SourceCollectionMode.MANUAL_FACT:
+        return [
+            "manual_entry_requires_attribution",
+            "operator_review_required",
+            "no_automated_legal_determination",
+        ]
+    return [
+        "public_content_only",
+        "respect_source_terms",
+        "respect_rate_limits",
+        "no_automated_legal_determination",
+    ]
+
+
+def _merge_compliance_hints(explicit_hints: list[str], defaults: list[str]) -> list[str]:
+    seen: list[str] = []
+    for item in [*explicit_hints, *defaults]:
+        text = str(item).strip()
+        if text and text not in seen:
+            seen.append(text)
+    return seen
+
+
+def _governance_from_raw(raw: JSONSource, source_type: str, config: dict[str, Any]) -> SourceGovernance:
+    governance_raw = raw.get("governance", {})
+    if not isinstance(governance_raw, dict):
+        governance_raw = {}
+
+    source_class_value = governance_raw.get("source_class") or raw.get("source_class") or _default_source_class(source_type)
+    try:
+        source_class = SourceGovernanceClass(source_class_value)
+    except (TypeError, ValueError):
+        source_class = _default_source_class(source_type)
+
+    collection_mode_value = governance_raw.get("collection_mode") or raw.get("collection_mode") or _default_collection_mode(source_type, config)
+    try:
+        collection_mode = SourceCollectionMode(collection_mode_value)
+    except (TypeError, ValueError):
+        collection_mode = _default_collection_mode(source_type, config)
+
+    authority = governance_raw.get("authority") or raw.get("authority") or _default_authority(source_type, source_class)
+    sensitivity = governance_raw.get("sensitivity") or raw.get("sensitivity") or _default_sensitivity(source_type, collection_mode)
+    explicit_hints = _normalize_string_list(governance_raw.get("compliance_hints", raw.get("compliance_hints", [])))
+    defaults = _default_compliance_hints(collection_mode)
+
+    return SourceGovernance(
+        source_class=source_class,
+        collection_mode=collection_mode,
+        authority=authority,
+        sensitivity=sensitivity,
+        compliance_hints=_merge_compliance_hints(explicit_hints, defaults),
+    )
+
+
 @dataclass
 class SourceRecord:
     name: str
     source_type: str
     config: dict[str, Any] = field(default_factory=dict)
+    governance: SourceGovernance = field(default_factory=SourceGovernance)
     is_active: bool = True
     is_public: bool = True
     tags: list[str] = field(default_factory=list)
@@ -65,6 +215,7 @@ class SourceRecord:
         config = raw.get("config", {})
         if not isinstance(config, dict):
             config = {}
+        governance = _governance_from_raw(raw, source_type, config)
         tags = [str(t).strip() for t in raw.get("tags", []) if str(t).strip()]
         match = raw.get("match", {})
         if not isinstance(match, dict):
@@ -83,6 +234,7 @@ class SourceRecord:
             name=name,
             source_type=source_type,
             config=config,
+            governance=governance,
             is_active=bool(raw.get("is_active", True)),
             is_public=bool(raw.get("is_public", True)),
             tags=tags,
@@ -99,6 +251,7 @@ class SourceRecord:
             "name": self.name,
             "source_type": self.source_type,
             "config": self.config,
+            "governance": self.governance.to_dict(),
             "is_active": self.is_active,
             "is_public": self.is_public,
             "tags": self.tags,
@@ -202,6 +355,12 @@ _BUILTIN_SOURCE_SEEDS: tuple[JSONSource, ...] = (
         "name": "GitHub Open Source",
         "source_type": "github|generic",
         "config": {"url": "https://github.com"},
+        "governance": {
+            "source_class": "platform",
+            "collection_mode": "public_web",
+            "authority": "primary",
+            "sensitivity": "public",
+        },
         "is_active": True,
         "is_public": True,
         "tags": ["github", "code", "opensource"],
@@ -214,6 +373,12 @@ _BUILTIN_SOURCE_SEEDS: tuple[JSONSource, ...] = (
         "name": "Reddit Communities",
         "source_type": "reddit",
         "config": {"url": "https://www.reddit.com"},
+        "governance": {
+            "source_class": "platform",
+            "collection_mode": "public_web",
+            "authority": "community",
+            "sensitivity": "public",
+        },
         "is_active": True,
         "is_public": True,
         "tags": ["reddit", "community"],
@@ -226,6 +391,12 @@ _BUILTIN_SOURCE_SEEDS: tuple[JSONSource, ...] = (
         "name": "X Network",
         "source_type": "twitter",
         "config": {"url": "https://x.com"},
+        "governance": {
+            "source_class": "platform",
+            "collection_mode": "public_web",
+            "authority": "community",
+            "sensitivity": "public",
+        },
         "is_active": True,
         "is_public": True,
         "tags": ["x", "twitter"],
@@ -238,6 +409,12 @@ _BUILTIN_SOURCE_SEEDS: tuple[JSONSource, ...] = (
         "name": "Hacker News",
         "source_type": "hackernews",
         "config": {"url": "https://news.ycombinator.com"},
+        "governance": {
+            "source_class": "platform",
+            "collection_mode": "public_web",
+            "authority": "community",
+            "sensitivity": "public",
+        },
         "is_active": True,
         "is_public": True,
         "tags": ["hackernews", "tech"],
@@ -391,10 +568,7 @@ class SourceCatalog:
 
     @staticmethod
     def _primary_source_type(source_type: str) -> str:
-        parts = [part.strip() for part in str(source_type or "").split("|") if part.strip()]
-        if not parts:
-            return SourceType.GENERIC.value
-        return parts[0]
+        return _primary_source_type_value(source_type)
 
     def _to_source_payload(self, source: SourceRecord) -> dict[str, Any]:
         return {
@@ -402,10 +576,13 @@ class SourceCatalog:
             "source_type": self._primary_source_type(source.source_type),
             "name": source.name,
             "config": dict(source.config),
+            "governance": source.governance.to_dict(),
             "tags": source.tags,
             "match": source.match,
             "is_public": source.is_public,
             "is_active": source.is_active,
+            "tier": source.tier,
+            "authority_weight": source.authority_weight,
         }
 
     def resolve_source(self, url: str) -> dict[str, Any]:
@@ -457,13 +634,17 @@ class SourceCatalog:
             return self._to_source_payload(chosen)
 
         fallback_host = host or (parsed.path[:30] if parsed.path else "")
+        fallback_governance = _governance_from_raw({}, source_type, {"url": seed})
         return {
             "source_type": source_type,
             "name": (host or source_type) or "source",
             "config": {"url": seed, "seed_host": fallback_host},
+            "governance": fallback_governance.to_dict(),
             "tags": [source_type],
             "match": {},
             "is_public": True,
+            "tier": 2,
+            "authority_weight": 0.5,
         }
 
     def _default_profile(self) -> str:
@@ -535,6 +716,7 @@ class SourceCatalog:
             name=name,
             source_type=source_type,
             config={"url": source_url},
+            governance=_governance_from_raw({}, source_type, {"url": source_url}),
             is_active=True,
             is_public=True,
             match={"url_prefix": source_url},

@@ -65,6 +65,17 @@ def _print_watches(watches):
             f"schedule={schedule} | due={due} | alerts={watch.get('alert_rule_count', 0)}"
         )
         print(f"    query: {query}")
+        intent_summary = watch.get("intent_summary", {}) if isinstance(watch, dict) else {}
+        if isinstance(intent_summary, dict) and intent_summary.get("has_intent"):
+            demand_intent = str(intent_summary.get("demand_intent", "") or "").strip()
+            if demand_intent:
+                print(f"    intent: {demand_intent}")
+            scope = str(intent_summary.get("scope", "") or "").strip()
+            if scope:
+                print(f"    scope: {scope}")
+            freshness = str(intent_summary.get("freshness", "") or "").strip()
+            if freshness:
+                print(f"    freshness: {freshness}")
         print(f"    last_run: {last_run} | status: {last_status}")
 
 
@@ -270,6 +281,7 @@ def _print_watch_detail(payload):
     delivery_stats = payload.get("delivery_stats", {}) if isinstance(payload, dict) else {}
     last_failure = payload.get("last_failure") if isinstance(payload, dict) else None
     retry_advice = payload.get("retry_advice") if isinstance(payload, dict) else None
+    mission_intent = payload.get("mission_intent", {}) if isinstance(payload, dict) else {}
     print(f"id: {payload.get('id', '-')}")
     print(f"name: {payload.get('name', '')}")
     print(f"query: {payload.get('query', '')}")
@@ -286,6 +298,27 @@ def _print_watch_detail(payload):
     print(f"avg_items: {run_stats.get('average_items', 0)}")
     print(f"recent_alert_count: {delivery_stats.get('recent_alert_count', 0)}")
     print(f"recent_delivery_error_count: {delivery_stats.get('recent_error_count', 0)}")
+
+    if isinstance(mission_intent, dict) and mission_intent:
+        print("mission_intent:")
+        if mission_intent.get("demand_intent"):
+            print(f"  demand_intent: {mission_intent.get('demand_intent')}")
+        key_questions = mission_intent.get("key_questions", [])
+        if key_questions:
+            print(f"  key_questions: {', '.join(str(question) for question in key_questions)}")
+        for field_name in ("scope_entities", "scope_topics", "scope_regions", "coverage_targets"):
+            values = mission_intent.get(field_name, [])
+            if values:
+                print(f"  {field_name}: {', '.join(str(value) for value in values)}")
+        if mission_intent.get("scope_window"):
+            print(f"  scope_window: {mission_intent.get('scope_window')}")
+        freshness_parts: list[str] = []
+        if mission_intent.get("freshness_expectation"):
+            freshness_parts.append(str(mission_intent.get("freshness_expectation")))
+        if mission_intent.get("freshness_max_age_hours"):
+            freshness_parts.append(f"max_age<={int(mission_intent.get('freshness_max_age_hours', 0))}h")
+        if freshness_parts:
+            print(f"  freshness: {' | '.join(freshness_parts)}")
 
     if isinstance(last_failure, dict) and last_failure:
         print("last_failure:")
@@ -1410,6 +1443,9 @@ def main() -> None:
         print(f"   query: {mission['query']}")
         print(f"   platforms: {', '.join(mission.get('platforms', [])) or 'any'}")
         print(f"   sites: {', '.join(mission.get('sites', [])) or '-'}")
+        mission_intent = mission.get("mission_intent", {}) if isinstance(mission, dict) else {}
+        if isinstance(mission_intent, dict) and mission_intent.get("demand_intent"):
+            print(f"   demand_intent: {mission_intent['demand_intent']}")
         print(f"   alert_rules: {len(mission.get('alert_rules', []))}")
         return
 
