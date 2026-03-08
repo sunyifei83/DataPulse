@@ -1,7 +1,7 @@
 {
   "schema_version": "slice_adapter_catalog.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-08T00:00:00Z",
+  "generated_at_utc": "2026-03-09T00:00:00Z",
   "wired": false,
   "slices": {
     "L4.1": {
@@ -268,6 +268,203 @@
       "notes": [
         "Prefer scorecard signals that reflect intelligence usefulness, not only collector uptime.",
         "Coverage, freshness, alert yield, triage throughput, and story conversion should stay derivable from existing lifecycle objects."
+      ]
+    },
+    "L9.1": {
+      "adapter_type": "governance_projection",
+      "execute_mode": "manual_edit",
+      "summary": "Distill the external content-acquisition and fact-screening note into a repo-scoped reinforcement blueprint and slice map.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
+        "sed -n '1,220p' datapulse/core/router.py",
+        "sed -n '1,220p' datapulse/collectors/wechat.py",
+        "sed -n '1,220p' datapulse/collectors/xhs.py",
+        "sed -n '1,260p' datapulse/collectors/generic.py"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md"
+      ],
+      "notes": [
+        "Keep the document repo-scoped: explain why native Chinese-source reinforcement and fact screening are higher delta than generic crawler replacement.",
+        "Use the document to justify follow-up slices, not to bypass the blueprint with a prose dump."
+      ]
+    },
+    "L9.2": {
+      "adapter_type": "collector_bridge_contract",
+      "execute_mode": "manual_edit",
+      "summary": "Define the native Chinese collector bridge contract, shortlist, fallback policy, and provenance rules.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
+        "sed -n '1,220p' datapulse/core/router.py",
+        "sed -n '1,220p' datapulse/collectors/wechat.py",
+        "sed -n '1,220p' datapulse/collectors/xhs.py",
+        "sed -n '1,260p' docs/source_feed_enhancement_plan.md"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-native-collector-bridge-contract.md",
+        "docs/source_feed_enhancement_plan.md"
+      ],
+      "notes": [
+        "The contract should define sidecar invocation, session/env dependencies, normalized ParseResult mapping, and provenance markers before any native collector implementation lands.",
+        "Keep the shortlist focused on MediaCrawler, wechat_spider, weiboSpider, and GeneralNewsExtractor-class integrations."
+      ]
+    },
+    "L9.3": {
+      "adapter_type": "native_collector_bridge",
+      "execute_mode": "manual_implementation",
+      "summary": "Implement a MediaCrawler-class sidecar bridge for native Chinese platform collection without displacing existing fallbacks.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-native-collector-bridge-contract.md",
+        "sed -n '1,220p' datapulse/core/router.py",
+        "sed -n '1,220p' datapulse/collectors/xhs.py",
+        "sed -n '1,220p' datapulse/collectors/wechat.py",
+        "uv run pytest tests/test_collectors.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/collectors/native_bridge.py",
+        "datapulse/core/router.py",
+        "docs/source_feed_enhancement_plan.md"
+      ],
+      "notes": [
+        "Prefer a sidecar boundary over vendoring third-party collector repos into the tree.",
+        "Bridge provenance must remain visible so operators know when a native path, Jina path, or browser fallback was used."
+      ]
+    },
+    "L9.4": {
+      "adapter_type": "native_collector_integration",
+      "execute_mode": "manual_implementation",
+      "summary": "Add a first native WeChat article collector path while preserving the current Jina/browser safety net.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-native-collector-bridge-contract.md",
+        "sed -n '1,220p' datapulse/collectors/wechat.py",
+        "sed -n '1,220p' datapulse/core/router.py",
+        "uv run pytest tests/test_collectors.py tests/test_reader.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/collectors/wechat.py",
+        "datapulse/core/router.py",
+        "docs/source_feed_enhancement_plan.md"
+      ],
+      "notes": [
+        "WeChat should prefer the native path only when its prerequisites are satisfied and should otherwise fall back cleanly.",
+        "Keep setup hints and operator-visible failure modes explicit."
+      ]
+    },
+    "L9.5": {
+      "adapter_type": "native_collector_integration",
+      "execute_mode": "manual_implementation",
+      "summary": "Add a first native Weibo collector path to the router as a first-class source type.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-native-collector-bridge-contract.md",
+        "sed -n '1,220p' datapulse/core/router.py",
+        "uv run pytest tests/test_collectors.py tests/test_reader.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/collectors/weibo.py",
+        "datapulse/core/router.py",
+        "docs/source_feed_enhancement_plan.md"
+      ],
+      "notes": [
+        "Treat Weibo as a direct router gap, not as a side effect of generic extraction.",
+        "Keep router order explicit so the new collector does not degrade existing platform handling."
+      ]
+    },
+    "L9.6": {
+      "adapter_type": "extraction_backend",
+      "execute_mode": "manual_implementation",
+      "summary": "Add a Chinese news body extraction backend to the generic collector chain.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
+        "sed -n '1,260p' datapulse/collectors/generic.py",
+        "uv run pytest tests/test_collectors.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/collectors/generic.py",
+        "docs/source_feed_enhancement_plan.md"
+      ],
+      "notes": [
+        "This slice should improve Chinese正文 quality without replacing the current generic collector contract.",
+        "Expose backend provenance so operators can distinguish targeted正文 extraction from the existing fallback chain."
+      ]
+    },
+    "L9.7": {
+      "adapter_type": "grounded_evidence",
+      "execute_mode": "manual_implementation",
+      "summary": "Project grounded claim and evidence extraction into triage and story surfaces.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
+        "sed -n '1,260p' datapulse/core/triage.py",
+        "sed -n '1,260p' datapulse/core/story.py",
+        "sed -n '1,260p' datapulse/reader.py",
+        "uv run pytest tests/test_triage.py tests/test_story.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/core/triage.py",
+        "datapulse/core/story.py",
+        "datapulse/reader.py"
+      ],
+      "notes": [
+        "Grounded extraction must preserve source-linked claims and evidence spans rather than generating unanchored summaries.",
+        "Keep the outputs compatible with existing evidence governance instead of creating a parallel claim store first."
+      ]
+    },
+    "L9.8": {
+      "adapter_type": "factuality_gate",
+      "execute_mode": "manual_implementation",
+      "summary": "Add a factuality gate before digest, story export, and alert escalation.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
+        "sed -n '1,260p' datapulse/core/story.py",
+        "sed -n '1,260p' datapulse/core/alerts.py",
+        "sed -n '1,260p' datapulse/reader.py",
+        "uv run pytest tests/test_story.py tests/test_alerts.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/core/story.py",
+        "datapulse/core/alerts.py",
+        "datapulse/reader.py"
+      ],
+      "notes": [
+        "Place factuality scoring at the delivery trust boundary, not inside low-level collection.",
+        "The gate should expose operator-visible trust signals instead of silently rewriting evidence truth."
+      ]
+    },
+    "L9.9": {
+      "adapter_type": "trend_feed_input",
+      "execute_mode": "manual_implementation",
+      "summary": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
+        "sed -n '1,260p' datapulse/core/watchlist.py",
+        "sed -n '1,260p' datapulse/reader.py",
+        "sed -n '1,260p' docs/source_feed_enhancement_plan.md",
+        "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/core/watchlist.py",
+        "datapulse/reader.py",
+        "docs/source_feed_enhancement_plan.md"
+      ],
+      "notes": [
+        "Trend inputs should seed missions and feeds, not pretend to be a replacement for item-level URL collection.",
+        "Keep trend signals distinguishable from directly collected evidence."
+      ]
+    },
+    "L9.10": {
+      "adapter_type": "manual_collection_lane",
+      "execute_mode": "manual_edit",
+      "summary": "Define a manual emergency acquisition lane for EasySpider, Crawlab, and f2 class tools.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
+        "sed -n '1,260p' docs/source_feed_enhancement_plan.md"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-manual-acquisition-sidecar-contract.md",
+        "docs/source_feed_enhancement_plan.md"
+      ],
+      "notes": [
+        "Keep operator-driven tooling in an explicit manual lane instead of coupling it into the core collector contract.",
+        "Define handoff rules, artifacts, and provenance expectations for emergency or manual collection workflows."
       ]
     }
   }
