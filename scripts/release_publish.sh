@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
 show_help() {
   cat <<'EOF'
 Usage:
@@ -23,6 +26,11 @@ REPO=""
 DRY_RUN=0
 SCRUB_FULL_CHANGELOG=1
 PYTHON_CMD=()
+PYTHON_DESC=""
+PYTHON_VERSION=""
+PREPARE_BUILD_CMD=()
+BUILD_CMD=()
+BUILD_DESC=""
 
 python_supports_project() {
   local candidate="$1"
@@ -43,18 +51,21 @@ resolve_python_cmd() {
       exit 1
     fi
     PYTHON_CMD=("${DATAPULSE_RELEASE_PYTHON}")
+    PYTHON_DESC="${DATAPULSE_RELEASE_PYTHON}"
     return
   fi
 
   for candidate in python3.12 python3.11 python3.10 python3; do
     if command -v "$candidate" >/dev/null 2>&1 && python_supports_project "$candidate"; then
       PYTHON_CMD=("$candidate")
+      PYTHON_DESC="$candidate"
       return
     fi
   done
 
   if command -v uv >/dev/null 2>&1; then
     PYTHON_CMD=(uv run --python 3.10 python)
+    PYTHON_DESC="uv run --python 3.10 python"
     return
   fi
 
@@ -64,6 +75,42 @@ resolve_python_cmd() {
 
 python_run() {
   "${PYTHON_CMD[@]}" "$@"
+}
+
+capture_python_version() {
+  PYTHON_VERSION="$(
+    python_run - <<'PY'
+import sys
+
+print(f"{sys.version_info[0]}.{sys.version_info[1]}")
+PY
+  )"
+}
+
+configure_build_cmd() {
+  PREPARE_BUILD_CMD=()
+
+  if python_run -m build --help >/dev/null 2>&1; then
+    BUILD_CMD=("${PYTHON_CMD[@]}" -m build --sdist --wheel .)
+    BUILD_DESC="${PYTHON_DESC} -m build"
+    return
+  fi
+
+  if python_run -m pip --version >/dev/null 2>&1; then
+    PREPARE_BUILD_CMD=("${PYTHON_CMD[@]}" -m pip install --upgrade build)
+    BUILD_CMD=("${PYTHON_CMD[@]}" -m build --sdist --wheel .)
+    BUILD_DESC="${PYTHON_DESC} -m pip install --upgrade build && ${PYTHON_DESC} -m build"
+    return
+  fi
+
+  if command -v uv >/dev/null 2>&1; then
+    BUILD_CMD=(uv run --python "${PYTHON_VERSION}" --with build python -m build --sdist --wheel .)
+    BUILD_DESC="uv run --python ${PYTHON_VERSION} --with build python -m build"
+    return
+  fi
+
+  echo "Selected Python runtime lacks both build and pip, and uv is unavailable." >&2
+  exit 1
 }
 
 while [[ $# -gt 0 ]]; do
@@ -101,6 +148,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 resolve_python_cmd
+capture_python_version
+configure_build_cmd
 
 PROJECT_VERSION=$(python_run - <<'PY'
 import re, pathlib
@@ -180,7 +229,8 @@ PY
 }
 
 TMP_NOTES_FILE=$(mktemp)
-trap 'rm -f "$TMP_NOTES_FILE"' EXIT
+TMP_TAG_FILE=$(mktemp)
+trap 'rm -f "$TMP_NOTES_FILE" "$TMP_TAG_FILE"' EXIT
 
 run_cmd() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -192,25 +242,18 @@ run_cmd() {
   fi
 }
 
-run_cmd "${PYTHON_CMD[@]}" -m pip install --upgrade build
-run_cmd rm -rf dist
-run_cmd "${PYTHON_CMD[@]}" -m build --sdist --wheel .
-
-if ! git rev-parse "$TAG" >/dev/null 2>&1; then
-  run_cmd git tag "$TAG"
-fi
-run_cmd git push origin "$TAG"
-
 if [[ ! -f "$NOTES_FILE" ]]; then
   echo "Notes file not found: $NOTES_FILE" >&2
   exit 1
 fi
 
+notes_body="$(extract_notes "$NOTES_FILE" "$TAG")" || exit 1
+printf '%s' "$notes_body" > "$TMP_NOTES_FILE"
+
 {
   echo "Release notes for ${TAG}:"
   echo "----------------------------------------"
-  notes_body="$(extract_notes "$NOTES_FILE" "$TAG")" || exit 1
-  printf '%s' "$notes_body" | tee "$TMP_NOTES_FILE"
+  cat "$TMP_NOTES_FILE"
   echo "----------------------------------------"
 } >&2
 
@@ -227,6 +270,28 @@ then
     exit 1
   fi
 fi
+
+{
+  printf 'DataPulse %s\n\n' "$TAG"
+  cat "$TMP_NOTES_FILE"
+} > "$TMP_TAG_FILE"
+
+run_cmd rm -rf dist
+if [[ ${#PREPARE_BUILD_CMD[@]} -gt 0 ]]; then
+  run_cmd "${PREPARE_BUILD_CMD[@]}"
+fi
+run_cmd "${BUILD_CMD[@]}"
+
+if git rev-parse "$TAG" >/dev/null 2>&1; then
+  existing_tag_type="$(git cat-file -t "$TAG" 2>/dev/null || true)"
+  if [[ "$existing_tag_type" != "tag" ]]; then
+    echo "Existing tag ${TAG} is lightweight; recreate it as an annotated tag before publishing." >&2
+    exit 1
+  fi
+else
+  run_cmd git tag -a "$TAG" -F "$TMP_TAG_FILE"
+fi
+run_cmd git push origin "$TAG"
 
 release_assets=(
   "dist/datapulse-${PROJECT_VERSION}-py3-none-any.whl"

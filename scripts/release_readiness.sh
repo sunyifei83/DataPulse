@@ -9,6 +9,8 @@ EMERGENCY_STATE_FILE="${EMERGENCY_STATE_FILE:-}"
 EMERGENCY_GATE_REQUIRED="${EMERGENCY_GATE_REQUIRED:-0}"
 PYTHON_CMD=()
 PYTHON_DESC=""
+PYTHON_VERSION=""
+BUILD_DESC=""
 
 python_supports_project() {
   local candidate="$1"
@@ -53,6 +55,35 @@ resolve_python_cmd() {
 
 python_run() {
   "${PYTHON_CMD[@]}" "$@"
+}
+
+capture_python_version() {
+  PYTHON_VERSION="$(
+    python_run - <<'PY'
+import sys
+
+print(f"{sys.version_info[0]}.{sys.version_info[1]}")
+PY
+  )"
+}
+
+release_build_path_available() {
+  if python_run -m build --help >/dev/null 2>&1; then
+    BUILD_DESC="${PYTHON_DESC} -m build"
+    return 0
+  fi
+
+  if python_run -m pip --version >/dev/null 2>&1; then
+    BUILD_DESC="${PYTHON_DESC} -m pip install --upgrade build && ${PYTHON_DESC} -m build"
+    return 0
+  fi
+
+  if command -v uv >/dev/null 2>&1 && uv run --python "$PYTHON_VERSION" --with build python -m build --help >/dev/null 2>&1; then
+    BUILD_DESC="uv run --python ${PYTHON_VERSION} --with build python -m build"
+    return 0
+  fi
+
+  return 1
 }
 
 show_help() {
@@ -201,6 +232,12 @@ if resolve_python_cmd; then
 else
   echo "release readiness: pass=$pass_count fail=$fail_count"
   exit 1
+fi
+
+if capture_python_version && release_build_path_available; then
+  pass "release build path available: $BUILD_DESC"
+else
+  fail "release build path unavailable for resolved runtime: $PYTHON_DESC"
 fi
 
 if grep -qxF ".claude/" .gitignore; then

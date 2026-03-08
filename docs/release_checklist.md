@@ -27,8 +27,8 @@
 
 ## D. 发布动作
 - [ ] 先运行 `./scripts/release_publish.sh --tag vX.Y.Z --dry-run`，确认 notes 提取与命令链正确
-- [ ] 创建/更新 release tag（`vX.Y.Z`）
-- [ ] 通过 `scripts/release_publish.sh` 生成 Release（脚本会从 `RELEASE_NOTES.md` 自动截取对应版本段，并默认清理 `Full Changelog`）
+- [ ] 创建/更新 release tag（`vX.Y.Z`，要求为 annotated tag，并附带当前版本详细说明）
+- [ ] 通过 `scripts/release_publish.sh` 生成 Release（脚本会从 `RELEASE_NOTES.md` 自动截取对应版本段，复用为 annotated tag message 与 Release notes，并默认清理 `Full Changelog`）
 - [ ] 确认 Release 页面挂载 assets 与 Release notes
 - [ ] 复核历史 release 页面无 `Full Changelog` 噪音残留：
   - `bash scripts/release_smoke.sh`
