@@ -1,21 +1,22 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-07T00:00:00Z",
+  "generated_at_utc": "2026-03-08T00:00:00Z",
   "status": "completed",
   "activation": {
     "wired": true,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
-    "promotion_mode": "auto_policy_gated",
+    "promotion_mode": "manual_only",
     "auto_continuation_policy": {
       "path": "docs/governance/datapulse-auto-continuation-policy.json"
     }
   },
   "governance_mode": {
-    "kind": "active_auto_gated",
+    "kind": "active_manual_waiting_ignition",
     "notes": [
-      "This overlay activates the loop control plane with a repository-governance auto-continuation policy.",
-      "The auto entrypoint remains read-only and stops on machine-decidable blockers instead of mutating product workflows."
+      "This overlay activates the repository blueprint truth while keeping loop progression in manual handoff mode.",
+      "The repository-governance auto-continuation policy file remains available but disabled until an operator explicitly re-enables it.",
+      "Use scripts/governance/ignite_datapulse_codex_loop.sh when you want to start the local mutable companion loop."
     ]
   }
 }

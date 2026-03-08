@@ -2,7 +2,7 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T00:00:00Z",
+  "generated_at_utc": "2026-03-08T00:00:00Z",
   "status": "completed",
   "activation": {
     "wired": false,
@@ -69,7 +69,8 @@
     "L3": "completed",
     "L4": "completed",
     "L5": "completed",
-    "L6": "completed"
+    "L6": "completed",
+    "L7": "completed"
   },
   "phases": [
     {
@@ -455,6 +456,84 @@
           }
         }
       ]
+    },
+    {
+      "id": "L7",
+      "title": "Console Interaction Uplift",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "L7.1",
+          "title": "Upgrade deploy surface into a stateful mission deck",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "datapulse/console_server.py",
+            "datapulse/console_markup.py",
+            "docs/gui_intelligence_console_plan.md"
+          ]
+        },
+        {
+          "id": "L7.2",
+          "title": "Add server-derived mission deck suggestions and duplicate pressure hints",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "datapulse/console_server.py",
+            "datapulse/console_deck.py",
+            "tests/test_console_server.py"
+          ]
+        },
+        {
+          "id": "L7.3",
+          "title": "Ship command palette and keyboard control surface for the shell",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "datapulse/console_server.py",
+            "datapulse/console_markup.py",
+            "docs/gui_intelligence_console_plan.md"
+          ]
+        },
+        {
+          "id": "L7.4",
+          "title": "Add action log, optimistic mutation flow, and reversible browser actions",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "datapulse/core/watchlist.py",
+            "datapulse/reader.py",
+            "datapulse/console_server.py",
+            "tests/test_console_server.py"
+          ]
+        },
+        {
+          "id": "L7.5",
+          "title": "Add browser-level smoke verification for the console uplift",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "bash scripts/datapulse_console_smoke.sh",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+            "uv run --with playwright python scripts/datapulse_console_browser_smoke.py"
+          ],
+          "artifacts": [
+            "scripts/datapulse_console_smoke.sh",
+            "scripts/datapulse_console_browser_smoke.py",
+            "tests/test_console_server.py"
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
@@ -462,5 +541,5 @@
     "title": "No open slice",
     "reason": "All current slices are completed in this working copy."
   },
-  "last_updated_utc": "2026-03-07T15:05:00Z"
+  "last_updated_utc": "2026-03-08T00:00:00Z"
 }

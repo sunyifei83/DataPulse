@@ -1,8 +1,8 @@
 {
   "schema_version": "datapulse_auto_continuation_policy.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T00:00:00Z",
-  "enabled": true,
+  "generated_at_utc": "2026-03-08T00:00:00Z",
+  "enabled": false,
   "mode": "scheduled_governance_entrypoint",
   "entrypoints": {
     "workflow": ".github/workflows/governance-loop-auto.yml",

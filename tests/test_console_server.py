@@ -239,6 +239,12 @@ class _ConsoleReader:
     def disable_watch(self, identifier):
         return {"id": identifier, "enabled": False}
 
+    def enable_watch(self, identifier):
+        return {"id": identifier, "enabled": True}
+
+    def delete_watch(self, identifier):
+        return {"id": identifier, "deleted": True}
+
     def list_alerts(self, limit=20, mission_id=None):
         return [
             {
@@ -616,6 +622,9 @@ def test_console_index_serves_shell():
     assert "/brand/icon" in response.text
     assert "/brand/square" in response.text
     assert "create-watch-form" in response.text
+    assert "create-watch-suggestions" in response.text
+    assert "console-action-history" in response.text
+    assert "command-palette" in response.text
     assert "Mission Cockpit" in response.text
     assert "retry advice" in response.text
     assert "timeline strip" in response.text
@@ -708,6 +717,27 @@ def test_console_create_watch_route():
     assert payload["alert_rules"][0]["routes"] == ["ops-webhook"]
 
 
+def test_console_deck_suggestions_route():
+    client = _client()
+    response = client.post(
+        "/api/console/deck/suggestions",
+        json={
+            "name": "Launch Pulse",
+            "query": "OpenAI launch",
+            "platform": "",
+            "route": "",
+            "keyword": "",
+            "domain": "",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["recommended_route"] == "ops-webhook"
+    assert payload["recommended_platform"] in {"twitter", "news", "web"}
+    assert payload["similar_watches"][0]["id"] == "launch-ops"
+
+
 def test_console_run_due_route():
     client = _client()
     response = client.post("/api/watches/run-due", json={"limit": 0})
@@ -735,6 +765,18 @@ def test_console_set_watch_alert_rules_route():
     assert payload["alert_rule_count"] == 2
     assert payload["alert_rules"][0]["routes"] == ["ops-webhook"]
     assert payload["alert_rules"][1]["routes"] == ["exec-telegram"]
+
+
+def test_console_enable_and_delete_watch_routes():
+    client = _client()
+
+    enable_response = client.post("/api/watches/launch-ops/enable")
+    delete_response = client.delete("/api/watches/launch-ops")
+
+    assert enable_response.status_code == 200
+    assert enable_response.json()["enabled"] is True
+    assert delete_response.status_code == 200
+    assert delete_response.json()["deleted"] is True
 
 
 def test_console_routes_and_status():

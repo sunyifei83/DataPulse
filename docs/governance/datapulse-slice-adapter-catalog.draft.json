@@ -1,7 +1,7 @@
 {
   "schema_version": "slice_adapter_catalog.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T00:00:00Z",
+  "generated_at_utc": "2026-03-08T00:00:00Z",
   "wired": false,
   "slices": {
     "L4.1": {
@@ -72,6 +72,97 @@
       "notes": [
         "Keep adapter logic slice-profile-driven.",
         "Keep service-governance evidence behind adapter lookups."
+      ]
+    },
+    "L7.1": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Upgrade the deploy surface into a stateful mission deck while keeping the shell Reader-backed.",
+      "candidate_commands": [
+        "sed -n '1,240p' docs/gui_intelligence_console_plan.md",
+        "uv run pytest tests/test_console_server.py",
+        "bash scripts/datapulse_console_smoke.sh"
+      ],
+      "target_artifacts": [
+        "datapulse/console_server.py",
+        "datapulse/console_markup.py",
+        "docs/gui_intelligence_console_plan.md"
+      ],
+      "notes": [
+        "Keep the browser shell aligned with existing Reader contracts.",
+        "Treat the mission deck as an operating surface, not as a GUI-only domain model."
+      ]
+    },
+    "L7.2": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Add server-derived mission recommendations, duplicate pressure hints, and route guidance to the deck.",
+      "candidate_commands": [
+        "uv run pytest tests/test_console_server.py",
+        "python3 -m py_compile datapulse/console_deck.py"
+      ],
+      "target_artifacts": [
+        "datapulse/console_deck.py",
+        "datapulse/console_server.py",
+        "tests/test_console_server.py"
+      ],
+      "notes": [
+        "Prefer Reader-derived state over client-only heuristics where recommendation quality matters.",
+        "Conflict hints should help operators avoid silent mission duplication."
+      ]
+    },
+    "L7.3": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Add a command palette and keyboard control layer to the browser shell.",
+      "candidate_commands": [
+        "uv run pytest tests/test_console_server.py",
+        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
+      ],
+      "target_artifacts": [
+        "datapulse/console_server.py",
+        "datapulse/console_markup.py",
+        "scripts/datapulse_console_browser_smoke.py"
+      ],
+      "notes": [
+        "The palette should expose existing mission/story actions instead of inventing new nouns.",
+        "Shortcut coverage belongs to the shell, not to one panel."
+      ]
+    },
+    "L7.4": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Add action history, undo surfaces, and optimistic board mutation feedback.",
+      "candidate_commands": [
+        "uv run pytest tests/test_console_server.py",
+        "uv run mypy datapulse/"
+      ],
+      "target_artifacts": [
+        "datapulse/core/watchlist.py",
+        "datapulse/reader.py",
+        "datapulse/console_server.py"
+      ],
+      "notes": [
+        "Undo should use real reversible backend routes where possible.",
+        "Loading states must keep the shell readable during board refresh."
+      ]
+    },
+    "L7.5": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_verification",
+      "summary": "Verify the uplift through browser-level smoke before any manual loop ignition.",
+      "candidate_commands": [
+        "bash scripts/datapulse_console_smoke.sh",
+        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+        "uv run --with playwright python scripts/datapulse_console_browser_smoke.py"
+      ],
+      "target_artifacts": [
+        "scripts/datapulse_console_smoke.sh",
+        "scripts/datapulse_console_browser_smoke.py"
+      ],
+      "notes": [
+        "Keep browser smoke manual-capable so operators can validate the shell before local Codex ignition.",
+        "Do not silently convert browser smoke into a mandatory lightweight gate for every fast smoke path."
       ]
     }
   }

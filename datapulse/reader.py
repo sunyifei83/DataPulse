@@ -1714,6 +1714,18 @@ class DataPulseReader:
             return None
         return mission.to_dict()
 
+    def enable_watch(self, identifier: str) -> dict[str, Any] | None:
+        mission = self.watchlist.enable(identifier)
+        if mission is None:
+            return None
+        return mission.to_dict()
+
+    def delete_watch(self, identifier: str) -> dict[str, Any] | None:
+        mission = self.watchlist.delete(identifier)
+        if mission is None:
+            return None
+        return mission.to_dict()
+
     def _tag_items_with_watch(self, mission: WatchMission, items: list[DataPulseItem]) -> None:
         if not items:
             return

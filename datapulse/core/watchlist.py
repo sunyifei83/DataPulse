@@ -264,6 +264,25 @@ class WatchlistStore:
         self.save()
         return mission
 
+    def enable(self, identifier: str) -> WatchMission | None:
+        mission = self.get(identifier)
+        if mission is None:
+            return None
+        mission.enabled = True
+        mission.updated_at = _utcnow()
+        self.save()
+        return mission
+
+    def delete(self, identifier: str) -> WatchMission | None:
+        mission = self.get(identifier)
+        if mission is None:
+            return None
+        removed = self.missions.pop(mission.id, None)
+        if removed is None:
+            return None
+        self.save()
+        return removed
+
     def replace_alert_rules(self, identifier: str, alert_rules: list[dict[str, Any]] | None) -> WatchMission | None:
         mission = self.get(identifier)
         if mission is None:
