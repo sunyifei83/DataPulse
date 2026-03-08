@@ -6,9 +6,11 @@ import hashlib
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, TypeVar
 
 from .triage import normalize_review_state
+
+EnumT = TypeVar("EnumT", bound=Enum)
 
 
 class SourceType(str, Enum):
@@ -57,7 +59,7 @@ class SourceSensitivity(str, Enum):
     ELEVATED = "elevated"
 
 
-def _coerce_enum(enum_cls: type[Enum], value: Any, default: Enum) -> Enum:
+def _coerce_enum(enum_cls: type[EnumT], value: Any, default: EnumT) -> EnumT:
     if isinstance(value, enum_cls):
         return value
     if isinstance(value, str):

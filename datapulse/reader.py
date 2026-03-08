@@ -26,7 +26,12 @@ from datapulse.core.search_gateway import SearchGateway, SearchHit
 from datapulse.core.source_catalog import SourceCatalog
 from datapulse.core.storage import UnifiedInbox, output_record_md, project_markdown
 from datapulse.core.story import StoryStore, build_story_clusters, build_story_graph, render_story_markdown
-from datapulse.core.triage import TriageQueue, is_digest_candidate, normalize_review_state, serialize_item_with_governance
+from datapulse.core.triage import (
+    TriageQueue,
+    is_digest_candidate,
+    normalize_review_state,
+    serialize_item_with_governance,
+)
 from datapulse.core.utils import content_fingerprint, inbox_path_from_env, normalize_language
 from datapulse.core.watchlist import MissionIntent, MissionRun, WatchlistStore, WatchMission
 
@@ -576,6 +581,7 @@ class DataPulseReader:
                     }
                 )
                 continue
+            assert latest_result is not None
             age_hours = round(max(0.0, (now - latest_ts).total_seconds() / 3600), 2)
             if age_hours <= max_age_hours:
                 fresh_missions += 1

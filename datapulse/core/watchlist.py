@@ -305,10 +305,17 @@ class WatchlistStore:
         alert_rules: list[dict[str, Any]] | None = None,
         enabled: bool = True,
     ) -> WatchMission:
+        normalized_mission_intent = (
+            mission_intent
+            if isinstance(mission_intent, MissionIntent)
+            else MissionIntent.from_dict(mission_intent)
+            if isinstance(mission_intent, dict)
+            else MissionIntent()
+        )
         mission = WatchMission(
             name=name,
             query=query,
-            mission_intent=mission_intent or MissionIntent(),
+            mission_intent=normalized_mission_intent,
             platforms=list(platforms or []),
             sites=list(sites or []),
             schedule=schedule,
