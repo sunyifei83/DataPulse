@@ -44,6 +44,7 @@ openclaw-*.env.local
 openclaw-*.secret
 datapulse-openclaw.env
 artifacts/
+out/datapulse_console.log
 unified_inbox.json
 uv.lock
 .claude/
