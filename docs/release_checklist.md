@@ -4,6 +4,7 @@
 用于 vX.Y.Z 发版前后的固定操作，减少手工漏项。
 
 ## A. 预发检查
+- [ ] 确认发版解释器满足 `Python >= 3.10`（推荐 `export DATAPULSE_RELEASE_PYTHON=python3.10` 或 `uv run --python 3.10 python -V`）
 - [ ] 运行 `bash scripts/security_guardrails.sh`（禁止明文 token 进入仓库）
 - [ ] 确认 `.pre-commit-config.yaml` 中的 `datapulse-security-guardrails` hook 可复用执行
 - [ ] 运行 `bash scripts/release_readiness.sh`，确认必需文件与环境核对通过
@@ -20,11 +21,12 @@
 - [ ] MCP 入口已通过 `datapulse.mcp_server` 内建 fallback 验证（`python3 -m datapulse.mcp_server --list-tools`）
 
 ## C. 资产构建
-- [ ] `python -m build --sdist --wheel .`
+- [ ] `uv run --python 3.10 python -m build --sdist --wheel .`
 - [ ] 产物目录包含 `.whl` 与 `.tar.gz`
 - [ ] 若 `docs/形象.jpg` 更新，执行 `bash scripts/build_brand_assets.sh` 并确认 hero / square / icon 已同步刷新
 
 ## D. 发布动作
+- [ ] 先运行 `./scripts/release_publish.sh --tag vX.Y.Z --dry-run`，确认 notes 提取与命令链正确
 - [ ] 创建/更新 release tag（`vX.Y.Z`）
 - [ ] 通过 `scripts/release_publish.sh` 生成 Release（脚本会从 `RELEASE_NOTES.md` 自动截取对应版本段，并默认清理 `Full Changelog`）
 - [ ] 确认 Release 页面挂载 assets 与 Release notes

@@ -1,5 +1,56 @@
 # Release Notes
 
+## Release: DataPulse v0.8.0
+
+发布日期：2026-03-08
+构建目标：分析师任务面、治理语义与发版可操作性收口
+
+### 主要变更
+
+**能力 1 — 任务语义从“保存查询”升级为“分析师意图”**
+- `WatchMission` 现已内建 `MissionIntent`，可携带 `demand_intent`、`key_questions`、`scope_entities/topics/regions`、`freshness_expectation`、`freshness_max_age_hours` 与 `coverage_targets`。
+- Reader、CLI、持久化结果流与浏览器 Mission Cockpit 共用同一套 mission intent 语义，不再依赖 UI 或单端注释补足上下文。
+- 结果流与后续证据链可带出 `watch_mission_intent`，让 triage、story、ops 与 alert 站在同一问题定义上工作。
+
+**能力 2 — 来源、证据、分发进入统一治理语言**
+- `SourceGovernance` 为 `SourceCatalog` 与 `resolve_source()` 增补 `source_class / collection_mode / authority / sensitivity / compliance_hints`。
+- 仓内已形成三份契约文档：
+  - `docs/intelligence_source_governance_contract.md`
+  - `docs/intelligence_lifecycle_contract.md`
+  - `docs/intelligence_delivery_contract.md`
+- 同步新增 `docs/commercial_intelligence_governance_blueprint.md`，把外部商业情报方法论压成 repo 可执行蓝图与 follow-up slices。
+- triage、story、alert 输出现在共享治理/来源/投递风险语义，而不是各自维护一套弱关联状态。
+
+**能力 3 — 运营面从“运行正常”升级为“情报有效”**
+- `ops_snapshot()`、CLI `--ops-overview` 与浏览器控制台已补入 intelligence governance scorecard。
+- 当前 scorecard 信号包括：
+  - `coverage`
+  - `freshness`
+  - `alert_yield`
+  - `triage_throughput`
+  - `story_conversion`
+- 浏览器控制台继续沿 `watch -> triage -> story -> delivery` 统一操作面推进，已收口 mission deck、command palette、action log、story editor、route drill-down 与治理记分板。
+
+**能力 4 — 发版路径对本地解释器漂移更稳健**
+- `scripts/release_readiness.sh` 与 `scripts/release_publish.sh` 不再假定本机存在可用的 `python` 或满足版本要求的 `python3`。
+- 发版链路现在优先使用：
+  - `DATAPULSE_RELEASE_PYTHON=<python>=3.10`
+  - 或 `uv run --python 3.10 python`
+- 这解决了本机 `python3=3.9` 时发版前检查与构建脚本被环境漂移卡住的问题。
+
+### 测试
+- 静态检查：`uv run ruff check datapulse/` → 通过
+- 类型检查：`uv run mypy datapulse/` → 通过
+- 全量回归：`uv run pytest tests/ -q` → `656 passed in 22.11s`
+- 当前测试规模：`41` 个测试模块，覆盖 watch / triage / story / alert / console / governance scorecard / source governance 等核心路径
+
+### 验收建议
+1. `bash scripts/release_readiness.sh`
+2. `uv run --python 3.10 python -m build --sdist --wheel .`
+3. `uv run ruff check datapulse/ && uv run mypy datapulse/`
+4. `uv run pytest tests/ -q`
+5. `./scripts/release_publish.sh --tag v0.8.0 --dry-run`
+
 ## Release: DataPulse v0.7.0
 
 发布日期：2026-03-04

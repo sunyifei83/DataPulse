@@ -5,8 +5,8 @@
   "sidecar_kind": "example_contract",
   "wired": false,
   "release": {
-    "tag": "v0.7.0",
-    "version": "0.7.0",
+    "tag": "v0.8.0",
+    "version": "0.8.0",
     "notes_file": "RELEASE_NOTES.md",
     "notes_section_found": true
   },

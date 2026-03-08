@@ -49,7 +49,7 @@
 - 入库指纹去重：`UnifiedInbox.add()` 对 ≥50 字符内容计算指纹拒绝近似重复。
 - 平台三级分级体系：tier 0 (零配置) / tier 1 (网络) / tier 2 (需配置)。
 
-### P6：Watch / Mission 任务层 🚧 (v0.7.0 进行中)
+### P6：Watch / Mission 任务层 🚧 (v0.8.0 首版闭环，后续增强继续)
 - 新增任务对象模型：`WatchMission` / `MissionRun` / `WatchlistStore`。
 - 新增轻量调度语义：`@hourly` / `@daily` / `@weekly` / `interval:15m`。
 - 新增首版阈值告警：`alert_rules` + 关键词 / 标签 / 域名 / source_type / 时效过滤。
@@ -63,7 +63,7 @@
 - MCP 首版开放：`create_watch / list_watches / watch_show / watch_set_alert_rules / watch_results / run_watch / run_due_watches / list_alerts / list_alert_routes / alert_route_health / watch_status / disable_watch`。
 - 当前范围为“保存搜索 + 手动执行 + 轻量 due runner + daemon 轮询 + richer alert rule + named routing + 状态页”；自动恢复与更复杂编排留待下一阶段。
 
-### P7：Triage Queue 处置层 🚧 (v0.8.0 进行中)
+### P7：Triage Queue 处置层 🚧 (v0.8.0 首版闭环，后续增强继续)
 - 新增 triage 状态模型：`new / triaged / verified / duplicate / ignored / escalated`。
 - `DataPulseItem` 新增 `review_state / review_notes / review_actions / duplicate_of`，保持旧 inbox JSON 向后兼容。
 - 新增 `core/triage.py`，统一状态校验、备注记录、动作日志、队列统计，以及重复项解释能力。
@@ -75,7 +75,7 @@
 - browser `Triage Queue` 已补入 state filter chips、review note history 与 inline note composer，并直接走 `/api/triage/{id}/state` / `/api/triage/{id}/note` 写回。
 - browser `Triage Queue` 已补入 first-cut keyboard workflow：`J/K` 选择、`V/T/E/I` 状态流转、`D` 打开 duplicate explain、`N` 聚焦 note composer。
 
-### P8：Story Workspace 证据层 🚧 (v0.8.0 进行中)
+### P8：Story Workspace 证据层 🚧 (v0.8.0 首版闭环，后续增强继续)
 - 新增 `core/story.py`，提供 `Story / StoryEvidence / StoryTimelineEvent / StoryConflict / StoryStore`。
 - 新增首版 story 聚合构建器：基于标题/正文/实体/域名/指纹相似度聚类，生成主次证据、时间线、冲突提示与实体聚合。
 - `DataPulseReader` 支持 `story_build / list_stories / show_story / export_story`。
@@ -85,7 +85,7 @@
 - `datapulse-console` 已补入首版 story workspace：story 列表、证据栈、时间线、冲突标记、entity graph、Markdown 证据包预览，以及可回写 `title / summary / status` 的 story editor。
 - 当前范围为“持久化 story snapshot + GUI story board + entity graph + 基础 story editor”；故事合并、证据重排留待下一阶段。
 
-## 截至 2026-03-07 的落地事实
+## 截至 2026-03-08 的落地事实
 
 - `P6/G1` 已形成单任务 cockpit 闭环：`watch_show / watch_results / watch_set_alert_rules`，浏览器内可查看 `recent runs / recent results / recent alerts / retry advice`，并可直接替换或清空基础 alert rule。
 - `P6/G1` 的浏览器 alert rule editor 已支持多规则编辑，不再只暴露第一条规则。
@@ -97,6 +97,7 @@
 - `P7/G2` 已从基础入口推进到可操作工作台：同屏支持 queue state filter chips、duplicate explain、state transitions、review note history 与 inline note composer。
 - `P7/G2` 已进一步补入 first-cut keyboard workflow：`J/K` 选中条目、`V/T/E/I` 快捷处置、`D` 打开重复项解释、`N` 聚焦 note composer。
 - `P8/G3` 已不再是只读板：单个 story 现在可在 CLI / MCP / Console 中回写 `title / summary / status`，浏览器内已补入 `story editor`。
+- `L8` 治理收口已进入仓内事实：来源治理契约、商业情报治理蓝图、mission intent 语义、governance scorecard 均已在 repo 中落锚，不再只是外部方法论。
 
 ## 与现网能力映射
 

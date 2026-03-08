@@ -7,6 +7,53 @@ cd "$ROOT_DIR"
 
 EMERGENCY_STATE_FILE="${EMERGENCY_STATE_FILE:-}"
 EMERGENCY_GATE_REQUIRED="${EMERGENCY_GATE_REQUIRED:-0}"
+PYTHON_CMD=()
+PYTHON_DESC=""
+
+python_supports_project() {
+  local candidate="$1"
+  "$candidate" - <<'PY' >/dev/null 2>&1
+import sys
+raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)
+PY
+}
+
+resolve_python_cmd() {
+  if [[ -n "${DATAPULSE_RELEASE_PYTHON:-}" ]]; then
+    if ! command -v "${DATAPULSE_RELEASE_PYTHON}" >/dev/null 2>&1; then
+      fail "configured DATAPULSE_RELEASE_PYTHON not found: ${DATAPULSE_RELEASE_PYTHON}"
+      return 1
+    fi
+    if ! python_supports_project "${DATAPULSE_RELEASE_PYTHON}"; then
+      fail "configured DATAPULSE_RELEASE_PYTHON must be Python >= 3.10: ${DATAPULSE_RELEASE_PYTHON}"
+      return 1
+    fi
+    PYTHON_CMD=("${DATAPULSE_RELEASE_PYTHON}")
+    PYTHON_DESC="${DATAPULSE_RELEASE_PYTHON}"
+    return 0
+  fi
+
+  for candidate in python3.12 python3.11 python3.10 python3; do
+    if command -v "$candidate" >/dev/null 2>&1 && python_supports_project "$candidate"; then
+      PYTHON_CMD=("$candidate")
+      PYTHON_DESC="$candidate"
+      return 0
+    fi
+  done
+
+  if command -v uv >/dev/null 2>&1; then
+    PYTHON_CMD=(uv run --python 3.10 python)
+    PYTHON_DESC="uv run --python 3.10 python"
+    return 0
+  fi
+
+  fail "no Python >= 3.10 runtime found; set DATAPULSE_RELEASE_PYTHON or install uv"
+  return 1
+}
+
+python_run() {
+  "${PYTHON_CMD[@]}" "$@"
+}
 
 show_help() {
   cat <<'EOF'
@@ -72,7 +119,7 @@ check_emergency_gate() {
 
   local rc
   set +e
-  python3 - <<'PY' "$state_file"
+  python_run - <<'PY' "$state_file"
 import json
 import sys
 from pathlib import Path
@@ -146,9 +193,15 @@ else
   pass "git repository detected"
 fi
 
-check_cmd python3
 check_cmd jq || true
 check_cmd gh || true
+
+if resolve_python_cmd; then
+  pass "release python runtime available: $PYTHON_DESC"
+else
+  echo "release readiness: pass=$pass_count fail=$fail_count"
+  exit 1
+fi
 
 if grep -qxF ".claude/" .gitignore; then
   pass ".claude/ 已写入 .gitignore"
@@ -171,7 +224,7 @@ check_required_file "scripts/datapulse_console.sh"
 check_required_file "scripts/datapulse_console_smoke.sh"
 check_required_file "scripts/datapulse_remote_openclaw_smoke.sh"
 
-if python3 -m json.tool docs/contracts/openclaw_datapulse_tool_contract.json >/dev/null; then
+if python_run -m json.tool docs/contracts/openclaw_datapulse_tool_contract.json >/dev/null; then
   pass "openclaw contract JSON valid"
 else
   fail "openclaw contract JSON invalid"
@@ -183,7 +236,7 @@ else
   fail "security guardrails failed"
 fi
 
-if python3 -m compileall datapulse mcp_server.py >/dev/null 2>&1; then
+if python_run -m compileall datapulse mcp_server.py >/dev/null 2>&1; then
   pass "python compile check passed"
 else
   fail "python compile check failed"

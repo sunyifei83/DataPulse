@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.0] - 2026-03-08
+
+### Added — Features
+- **Mission Intent Upgrade**: `WatchMission` now carries `MissionIntent` with `demand_intent`, `key_questions`, `scope_*`, `freshness_expectation`, `freshness_max_age_hours`, and `coverage_targets`. Reader, CLI, stored watch results, and browser surfaces project the same mission-intent semantics.
+- **Source Governance Model**: `SourceGovernance` introduces a governed source tuple (`source_class`, `collection_mode`, `authority`, `sensitivity`, `compliance_hints`) for `SourceCatalog`, auto-registered sources, and `resolve_source()` payloads.
+- **Intelligence Governance Scorecard**: Reader/ops surfaces now expose scorecard signals for `coverage`, `freshness`, `alert_yield`, `triage_throughput`, and `story_conversion` through `ops_snapshot()`, CLI `--ops-overview`, and console `/api/ops` / `/api/ops/scorecard`.
+- **Governance Contracts**: Added repo-level contracts for intelligence lifecycle, delivery, source governance, and commercial intelligence governance blueprinting (`docs/intelligence_*`, `docs/commercial_intelligence_governance_blueprint.md`).
+
+### Changed
+- **Evidence Governance Alignment**: triage, story, and alert outputs now share explicit governance/provenance/delivery-risk semantics instead of acting as separate feature islands.
+- **Console Uplift Closure**: the browser console now exposes the mission deck, command palette, action log, reversible mutations, story editor, route drill-down, and governance scorecard as one Reader-backed operating surface.
+- **Release Tooling**: `scripts/release_publish.sh` and `scripts/release_readiness.sh` now resolve a Python `>=3.10` runtime via `DATAPULSE_RELEASE_PYTHON` or `uv run --python 3.10 python` instead of assuming ambient `python` / `python3`.
+
+### Added — Testing
+- Full repository verification now closes at `656 passed` across `41` test modules.
+- Release-prep validation confirmed `uv run ruff check datapulse/`, `uv run mypy datapulse/`, and `uv run pytest tests/ -q`.
+
 ## [0.7.0] - 2026-03-04
 
 ### Added — Features

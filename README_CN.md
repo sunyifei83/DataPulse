@@ -89,12 +89,17 @@
   - `datapulse --self-update`：检测并执行线上升级（无更新则提示）
 - 可观测性：
   - 结构化日志（`DATAPULSE_LOG_LEVEL` 环境变量控制级别）
+- 情报治理与运营闭环：
+  - `SourceGovernance` 为来源目录补入 `source_class / collection_mode / authority / sensitivity / compliance_hints`
+  - `MissionIntent` 为 watch mission 补入 `demand_intent / key_questions / freshness / coverage_targets`
+  - 仓内已形成 [来源治理契约](./docs/intelligence_source_governance_contract.md)、[生命周期契约](./docs/intelligence_lifecycle_contract.md)、[分发契约](./docs/intelligence_delivery_contract.md) 与 [商业情报治理蓝图](./docs/commercial_intelligence_governance_blueprint.md)
+  - `ops_snapshot()`、`datapulse --ops-overview` 与浏览器控制台已补入 `coverage / freshness / alert yield / triage throughput / story conversion` intelligence governance scorecard
 - 轻量实体增强（EdgeQuake 蒸馏）：
   - `--entities` 启用 URL 级实体抽取（`fast`/`llm`）
   - `--entity-query` / `--entity-graph` / `--entity-stats` 支持实体存储与查询
   - 评分链路可通过 `DATAPULSE_ENTITY_CORROBORATION_WEIGHT` 引入实体跨源互证加分（默认 `0`）
 - 测试基建：
-  - 619 个测试，覆盖 41 个测试模块
+  - 656 个测试，覆盖 41 个测试模块
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
 
 ## 安装
@@ -614,11 +619,17 @@ bash scripts/run_openclaw_remote_smoke_local.sh
 
 ## 发布与版本绑定
 
+- 发布前先确认发版解释器满足 `Python >= 3.10`：
+  - 显式指定：`export DATAPULSE_RELEASE_PYTHON=python3.10`
+  - 或直接校验：`uv run --python 3.10 python -V`
 - 发布资产构建：
-  - `python -m build --sdist --wheel .`
+  - `bash scripts/release_readiness.sh`
+  - `uv run --python 3.10 python -m build --sdist --wheel .`
   - 生成的 `dist/*.whl` 与 `dist/*.tar.gz` 作为发布附件
 - 版本发布方式：
+  - `./scripts/release_publish.sh --tag vX.Y.Z --dry-run`
   - `./scripts/release_publish.sh --tag vX.Y.Z`
+  - `scripts/release_publish.sh` 会自动解析 `DATAPULSE_RELEASE_PYTHON`，或 fallback 到 `uv run --python 3.10 python`
   - `scripts/release_publish.sh` 会自动从 `RELEASE_NOTES.md` 中提取对应 `## Release: DataPulse vX.Y.Z` 片段作为发布说明，并默认剥离 `Full Changelog` 字段，避免发布页噪音
   - 推送 tag 后由 `.github/workflows/release.yml` 自动上传 GitHub Release 资产
 

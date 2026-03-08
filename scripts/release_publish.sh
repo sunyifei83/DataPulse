@@ -22,6 +22,49 @@ NOTES_FILE="RELEASE_NOTES.md"
 REPO=""
 DRY_RUN=0
 SCRUB_FULL_CHANGELOG=1
+PYTHON_CMD=()
+
+python_supports_project() {
+  local candidate="$1"
+  "$candidate" - <<'PY' >/dev/null 2>&1
+import sys
+raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)
+PY
+}
+
+resolve_python_cmd() {
+  if [[ -n "${DATAPULSE_RELEASE_PYTHON:-}" ]]; then
+    if ! command -v "${DATAPULSE_RELEASE_PYTHON}" >/dev/null 2>&1; then
+      echo "Configured DATAPULSE_RELEASE_PYTHON not found: ${DATAPULSE_RELEASE_PYTHON}" >&2
+      exit 1
+    fi
+    if ! python_supports_project "${DATAPULSE_RELEASE_PYTHON}"; then
+      echo "Configured DATAPULSE_RELEASE_PYTHON must be Python >= 3.10: ${DATAPULSE_RELEASE_PYTHON}" >&2
+      exit 1
+    fi
+    PYTHON_CMD=("${DATAPULSE_RELEASE_PYTHON}")
+    return
+  fi
+
+  for candidate in python3.12 python3.11 python3.10 python3; do
+    if command -v "$candidate" >/dev/null 2>&1 && python_supports_project "$candidate"; then
+      PYTHON_CMD=("$candidate")
+      return
+    fi
+  done
+
+  if command -v uv >/dev/null 2>&1; then
+    PYTHON_CMD=(uv run --python 3.10 python)
+    return
+  fi
+
+  echo "No Python >= 3.10 runtime found. Set DATAPULSE_RELEASE_PYTHON or install uv." >&2
+  exit 1
+}
+
+python_run() {
+  "${PYTHON_CMD[@]}" "$@"
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -57,10 +100,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-PROJECT_VERSION=$(python3 - <<'PY'
+resolve_python_cmd
+
+PROJECT_VERSION=$(python_run - <<'PY'
 import re, pathlib
 text = pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
-m = re.search(r'(?m)^version\\s*=\\s*"([^"]+)"', text)
+m = re.search(r'(?m)^version\s*=\s*"([^"]+)"', text)
 print(m.group(1) if m else "0.0.0")
 PY
 )
@@ -70,7 +115,10 @@ if [[ -z "$TAG" ]]; then
 fi
 
 if [[ -z "$REPO" ]]; then
-  REPO=$(git remote get-url origin | sed -E 's#(git@github.com:|https://github.com/)##; s#\\.git$##')
+  REPO=$(
+    git remote get-url origin |
+      sed -E 's#^git@github.com:##; s#^ssh://git@github.com/##; s#^https://[^/]+@github.com/##; s#^https://github.com/##; s#\.git$##'
+  )
 fi
 
 extract_notes() {
@@ -79,7 +127,7 @@ extract_notes() {
   local raw_notes
 
   raw_notes=$(
-    python3 - "$notes_file" "$tag" <<'PY'
+    python_run - "$notes_file" "$tag" <<'PY'
 import pathlib
 import re
 import sys
@@ -125,7 +173,7 @@ PY
   fi
 
   if [[ "$SCRUB_FULL_CHANGELOG" -eq 1 ]]; then
-    printf "%s" "$raw_notes" | python3 -c 'import sys; [sys.stdout.write(line if "Full Changelog" not in line else "") for line in sys.stdin.read().splitlines(True)]'
+    printf "%s" "$raw_notes" | python_run -c 'import sys; [sys.stdout.write(line if "Full Changelog" not in line else "") for line in sys.stdin.read().splitlines(True)]'
   else
     printf "%s" "$raw_notes"
   fi
@@ -134,22 +182,24 @@ PY
 TMP_NOTES_FILE=$(mktemp)
 trap 'rm -f "$TMP_NOTES_FILE"' EXIT
 
-run() {
+run_cmd() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf '[dry-run] %s\n' "$*"
+    printf '[dry-run]'
+    printf ' %q' "$@"
+    printf '\n'
   else
-    eval "$*"
+    "$@"
   fi
 }
 
-run "python -m pip install --upgrade build >/dev/null"
-run rm -rf dist
-run python -m build --sdist --wheel .
+run_cmd "${PYTHON_CMD[@]}" -m pip install --upgrade build
+run_cmd rm -rf dist
+run_cmd "${PYTHON_CMD[@]}" -m build --sdist --wheel .
 
 if ! git rev-parse "$TAG" >/dev/null 2>&1; then
-  run git tag "$TAG"
+  run_cmd git tag "$TAG"
 fi
-run git push origin "$TAG"
+run_cmd git push origin "$TAG"
 
 if [[ ! -f "$NOTES_FILE" ]]; then
   echo "Notes file not found: $NOTES_FILE" >&2
@@ -164,7 +214,7 @@ fi
   echo "----------------------------------------"
 } >&2
 
-if ! python3 - "$TMP_NOTES_FILE" <<'PY'
+if ! python_run - "$TMP_NOTES_FILE" <<'PY'
 import pathlib, sys
 text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
 if "Full Changelog" in text:
@@ -178,6 +228,11 @@ then
   fi
 fi
 
-run gh release create "$TAG" dist/* --repo "$REPO" --title "DataPulse ${TAG}" --notes-file "$TMP_NOTES_FILE"
+release_assets=(
+  "dist/datapulse-${PROJECT_VERSION}-py3-none-any.whl"
+  "dist/datapulse-${PROJECT_VERSION}.tar.gz"
+)
+
+run_cmd gh release create "$TAG" "${release_assets[@]}" --repo "$REPO" --title "DataPulse ${TAG}" --notes-file "$TMP_NOTES_FILE"
 
 echo "Release publish finished: ${TAG}"

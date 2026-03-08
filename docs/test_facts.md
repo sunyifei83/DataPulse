@@ -250,6 +250,24 @@ title: Test Facts
 - **MCP 入口补齐**：新增 4 个高价值实体工具 `extract_entities`、`query_entities`、`entity_graph`、`entity_stats`。
 - **测试与门禁**：新增实体相关测试覆盖（`test_entities.py`/`test_entity_store.py`/`test_entity_integration.py`），纳入 `tests/` 全量闭环。
 
+## Fact 3.11: v0.8.0 分析师任务与治理语义收口
+
+- **版本事实**：仓内版本锚点已推进到 `0.8.0`（`pyproject.toml`、`datapulse/__init__.py`、`datapulse_skill/manifest.json`、`docs/contracts/openclaw_datapulse_tool_contract.json` 同步对齐）。
+- **任务意图事实**：`WatchMission` 现已内建 `MissionIntent`，支持 `demand_intent`、`key_questions`、`scope_*`、`freshness_expectation`、`freshness_max_age_hours`、`coverage_targets`；CLI、Reader、Console、持久化结果流使用同一语义。
+- **来源治理事实**：`SourceGovernance` 已将 `source_class / collection_mode / authority / sensitivity / compliance_hints` 引入 `SourceCatalog` 与 `resolve_source()` 结果，仓内对应契约为 `docs/intelligence_source_governance_contract.md`。
+- **治理契约事实**：仓内已形成生命周期契约、分发契约、来源治理契约与商业情报治理蓝图：
+  - `docs/intelligence_lifecycle_contract.md`
+  - `docs/intelligence_delivery_contract.md`
+  - `docs/intelligence_source_governance_contract.md`
+  - `docs/commercial_intelligence_governance_blueprint.md`
+- **运营记分板事实**：`ops_snapshot()`、CLI `--ops-overview` 与浏览器控制台已补入 `coverage / freshness / alert_yield / triage_throughput / story_conversion` intelligence governance scorecard。
+- **发版可操作性事实**：`scripts/release_readiness.sh` 与 `scripts/release_publish.sh` 已支持解析 `DATAPULSE_RELEASE_PYTHON`，并能 fallback 到 `uv run --python 3.10 python`，不再假定本机存在可用的 `python` 或满足要求的 `python3`。
+- **测试闭环事实（2026-03-08）**：
+  - `uv run ruff check datapulse/` → PASS
+  - `uv run mypy datapulse/` → PASS
+  - `uv run pytest tests/ -q` → `656 passed in 22.11s`
+  - 当前测试文件数：`41`
+
 ## Fact 4: 来源与订阅能力增强
 
 - 已形成统一落地清单：`docs/source_feed_enhancement_plan.md`。

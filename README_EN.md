@@ -95,8 +95,13 @@ for MCP, Skill, Agent, and bot workflows.
   - `datapulse --self-update`: run an update attempt when a newer release exists
 - Observability:
   - structured logging (`DATAPULSE_LOG_LEVEL` env var)
+- Intelligence governance and ops loop:
+  - `SourceGovernance` now gives the source directory a stable `source_class / collection_mode / authority / sensitivity / compliance_hints` tuple
+  - `MissionIntent` now gives watch missions explicit `demand_intent / key_questions / freshness / coverage_targets`
+  - the repo now includes a [source governance contract](./docs/intelligence_source_governance_contract.md), [lifecycle contract](./docs/intelligence_lifecycle_contract.md), [delivery contract](./docs/intelligence_delivery_contract.md), and [commercial intelligence governance blueprint](./docs/commercial_intelligence_governance_blueprint.md)
+  - `ops_snapshot()`, `datapulse --ops-overview`, and the browser console now expose an intelligence governance scorecard for coverage, freshness, alert yield, triage throughput, and story conversion
 - Testing:
-  - 619 tests across 41 modules
+  - 656 tests across 41 modules
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
 
 ## Install
@@ -512,6 +517,8 @@ Markdown projection notes:
 - Tool contract: `docs/contracts/openclaw_datapulse_tool_contract.json`
 - Quick validation scripts: `scripts/datapulse_local_smoke.sh`, `scripts/run_openclaw_remote_smoke_local.sh`
 - Release checklist: `docs/release_checklist.md`
+- Governance contracts: `docs/intelligence_source_governance_contract.md`, `docs/intelligence_lifecycle_contract.md`, `docs/intelligence_delivery_contract.md`
+- Commercial intelligence blueprint: `docs/commercial_intelligence_governance_blueprint.md`
 
 ### OpenClaw credential management best practice (debug vs app environment)
 
@@ -550,11 +557,17 @@ bash scripts/run_openclaw_remote_smoke_local.sh
 
 ## Release & publishing
 
+- Confirm a release Python runtime at `>=3.10` before publishing:
+  - explicit override: `export DATAPULSE_RELEASE_PYTHON=python3.10`
+  - or verify directly: `uv run --python 3.10 python -V`
 - Build artifacts:
-  - `python -m build --sdist --wheel .`
+  - `bash scripts/release_readiness.sh`
+  - `uv run --python 3.10 python -m build --sdist --wheel .`
   - attach `dist/*.whl` and `dist/*.tar.gz`
 - Publishing:
+  - `./scripts/release_publish.sh --tag vX.Y.Z --dry-run`
   - `./scripts/release_publish.sh --tag vX.Y.Z`
+  - `scripts/release_publish.sh` auto-resolves `DATAPULSE_RELEASE_PYTHON`, or falls back to `uv run --python 3.10 python`
   - `scripts/release_publish.sh` auto-extracts the matching `## Release: DataPulse vX.Y.Z` section from `RELEASE_NOTES.md` and strips `Full Changelog` by default.
   - On tag push, `.github/workflows/release.yml` auto uploads release assets
 

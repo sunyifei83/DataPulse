@@ -41,8 +41,9 @@ DataPulse 提供一个统一入口，用于：
 | 处置化 | 首版 triage queue：`--triage-list`、`--triage-explain`、`--triage-update`、`--triage-note`、`--triage-stats` |
 | 证据化 | 首版 story workspace：`--story-build`、`--story-list`、`--story-show`、`--story-update`、`--story-graph`、`--story-export` |
 | 告警分发 | threshold alert rule、关键词/标签/域名/时效过滤、JSON/Markdown/Webhook/Feishu/Telegram sink、`--alert-list`、`--alert-route-list`、`--alert-route-health` |
-| 运行状态 | daemon 单实例锁、heartbeat JSON/HTML 状态页、MCP `watch_status`、CLI `--ops-overview`、任务级 watch health / aggregate success-rate |
+| 运行状态 | daemon 单实例锁、heartbeat JSON/HTML 状态页、MCP `watch_status`、CLI `--ops-overview`、任务级 watch health / aggregate success-rate / intelligence governance scorecard |
 | 浏览器控制台 | `datapulse-console` 本地 G0/G3 GUI，统一 watch / triage / story / alert / route / status 工作台，`Mission Cockpit` 已具备 result stream、filter chips、timeline strip 和基础 alert rule 编辑，`Triage Queue` 已具备 first-cut keyboard workflow，`Story Workspace` 已具备基础 story editor |
+| 情报治理 | `MissionIntent`、`SourceGovernance`、生命周期/分发/来源治理契约、`commercial_intelligence_governance_blueprint`、coverage/freshness/alert yield/triage throughput/story conversion scorecard |
 | 输出模型 | 统一 `DataPulseItem`（`title/content/url/confidence/score/tags/extra`） |
 | 评分排序 | 置信度 + 权威度 + 互证 + 时效性 |
 | 实体增强 | `--entities` 抽取，`--entity-query` / `--entity-graph` / `--entity-stats` |
@@ -264,6 +265,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - 蓝图计划内的代码变更应按逻辑单元提交入库，不长期停留在脏工作区。
 - 推送到 GitHub 后应触发 Actions，当前默认闸门包括 `ruff check datapulse/`、`mypy datapulse/`、`pytest tests/`。
 - GUI/G0 相关变更额外通过 `datapulse-console --help` 入口烟测，确保 console 包装和依赖在 CI 中可安装。
+- 当前仓内回归事实：`uv run pytest tests/ -q` 为 `656 passed`，覆盖 `41` 个测试模块。
 
 ## 安全与边界
 
@@ -280,6 +282,10 @@ bash scripts/security_guardrails.sh
 - 详细中文说明：[`README_CN.md`](./README_CN.md)
 - Detailed English guide: [`README_EN.md`](./README_EN.md)
 - 搜索网关配置：[`docs/search_gateway_config.md`](./docs/search_gateway_config.md)
+- 生命周期契约：[`docs/intelligence_lifecycle_contract.md`](./docs/intelligence_lifecycle_contract.md)
+- 来源治理契约：[`docs/intelligence_source_governance_contract.md`](./docs/intelligence_source_governance_contract.md)
+- 分发契约：[`docs/intelligence_delivery_contract.md`](./docs/intelligence_delivery_contract.md)
+- 商业情报治理蓝图：[`docs/commercial_intelligence_governance_blueprint.md`](./docs/commercial_intelligence_governance_blueprint.md)
 - 验收模板：[`docs/openclaw_datapulse_acceptance_template.md`](./docs/openclaw_datapulse_acceptance_template.md)
 - 事实沉淀：[`docs/test_facts.md`](./docs/test_facts.md)
 - 发布清单：[`docs/release_checklist.md`](./docs/release_checklist.md)

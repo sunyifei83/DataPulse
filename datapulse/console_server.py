@@ -71,7 +71,7 @@ class StoryUpdateRequest(BaseModel):
 
 
 def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) -> FastAPI:
-    app = FastAPI(title=CONSOLE_TITLE, version="0.7.0")
+    app = FastAPI(title=CONSOLE_TITLE, version="0.8.0")
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
