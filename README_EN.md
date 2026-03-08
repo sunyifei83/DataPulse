@@ -569,6 +569,6 @@ bash scripts/run_openclaw_remote_smoke_local.sh
   - `./scripts/release_publish.sh --tag vX.Y.Z`
   - `scripts/release_publish.sh` auto-resolves `DATAPULSE_RELEASE_PYTHON`, or falls back to a `uv` build path so the runtime does not need to ship with `pip`
   - `scripts/release_publish.sh` auto-extracts the matching `## Release: DataPulse vX.Y.Z` section from `RELEASE_NOTES.md`, reuses it for both the annotated tag message and GitHub Release notes, and strips `Full Changelog` by default.
-  - On tag push, `.github/workflows/release.yml` auto uploads release assets
+  - The repo currently treats `scripts/release_publish.sh` as the authoritative release entrypoint; `.github/workflows/release.yml` is only for manual asset repair on an existing tag/release and is not a tag-push autopublish path
 
 [⬆️ Back to top](#top) | [🔙 Back to Main README](./README.md) | [🇨🇳 中文版本](./README_CN.md)

@@ -631,6 +631,6 @@ bash scripts/run_openclaw_remote_smoke_local.sh
   - `./scripts/release_publish.sh --tag vX.Y.Z`
   - `scripts/release_publish.sh` 会自动解析 `DATAPULSE_RELEASE_PYTHON`，或 fallback 到 `uv` 构建链路，不再要求运行时自带 `pip`
   - `scripts/release_publish.sh` 会自动从 `RELEASE_NOTES.md` 中提取对应 `## Release: DataPulse vX.Y.Z` 片段，同时生成 annotated tag message 与 GitHub Release notes，并默认剥离 `Full Changelog` 字段
-  - 推送 tag 后由 `.github/workflows/release.yml` 自动上传 GitHub Release 资产
+  - 当前仓内以 `scripts/release_publish.sh` 作为 release 权威入口；`.github/workflows/release.yml` 仅用于已有 tag/release 的手动资产修复，不承担 tag push 自动发布职责
 
 [⬆️ 回到顶部](#top) | [🔙 返回主 README](./README.md) | [🇺🇸 English version](./README_EN.md)
