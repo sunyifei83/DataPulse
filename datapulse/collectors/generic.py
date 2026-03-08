@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import logging
+import os
+import ssl
 
 import requests
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
 
 from datapulse.core.models import SourceType
 from datapulse.core.security import get_secret, has_secret
@@ -14,6 +17,22 @@ from datapulse.core.utils import clean_text, generate_excerpt, validate_external
 from .base import BaseCollector, ParseResult
 
 logger = logging.getLogger("datapulse.parsers.generic")
+
+
+class _SSLContextAdapter(HTTPAdapter):
+    """Bind an explicit SSL context so requests can use system trust roots."""
+
+    def __init__(self, ssl_context: ssl.SSLContext):
+        self._ssl_context = ssl_context
+        super().__init__()
+
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        pool_kwargs["ssl_context"] = self._ssl_context
+        return super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
+
+    def proxy_manager_for(self, proxy, **proxy_kwargs):
+        proxy_kwargs["ssl_context"] = self._ssl_context
+        return super().proxy_manager_for(proxy, **proxy_kwargs)
 
 
 class GenericCollector(BaseCollector):
@@ -111,35 +130,65 @@ class GenericCollector(BaseCollector):
 
         return ParseResult.failure(url, last_error or "Generic parse failed")
 
+    def _build_ssl_context(self) -> ssl.SSLContext:
+        context = ssl.create_default_context()
+        context.load_default_certs()
+
+        requests_bundle = requests.certs.where()
+        if requests_bundle and os.path.exists(requests_bundle):
+            context.load_verify_locations(cafile=requests_bundle)
+
+        custom_bundle = os.getenv("DATAPULSE_CA_BUNDLE", "").strip()
+        if custom_bundle:
+            if os.path.exists(custom_bundle):
+                context.load_verify_locations(cafile=custom_bundle)
+            else:
+                logger.warning(
+                    "DATAPULSE_CA_BUNDLE not found at %s; falling back to default trust roots",
+                    custom_bundle,
+                )
+        return context
+
+    def _build_http_session(self) -> requests.Session:
+        session = requests.Session()
+        adapter = _SSLContextAdapter(self._build_ssl_context())
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        return session
+
     def _fetch_html(self, url: str) -> str:
-        with requests.get(
-            url,
-            timeout=self.timeout,
-            allow_redirects=True,
-            stream=True,
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
-            },
-        ) as resp:
-            resp.raise_for_status()
-            safe, reason = validate_external_url(resp.url)
-            if not safe:
-                raise ValueError(f"Blocked redirect target: {reason}")
+        session = self._build_http_session()
+        try:
+            with session.get(
+                url,
+                timeout=self.timeout,
+                allow_redirects=True,
+                stream=True,
+                headers={
+                    "User-Agent": "Mozilla/5.0",
+                    "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+                },
+            ) as resp:
+                resp.raise_for_status()
+                safe, reason = validate_external_url(resp.url)
+                if not safe:
+                    raise ValueError(f"Blocked redirect target: {reason}")
 
-            content_type = (resp.headers.get("Content-Type") or "").lower()
-            if content_type and not any(ct in content_type for ct in self.allowed_content_types):
-                raise ValueError(f"Unsupported content type: {content_type}")
+                content_type = (resp.headers.get("Content-Type") or "").lower()
+                if content_type and not any(ct in content_type for ct in self.allowed_content_types):
+                    raise ValueError(f"Unsupported content type: {content_type}")
 
-            body = bytearray()
-            for chunk in resp.iter_content(chunk_size=8192):
-                if not chunk:
-                    continue
-                body.extend(chunk)
-                if len(body) > self.max_response_bytes:
-                    raise ValueError(f"Response too large: > {self.max_response_bytes}")
-            encoding = resp.encoding or resp.apparent_encoding or "utf-8"
-            return body.decode(encoding, errors="replace")
+                body = bytearray()
+                for chunk in resp.iter_content(chunk_size=8192):
+                    if not chunk:
+                        continue
+                    body.extend(chunk)
+                    if len(body) > self.max_response_bytes:
+                        raise ValueError(f"Response too large: > {self.max_response_bytes}")
+                encoding = resp.encoding or resp.apparent_encoding or "utf-8"
+                return body.decode(encoding, errors="replace")
+        finally:
+            session.close()
 
     @staticmethod
     def _extract_metadata(html: str, url: str) -> tuple[str, str]:

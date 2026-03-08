@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import os
 
-from datapulse.core.utils import extract_urls
-from datapulse.core.utils import run_sync
+from datapulse.core.utils import extract_urls, run_sync
 from datapulse.reader import DataPulseReader
+
 
 def run(text: str, **_kwargs) -> str:
     urls = extract_urls(text)
