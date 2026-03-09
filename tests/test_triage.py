@@ -100,6 +100,9 @@ def test_triage_list_defaults_to_open_states(tmp_path):
     assert [item["id"] for item in payload] == ["item-1"]
     assert payload[0]["governance"]["evidence_grade"] == "working"
     assert payload[0]["governance"]["provenance"]["item_id"] == "item-1"
+    assert payload[0]["governance"]["grounding"]["claim_count"] >= 1
+    assert payload[0]["governance"]["grounding"]["claims"][0]["source_link"]["item_id"] == "item-1"
+    assert payload[0]["governance"]["grounding"]["claims"][0]["evidence_spans"][0]["item_id"] == "item-1"
 
 
 def test_triage_stats_counts_states(tmp_path):
@@ -119,6 +122,9 @@ def test_triage_stats_counts_states(tmp_path):
     assert payload["states"]["verified"] == 1
     assert payload["evidence_grade_counts"]["verified"] == 1
     assert payload["delivery_risk_counts"]["high"] >= 1
+    assert payload["grounding"]["items_with_claims"] >= 1
+    assert payload["grounding"]["claim_count"] >= payload["grounding"]["items_with_claims"]
+    assert payload["grounding"]["evidence_span_count"] >= payload["grounding"]["claim_count"]
 
 
 def test_triage_explain_duplicate_ranks_candidate(tmp_path):
@@ -140,3 +146,38 @@ def test_triage_explain_duplicate_ranks_candidate(tmp_path):
     assert payload["candidates"][0]["id"] == "item-2"
     assert "same_domain" in payload["candidates"][0]["signals"]
     assert payload["candidates"][0]["governance"]["provenance"]["source_name"] == "source"
+    assert payload["item"]["governance"]["grounding"]["claim_count"] >= 1
+
+
+def test_triage_projects_structured_grounded_claims(tmp_path):
+    item = _make_item(
+        "item-1",
+        title="Revenue update",
+        processed=True,
+        review_state="verified",
+    )
+    item.content = "Revenue reached 12M ARR in 2025. Gross margin improved to 80%."
+    item.extra["grounded_claims"] = [
+        {
+            "claim": "Revenue reached 12M ARR in 2025.",
+            "evidence_spans": [
+                {
+                    "field": "content",
+                    "text": "Revenue reached 12M ARR in 2025.",
+                }
+            ],
+        }
+    ]
+    reader = _reader(tmp_path, [item])
+
+    payload = reader.triage_list(limit=5, include_closed=True)
+
+    assert len(payload) == 1
+    grounding = payload[0]["governance"]["grounding"]
+    assert grounding["mode"] == "provided"
+    assert grounding["claim_count"] == 1
+    assert grounding["claims"][0]["text"] == "Revenue reached 12M ARR in 2025."
+    assert grounding["claims"][0]["source_link"]["url"] == "https://example.com/item-1"
+    assert grounding["claims"][0]["evidence_spans"][0]["field"] == "content"
+    assert grounding["claims"][0]["evidence_spans"][0]["start"] == 0
+    assert payload[0]["governance"]["provenance"]["grounded_claim_count"] == 1

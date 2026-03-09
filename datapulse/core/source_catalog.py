@@ -69,7 +69,18 @@ def _default_source_class(source_type: str) -> SourceGovernanceClass:
     normalized = _primary_source_type_value(source_type)
     if normalized == SourceType.MANUAL.value:
         return SourceGovernanceClass.ANALYST
-    if normalized in {"github", SourceType.TWITTER.value, SourceType.REDDIT.value, SourceType.YOUTUBE.value, SourceType.BILIBILI.value, SourceType.TELEGRAM.value, SourceType.WECHAT.value, SourceType.XHS.value, SourceType.HACKERNEWS.value}:
+    if normalized in {
+        "github",
+        SourceType.TWITTER.value,
+        SourceType.REDDIT.value,
+        SourceType.YOUTUBE.value,
+        SourceType.BILIBILI.value,
+        SourceType.TELEGRAM.value,
+        SourceType.WECHAT.value,
+        SourceType.WEIBO.value,
+        SourceType.XHS.value,
+        SourceType.HACKERNEWS.value,
+    }:
         return SourceGovernanceClass.PLATFORM
     if normalized in {SourceType.RSS.value, SourceType.ARXIV.value}:
         return SourceGovernanceClass.PUBLISHER
@@ -113,7 +124,12 @@ def _default_sensitivity(
     normalized = _primary_source_type_value(source_type)
     if collection_mode in {SourceCollectionMode.SEARCH_GATEWAY, SourceCollectionMode.MANUAL_FACT}:
         return SourceSensitivity.REVIEW_REQUIRED
-    if normalized in {SourceType.TELEGRAM.value, SourceType.WECHAT.value, SourceType.XHS.value}:
+    if normalized in {
+        SourceType.TELEGRAM.value,
+        SourceType.WECHAT.value,
+        SourceType.WEIBO.value,
+        SourceType.XHS.value,
+    }:
         return SourceSensitivity.REVIEW_REQUIRED
     return SourceSensitivity.PUBLIC
 

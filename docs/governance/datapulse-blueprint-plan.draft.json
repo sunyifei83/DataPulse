@@ -729,7 +729,7 @@
           "category": "manual",
           "execution_profile": "draft_only",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "sed -n '1,260p' docs/governance/datapulse-native-collector-bridge-contract.md"
           ],
@@ -762,7 +762,7 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run pytest tests/test_collectors.py -q"
           ],
@@ -796,7 +796,7 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run pytest tests/test_collectors.py tests/test_reader.py -q"
           ],
@@ -830,7 +830,7 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run pytest tests/test_collectors.py tests/test_reader.py -q"
           ],
@@ -864,7 +864,7 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run pytest tests/test_collectors.py -q"
           ],
@@ -897,7 +897,7 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run pytest tests/test_triage.py tests/test_story.py -q"
           ],
@@ -1030,9 +1030,21 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L9.2",
-    "title": "Define the native Chinese collector bridge contract and target shortlist",
+    "id": "L9.8",
+    "title": "Add a factuality gate before digest, story export, and alert escalation",
     "reason": "Derived from the next open slice in the working copy."
   },
-  "last_updated_utc": "2026-03-08T17:39:47Z"
+  "progress_log": [
+    {
+      "at_utc": "2026-03-08T18:44:24Z",
+      "slice_id": "L9.6",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-08T18:56:25Z",
+      "slice_id": "L9.7",
+      "status": "completed"
+    }
+  ],
+  "last_updated_utc": "2026-03-08T18:56:25Z"
 }

@@ -241,6 +241,17 @@ def is_wechat_url(url: str) -> bool:
     return "mp.weixin.qq.com" in (url or "").lower()
 
 
+def is_weibo_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return (parsed.hostname or "").lower() in {
+        "weibo.com",
+        "www.weibo.com",
+        "weibo.cn",
+        "www.weibo.cn",
+        "m.weibo.cn",
+    }
+
+
 def is_trending_url(url: str) -> bool:
     parsed = urlparse(url)
     return (parsed.hostname or "").lower() in {"trends24.in", "www.trends24.in"}
@@ -259,6 +270,8 @@ def resolve_platform_hint(url: str) -> str:
         return "telegram"
     if is_wechat_url(url):
         return "wechat"
+    if is_weibo_url(url):
+        return "weibo"
     if is_xhs_url(url):
         return "xhs"
     if is_arxiv_url(url):

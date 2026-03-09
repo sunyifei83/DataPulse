@@ -482,6 +482,77 @@ def _aggregate_story_evidence_grade(governances: list[dict[str, Any]]) -> str:
     return "working"
 
 
+def _build_story_grounding(story_id: str, evidence_rows: list[StoryEvidence]) -> dict[str, Any]:
+    claims: list[dict[str, Any]] = []
+    grounded_items: set[str] = set()
+    seen_claims: set[tuple[str, str]] = set()
+    primary_claim_count = 0
+    evidence_span_count = 0
+
+    for evidence in evidence_rows:
+        governance = evidence.governance if isinstance(evidence.governance, dict) else {}
+        grounding = governance.get("grounding", {}) if isinstance(governance.get("grounding"), dict) else {}
+        raw_claims = grounding.get("claims", []) if isinstance(grounding.get("claims"), list) else []
+        if not raw_claims:
+            continue
+        evidence_claim_added = False
+        for raw_claim in raw_claims:
+            if not isinstance(raw_claim, dict):
+                continue
+            text = str(raw_claim.get("text", "") or "").strip()
+            if not text:
+                continue
+            claim_key = (evidence.item_id, text.casefold())
+            if claim_key in seen_claims:
+                continue
+            seen_claims.add(claim_key)
+
+            claim_id = f"{story_id}:{evidence.item_id}:claim:{len(claims) + 1}"
+            source_link = dict(raw_claim.get("source_link", {})) if isinstance(raw_claim.get("source_link"), dict) else {}
+            source_link.setdefault("item_id", evidence.item_id)
+            source_link.setdefault("title", evidence.title)
+            source_link.setdefault("url", evidence.url)
+            source_link.setdefault("source_name", evidence.source_name)
+            source_link.setdefault("source_type", evidence.source_type)
+            source_link["story_id"] = story_id
+
+            spans: list[dict[str, Any]] = []
+            for span_index, raw_span in enumerate(raw_claim.get("evidence_spans", []), start=1):
+                if not isinstance(raw_span, dict):
+                    continue
+                span = dict(raw_span)
+                span.setdefault("span_id", f"{claim_id}:span:{span_index}")
+                span.setdefault("item_id", evidence.item_id)
+                span.setdefault("url", evidence.url)
+                spans.append(span)
+            evidence_span_count += len(spans)
+
+            claims.append(
+                {
+                    "claim_id": claim_id,
+                    "origin_claim_id": str(raw_claim.get("claim_id", "") or "").strip(),
+                    "text": text,
+                    "role": evidence.role,
+                    "source_link": source_link,
+                    "evidence_spans": spans,
+                }
+            )
+            evidence_claim_added = True
+            if evidence.role == "primary":
+                primary_claim_count += 1
+        if evidence_claim_added:
+            grounded_items.add(evidence.item_id)
+
+    return {
+        "mode": "projected" if claims else "empty",
+        "grounded_item_count": len(grounded_items),
+        "claim_count": len(claims),
+        "primary_claim_count": primary_claim_count,
+        "evidence_span_count": evidence_span_count,
+        "claims": claims,
+    }
+
+
 def _build_story_governance(
     *,
     story_id: str,
@@ -507,6 +578,7 @@ def _build_story_governance(
         sum(float(row.get("evidence_score", 0.0) or 0.0) for row in aggregated) / max(1, len(aggregated)),
         4,
     )
+    story_grounding = _build_story_grounding(story_id, evidence_rows)
 
     delivery_status = "ready"
     delivery_level = "low"
@@ -530,6 +602,7 @@ def _build_story_governance(
     for evidence in evidence_rows:
         governance = evidence.governance if isinstance(evidence.governance, dict) else {}
         provenance = governance.get("provenance", {}) if isinstance(governance.get("provenance"), dict) else {}
+        grounding = governance.get("grounding", {}) if isinstance(governance.get("grounding"), dict) else {}
         review_state = str(governance.get("review_state") or evidence.review_state).strip().lower() or "new"
         review_states[review_state] = review_states.get(review_state, 0) + 1
         provenance_chain.append(
@@ -543,6 +616,8 @@ def _build_story_governance(
                 "evidence_grade": str(governance.get("evidence_grade", "working")).strip().lower() or "working",
                 "url": evidence.url,
                 "fetched_at": provenance.get("fetched_at", evidence.fetched_at),
+                "grounded_claim_count": int(grounding.get("claim_count", 0) or 0),
+                "grounded_evidence_span_count": int(grounding.get("evidence_span_count", 0) or 0),
             }
         )
 
@@ -550,6 +625,7 @@ def _build_story_governance(
         "subject": "story",
         "evidence_grade": evidence_grade,
         "evidence_score": evidence_score,
+        "grounding": story_grounding,
         "provenance": {
             "kind": "story",
             "story_id": story_id,
@@ -558,6 +634,8 @@ def _build_story_governance(
             "source_names": list(source_names),
             "review_states": review_states,
             "evidence_chain": provenance_chain,
+            "grounded_claim_count": int(story_grounding.get("claim_count", 0) or 0),
+            "grounded_evidence_span_count": int(story_grounding.get("evidence_span_count", 0) or 0),
             "generated_at": generated_at,
         },
         "delivery_risk": {
@@ -574,6 +652,7 @@ def render_story_markdown(story: Story) -> str:
     governance = story.governance if isinstance(story.governance, dict) else {}
     delivery_risk = governance.get("delivery_risk", {}) if isinstance(governance.get("delivery_risk"), dict) else {}
     provenance = governance.get("provenance", {}) if isinstance(governance.get("provenance"), dict) else {}
+    grounding = governance.get("grounding", {}) if isinstance(governance.get("grounding"), dict) else {}
     lines = [
         f"# {story.title}",
         "",
@@ -594,6 +673,8 @@ def render_story_markdown(story: Story) -> str:
         f"- primary_item_id: {provenance.get('primary_item_id', story.primary_item_id)}",
         f"- evidence_items: {len(provenance.get('item_ids', [])) if isinstance(provenance.get('item_ids'), list) else 0}",
         f"- sources: {', '.join(provenance.get('source_names', story.source_names)) if isinstance(provenance.get('source_names'), list) else ', '.join(story.source_names)}",
+        f"- grounded_claims: {int(grounding.get('claim_count', 0) or 0)}",
+        f"- grounded_evidence_spans: {int(grounding.get('evidence_span_count', 0) or 0)}",
     ]
     for reason in delivery_risk.get("reasons", []) if isinstance(delivery_risk.get("reasons"), list) else []:
         lines.append(f"- delivery_note: {reason}")
@@ -607,13 +688,44 @@ def render_story_markdown(story: Story) -> str:
     if not story.entities:
         lines.append("- none")
 
+    lines.extend(["", "## Grounded Claims"])
+    claim_rows = grounding.get("claims", []) if isinstance(grounding.get("claims"), list) else []
+    for claim in claim_rows:
+        if not isinstance(claim, dict):
+            continue
+        source_link = claim.get("source_link", {}) if isinstance(claim.get("source_link"), dict) else {}
+        span_bits: list[str] = []
+        for span in claim.get("evidence_spans", []) if isinstance(claim.get("evidence_spans"), list) else []:
+            if not isinstance(span, dict):
+                continue
+            field = str(span.get("field", "content") or "content").strip()
+            start = span.get("start")
+            end = span.get("end")
+            locator = f"{field}[{start}:{end}]" if isinstance(start, int) and isinstance(end, int) else field
+            excerpt = str(span.get("text", "") or "").strip()
+            span_bits.append(f"{locator} {excerpt!r}".strip())
+        lines.append(
+            f"- {str(claim.get('text', '') or '').strip()} | "
+            f"source={source_link.get('source_name', '')}:{source_link.get('item_id', '')} | "
+            f"evidence={'; '.join(span_bits) if span_bits else 'none'}"
+        )
+    if not claim_rows:
+        lines.append("- none")
+
     lines.extend(["", "## Primary Evidence"])
     for evidence in story.primary_evidence:
         evidence_governance = evidence.governance if isinstance(evidence.governance, dict) else {}
+        evidence_grounding = (
+            evidence_governance.get("grounding", {})
+            if isinstance(evidence_governance.get("grounding"), dict)
+            else {}
+        )
         lines.append(
             f"- [{evidence.title}]({evidence.url}) | {evidence.source_name} | "
             f"score={evidence.score} confidence={evidence.confidence:.3f} state={evidence.review_state} "
-            f"grade={evidence_governance.get('evidence_grade', 'working')}"
+            f"grade={evidence_governance.get('evidence_grade', 'working')} "
+            f"grounded_claims={int(evidence_grounding.get('claim_count', 0) or 0)} "
+            f"spans={int(evidence_grounding.get('evidence_span_count', 0) or 0)}"
         )
     if not story.primary_evidence:
         lines.append("- none")
@@ -621,10 +733,17 @@ def render_story_markdown(story: Story) -> str:
     lines.extend(["", "## Secondary Evidence"])
     for evidence in story.secondary_evidence:
         evidence_governance = evidence.governance if isinstance(evidence.governance, dict) else {}
+        evidence_grounding = (
+            evidence_governance.get("grounding", {})
+            if isinstance(evidence_governance.get("grounding"), dict)
+            else {}
+        )
         lines.append(
             f"- [{evidence.title}]({evidence.url}) | {evidence.source_name} | "
             f"score={evidence.score} confidence={evidence.confidence:.3f} state={evidence.review_state} "
-            f"grade={evidence_governance.get('evidence_grade', 'working')}"
+            f"grade={evidence_governance.get('evidence_grade', 'working')} "
+            f"grounded_claims={int(evidence_grounding.get('claim_count', 0) or 0)} "
+            f"spans={int(evidence_grounding.get('evidence_span_count', 0) or 0)}"
         )
     if not story.secondary_evidence:
         lines.append("- none")

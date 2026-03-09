@@ -12,6 +12,7 @@ from datapulse.collectors import (
     GitHubCollector,
     HackerNewsCollector,
     JinaCollector,
+    NativeBridgeCollector,
     ParseResult,
     RedditCollector,
     RssCollector,
@@ -19,6 +20,7 @@ from datapulse.collectors import (
     TrendingCollector,
     TwitterCollector,
     WeChatCollector,
+    WeiboCollector,
     XiaohongshuCollector,
     YouTubeCollector,
 )
@@ -47,7 +49,9 @@ class ParsePipeline:
             RedditCollector(),
             BilibiliCollector(),
             TelegramCollector(),
+            NativeBridgeCollector(),
             WeChatCollector(),
+            WeiboCollector(),
             XiaohongshuCollector(),
             ArxivCollector(),
             HackerNewsCollector(),
@@ -73,7 +77,9 @@ class ParsePipeline:
         prioritized: list[BaseCollector] = []
         fallback: list[BaseCollector] = []
         for parser in self.parsers:
-            if parser.name == hint or parser.source_type.value == hint:
+            if parser.name == "native_bridge":
+                prioritized.append(parser)
+            elif parser.name == hint or parser.source_type.value == hint:
                 prioritized.append(parser)
             else:
                 fallback.append(parser)

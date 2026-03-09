@@ -1716,6 +1716,18 @@ class DataPulseReader:
         )
         persisted = self.story_store.replace_stories(stories) if save else stories
         contradicted = sum(1 for story in persisted if story.contradictions)
+        grounded_story_count = 0
+        grounded_claim_count = 0
+        grounded_evidence_span_count = 0
+        for story in persisted:
+            governance = story.governance if isinstance(story.governance, dict) else {}
+            grounding = governance.get("grounding", {}) if isinstance(governance.get("grounding"), dict) else {}
+            claim_count = int(grounding.get("claim_count", 0) or 0)
+            span_count = int(grounding.get("evidence_span_count", 0) or 0)
+            if claim_count > 0:
+                grounded_story_count += 1
+            grounded_claim_count += claim_count
+            grounded_evidence_span_count += span_count
         return {
             "version": "1.0",
             "generated_at": _utcnow_z(),
@@ -1724,6 +1736,9 @@ class DataPulseReader:
                 "stories_built": len(stories),
                 "stories_saved": len(persisted),
                 "contradicted_stories": contradicted,
+                "grounded_story_count": grounded_story_count,
+                "grounded_claim_count": grounded_claim_count,
+                "grounded_evidence_span_count": grounded_evidence_span_count,
             },
             "stories": [story.to_dict() for story in persisted],
         }

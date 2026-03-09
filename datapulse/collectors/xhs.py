@@ -37,6 +37,26 @@ def _extract_engagement(content: str) -> dict[str, int]:
     return metrics
 
 
+def _with_collector_provenance(
+    extra: dict | None,
+    *,
+    transport: str,
+    collector_family: str,
+    session_key: str = "",
+) -> dict:
+    payload = dict(extra) if isinstance(extra, dict) else {}
+    payload["collector_provenance"] = {
+        "collector_family": collector_family,
+        "bridge_profile": "",
+        "transport": transport,
+        "session_key": session_key,
+        "session_mode": "playwright_storage_state" if session_key else "none",
+        "raw_source_type": "xhs",
+        "fallback_policy": "xhs_native_then_jina_then_browser",
+    }
+    return payload
+
+
 class XiaohongshuCollector(BaseCollector):
     name = "xhs"
     source_type = SourceType.XHS
@@ -61,7 +81,11 @@ class XiaohongshuCollector(BaseCollector):
         jina = JinaCollector()
         result = jina.parse(url)
         if result.success:
-            extra = dict(result.extra) if result.extra else {}
+            extra = _with_collector_provenance(
+                result.extra,
+                transport="jina_reader",
+                collector_family="jina_fallback",
+            )
             confidence_flags = ["xiaohongshu", "jina"]
 
             engagement = _extract_engagement(result.content or "")
@@ -89,6 +113,12 @@ class XiaohongshuCollector(BaseCollector):
                 result = browser.parse(url, storage_state=session_path("xhs"), human_like=True, traffic_profile="xhs")
                 if result.success:
                     result.source_type = self.source_type
+                    result.extra = _with_collector_provenance(
+                        result.extra,
+                        transport="browser_playwright",
+                        collector_family="browser_fallback",
+                        session_key="xhs",
+                    )
                     if "xhs" not in result.tags:
                         result.tags.append("xhs")
                     if "browser-fallback" not in result.confidence_flags:

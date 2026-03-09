@@ -118,6 +118,11 @@ def test_story_build_clusters_related_items(tmp_path):
     assert any(entity == "OpenAI" for entity in first["entities"])
     assert first["governance"]["provenance"]["story_id"] == first["id"]
     assert first["primary_evidence"][0]["governance"]["provenance"]["item_id"] == first["primary_item_id"]
+    assert payload["stats"]["grounded_story_count"] >= 1
+    assert payload["stats"]["grounded_claim_count"] >= 1
+    assert first["governance"]["grounding"]["claim_count"] >= 1
+    assert first["governance"]["grounding"]["claims"][0]["source_link"]["story_id"] == first["id"]
+    assert first["governance"]["grounding"]["claims"][0]["evidence_spans"][0]["item_id"] == first["primary_item_id"]
 
 
 def test_story_build_detects_security_contradiction(tmp_path):
@@ -186,9 +191,11 @@ def test_story_show_and_export_markdown(tmp_path):
     assert shown is not None
     assert shown["id"] == story_id
     assert shown["governance"]["provenance"]["story_id"] == story_id
+    assert shown["governance"]["grounding"]["claim_count"] >= 1
     assert exported is not None
     assert exported.startswith("# ")
     assert "## Governance" in exported
+    assert "## Grounded Claims" in exported
     assert "evidence_grade:" in exported
     assert "## Timeline" in exported
 
@@ -227,6 +234,7 @@ def test_story_build_governance_tracks_verified_primary_evidence(tmp_path):
     assert story["governance"]["evidence_grade"] == "verified"
     assert story["governance"]["delivery_risk"]["status"] in {"ready", "review_required"}
     assert story["governance"]["provenance"]["primary_item_id"] == "item-1"
+    assert story["governance"]["grounding"]["primary_claim_count"] >= 1
 
 
 def test_story_graph_uses_entity_store_relations(tmp_path):

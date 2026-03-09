@@ -20,6 +20,7 @@ class SourceType(str, Enum):
     BILIBILI = "bilibili"
     TELEGRAM = "telegram"
     WECHAT = "wechat"
+    WEIBO = "weibo"
     XHS = "xhs"
     RSS = "rss"
     ARXIV = "arxiv"

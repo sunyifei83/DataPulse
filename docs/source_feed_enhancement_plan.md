@@ -99,6 +99,21 @@
 - `P8/G3` 已不再是只读板：单个 story 现在可在 CLI / MCP / Console 中回写 `title / summary / status`，浏览器内已补入 `story editor`。
 - `L8` 治理收口已进入仓内事实：来源治理契约、商业情报治理蓝图、mission intent 语义、governance scorecard 均已在 repo 中落锚，不再只是外部方法论。
 
+## L9：中文原生采集桥接契约（2026-03-09）
+
+- `L9.2` 已把中文原生采集增强收敛为 contract-first 路线，契约文档固定在 `docs/governance/datapulse-native-collector-bridge-contract.md`。
+- 当前 shortlist 顺序固定为 `MediaCrawler -> wechat_spider -> weiboSpider -> GeneralNewsExtractor`；`TrendRadar / EasySpider / Crawlab / f2` 继续留在后续 trend 或 manual lane，不进入当前 bridge contract。
+- sidecar 启用边界收敛为 `DATAPULSE_NATIVE_COLLECTOR_BRIDGE_CMD`、`DATAPULSE_NATIVE_COLLECTOR_BRIDGE_WORKDIR`、`DATAPULSE_NATIVE_COLLECTOR_BRIDGE_TIMEOUT_SECONDS`、`DATAPULSE_NATIVE_COLLECTOR_STATE_DIR`，并复用既有 `DATAPULSE_SESSION_DIR` 与 `session_path(...)` 约定。
+- 所有 native 返回都必须先归一化到 `ParseResult`，并在 `extra["collector_provenance"]` 中写明 `collector_family / bridge_profile / transport / session_key / raw_source_type / fallback_policy`；在 source type 尚未正式入模前，只能通过 provenance 和 tags 暴露，不得偷渡成新的一级路由语义。
+- 回退策略保持窄而真实：`wechat` 走 `native -> jina -> browser`，`xhs / MediaCrawler` 走 `native -> jina -> browser`，`weibo` 现走 `native -> jina`，`GeneralNewsExtractor` 现走 `extractor -> trafilatura -> BeautifulSoup -> Firecrawl -> Jina`。
+- 因此 `L9.2` 的完成含义是“桥接契约已定稿”，不是“中文原生采集已落地”；后续实现切片顺序仍为 `L9.3 -> L9.4 -> L9.5 -> L9.6`。
+- `L9.3` 现已在仓内落地 `datapulse/collectors/native_bridge.py`：当 `DATAPULSE_NATIVE_COLLECTOR_BRIDGE_CMD` 配置后，DataPulse 会以 subprocess JSON sidecar 方式优先尝试 `mediacrawler` profile，并把成功结果归一化到现有 `ParseResult`。
+- `L9.4` 现已在仓内落地 `datapulse/collectors/wechat.py`：`WeChatCollector` 会在 `DATAPULSE_NATIVE_COLLECTOR_BRIDGE_CMD` 已配置且 `wechat` session 已就绪时优先尝试 `wechat_spider` profile，并在成功时保留 `native_sidecar` provenance。
+- 当前全局 `native_bridge` 仍只前推 `XHS + Zhihu + Tieba + Douyin + Kuaishou` 这条 `MediaCrawler` lane；`wechat` 与 `weibo` 的 native 入口都保持在各自 collector 内部，避免把 `wechat_spider / weibo_spider` 扩成新的全局一级路由语义。
+- `ParsePipeline` 已把 `native_bridge` 作为相关 URL 的优先 collector，但 bridge 不可用、返回 soft failure、或内容不足时，`xhs` 仍保持 `native -> jina -> browser`；`wechat` 现保持 `native -> jina -> browser`，并为 native/Jina/browser 三条路径都写入 `collector_provenance` 以保持执行路径可见。
+- `L9.5` 现已在仓内落地 `datapulse/collectors/weibo.py`：Weibo URL 会进入 first-class `WeiboCollector`，优先尝试 `weibo_spider` profile，并在 native 未启用或失败时回退到 Jina，同时把 `source_type=weibo` 与 `collector_provenance` 归一化到稳定输出。
+- `L9.6` 现已在仓内落地 `datapulse/collectors/generic.py`：`GenericCollector` 会在 `gne` 可用且正文看起来像中文新闻时优先尝试 `GeneralNewsExtractor` 风格抽取，并把 `bridge_profile / transport / fallback_policy` 归一化到 `extra["collector_provenance"]`；若 backend 不可用、正文过薄或不适配，链路仍回退到 `trafilatura -> BeautifulSoup -> Firecrawl -> Jina`。
+
 ## 与现网能力映射
 
 | 目标 | 目前落地状态 | 下一步 |

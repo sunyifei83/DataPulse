@@ -49,6 +49,30 @@ DELIVERY_RISK_PRIORITY = {
     "medium": 2,
     "high": 3,
 }
+GROUNDING_CLAIM_HINTS = (
+    " is ",
+    " are ",
+    " was ",
+    " were ",
+    " will ",
+    " can ",
+    " should ",
+    " works ",
+    " confirms ",
+    " confirmed ",
+    " says ",
+    " said ",
+    " reports ",
+    " reported ",
+    " shows ",
+    " showed ",
+    " launched ",
+    " rollout ",
+    ">=",
+    "<=",
+    "=",
+)
+GROUNDING_SENTENCE_RE = re.compile(r"[^.!?\n\u3002\uff01\uff1f]+(?:[.!?\u3002\uff01\uff1f]+|$)")
 
 
 def _utcnow() -> str:
@@ -159,9 +183,358 @@ def build_review_action(
     return payload
 
 
-def build_item_provenance(item: "DataPulseItem") -> dict[str, Any]:
+def _normalize_excerpt(value: Any, *, limit: int = 320) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if limit > 0 and len(text) > limit:
+        return text[:limit].rstrip()
+    return text
+
+
+def _build_grounding_source_link(item: "DataPulseItem") -> dict[str, str]:
+    return {
+        "item_id": item.id,
+        "title": item.title,
+        "url": item.url,
+        "source_name": item.source_name,
+        "source_type": item.source_type.value,
+        "fetched_at": item.fetched_at,
+    }
+
+
+def _source_text_for_field(item: "DataPulseItem", field: str) -> str:
+    normalized = str(field or "content").strip().lower()
+    if normalized == "title":
+        return str(item.title or "")
+    return str(item.content or "")
+
+
+def _locate_grounding_span(item: "DataPulseItem", snippet: str, *, preferred_field: str = "content") -> tuple[str, int, int] | None:
+    needle = str(snippet or "").strip()
+    if not needle:
+        return None
+    search_fields = [preferred_field, "title", "content"]
+    seen_fields: set[str] = set()
+    for field in search_fields:
+        normalized_field = str(field or "content").strip().lower() or "content"
+        if normalized_field in seen_fields:
+            continue
+        seen_fields.add(normalized_field)
+        haystack = _source_text_for_field(item, normalized_field)
+        if not haystack:
+            continue
+        start = haystack.find(needle)
+        if start >= 0:
+            return normalized_field, start, start + len(needle)
+    return None
+
+
+def _build_grounding_span(
+    item: "DataPulseItem",
+    *,
+    field: str,
+    start: int,
+    end: int,
+    text: str,
+    span_id: str,
+) -> dict[str, Any]:
+    return {
+        "span_id": span_id,
+        "field": field,
+        "start": max(0, int(start)),
+        "end": max(0, int(end)),
+        "text": text,
+        "item_id": item.id,
+        "url": item.url,
+    }
+
+
+def _normalize_grounding_span(
+    item: "DataPulseItem",
+    raw_span: Any,
+    *,
+    span_id: str,
+    claim_text: str,
+) -> dict[str, Any] | None:
+    if isinstance(raw_span, str):
+        located = _locate_grounding_span(item, raw_span)
+        if located is None:
+            return None
+        field, start, end = located
+        return _build_grounding_span(
+            item,
+            field=field,
+            start=start,
+            end=end,
+            text=str(raw_span).strip(),
+            span_id=span_id,
+        )
+
+    if not isinstance(raw_span, dict):
+        return None
+
+    field = str(raw_span.get("field") or raw_span.get("location") or "content").strip().lower() or "content"
+    text = _normalize_excerpt(
+        raw_span.get("text")
+        or raw_span.get("quote")
+        or raw_span.get("excerpt")
+        or raw_span.get("evidence")
+        or "",
+        limit=0,
+    )
+    start = raw_span.get("start")
+    end = raw_span.get("end")
+
+    if isinstance(start, int) and isinstance(end, int) and end >= start:
+        source_text = _source_text_for_field(item, field)
+        resolved_text = text or source_text[start:end]
+        if resolved_text:
+            return _build_grounding_span(
+                item,
+                field=field,
+                start=start,
+                end=end,
+                text=resolved_text,
+                span_id=span_id,
+            )
+
+    located = _locate_grounding_span(item, text or claim_text, preferred_field=field)
+    if located is None:
+        return None
+    resolved_field, resolved_start, resolved_end = located
+    resolved_text = text or _source_text_for_field(item, resolved_field)[resolved_start:resolved_end]
+    return _build_grounding_span(
+        item,
+        field=resolved_field,
+        start=resolved_start,
+        end=resolved_end,
+        text=resolved_text,
+        span_id=span_id,
+    )
+
+
+def _grounding_claim_signature(item_id: str, text: str) -> tuple[str, str]:
+    return item_id, _normalize_excerpt(text, limit=0).casefold()
+
+
+def _normalize_grounded_claim(
+    item: "DataPulseItem",
+    raw_claim: Any,
+    *,
+    index: int,
+) -> dict[str, Any] | None:
+    if isinstance(raw_claim, str):
+        claim_text = _normalize_excerpt(raw_claim, limit=0)
+        raw_spans: list[Any] = [raw_claim]
+    elif isinstance(raw_claim, dict):
+        claim_text = _normalize_excerpt(
+            raw_claim.get("claim")
+            or raw_claim.get("text")
+            or raw_claim.get("statement")
+            or raw_claim.get("summary")
+            or "",
+            limit=0,
+        )
+        raw_spans = raw_claim.get("evidence_spans") or raw_claim.get("spans") or raw_claim.get("evidence") or []
+        if isinstance(raw_spans, (str, dict)):
+            raw_spans = [raw_spans]
+        if not isinstance(raw_spans, list):
+            raw_spans = []
+    else:
+        return None
+
+    if not claim_text:
+        return None
+
+    claim_id = f"{item.id}:claim:{index}"
+    spans: list[dict[str, Any]] = []
+    for span_index, raw_span in enumerate(raw_spans, start=1):
+        normalized_span = _normalize_grounding_span(
+            item,
+            raw_span,
+            span_id=f"{claim_id}:span:{span_index}",
+            claim_text=claim_text,
+        )
+        if normalized_span is None:
+            continue
+        spans.append(normalized_span)
+
+    if not spans:
+        located = _locate_grounding_span(item, claim_text)
+        if located is not None:
+            field, start, end = located
+            spans.append(
+                _build_grounding_span(
+                    item,
+                    field=field,
+                    start=start,
+                    end=end,
+                    text=claim_text,
+                    span_id=f"{claim_id}:span:1",
+                )
+            )
+
+    source_link = _build_grounding_source_link(item)
+    if isinstance(raw_claim, dict) and isinstance(raw_claim.get("source_link"), dict):
+        source_link.update(
+            {
+                str(key): str(value)
+                for key, value in raw_claim.get("source_link", {}).items()
+                if value is not None
+            }
+        )
+
+    return {
+        "claim_id": claim_id,
+        "text": claim_text,
+        "source_link": source_link,
+        "evidence_spans": spans,
+    }
+
+
+def _structured_grounded_claims(item: "DataPulseItem") -> list[dict[str, Any]]:
+    extra = item.extra if isinstance(item.extra, dict) else {}
+    raw_claims = extra.get("grounded_claims")
+    if not isinstance(raw_claims, list):
+        grounding = extra.get("grounding")
+        if isinstance(grounding, dict) and isinstance(grounding.get("claims"), list):
+            raw_claims = grounding.get("claims")
+    if not isinstance(raw_claims, list):
+        return []
+
+    claims: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for index, raw_claim in enumerate(raw_claims, start=1):
+        normalized = _normalize_grounded_claim(item, raw_claim, index=index)
+        if normalized is None:
+            continue
+        signature = _grounding_claim_signature(item.id, normalized["text"])
+        if signature in seen:
+            continue
+        seen.add(signature)
+        claims.append(normalized)
+    return claims
+
+
+def _iter_sentence_spans(text: str) -> list[tuple[str, int, int]]:
+    source = str(text or "")
+    if not source.strip():
+        return []
+    spans: list[tuple[str, int, int]] = []
+    for match in GROUNDING_SENTENCE_RE.finditer(source):
+        chunk = match.group(0)
+        trimmed = chunk.strip()
+        if not trimmed:
+            continue
+        left_trim = len(chunk) - len(chunk.lstrip())
+        start = match.start() + left_trim
+        end = start + len(trimmed)
+        spans.append((trimmed, start, end))
+    if spans:
+        return spans
+    trimmed = source.strip()
+    start = source.find(trimmed)
+    return [(trimmed, start, start + len(trimmed))] if trimmed else []
+
+
+def _looks_like_grounded_claim(text: str) -> bool:
+    normalized = f" {_normalize_excerpt(text, limit=0).lower()} "
+    if any(hint in normalized for hint in GROUNDING_CLAIM_HINTS):
+        return True
+    return bool(re.search(r"[$¥€]?\d+(?:[.,]\d+)?%?", normalized))
+
+
+def _heuristic_grounded_claims(item: "DataPulseItem") -> list[dict[str, Any]]:
+    claims: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+
+    def _append_claims(field: str, text: str) -> None:
+        for sentence, start, end in _iter_sentence_spans(text):
+            if not _looks_like_grounded_claim(sentence):
+                continue
+            signature = _grounding_claim_signature(item.id, sentence)
+            if signature in seen:
+                continue
+            seen.add(signature)
+            claim_id = f"{item.id}:claim:{len(claims) + 1}"
+            claims.append(
+                {
+                    "claim_id": claim_id,
+                    "text": sentence,
+                    "source_link": _build_grounding_source_link(item),
+                    "evidence_spans": [
+                        _build_grounding_span(
+                            item,
+                            field=field,
+                            start=start,
+                            end=end,
+                            text=sentence,
+                            span_id=f"{claim_id}:span:1",
+                        )
+                    ],
+                }
+            )
+            if len(claims) >= 3:
+                return
+
+    _append_claims("title", item.title)
+    if len(claims) < 3:
+        _append_claims("content", item.content)
+
+    if claims:
+        return claims
+
+    fallback_sentences = _iter_sentence_spans(item.content or item.title)
+    if not fallback_sentences:
+        return []
+    sentence, start, end = fallback_sentences[0]
+    claim_id = f"{item.id}:claim:1"
+    field = "content" if item.content.strip() else "title"
+    return [
+        {
+            "claim_id": claim_id,
+            "text": sentence,
+            "source_link": _build_grounding_source_link(item),
+            "evidence_spans": [
+                _build_grounding_span(
+                    item,
+                    field=field,
+                    start=start,
+                    end=end,
+                    text=sentence,
+                    span_id=f"{claim_id}:span:1",
+                )
+            ],
+        }
+    ]
+
+
+def build_item_grounding(item: "DataPulseItem") -> dict[str, Any]:
+    claims = _structured_grounded_claims(item)
+    mode = "provided"
+    if not claims:
+        claims = _heuristic_grounded_claims(item)
+        mode = "heuristic" if claims else "empty"
+    evidence_span_count = sum(
+        len(claim.get("evidence_spans", []))
+        for claim in claims
+        if isinstance(claim.get("evidence_spans"), list)
+    )
+    return {
+        "mode": mode,
+        "claim_count": len(claims),
+        "evidence_span_count": evidence_span_count,
+        "claims": claims,
+    }
+
+
+def build_item_provenance(
+    item: "DataPulseItem",
+    *,
+    grounding: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     search_sources = _normalize_string_list(item.extra.get("search_sources"))
     source_refs = _normalize_string_list([item.source_name, *search_sources])
+    grounding_payload = grounding if isinstance(grounding, dict) else {}
     return {
         "kind": "item",
         "item_id": item.id,
@@ -178,12 +551,15 @@ def build_item_provenance(item: "DataPulseItem") -> dict[str, Any]:
         "source_refs": source_refs,
         "review_note_count": len(item.review_notes),
         "review_action_count": len(item.review_actions),
+        "grounded_claim_count": int(grounding_payload.get("claim_count", 0) or 0),
+        "grounded_evidence_span_count": int(grounding_payload.get("evidence_span_count", 0) or 0),
     }
 
 
 def build_item_governance(item: "DataPulseItem") -> dict[str, Any]:
     review_state = normalize_review_state(item.review_state, processed=item.processed)
     confidence = _clamp_confidence(item.confidence)
+    grounding = build_item_grounding(item)
     review_signal = {
         "new": 0.2,
         "triaged": 0.55,
@@ -237,7 +613,8 @@ def build_item_governance(item: "DataPulseItem") -> dict[str, Any]:
         "evidence_score": evidence_score,
         "review_state": review_state,
         "confidence": confidence,
-        "provenance": build_item_provenance(item),
+        "provenance": build_item_provenance(item, grounding=grounding),
+        "grounding": grounding,
         "delivery_risk": {
             "surface": "pre_delivery",
             "status": delivery_status,
@@ -395,6 +772,11 @@ class TriageQueue:
         note_count = sum(len(item.review_notes) for item in filtered)
         evidence_grade_counts = {grade: 0 for grade in EVIDENCE_GRADE_PRIORITY}
         delivery_risk_counts = {level: 0 for level in DELIVERY_RISK_PRIORITY}
+        grounding_totals = {
+            "items_with_claims": 0,
+            "claim_count": 0,
+            "evidence_span_count": 0,
+        }
         for item in filtered:
             governance = build_item_governance(item)
             evidence_grade = str(governance.get("evidence_grade", "working")).strip().lower() or "working"
@@ -404,8 +786,15 @@ class TriageQueue:
                 if isinstance(delivery_risk, dict)
                 else "medium"
             )
+            grounding = governance.get("grounding", {}) if isinstance(governance.get("grounding"), dict) else {}
+            claim_count = int(grounding.get("claim_count", 0) or 0)
+            span_count = int(grounding.get("evidence_span_count", 0) or 0)
             evidence_grade_counts[evidence_grade] = evidence_grade_counts.get(evidence_grade, 0) + 1
             delivery_risk_counts[delivery_level] = delivery_risk_counts.get(delivery_level, 0) + 1
+            if claim_count > 0:
+                grounding_totals["items_with_claims"] += 1
+            grounding_totals["claim_count"] += claim_count
+            grounding_totals["evidence_span_count"] += span_count
         return {
             "total": len(filtered),
             "open_count": open_count,
@@ -415,6 +804,7 @@ class TriageQueue:
             "processed_count": sum(1 for item in filtered if item.processed),
             "evidence_grade_counts": evidence_grade_counts,
             "delivery_risk_counts": delivery_risk_counts,
+            "grounding": grounding_totals,
         }
 
     def explain_duplicate(self, item_id: str, *, limit: int = 5) -> dict[str, Any] | None:

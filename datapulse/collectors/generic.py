@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import ssl
 
 import requests
@@ -17,6 +18,14 @@ from datapulse.core.utils import clean_text, generate_excerpt, validate_external
 from .base import BaseCollector, ParseResult
 
 logger = logging.getLogger("datapulse.parsers.generic")
+
+CHINESE_NEWS_BACKEND_PROFILE = "general_news_extractor"
+GENERIC_FALLBACK_POLICY = (
+    "general_news_extractor_then_trafilatura_then_beautifulsoup_then_firecrawl_then_jina"
+)
+_MIN_EXTRACTED_CONTENT_LENGTH = 50
+_MIN_CHINESE_CHARACTER_COUNT = 20
+_CHINESE_CHARACTER_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 
 
 class _SSLContextAdapter(HTTPAdapter):
@@ -40,22 +49,33 @@ class GenericCollector(BaseCollector):
     source_type = SourceType.GENERIC
     reliability = 0.72
     tier = 1
-    setup_hint = "pip install trafilatura for best results"
+    setup_hint = "pip install trafilatura gne for best results"
     allowed_content_types = ("text/html", "application/xhtml+xml", "text/plain", "application/xml")
     max_response_bytes = 5_000_000
 
     def check(self) -> dict[str, str | bool]:
         backends = ["beautifulsoup"]
+        has_gne = False
+        try:
+            from gne import GeneralNewsExtractor  # noqa: F401
+
+            has_gne = True
+            backends.append(CHINESE_NEWS_BACKEND_PROFILE)
+        except ImportError:
+            pass
+        has_trafilatura = False
         try:
             import trafilatura  # noqa: F401
+
+            has_trafilatura = True
             backends.append("trafilatura")
         except ImportError:
             pass
         if has_secret("FIRECRAWL_API_KEY"):
             backends.append("firecrawl")
         msg = f"backends: {', '.join(backends)}"
-        if "trafilatura" not in backends:
-            return {"status": "warn", "message": f"trafilatura missing; {msg}", "available": True}
+        if not has_gne and not has_trafilatura:
+            return {"status": "warn", "message": f"gne and trafilatura missing; {msg}", "available": True}
         return {"status": "ok", "message": msg, "available": True}
 
     def can_handle(self, url: str) -> bool:
@@ -70,6 +90,25 @@ class GenericCollector(BaseCollector):
 
             html = self._fetch_html(url)
             extracted = ""
+            chinese_news_payload = self._extract_with_general_news_extractor(html, url)
+            title, author = self._extract_metadata(html, url)
+
+            if chinese_news_payload:
+                content = chinese_news_payload["content"]
+                return self._build_result(
+                    url=url,
+                    title=title,
+                    author=author,
+                    content=content,
+                    extracted_title=chinese_news_payload.get("title", ""),
+                    extracted_author=chinese_news_payload.get("author", ""),
+                    tags=["generic", CHINESE_NEWS_BACKEND_PROFILE, "chinese-news-body"],
+                    confidence_flags=[CHINESE_NEWS_BACKEND_PROFILE],
+                    bridge_profile=CHINESE_NEWS_BACKEND_PROFILE,
+                    collector_family="native_library",
+                    transport="in_process",
+                )
+
             try:
                 import trafilatura  # type: ignore[import-not-found]
 
@@ -85,33 +124,31 @@ class GenericCollector(BaseCollector):
             except Exception as exc:
                 logger.info("GenericCollector trafilatura unavailable for %s: %s", url, exc)
 
-            title, author = self._extract_metadata(html, url)
-            if extracted and len(extracted.strip()) > 50:
-                content = clean_text(extracted)
-                return ParseResult(
+            if self._is_meaningful_text(extracted):
+                return self._build_result(
                     url=url,
                     title=title,
                     author=author,
-                    content=content,
-                    excerpt=self._safe_excerpt(content),
-                    source_type=self.source_type,
+                    content=extracted,
                     tags=["generic", "trafilatura"],
                     confidence_flags=["trafilatura"],
-                    extra={"url": url, "collector": "generic"},
+                    bridge_profile="trafilatura",
+                    collector_family="html_parser",
+                    transport="in_process",
                 )
 
             bs_content = self._extract_with_bs(html)
             if bs_content:
-                return ParseResult(
+                return self._build_result(
                     url=url,
                     title=title,
                     author=author,
                     content=bs_content,
-                    excerpt=self._safe_excerpt(bs_content),
-                    source_type=self.source_type,
                     tags=["generic", "beautifulsoup"],
                     confidence_flags=["fallback_bs4"],
-                    extra={"url": url, "collector": "generic"},
+                    bridge_profile="beautifulsoup",
+                    collector_family="html_parser",
+                    transport="in_process",
                 )
             last_error = "Could not extract meaningful text."
         except Exception as exc:  # noqa: BLE001
@@ -129,6 +166,123 @@ class GenericCollector(BaseCollector):
             return jina_result
 
         return ParseResult.failure(url, last_error or "Generic parse failed")
+
+    def _build_result(
+        self,
+        *,
+        url: str,
+        title: str,
+        author: str,
+        content: str,
+        tags: list[str],
+        confidence_flags: list[str],
+        bridge_profile: str,
+        collector_family: str,
+        transport: str,
+        extracted_title: str = "",
+        extracted_author: str = "",
+        extra: dict | None = None,
+        raw_source_type: str = "generic",
+    ) -> ParseResult:
+        normalized_content = clean_text(content)
+        return ParseResult(
+            url=url,
+            title=self._normalize_scalar(extracted_title or title),
+            author=self._normalize_scalar(extracted_author or author),
+            content=normalized_content,
+            excerpt=self._safe_excerpt(normalized_content),
+            source_type=self.source_type,
+            tags=self._merge_unique(tags),
+            confidence_flags=self._merge_unique(confidence_flags),
+            extra=self._with_collector_provenance(
+                extra,
+                bridge_profile=bridge_profile,
+                collector_family=collector_family,
+                transport=transport,
+                raw_source_type=raw_source_type,
+                url=url,
+            ),
+        )
+
+    @staticmethod
+    def _merge_unique(values: list[str] | None, *required: str) -> list[str]:
+        merged: list[str] = []
+        for item in [*(values or []), *required]:
+            text = str(item).strip()
+            if text and text not in merged:
+                merged.append(text)
+        return merged
+
+    @staticmethod
+    def _normalize_scalar(value: object) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, (list, tuple, set)):
+            return ", ".join(
+                text for item in value if (text := str(item).strip())
+            )
+        return str(value).strip()
+
+    @staticmethod
+    def _with_collector_provenance(
+        extra: dict | None,
+        *,
+        bridge_profile: str,
+        collector_family: str,
+        transport: str,
+        raw_source_type: str,
+        url: str,
+    ) -> dict:
+        payload = dict(extra) if isinstance(extra, dict) else {}
+        payload.setdefault("url", url)
+        payload["collector"] = "generic"
+        payload["collector_provenance"] = {
+            "collector_family": collector_family,
+            "bridge_profile": bridge_profile,
+            "transport": transport,
+            "session_key": "",
+            "session_mode": "none",
+            "raw_source_type": raw_source_type,
+            "fallback_policy": GENERIC_FALLBACK_POLICY,
+        }
+        return payload
+
+    @staticmethod
+    def _is_meaningful_text(text: str) -> bool:
+        return len(clean_text(text or "")) > _MIN_EXTRACTED_CONTENT_LENGTH
+
+    @staticmethod
+    def _looks_like_chinese_text(text: str) -> bool:
+        return len(_CHINESE_CHARACTER_RE.findall(text or "")) >= _MIN_CHINESE_CHARACTER_COUNT
+
+    def _extract_with_general_news_extractor(self, html: str, url: str) -> dict[str, str] | None:
+        try:
+            from gne import GeneralNewsExtractor  # type: ignore[import-not-found]
+        except Exception as exc:
+            logger.info("GenericCollector gne unavailable for %s: %s", url, exc)
+            return None
+
+        try:
+            payload = GeneralNewsExtractor().extract(html) or {}
+        except Exception as exc:
+            logger.info("GenericCollector gne extraction failed for %s: %s", url, exc)
+            return None
+
+        content = clean_text(self._normalize_scalar(payload.get("content", "")))
+        if not self._is_meaningful_text(content):
+            return None
+
+        sample = html[:20_000].lower()
+        if not self._looks_like_chinese_text(content) and not any(
+            marker in sample for marker in ('lang="zh', "lang='zh", "zh-cn", "zh-hans", "zh-hant")
+        ):
+            return None
+
+        return {
+            "content": content,
+            "title": self._normalize_scalar(payload.get("title", "")),
+            "author": self._normalize_scalar(payload.get("author", "")),
+        }
 
     def _build_ssl_context(self) -> ssl.SSLContext:
         context = ssl.create_default_context()
@@ -252,7 +406,14 @@ class GenericCollector(BaseCollector):
                 source_type=self.source_type,
                 tags=["generic", "firecrawl"],
                 confidence_flags=["firecrawl"],
-                extra={"collector": "generic", "firecrawl": True},
+                extra=self._with_collector_provenance(
+                    {"firecrawl": True},
+                    bridge_profile="firecrawl",
+                    collector_family="remote_api",
+                    transport="https_api",
+                    raw_source_type="generic",
+                    url=url,
+                ),
             )
         except Exception:
             return None
@@ -281,7 +442,14 @@ class GenericCollector(BaseCollector):
                 source_type=self.source_type,
                 tags=["generic", "jina_fallback"],
                 confidence_flags=["jina"],
-                extra={"collector": "generic", "jina_fallback": True},
+                extra=self._with_collector_provenance(
+                    {"jina_fallback": True},
+                    bridge_profile="jina",
+                    collector_family="jina_fallback",
+                    transport="jina_reader",
+                    raw_source_type="generic",
+                    url=url,
+                ),
             )
         except Exception:
             return None
