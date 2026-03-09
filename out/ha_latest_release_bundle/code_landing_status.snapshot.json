@@ -1,25 +1,47 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T12:58:29Z",
+  "generated_at_utc": "2026-03-09T03:52:14Z",
   "status_kind": "draft_export",
   "wired": false,
   "git": {
-    "head": "31004373db8699eb3217f0c220619cca7f3baf84",
+    "head": "8fa71971c7b25166702cf99069f52d23b3169fc1",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "31004373db8699eb3217f0c220619cca7f3baf84",
+    "upstream_head": "8fa71971c7b25166702cf99069f52d23b3169fc1",
     "head_published_to_upstream": true
   },
   "workspace": {
     "clean": false,
     "dirty_entries": [
-      "M docs/governance/datapulse-auto-continuation-policy.json",
-      " M docs/governance/datapulse-codex-blueprint-loop.draft.md",
+      "M datapulse/core/alerts.py",
+      " M datapulse/core/story.py",
+      " M datapulse/core/watchlist.py",
+      " M datapulse/reader.py",
+      " M docs/governance/datapulse-blueprint-plan.draft.json",
+      " M docs/source_feed_enhancement_plan.md",
+      " M out/governance/auto_continuation_runtime.draft.json",
       " M out/governance/code_landing_status.draft.json",
       " M out/governance/project_specific_loop_state.draft.json",
+      " M out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json",
+      " M out/ha_latest_release_bundle/auto_continuation_policy.snapshot.json",
+      " M out/ha_latest_release_bundle/blueprint_plan.snapshot.json",
+      " M out/ha_latest_release_bundle/code_landing_status.draft.json",
+      " M out/ha_latest_release_bundle/code_landing_status.snapshot.json",
+      " M out/ha_latest_release_bundle/evidence_bundle_manifest.draft.json",
+      " M out/ha_latest_release_bundle/ha_delivery_facts.draft.json",
+      " M out/ha_latest_release_bundle/ha_delivery_landing.draft.json",
+      " M out/ha_latest_release_bundle/ha_recovery_preset.draft.json",
+      " M out/ha_latest_release_bundle/project_specific_loop_state.draft.json",
+      " M out/ha_latest_release_bundle/release_readiness_fact.draft.json",
+      " M out/ha_latest_release_bundle/release_sidecar.draft.json",
+      " M out/ha_latest_release_bundle/slice_adapter_catalog.snapshot.json",
       " M out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
-      "?? scripts/governance/ignite_datapulse_codex_loop.sh"
+      " M tests/test_alerts.py",
+      " M tests/test_digest.py",
+      " M tests/test_reader.py",
+      " M tests/test_story.py",
+      " M tests/test_watchlist.py"
     ],
     "reason": "git status reported local modifications."
   },
@@ -92,38 +114,60 @@
     "head_published_to_upstream": true,
     "required_workflow": "CI",
     "required_run": {
-      "database_id": 22799443213,
-      "head_sha": "31004373db8699eb3217f0c220619cca7f3baf84",
+      "database_id": 22834497541,
+      "head_sha": "8fa71971c7b25166702cf99069f52d23b3169fc1",
       "head_branch": "main",
       "status": "completed",
-      "conclusion": "success",
+      "conclusion": "failure",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-07T12:55:38Z",
-      "updated_at": "2026-03-07T12:56:18Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22799443213"
+      "created_at": "2026-03-09T01:21:23Z",
+      "updated_at": "2026-03-09T01:22:00Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22834497541"
     },
     "latest_head_ci_run": {
-      "database_id": 22799443213,
-      "head_sha": "31004373db8699eb3217f0c220619cca7f3baf84",
+      "database_id": 22834497541,
+      "head_sha": "8fa71971c7b25166702cf99069f52d23b3169fc1",
       "head_branch": "main",
       "status": "completed",
-      "conclusion": "success",
+      "conclusion": "failure",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-07T12:55:38Z",
-      "updated_at": "2026-03-07T12:56:18Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22799443213"
+      "created_at": "2026-03-09T01:21:23Z",
+      "updated_at": "2026-03-09T01:22:00Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22834497541"
     },
     "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
-        "docs/governance/datapulse-auto-continuation-policy.json",
-        "docs/governance/datapulse-codex-blueprint-loop.draft.md",
+        "datapulse/core/alerts.py",
+        "datapulse/core/story.py",
+        "datapulse/core/watchlist.py",
+        "datapulse/reader.py",
+        "docs/governance/datapulse-blueprint-plan.draft.json",
+        "docs/source_feed_enhancement_plan.md",
+        "out/governance/auto_continuation_runtime.draft.json",
         "out/governance/code_landing_status.draft.json",
         "out/governance/project_specific_loop_state.draft.json",
+        "out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json",
+        "out/ha_latest_release_bundle/auto_continuation_policy.snapshot.json",
+        "out/ha_latest_release_bundle/blueprint_plan.snapshot.json",
+        "out/ha_latest_release_bundle/code_landing_status.draft.json",
+        "out/ha_latest_release_bundle/code_landing_status.snapshot.json",
+        "out/ha_latest_release_bundle/evidence_bundle_manifest.draft.json",
+        "out/ha_latest_release_bundle/ha_delivery_facts.draft.json",
+        "out/ha_latest_release_bundle/ha_delivery_landing.draft.json",
+        "out/ha_latest_release_bundle/ha_recovery_preset.draft.json",
+        "out/ha_latest_release_bundle/project_specific_loop_state.draft.json",
+        "out/ha_latest_release_bundle/release_readiness_fact.draft.json",
+        "out/ha_latest_release_bundle/release_sidecar.draft.json",
+        "out/ha_latest_release_bundle/slice_adapter_catalog.snapshot.json",
         "out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
-        "scripts/governance/ignite_datapulse_codex_loop.sh"
+        "tests/test_alerts.py",
+        "tests/test_digest.py",
+        "tests/test_reader.py",
+        "tests/test_story.py",
+        "tests/test_watchlist.py"
       ],
       "docs_only": false
     }
@@ -163,7 +207,8 @@
     "ci_proven": {
       "satisfied": false,
       "reasons": [
-        "repo_landed_false"
+        "repo_landed_false",
+        "ci_run_failed"
       ]
     }
   },
@@ -209,16 +254,16 @@
       }
     },
     "latest_head_ci_run": {
-      "database_id": 22799443213,
-      "head_sha": "31004373db8699eb3217f0c220619cca7f3baf84",
+      "database_id": 22834497541,
+      "head_sha": "8fa71971c7b25166702cf99069f52d23b3169fc1",
       "head_branch": "main",
       "status": "completed",
-      "conclusion": "success",
+      "conclusion": "failure",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-07T12:55:38Z",
-      "updated_at": "2026-03-07T12:56:18Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22799443213"
+      "created_at": "2026-03-09T01:21:23Z",
+      "updated_at": "2026-03-09T01:22:00Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22834497541"
     },
     "latest_head_governance_evidence_run": null
   },

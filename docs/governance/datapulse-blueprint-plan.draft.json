@@ -3,7 +3,7 @@
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
   "generated_at_utc": "2026-03-08T00:00:00Z",
-  "status": "in_progress",
+  "status": "completed",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -72,7 +72,7 @@
     "L6": "completed",
     "L7": "completed",
     "L8": "completed",
-    "L9": "in_progress"
+    "L9": "completed"
   },
   "phases": [
     {
@@ -689,7 +689,7 @@
       "id": "L9",
       "title": "Content Acquisition And Fact Screening Reinforcement",
       "goal": "Close the highest-value native-source collection and evidence-trust gaps identified by the external content-acquisition and fact-screening note.",
-      "status": "in_progress",
+      "status": "completed",
       "slices": [
         {
           "id": "L9.1",
@@ -872,7 +872,7 @@
             "datapulse/collectors/generic.py",
             "docs/source_feed_enhancement_plan.md"
           ],
-          "exit_condition": "The generic collector can use a Chinese-news正文 backend when available, expose backend provenance, and retain the existing extraction chain as fallback.",
+          "exit_condition": "The generic collector can use a Chinese-news\u6b63\u6587 backend when available, expose backend provenance, and retain the existing extraction chain as fallback.",
           "fact_sources": [
             "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
           ],
@@ -931,7 +931,7 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run pytest tests/test_story.py tests/test_alerts.py -q"
           ],
@@ -965,7 +965,7 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
           ],
@@ -999,7 +999,7 @@
           "category": "manual",
           "execution_profile": "draft_only",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "sed -n '1,260p' docs/governance/datapulse-manual-acquisition-sidecar-contract.md"
           ],
@@ -1030,9 +1030,9 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L9.8",
-    "title": "Add a factuality gate before digest, story export, and alert escalation",
-    "reason": "Derived from the next open slice in the working copy."
+    "id": "no-open-slice",
+    "title": "No open slice",
+    "reason": "All current slices are completed in this working copy."
   },
   "progress_log": [
     {
@@ -1044,7 +1044,22 @@
       "at_utc": "2026-03-08T18:56:25Z",
       "slice_id": "L9.7",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-09T03:37:00Z",
+      "slice_id": "L9.8",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-09T03:51:44Z",
+      "slice_id": "L9.9",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-09T03:57:49Z",
+      "slice_id": "L9.10",
+      "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-08T18:56:25Z"
+  "last_updated_utc": "2026-03-09T03:57:49Z"
 }

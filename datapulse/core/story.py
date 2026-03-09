@@ -471,6 +471,226 @@ def _max_risk_level(left: str, right: str) -> str:
     return left if priority.get(left, 0) >= priority.get(right, 0) else right
 
 
+def build_factuality_gate(
+    *,
+    subject: str,
+    surface: str,
+    evidence_rows: list[dict[str, Any]],
+    source_names: list[str] | None = None,
+    grounded_claim_count: int = 0,
+    contradiction_count: int = 0,
+) -> dict[str, Any]:
+    normalized_rows: list[dict[str, Any]] = []
+    for raw in evidence_rows:
+        if not isinstance(raw, dict):
+            continue
+        normalized_rows.append(raw)
+
+    resolved_sources = {
+        str(name or "").strip()
+        for name in source_names or []
+        if str(name or "").strip()
+    }
+    if not resolved_sources:
+        resolved_sources = {
+            str(row.get("source_name", "") or "").strip()
+            for row in normalized_rows
+            if str(row.get("source_name", "") or "").strip()
+        }
+
+    signals: list[dict[str, Any]] = []
+    reasons: list[str] = []
+    if not normalized_rows:
+        return {
+            "subject": subject,
+            "surface": surface,
+            "status": "empty",
+            "score": 0.0,
+            "operator_action": "review_before_delivery",
+            "summary": "No evidence rows were selected for factuality review.",
+            "counts": {
+                "evidence_count": 0,
+                "source_count": 0,
+                "grounded_claim_count": 0,
+                "grounded_item_count": 0,
+                "verified_evidence_count": 0,
+                "working_evidence_count": 0,
+                "low_confidence_count": 0,
+                "contradiction_count": max(0, int(contradiction_count)),
+            },
+            "signals": [
+                {
+                    "kind": "selection",
+                    "status": "empty",
+                    "detail": "No evidence rows reached the factuality gate.",
+                }
+            ],
+            "reasons": ["No evidence rows reached the factuality gate."],
+        }
+
+    evidence_scores = [
+        max(0.0, min(1.0, float(row.get("evidence_score", 0.0) or 0.0)))
+        for row in normalized_rows
+    ]
+    avg_evidence_score = sum(evidence_scores) / max(1, len(evidence_scores))
+    verified_count = sum(
+        1
+        for row in normalized_rows
+        if str(row.get("evidence_grade", "working")).strip().lower() == "verified"
+    )
+    working_count = sum(
+        1
+        for row in normalized_rows
+        if str(row.get("evidence_grade", "working")).strip().lower() in {"working", "discarded"}
+    )
+    low_confidence_count = sum(
+        1
+        for row in normalized_rows
+        if float(row.get("confidence", 0.0) or 0.0) < 0.55
+    )
+    grounded_item_count = sum(
+        1
+        for row in normalized_rows
+        if int(row.get("grounded_claim_count", 0) or 0) > 0
+    )
+    resolved_grounded_claim_count = max(
+        0,
+        int(grounded_claim_count or 0)
+        or sum(int(row.get("grounded_claim_count", 0) or 0) for row in normalized_rows),
+    )
+    resolved_contradiction_count = max(0, int(contradiction_count or 0))
+    source_count = len(resolved_sources)
+
+    signals.append(
+        {
+            "kind": "source_support",
+            "status": "strong" if source_count >= 2 else "limited",
+            "detail": (
+                f"{source_count} independent source(s) back this delivery surface."
+                if source_count
+                else "No source names were resolved for this delivery surface."
+            ),
+        }
+    )
+    signals.append(
+        {
+            "kind": "claim_grounding",
+            "status": "grounded" if resolved_grounded_claim_count > 0 else "missing",
+            "detail": (
+                f"{resolved_grounded_claim_count} grounded claim(s) across {grounded_item_count} evidence row(s)."
+                if resolved_grounded_claim_count > 0
+                else "No grounded claims are attached to the selected evidence rows."
+            ),
+        }
+    )
+    signals.append(
+        {
+            "kind": "evidence_maturity",
+            "status": (
+                "verified"
+                if verified_count == len(normalized_rows)
+                else "mixed"
+                if working_count > 0
+                else "reviewed"
+            ),
+            "detail": (
+                f"{verified_count}/{len(normalized_rows)} evidence row(s) are verified;"
+                f" {working_count} remain working-grade."
+            ),
+        }
+    )
+    signals.append(
+        {
+            "kind": "contradiction_scan",
+            "status": "detected" if resolved_contradiction_count > 0 else "clear",
+            "detail": (
+                f"{resolved_contradiction_count} contradiction signal(s) remain unresolved."
+                if resolved_contradiction_count > 0
+                else "No contradiction signals were detected in the selected evidence."
+            ),
+        }
+    )
+    signals.append(
+        {
+            "kind": "confidence_floor",
+            "status": "low" if low_confidence_count > 0 else "ok",
+            "detail": (
+                f"{low_confidence_count} evidence row(s) fall below the 0.55 confidence floor."
+                if low_confidence_count > 0
+                else "All selected evidence rows meet the default confidence floor."
+            ),
+        }
+    )
+
+    status = "ready"
+    operator_action = "allow_delivery"
+    if resolved_contradiction_count > 0:
+        status = "blocked"
+        operator_action = "review_before_delivery"
+        reasons.append("Contradiction signals remain unresolved across the selected evidence.")
+    if source_count <= 1:
+        if status != "blocked":
+            status = "review_required"
+            operator_action = "review_before_delivery"
+        reasons.append("Only one source currently backs this delivery surface.")
+    if resolved_grounded_claim_count <= 0:
+        if status != "blocked":
+            status = "review_required"
+            operator_action = "review_before_delivery"
+        reasons.append("Grounded claims are missing from the selected delivery evidence.")
+    if working_count > 0:
+        if status != "blocked":
+            status = "review_required"
+            operator_action = "review_before_delivery"
+        reasons.append("Working-grade evidence is still present in the selected delivery evidence.")
+    if low_confidence_count > 0:
+        if status != "blocked":
+            status = "review_required"
+            operator_action = "review_before_delivery"
+        reasons.append("At least one selected evidence row is below the default confidence floor.")
+
+    score = avg_evidence_score
+    if source_count >= 2:
+        score += 0.12
+    elif source_count == 1:
+        score -= 0.08
+    if resolved_grounded_claim_count > 0:
+        score += min(0.12, 0.03 * min(4, resolved_grounded_claim_count))
+    else:
+        score -= 0.08
+    if working_count > 0:
+        score -= min(0.18, 0.06 * working_count)
+    if low_confidence_count > 0:
+        score -= min(0.12, 0.04 * low_confidence_count)
+    if resolved_contradiction_count > 0:
+        score -= 0.3
+    score = round(max(0.0, min(1.0, score)), 4)
+
+    return {
+        "subject": subject,
+        "surface": surface,
+        "status": status,
+        "score": score,
+        "operator_action": operator_action,
+        "summary": (
+            f"{len(normalized_rows)} evidence row(s), {source_count} source(s), "
+            f"{resolved_grounded_claim_count} grounded claim(s), {resolved_contradiction_count} contradiction signal(s)."
+        ),
+        "counts": {
+            "evidence_count": len(normalized_rows),
+            "source_count": source_count,
+            "grounded_claim_count": resolved_grounded_claim_count,
+            "grounded_item_count": grounded_item_count,
+            "verified_evidence_count": verified_count,
+            "working_evidence_count": working_count,
+            "low_confidence_count": low_confidence_count,
+            "contradiction_count": resolved_contradiction_count,
+        },
+        "signals": signals,
+        "reasons": reasons,
+    }
+
+
 def _aggregate_story_evidence_grade(governances: list[dict[str, Any]]) -> str:
     if not governances:
         return "working"
@@ -579,6 +799,35 @@ def _build_story_governance(
         4,
     )
     story_grounding = _build_story_grounding(story_id, evidence_rows)
+    factuality_rows: list[dict[str, Any]] = []
+    for evidence in evidence_rows:
+        governance = evidence.governance if isinstance(evidence.governance, dict) else {}
+        factuality_rows.append(
+            {
+                "item_id": evidence.item_id,
+                "title": evidence.title,
+                "source_name": evidence.source_name,
+                "evidence_grade": str(governance.get("evidence_grade", "working")).strip().lower() or "working",
+                "evidence_score": float(governance.get("evidence_score", 0.0) or 0.0),
+                "review_state": str(governance.get("review_state") or evidence.review_state).strip().lower() or "new",
+                "confidence": evidence.confidence,
+                "grounded_claim_count": int(
+                    (
+                        governance.get("grounding", {})
+                        if isinstance(governance.get("grounding"), dict)
+                        else {}
+                    ).get("claim_count", 0) or 0
+                ),
+            }
+        )
+    factuality = build_factuality_gate(
+        subject="story",
+        surface="story_export",
+        evidence_rows=factuality_rows,
+        source_names=source_names,
+        grounded_claim_count=int(story_grounding.get("claim_count", 0) or 0),
+        contradiction_count=len(contradictions),
+    )
 
     delivery_status = "ready"
     delivery_level = "low"
@@ -596,6 +845,14 @@ def _build_story_governance(
         delivery_status = "review_required"
         delivery_level = _max_risk_level(delivery_level, "medium")
         delivery_reasons.append("Story is currently backed by a single source.")
+    if str(factuality.get("status", "review_required")).strip().lower() == "blocked":
+        delivery_status = "review_required"
+        delivery_level = _max_risk_level(delivery_level, "high")
+        delivery_reasons.append("Factuality gate blocked outward-facing story delivery pending analyst review.")
+    elif str(factuality.get("status", "review_required")).strip().lower() != "ready":
+        delivery_status = "review_required"
+        delivery_level = _max_risk_level(delivery_level, "medium")
+        delivery_reasons.append("Factuality gate requires analyst review before outward-facing story delivery.")
 
     provenance_chain: list[dict[str, Any]] = []
     review_states: dict[str, int] = {}
@@ -626,6 +883,7 @@ def _build_story_governance(
         "evidence_grade": evidence_grade,
         "evidence_score": evidence_score,
         "grounding": story_grounding,
+        "factuality": factuality,
         "provenance": {
             "kind": "story",
             "story_id": story_id,
@@ -653,6 +911,7 @@ def render_story_markdown(story: Story) -> str:
     delivery_risk = governance.get("delivery_risk", {}) if isinstance(governance.get("delivery_risk"), dict) else {}
     provenance = governance.get("provenance", {}) if isinstance(governance.get("provenance"), dict) else {}
     grounding = governance.get("grounding", {}) if isinstance(governance.get("grounding"), dict) else {}
+    factuality = governance.get("factuality", {}) if isinstance(governance.get("factuality"), dict) else {}
     lines = [
         f"# {story.title}",
         "",
@@ -663,6 +922,8 @@ def render_story_markdown(story: Story) -> str:
         f"- score: {story.score}",
         f"- confidence: {story.confidence:.3f}",
         f"- evidence_grade: {governance.get('evidence_grade', 'working')}",
+        f"- factuality_status: {factuality.get('status', 'review_required')}",
+        f"- factuality_score: {float(factuality.get('score', 0.0) or 0.0):.3f}",
         f"- delivery_status: {delivery_risk.get('status', 'review_required')}",
         f"- delivery_risk: {delivery_risk.get('level', 'medium')}",
         f"- generated_at: {story.generated_at}",
@@ -678,6 +939,18 @@ def render_story_markdown(story: Story) -> str:
     ]
     for reason in delivery_risk.get("reasons", []) if isinstance(delivery_risk.get("reasons"), list) else []:
         lines.append(f"- delivery_note: {reason}")
+
+    lines.extend(["", "## Factuality Gate"])
+    lines.append(f"- action: {factuality.get('operator_action', 'review_before_delivery')}")
+    lines.append(f"- summary: {factuality.get('summary', 'No factuality summary recorded.')}")
+    for reason in factuality.get("reasons", []) if isinstance(factuality.get("reasons"), list) else []:
+        lines.append(f"- factuality_note: {reason}")
+    for signal in factuality.get("signals", []) if isinstance(factuality.get("signals"), list) else []:
+        if not isinstance(signal, dict):
+            continue
+        lines.append(
+            f"- factuality_signal: {signal.get('kind', 'signal')}={signal.get('status', 'unknown')} | {signal.get('detail', '')}"
+        )
 
     lines.extend([
         "",

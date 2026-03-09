@@ -121,6 +121,8 @@ def test_story_build_clusters_related_items(tmp_path):
     assert payload["stats"]["grounded_story_count"] >= 1
     assert payload["stats"]["grounded_claim_count"] >= 1
     assert first["governance"]["grounding"]["claim_count"] >= 1
+    assert first["governance"]["factuality"]["status"] == "review_required"
+    assert first["governance"]["factuality"]["signals"]
     assert first["governance"]["grounding"]["claims"][0]["source_link"]["story_id"] == first["id"]
     assert first["governance"]["grounding"]["claims"][0]["evidence_spans"][0]["item_id"] == first["primary_item_id"]
 
@@ -155,6 +157,7 @@ def test_story_build_detects_security_contradiction(tmp_path):
     assert payload["stories"][0]["contradictions"][0]["topic"] == "security"
     assert payload["stories"][0]["status"] == "conflicted"
     assert payload["stories"][0]["governance"]["delivery_risk"]["level"] == "high"
+    assert payload["stories"][0]["governance"]["factuality"]["status"] == "blocked"
 
 
 def test_story_show_and_export_markdown(tmp_path):
@@ -195,8 +198,10 @@ def test_story_show_and_export_markdown(tmp_path):
     assert exported is not None
     assert exported.startswith("# ")
     assert "## Governance" in exported
+    assert "## Factuality Gate" in exported
     assert "## Grounded Claims" in exported
     assert "evidence_grade:" in exported
+    assert "factuality_status:" in exported
     assert "## Timeline" in exported
 
 
@@ -235,6 +240,7 @@ def test_story_build_governance_tracks_verified_primary_evidence(tmp_path):
     assert story["governance"]["delivery_risk"]["status"] in {"ready", "review_required"}
     assert story["governance"]["provenance"]["primary_item_id"] == "item-1"
     assert story["governance"]["grounding"]["primary_claim_count"] >= 1
+    assert story["governance"]["factuality"]["status"] == "ready"
 
 
 def test_story_graph_uses_entity_store_relations(tmp_path):

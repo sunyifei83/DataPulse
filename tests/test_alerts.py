@@ -53,6 +53,7 @@ async def test_watch_alert_rule_triggers_and_writes_markdown(tmp_path, monkeypat
 
     assert len(payload["alert_events"]) == 1
     assert payload["alert_events"][0]["governance"]["evidence_grade"] == "working"
+    assert payload["alert_events"][0]["governance"]["factuality"]["status"] == "review_required"
     assert payload["alert_events"][0]["governance"]["delivery_risk"]["status"] == "review_required"
     alerts = reader.list_alerts(limit=10)
     assert len(alerts) == 1
@@ -61,6 +62,7 @@ async def test_watch_alert_rule_triggers_and_writes_markdown(tmp_path, monkeypat
     markdown = Path(tmp_path / "alerts.md").read_text(encoding="utf-8")
     assert "AI Radar | threshold" in markdown
     assert "evidence_grade: working" in markdown
+    assert "factuality_status: review_required" in markdown
     assert "OpenAI agents result" in markdown
 
 
@@ -162,15 +164,13 @@ async def test_watch_alert_external_channels_dispatch(tmp_path, monkeypatch):
 
     assert len(payload["alert_events"]) == 1
     delivered = payload["alert_events"][0]["delivered_channels"]
-    assert "webhook" in delivered
-    assert "feishu" in delivered
-    assert "telegram" in delivered
+    assert delivered == ["json"]
+    assert payload["alert_events"][0]["governance"]["factuality"]["status"] == "review_required"
     observations = payload["alert_events"][0]["governance"]["delivery_risk"]["route_observations"]
-    assert any(row["label"] == "webhook" and row["status"] == "delivered" for row in observations)
-    assert len(calls) == 3
-    assert calls[0][0] == "https://hooks.example.com/datapulse"
-    assert calls[1][0] == "https://open.feishu.cn/hook/abc"
-    assert calls[2][0] == "https://api.telegram.org/botbot-token/sendMessage"
+    assert any(row["label"] == "webhook" and row["status"] == "held" for row in observations)
+    assert any(row["label"] == "feishu" and row["status"] == "held" for row in observations)
+    assert any(row["label"] == "telegram" and row["status"] == "held" for row in observations)
+    assert calls == []
 
 
 @pytest.mark.asyncio
@@ -274,14 +274,91 @@ async def test_watch_alert_rich_filters_and_named_routes(tmp_path, monkeypatch):
 
     assert len(payload["alert_events"]) == 1
     delivered = payload["alert_events"][0]["delivered_channels"]
-    assert "webhook:ops-webhook" in delivered
-    assert "telegram:ops-telegram" in delivered
+    assert delivered == ["json"]
+    assert payload["alert_events"][0]["governance"]["factuality"]["status"] == "review_required"
     observations = payload["alert_events"][0]["governance"]["delivery_risk"]["route_observations"]
-    assert any(row["label"] == "webhook:ops-webhook" and row["status"] == "delivered" for row in observations)
-    assert any(row["label"] == "telegram:ops-telegram" and row["status"] == "delivered" for row in observations)
-    assert len(calls) == 2
-    assert calls[0][0] == "https://hooks.example.com/ops"
-    assert calls[1][0] == "https://api.telegram.org/botbot-token/sendMessage"
+    assert any(row["label"] == "webhook:ops-webhook" and row["status"] == "held" for row in observations)
+    assert any(row["label"] == "telegram:ops-telegram" and row["status"] == "held" for row in observations)
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_watch_alert_external_channels_dispatch_when_factuality_ready(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
+    monkeypatch.setenv("DATAPULSE_ALERTS_PATH", str(tmp_path / "alerts.json"))
+    monkeypatch.setenv("DATAPULSE_ALERT_WEBHOOK_URL", "https://hooks.example.com/datapulse")
+    monkeypatch.setenv("DATAPULSE_FEISHU_WEBHOOK_URL", "https://open.feishu.cn/hook/abc")
+    monkeypatch.setenv("DATAPULSE_TELEGRAM_BOT_TOKEN", "bot-token")
+    monkeypatch.setenv("DATAPULSE_TELEGRAM_CHAT_ID", "chat-1")
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    mission = reader.create_watch(
+        name="AI Radar",
+        query="OpenAI agents",
+        alert_rules=[
+            {
+                "name": "notify",
+                "min_score": 70,
+                "min_confidence": 0.8,
+                "min_results": 2,
+                "channels": ["webhook", "feishu", "telegram"],
+            }
+        ],
+    )
+
+    async def fake_search(query, **kwargs):
+        return [
+            DataPulseItem(
+                source_type=SourceType.GENERIC,
+                source_name="source-a",
+                title="OpenAI agents launch confirmed",
+                content="OpenAI agents launch confirmed for enterprise teams.",
+                url="https://example.com/openai-agents-a",
+                confidence=0.96,
+                score=88,
+                review_state="verified",
+                processed=True,
+            ),
+            DataPulseItem(
+                source_type=SourceType.GENERIC,
+                source_name="source-b",
+                title="OpenAI agents rollout verified",
+                content="OpenAI agents rollout verified for enterprise customers.",
+                url="https://example.com/openai-agents-b",
+                confidence=0.94,
+                score=85,
+                review_state="verified",
+                processed=True,
+            ),
+        ]
+
+    calls: list[tuple[str, dict]] = []
+
+    class _Resp:
+        def raise_for_status(self):
+            return None
+
+    def fake_post(url, json=None, headers=None, timeout=0):
+        calls.append((url, json or {}))
+        return _Resp()
+
+    monkeypatch.setattr(reader, "search", fake_search)
+    monkeypatch.setattr("datapulse.core.alerts.requests.post", fake_post)
+
+    payload = await reader.run_watch(mission["id"])
+
+    assert len(payload["alert_events"]) == 1
+    delivered = payload["alert_events"][0]["delivered_channels"]
+    assert "webhook" in delivered
+    assert "feishu" in delivered
+    assert "telegram" in delivered
+    assert payload["alert_events"][0]["governance"]["factuality"]["status"] == "ready"
+    observations = payload["alert_events"][0]["governance"]["delivery_risk"]["route_observations"]
+    assert any(row["label"] == "webhook" and row["status"] == "delivered" for row in observations)
+    assert len(calls) == 3
+    assert calls[0][0] == "https://hooks.example.com/datapulse"
+    assert calls[1][0] == "https://open.feishu.cn/hook/abc"
+    assert calls[2][0] == "https://api.telegram.org/botbot-token/sendMessage"
 
 
 def test_alert_route_store_redacts_sensitive_fields(tmp_path, monkeypatch):

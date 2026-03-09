@@ -4,8 +4,8 @@
   "policy": {
     "schema_version": "datapulse_auto_continuation_policy.v1",
     "project": "DataPulse",
-    "generated_at_utc": "2026-03-07T00:00:00Z",
-    "enabled": true,
+    "generated_at_utc": "2026-03-08T00:00:00Z",
+    "enabled": false,
     "mode": "scheduled_governance_entrypoint",
     "entrypoints": {
       "workflow": ".github/workflows/governance-loop-auto.yml",
@@ -34,11 +34,14 @@
         "runner": "scripts/governance/run_codex_blueprint_loop.py",
         "ignition_wrapper": "scripts/governance/ignite_datapulse_codex_loop.sh",
         "recommended_command": "bash scripts/governance/ignite_datapulse_codex_loop.sh",
+        "allow_existing_dirty_worktree_by_default": true,
+        "disable_existing_dirty_takeover_env": "DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=0",
         "side_effect_mode": "repo_mutating_slice_execution",
         "guardrails": [
           "Use this companion entrypoint only from a controlled local environment.",
           "Keep the scheduled governance workflow read-only.",
-          "Let the Codex loop land only the current next_slice and then re-evaluate state."
+          "Let the Codex loop land only the current next_slice and then re-evaluate state.",
+          "The ignition wrapper allows existing dirty worktree promotion takeover by default; set DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=0 to keep manual review before repo_landed."
         ]
       }
     },
@@ -50,22 +53,27 @@
     "path": "docs/governance/datapulse-auto-continuation-policy.json"
   },
   "runtime": {
-    "status": "stopped",
-    "reason": "promotion_gates_open",
+    "status": "ready",
+    "reason": "awaiting_manual_slice_execution",
     "plan_id": "datapulse-loop-bootstrap-2026-03-07",
     "project": "DataPulse",
     "current_level": "manual_only",
     "next_slice": {
-      "id": "no-open-slice",
-      "title": "No open slice",
-      "category": "complete"
+      "id": "L9.9",
+      "title": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors",
+      "category": "manual",
+      "phase_id": "L9",
+      "execution_profile": "local_wrapper",
+      "promotion_scope": "none",
+      "closes_gates": []
     },
     "blocking_facts": [],
     "effective_blocking_facts": [],
     "ignored_blocking_facts": [],
     "remaining_promotion_gates": [
       "workspace_dirty",
-      "repo_landed_false"
+      "repo_landed_false",
+      "ci_run_failed"
     ],
     "pipeline_contract": {
       "objective": "trusted_delivery_pipeline",
@@ -77,12 +85,12 @@
     "control_contract": {
       "progress_truth": {
         "source": "blueprint_plan_next_open_slice",
-        "current_next_slice_id": "no-open-slice"
+        "current_next_slice_id": "L9.9"
       },
       "stop_truth": {
         "source": "blocking_facts_and_flow_control",
-        "status_if_run_now": "stopped",
-        "reason_if_run_now": "promotion_gates_open",
+        "status_if_run_now": "ready_waiting_manual_handoff",
+        "reason_if_run_now": "manual_promotion_mode",
         "machine_decidable": true,
         "expected_terminal_stop_on_complete": true
       },
@@ -118,19 +126,23 @@
       }
     },
     "flow_control": {
-      "status_if_run_now": "stopped",
-      "reason_if_run_now": "promotion_gates_open",
+      "status_if_run_now": "ready_waiting_manual_handoff",
+      "reason_if_run_now": "manual_promotion_mode",
       "machine_decidable_blockers": true,
-      "auto_continuation_enabled": true,
-      "readiness_gaps": []
+      "auto_continuation_enabled": false,
+      "readiness_gaps": [
+        "manual_handoff_still_required"
+      ]
     },
     "trust_summary": {
       "target_class": "trusted_delivery_pipeline",
-      "current_class": "trusted_delivery_pipeline",
+      "current_class": "bootstrap_loop",
       "healthy_environment_behavior": "continue_without_human_handoff",
       "abnormal_environment_behavior": "stop_on_machine_decidable_blockers",
-      "currently_meets_bar": true,
-      "readiness_gaps": []
+      "currently_meets_bar": false,
+      "readiness_gaps": [
+        "manual_handoff_still_required"
+      ]
     },
     "reuse_summary": {
       "reusable_unit": "progress_truth_plus_stop_truth_plus_reopen_truth_plus_evidence_round_trip",
@@ -140,10 +152,86 @@
         "reopen_truth",
         "evidence_round_trip_contract"
       ],
-      "missing_for_active_reuse": []
+      "missing_for_active_reuse": [
+        "auto_continuation_not_enabled"
+      ]
     },
-    "adapter_entry": {},
-    "slice_execution_brief": {},
+    "adapter_entry": {
+      "slice_id": "L9.9",
+      "phase_id": "L9",
+      "title": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors",
+      "category": "manual",
+      "execution_profile": "local_wrapper",
+      "adapter_type": "trend_feed_input",
+      "execute_mode": "manual_implementation",
+      "summary": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
+        "sed -n '1,260p' datapulse/core/watchlist.py",
+        "sed -n '1,260p' datapulse/reader.py",
+        "sed -n '1,260p' docs/source_feed_enhancement_plan.md",
+        "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+      ],
+      "verification_commands": [
+        "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/core/watchlist.py",
+        "datapulse/reader.py",
+        "docs/source_feed_enhancement_plan.md"
+      ],
+      "exit_condition": "Trend-feed inputs can seed watch creation and feed surfaces without being confused with the core URL collector path.",
+      "notes": [
+        "Trend inputs should seed missions and feeds, not pretend to be a replacement for item-level URL collection.",
+        "Keep trend signals distinguishable from directly collected evidence.",
+        "exit_condition: Trend-feed inputs can seed watch creation and feed surfaces without being confused with the core URL collector path.",
+        "promotion_scope: none",
+        "source_note: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+        "fact_source: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+      ],
+      "source": {
+        "catalog_entry": true,
+        "plan_slice": true
+      }
+    },
+    "slice_execution_brief": {
+      "slice_id": "L9.9",
+      "phase_id": "L9",
+      "title": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors",
+      "category": "manual",
+      "execution_profile": "local_wrapper",
+      "adapter_type": "trend_feed_input",
+      "execute_mode": "manual_implementation",
+      "summary": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
+        "sed -n '1,260p' datapulse/core/watchlist.py",
+        "sed -n '1,260p' datapulse/reader.py",
+        "sed -n '1,260p' docs/source_feed_enhancement_plan.md",
+        "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+      ],
+      "verification_commands": [
+        "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/core/watchlist.py",
+        "datapulse/reader.py",
+        "docs/source_feed_enhancement_plan.md"
+      ],
+      "exit_condition": "Trend-feed inputs can seed watch creation and feed surfaces without being confused with the core URL collector path.",
+      "notes": [
+        "Trend inputs should seed missions and feeds, not pretend to be a replacement for item-level URL collection.",
+        "Keep trend signals distinguishable from directly collected evidence.",
+        "exit_condition: Trend-feed inputs can seed watch creation and feed surfaces without being confused with the core URL collector path.",
+        "promotion_scope: none",
+        "source_note: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+        "fact_source: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+      ],
+      "source": {
+        "catalog_entry": true,
+        "plan_slice": true
+      }
+    },
     "decoupling_summary": {
       "blocking_facts_scope": "current-next-slice-only",
       "remaining_gates_scope": "global-open-gates",
@@ -156,19 +244,16 @@
     "workflow": ".github/workflows/governance-loop-auto.yml"
   },
   "snapshots_refreshed": {
-    "code_landing_status": "out/governance/code_landing_status.draft.json",
-    "project_loop_state": "out/governance/project_specific_loop_state.draft.json",
+    "code_landing_status": "/Users/sunyifei/DataPulse/out/governance/code_landing_status.draft.json",
+    "project_loop_state": "/Users/sunyifei/DataPulse/out/governance/project_specific_loop_state.draft.json",
     "structured_release_bundle": "/Users/sunyifei/DataPulse/out/ha_latest_release_bundle\n/Users/sunyifei/DataPulse/out/ha_latest_release_bundle/release_readiness_fact.draft.json\n/Users/sunyifei/DataPulse/out/ha_latest_release_bundle/ha_delivery_facts.draft.json\n/Users/sunyifei/DataPulse/out/ha_latest_release_bundle/ha_delivery_landing.draft.json\n/Users/sunyifei/DataPulse/out/ha_latest_release_bundle/ha_recovery_preset.draft.json\n/Users/sunyifei/DataPulse/out/ha_latest_release_bundle/release_sidecar.draft.json\n/Users/sunyifei/DataPulse/out/ha_latest_release_bundle\n/Users/sunyifei/DataPulse/out/ha_latest_release_bundle"
   },
   "decision": {
-    "policy_state": "active",
+    "policy_state": "disabled",
     "action": "stop",
-    "reason": "promotion_gates_open",
+    "reason": "policy_disabled",
     "machine_decidable": true,
-    "blocking_facts": [
-      "workspace_dirty",
-      "repo_landed_false"
-    ]
+    "blocking_facts": []
   },
   "companion_slice_execution": {
     "enabled": true,
@@ -179,16 +264,58 @@
     "guardrails": [
       "Use this companion entrypoint only from a controlled local environment.",
       "Keep the scheduled governance workflow read-only.",
-      "Let the Codex loop land only the current next_slice and then re-evaluate state."
+      "Let the Codex loop land only the current next_slice and then re-evaluate state.",
+      "The ignition wrapper allows existing dirty worktree promotion takeover by default; set DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=0 to keep manual review before repo_landed."
     ],
-    "eligible_now": false,
-    "reason_if_not_eligible": "stopped",
+    "eligible_now": true,
+    "reason_if_not_eligible": "",
     "next_slice": {
-      "id": "no-open-slice",
-      "title": "No open slice",
-      "category": "complete"
+      "id": "L9.9",
+      "title": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors",
+      "category": "manual",
+      "phase_id": "L9",
+      "execution_profile": "local_wrapper",
+      "promotion_scope": "none",
+      "closes_gates": []
     },
-    "slice_execution_brief": {}
+    "slice_execution_brief": {
+      "slice_id": "L9.9",
+      "phase_id": "L9",
+      "title": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors",
+      "category": "manual",
+      "execution_profile": "local_wrapper",
+      "adapter_type": "trend_feed_input",
+      "execute_mode": "manual_implementation",
+      "summary": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
+        "sed -n '1,260p' datapulse/core/watchlist.py",
+        "sed -n '1,260p' datapulse/reader.py",
+        "sed -n '1,260p' docs/source_feed_enhancement_plan.md",
+        "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+      ],
+      "verification_commands": [
+        "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/core/watchlist.py",
+        "datapulse/reader.py",
+        "docs/source_feed_enhancement_plan.md"
+      ],
+      "exit_condition": "Trend-feed inputs can seed watch creation and feed surfaces without being confused with the core URL collector path.",
+      "notes": [
+        "Trend inputs should seed missions and feeds, not pretend to be a replacement for item-level URL collection.",
+        "Keep trend signals distinguishable from directly collected evidence.",
+        "exit_condition: Trend-feed inputs can seed watch creation and feed surfaces without being confused with the core URL collector path.",
+        "promotion_scope: none",
+        "source_note: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+        "fact_source: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+      ],
+      "source": {
+        "catalog_entry": true,
+        "plan_slice": true
+      }
+    }
   },
   "control_plane_contract": {
     "healthy_environment_behavior": "continue_without_human_handoff",

@@ -113,6 +113,13 @@
 - `ParsePipeline` 已把 `native_bridge` 作为相关 URL 的优先 collector，但 bridge 不可用、返回 soft failure、或内容不足时，`xhs` 仍保持 `native -> jina -> browser`；`wechat` 现保持 `native -> jina -> browser`，并为 native/Jina/browser 三条路径都写入 `collector_provenance` 以保持执行路径可见。
 - `L9.5` 现已在仓内落地 `datapulse/collectors/weibo.py`：Weibo URL 会进入 first-class `WeiboCollector`，优先尝试 `weibo_spider` profile，并在 native 未启用或失败时回退到 Jina，同时把 `source_type=weibo` 与 `collector_provenance` 归一化到稳定输出。
 - `L9.6` 现已在仓内落地 `datapulse/collectors/generic.py`：`GenericCollector` 会在 `gne` 可用且正文看起来像中文新闻时优先尝试 `GeneralNewsExtractor` 风格抽取，并把 `bridge_profile / transport / fallback_policy` 归一化到 `extra["collector_provenance"]`；若 backend 不可用、正文过薄或不适配，链路仍回退到 `trafilatura -> BeautifulSoup -> Firecrawl -> Jina`。
+- `L9.9` 现已在仓内落地 `datapulse/core/watchlist.py` 与 `datapulse/reader.py`：`WatchMission` 现在可持久化 `trend_inputs`，并固定标记为 `input_kind=trend_feed`、`usage_mode=watch_seed_only`，明确这些输入只是 mission/feed seed，不是 item-level evidence。
+- `DataPulseReader.create_watch_from_trends(...)` 会把现有 `trending()` snapshot 归一化成 trend seed input 后再创建 watch；原有 `create_watch(...)` 也可直接接收结构化 `trend_inputs`，但 watch 的执行路径仍然走既有 query/search/URL collector 链路。
+- watch 运行结果与 feed 输出现在会把 trend seed 上下文作为 `watch_seed_inputs / datapulse_context / trend_seed_summary` 暴露出来，并附带边界说明，避免把 trend feed 误读成对 URL collector 的替代。
+- `L9.10` 现已在仓内落地 `docs/governance/datapulse-manual-acquisition-sidecar-contract.md`：`EasySpider / Crawlab / f2` 被明确固定在 `manual emergency acquisition lane`，不进入 `ParsePipeline`、`native bridge` shortlist 或 `.github/workflows/governance-loop-auto.yml`。
+- `L9.10` 的 handoff 顺序固定为 `url_recollection -> manual_fact_item -> story_attachment_only`：能回到 canonical URL 的优先重新走现有 collector；只有证据会丢失时才允许以 `SourceType.MANUAL` / `collection_mode=manual_fact` 进入 repo-visible truth。
+- manual lane 的 provenance 与 automated collector 分离：若手工采集产物进入仓内对象，应该写入 `extra["manual_acquisition_provenance"]`，而不是复用 `extra["collector_provenance"]` 去伪装成 native 或 generic collector。
+- manual lane 的最小交接物固定为 `run manifest + raw export refs + operator curation note`；原始导出、下载媒体和外部 job state 应保留在 operator-controlled 路径或外部对象存储中，不直接耦合进 git 仓库。
 
 ## 与现网能力映射
 

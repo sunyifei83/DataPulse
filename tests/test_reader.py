@@ -87,6 +87,57 @@ class TestBuildJsonFeed:
         feed = reader_with_items.build_json_feed(limit=1)
         assert len(feed["items"]) <= 1
 
+    def test_json_feed_includes_trend_seed_context(self, tmp_path, monkeypatch):
+        inbox_path = str(tmp_path / "inbox.json")
+        catalog_path = str(tmp_path / "catalog.json")
+        watch_path = str(tmp_path / "watchlist.json")
+        from pathlib import Path
+
+        Path(catalog_path).write_text(json.dumps({
+            "version": 1, "sources": [], "subscriptions": {}, "packs": [],
+        }), encoding="utf-8")
+
+        monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+        monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", watch_path)
+
+        seed_reader = DataPulseReader(inbox_path=inbox_path)
+        mission = seed_reader.create_watch(
+            name="AI Trend Watch",
+            query="OpenAI agents",
+            trend_inputs=[
+                {
+                    "provider": "trends24",
+                    "label": "US AI trend seeds",
+                    "location": "united-states",
+                    "topics": ["#OpenAI", "Claude Code"],
+                    "feed_url": "https://trends24.in/united-states/",
+                    "snapshot_time": "2026-03-06T00:00:00Z",
+                }
+            ],
+        )
+
+        items = [
+            DataPulseItem(
+                source_type=SourceType.GENERIC,
+                source_name="example",
+                title="Watch-seeded evidence",
+                content="Collected URL evidence remains separate from trend seeds.",
+                url="https://example.com/openai-agents",
+                confidence=0.88,
+                extra={"watch_mission_id": mission["id"], "watch_mission_name": mission["name"]},
+            ),
+        ]
+        _populate_inbox(inbox_path, items)
+
+        reader = DataPulseReader(inbox_path=inbox_path)
+        feed = reader.build_json_feed()
+
+        assert feed["datapulse_context"]["trend_seeded_item_count"] == 1
+        assert feed["datapulse_context"]["trend_seeded_watch_count"] == 1
+        assert "item-level evidence" in feed["datapulse_context"]["seed_boundary"]
+        assert feed["items"][0]["datapulse_context"]["trend_seeded"] is True
+        assert feed["items"][0]["datapulse_context"]["seed_inputs"][0]["input_kind"] == "trend_feed"
+
 
 class TestBuildRssFeed:
     @pytest.fixture()

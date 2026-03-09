@@ -1,35 +1,35 @@
 {
   "schema_version": "release_sidecar.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T12:58:43Z",
+  "generated_at_utc": "2026-03-09T03:52:30Z",
   "sidecar_kind": "draft_export",
   "wired": false,
   "release": {
-    "tag": "v0.7.0",
-    "version": "0.7.0",
+    "tag": "v0.8.0",
+    "version": "0.8.0",
     "notes_file": "RELEASE_NOTES.md",
     "notes_section_found": true,
     "notes_excerpt_preview": [
-      "\u53d1\u5e03\u65e5\u671f\uff1a2026-03-04",
-      "\u6784\u5efa\u76ee\u6807\uff1a\u9ad8\u4ef7\u503c\u80fd\u529b\u8865\u9f50\uff08\u5b9e\u4f53\u84b8\u998f/\u6301\u4e45\u5316\u3001\u641c\u7d22\u7f51\u5173\u5f3a\u5316\u3001\u53ef\u89c2\u6d4b\u8bc4\u5206\uff09",
+      "\u53d1\u5e03\u65e5\u671f\uff1a2026-03-08",
+      "\u6784\u5efa\u76ee\u6807\uff1a\u5206\u6790\u5e08\u4efb\u52a1\u9762\u3001\u6cbb\u7406\u8bed\u4e49\u4e0e\u53d1\u7248\u53ef\u64cd\u4f5c\u6027\u6536\u53e3",
       "",
       "### \u4e3b\u8981\u53d8\u66f4",
       "",
-      "**\u80fd\u529b 1 \u2014 \u8f7b\u91cf\u5b9e\u4f53\u84b8\u998f\u80fd\u529b\u8865\u9f50**",
-      "- \u65b0\u589e\u5b9e\u4f53\u62bd\u53d6\u80fd\u529b\uff1a`DataPulseReader.extract_entities()`\uff0c\u652f\u6301 URL \u5185\u5bb9\u76f4\u63a5\u62bd\u53d6 `entities` \u4e0e `relations`\u3002",
-      "- \u5f15\u5165 `EntityStore` \u6301\u4e45\u5316\u80fd\u529b\uff08\u9ed8\u8ba4 `entity_store.json`\uff0c\u652f\u6301 `DATAPULSE_ENTITY_STORE` \u8986\u76d6\u8def\u5f84\uff09\u3002"
+      "**\u80fd\u529b 1 \u2014 \u4efb\u52a1\u8bed\u4e49\u4ece\u201c\u4fdd\u5b58\u67e5\u8be2\u201d\u5347\u7ea7\u4e3a\u201c\u5206\u6790\u5e08\u610f\u56fe\u201d**",
+      "- `WatchMission` \u73b0\u5df2\u5185\u5efa `MissionIntent`\uff0c\u53ef\u643a\u5e26 `demand_intent`\u3001`key_questions`\u3001`scope_entities/topics/regions`\u3001`freshness_expectation`\u3001`freshness_max_age_hours` \u4e0e `coverage_targets`\u3002",
+      "- Reader\u3001CLI\u3001\u6301\u4e45\u5316\u7ed3\u679c\u6d41\u4e0e\u6d4f\u89c8\u5668 Mission Cockpit \u5171\u7528\u540c\u4e00\u5957 mission intent \u8bed\u4e49\uff0c\u4e0d\u518d\u4f9d\u8d56 UI \u6216\u5355\u7aef\u6ce8\u91ca\u8865\u8db3\u4e0a\u4e0b\u6587\u3002"
     ]
   },
   "git": {
-    "head": "31004373db8699eb3217f0c220619cca7f3baf84",
+    "head": "8fa71971c7b25166702cf99069f52d23b3169fc1",
     "branch": "main",
     "workspace_clean": false
   },
   "build_artifacts": {
     "dist_exists": true,
     "files": [
-      "dist/datapulse-0.7.0-py3-none-any.whl",
-      "dist/datapulse-0.7.0.tar.gz"
+      "dist/datapulse-0.8.0-py3-none-any.whl",
+      "dist/datapulse-0.8.0.tar.gz"
     ]
   },
   "evidence": {

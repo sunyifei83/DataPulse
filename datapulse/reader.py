@@ -25,7 +25,13 @@ from datapulse.core.scoring import rank_items
 from datapulse.core.search_gateway import SearchGateway, SearchHit
 from datapulse.core.source_catalog import SourceCatalog
 from datapulse.core.storage import UnifiedInbox, output_record_md, project_markdown
-from datapulse.core.story import StoryStore, build_story_clusters, build_story_graph, render_story_markdown
+from datapulse.core.story import (
+    StoryStore,
+    build_factuality_gate,
+    build_story_clusters,
+    build_story_graph,
+    render_story_markdown,
+)
 from datapulse.core.triage import (
     TriageQueue,
     is_digest_candidate,
@@ -33,7 +39,7 @@ from datapulse.core.triage import (
     serialize_item_with_governance,
 )
 from datapulse.core.utils import content_fingerprint, inbox_path_from_env, normalize_language
-from datapulse.core.watchlist import MissionIntent, MissionRun, WatchlistStore, WatchMission
+from datapulse.core.watchlist import MissionIntent, MissionRun, TrendFeedInput, WatchlistStore, WatchMission
 
 logger = logging.getLogger("datapulse.reader")
 
@@ -95,6 +101,10 @@ PLATFORM_SEARCH_SITES: dict[str, list[str]] = {
     "bilibili": ["bilibili.com"],
 }
 
+TREND_SEED_BOUNDARY_TEXT = (
+    "Trend inputs seed watches and feed surfaces only; item-level evidence still comes from collected URLs and search hits."
+)
+
 
 class DataPulseReader:
     """End-to-end URL reader used by CLI/MCP/Skill/Agent."""
@@ -123,6 +133,11 @@ class DataPulseReader:
     def _serialize_watch_mission(self, mission: WatchMission) -> dict[str, Any]:
         payload = mission.to_dict()
         payload["intent_summary"] = self._build_watch_intent_summary(mission.mission_intent)
+        payload["trend_inputs"] = [
+            self._serialize_trend_input(trend_input)
+            for trend_input in mission.trend_inputs
+        ]
+        payload["trend_seed_summary"] = self._build_watch_trend_summary(mission.trend_inputs)
         payload["schedule_label"] = describe_schedule(mission.schedule)
         payload["is_due"] = is_watch_due(mission)
         payload["next_run_at"] = next_run_at(mission)
@@ -181,6 +196,57 @@ class DataPulseReader:
             "freshness": " | ".join(freshness_parts),
             "coverage": coverage_preview,
             "coverage_target_count": len(intent.coverage_targets),
+        }
+
+    @staticmethod
+    def _serialize_trend_input(trend_input: TrendFeedInput) -> dict[str, Any]:
+        payload = trend_input.to_dict()
+        payload["topic_count"] = len(trend_input.topics)
+        payload["topics_preview"] = list(trend_input.topics[:5])
+        return payload
+
+    def _build_watch_trend_summary(self, trend_inputs: list[TrendFeedInput]) -> dict[str, Any]:
+        providers: list[str] = []
+        provider_seen: set[str] = set()
+        locations: list[str] = []
+        location_seen: set[str] = set()
+        topics: list[str] = []
+        topic_seen: set[str] = set()
+        latest_snapshot = ""
+
+        for trend_input in trend_inputs:
+            provider = str(trend_input.provider or "").strip().lower()
+            if provider and provider not in provider_seen:
+                provider_seen.add(provider)
+                providers.append(provider)
+            location = str(trend_input.location or "").strip()
+            location_key = location.casefold()
+            if location and location_key not in location_seen:
+                location_seen.add(location_key)
+                locations.append(location)
+            snapshot_time = str(trend_input.snapshot_time or "").strip()
+            if snapshot_time and snapshot_time > latest_snapshot:
+                latest_snapshot = snapshot_time
+            for topic in trend_input.topics:
+                normalized = str(topic or "").strip()
+                if not normalized:
+                    continue
+                key = normalized.casefold()
+                if key in topic_seen:
+                    continue
+                topic_seen.add(key)
+                topics.append(normalized)
+
+        return {
+            "has_trend_inputs": bool(trend_inputs),
+            "input_count": len(trend_inputs),
+            "provider_count": len(providers),
+            "providers": providers,
+            "locations": locations,
+            "topic_count": len(topics),
+            "topics_preview": topics[:5],
+            "latest_snapshot_time": latest_snapshot,
+            "seed_boundary": TREND_SEED_BOUNDARY_TEXT if trend_inputs else "",
         }
 
     @staticmethod
@@ -1496,6 +1562,84 @@ class DataPulseReader:
 
         return result
 
+    @staticmethod
+    def _build_trend_input_from_trending_result(
+        payload: dict[str, Any],
+        *,
+        label: str = "",
+    ) -> TrendFeedInput | None:
+        if not isinstance(payload, dict):
+            return None
+        trends = payload.get("trends", [])
+        topics: list[str] = []
+        if isinstance(trends, list):
+            for row in trends:
+                if not isinstance(row, dict):
+                    continue
+                topic = str(row.get("name", "") or "").strip()
+                if topic:
+                    topics.append(topic)
+        location = str(payload.get("location") or payload.get("requested_location") or "worldwide").strip() or "worldwide"
+        snapshot_time = str(payload.get("snapshot_time", "") or "").strip()
+        notes = str(payload.get("fallback_reason", "") or "").strip()
+        if not label:
+            label = f"Trending seeds ({location})"
+        trend_input = TrendFeedInput(
+            provider="trends24",
+            label=label,
+            location=location,
+            topics=topics,
+            feed_url=build_trending_url(location),
+            snapshot_time=snapshot_time,
+            notes=notes,
+        )
+        if not trend_input.has_content():
+            return None
+        return trend_input
+
+    async def create_watch_from_trends(
+        self,
+        *,
+        name: str,
+        query: str,
+        location: str = "",
+        trend_limit: int = 5,
+        label: str = "",
+        mission_intent: dict[str, Any] | None = None,
+        platforms: list[str] | None = None,
+        sites: list[str] | None = None,
+        schedule: str = "manual",
+        min_confidence: float = 0.0,
+        top_n: int = 5,
+        alert_rules: list[dict[str, Any]] | None = None,
+        enabled: bool = True,
+        validate: bool | None = None,
+        validate_mode: str = "strict",
+    ) -> dict[str, Any]:
+        trend_result = await self.trending(
+            location=location,
+            top_n=trend_limit,
+            store=False,
+            validate=validate,
+            validate_mode=validate_mode,
+        )
+        trend_input = self._build_trend_input_from_trending_result(trend_result, label=label)
+        payload = self.create_watch(
+            name=name,
+            query=query,
+            mission_intent=mission_intent,
+            trend_inputs=[trend_input.to_dict()] if trend_input is not None else None,
+            platforms=platforms,
+            sites=sites,
+            schedule=schedule,
+            min_confidence=min_confidence,
+            top_n=top_n,
+            alert_rules=alert_rules,
+            enabled=enabled,
+        )
+        payload["trend_seed_result"] = trend_result
+        return payload
+
     async def _validate_trending_topics(
         self,
         trends: list[dict[str, Any]],
@@ -1628,6 +1772,16 @@ class DataPulseReader:
                 "high_confidence_count": high_confidence_hits,
                 "item_count": len(all_items),
                 "stats": payload.get("stats", {}),
+                "factuality_status": (
+                    payload.get("factuality", {}).get("status", "review_required")
+                    if isinstance(payload.get("factuality"), dict)
+                    else "review_required"
+                ),
+                "factuality_score": (
+                    float(payload.get("factuality", {}).get("score", 0.0) or 0.0)
+                    if isinstance(payload.get("factuality"), dict)
+                    else 0.0
+                ),
             },
             "sources": [
                 {"source_name": name, "count": count}
@@ -1636,8 +1790,12 @@ class DataPulseReader:
             "recommendations": recommendations,
             "timeline": sorted(timeline, key=lambda x: x.get("time", ""), reverse=True),
             "todos": todos,
+            "factuality": payload.get("factuality", {}),
             "digest_payload": payload,
         }
+        factuality = package["factuality"] if isinstance(package["factuality"], dict) else {}
+        for reason in factuality.get("reasons", []) if isinstance(factuality.get("reasons"), list) else []:
+            todos.append(f"事实性复核: {reason}")
 
         if output_format.lower() == "md" or output_format.lower() == "markdown":
             lines = [
@@ -1645,12 +1803,29 @@ class DataPulseReader:
                 f"- **生成时间**: {package['summary']['generated_at']}",
                 f"- **高置信条目**: {package['summary']['high_confidence_count']}",
                 f"- **总条目**: {package['summary']['item_count']}",
+                f"- **事实性状态**: {package['summary']['factuality_status']}",
+                f"- **事实性分数**: {package['summary']['factuality_score']:.3f}",
                 "",
                 "## 摘要",
                 package["summary"]["title"],
                 "",
-                "## 来源",
+                "## Factuality Gate",
+                f"- 状态: {factuality.get('status', 'review_required')}",
+                f"- 动作: {factuality.get('operator_action', 'review_before_delivery')}",
+                f"- 摘要: {factuality.get('summary', 'No factuality summary recorded.')}",
             ]
+            for reason in factuality.get("reasons", []) if isinstance(factuality.get("reasons"), list) else []:
+                lines.append(f"- 复核提示: {reason}")
+            for signal in factuality.get("signals", []) if isinstance(factuality.get("signals"), list) else []:
+                if not isinstance(signal, dict):
+                    continue
+                lines.append(
+                    f"- 信号: {signal.get('kind', 'signal')}={signal.get('status', 'unknown')} | {signal.get('detail', '')}"
+                )
+            lines.extend([
+                "",
+                "## 来源",
+            ])
             for source in package["sources"]:
                 lines.append(f"- {source['source_name']}: {source['count']}")
             lines.extend([
@@ -1925,6 +2100,7 @@ class DataPulseReader:
         name: str,
         query: str,
         mission_intent: dict[str, Any] | None = None,
+        trend_inputs: list[dict[str, Any]] | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
         schedule: str = "manual",
@@ -1937,6 +2113,7 @@ class DataPulseReader:
             name=name,
             query=query,
             mission_intent=mission_intent,
+            trend_inputs=trend_inputs,
             platforms=platforms,
             sites=sites,
             schedule=schedule,
@@ -2188,6 +2365,7 @@ class DataPulseReader:
         if not items:
             return
         intent_payload = mission.mission_intent.to_dict() if mission.mission_intent.has_content() else {}
+        trend_payload = [self._serialize_trend_input(trend_input) for trend_input in mission.trend_inputs]
         changed = False
         for item in items:
             item.extra["watch_mission_id"] = mission.id
@@ -2195,6 +2373,9 @@ class DataPulseReader:
             item.extra["watch_query"] = mission.query
             if intent_payload:
                 item.extra["watch_mission_intent"] = dict(intent_payload)
+            if trend_payload:
+                item.extra["watch_seed_inputs"] = [dict(row) for row in trend_payload]
+                item.extra["watch_seed_boundary"] = TREND_SEED_BOUNDARY_TEXT
             if "watch" not in item.tags:
                 item.tags.append("watch")
 
@@ -2206,12 +2387,93 @@ class DataPulseReader:
                 stored.extra["watch_query"] = mission.query
                 if intent_payload:
                     stored.extra["watch_mission_intent"] = dict(intent_payload)
+                if trend_payload:
+                    stored.extra["watch_seed_inputs"] = [dict(row) for row in trend_payload]
+                    stored.extra["watch_seed_boundary"] = TREND_SEED_BOUNDARY_TEXT
                 if "watch" not in stored.tags:
                     stored.tags.append("watch")
                 changed = True
                 break
         if changed:
             self.inbox.save()
+
+    def _item_trend_seed_context(self, item: DataPulseItem) -> dict[str, Any] | None:
+        mission_id = str(item.extra.get("watch_mission_id", "") or "").strip()
+        mission_name = str(item.extra.get("watch_mission_name", "") or "").strip()
+        trend_inputs: list[dict[str, Any]] = []
+
+        mission = self.watchlist.get(mission_id) if mission_id else None
+        if mission is not None and mission.trend_inputs:
+            mission_name = mission.name
+            trend_inputs = [
+                self._serialize_trend_input(trend_input)
+                for trend_input in mission.trend_inputs
+            ]
+        else:
+            raw_inputs = item.extra.get("watch_seed_inputs", [])
+            if isinstance(raw_inputs, list):
+                for raw in raw_inputs:
+                    if not isinstance(raw, dict):
+                        continue
+                    normalized = dict(raw)
+                    normalized["input_kind"] = "trend_feed"
+                    normalized["usage_mode"] = "watch_seed_only"
+                    trend_inputs.append(normalized)
+
+        if not trend_inputs:
+            return None
+        return {
+            "watch_mission_id": mission_id,
+            "watch_mission_name": mission_name,
+            "trend_seeded": True,
+            "seed_boundary": TREND_SEED_BOUNDARY_TEXT,
+            "seed_inputs": trend_inputs,
+        }
+
+    def _build_feed_context(self, items: list[DataPulseItem]) -> dict[str, Any] | None:
+        seeded_watches: list[dict[str, Any]] = []
+        seen_watch_ids: set[str] = set()
+        seeded_item_count = 0
+
+        for item in items:
+            context = self._item_trend_seed_context(item)
+            if context is None:
+                continue
+            seeded_item_count += 1
+            watch_id = str(context.get("watch_mission_id", "") or "").strip() or str(item.id or "").strip()
+            if watch_id in seen_watch_ids:
+                continue
+            seen_watch_ids.add(watch_id)
+            seed_inputs = context.get("seed_inputs", [])
+            topic_count = 0
+            providers: list[str] = []
+            provider_seen: set[str] = set()
+            for seed_input in seed_inputs if isinstance(seed_inputs, list) else []:
+                if not isinstance(seed_input, dict):
+                    continue
+                topic_count += len(seed_input.get("topics", []) or [])
+                provider = str(seed_input.get("provider", "") or "").strip().lower()
+                if provider and provider not in provider_seen:
+                    provider_seen.add(provider)
+                    providers.append(provider)
+            seeded_watches.append(
+                {
+                    "watch_mission_id": context.get("watch_mission_id", ""),
+                    "watch_mission_name": context.get("watch_mission_name", ""),
+                    "seed_input_count": len(seed_inputs) if isinstance(seed_inputs, list) else 0,
+                    "topic_count": topic_count,
+                    "providers": providers,
+                }
+            )
+
+        if not seeded_watches:
+            return None
+        return {
+            "trend_seeded_item_count": seeded_item_count,
+            "trend_seeded_watch_count": len(seeded_watches),
+            "trend_seeded_watches": seeded_watches,
+            "seed_boundary": TREND_SEED_BOUNDARY_TEXT,
+        }
 
     def list_alerts(self, *, limit: int = 20, mission_id: str | None = None) -> list[dict[str, Any]]:
         return [
@@ -2807,26 +3069,33 @@ class DataPulseReader:
         )
         base = "https://datapulse.local"
         now = _utcnow_z()
-        return {
+        payload = {
             "version": "https://jsonfeed.org/version/1.1",
             "title": f"DataPulse Feed ({profile})",
             "home_page_url": base,
             "feed_url": f"{base}/feed/{profile}.json",
-            "items": [
-                {
-                    "id": item.id,
-                    "title": item.title,
-                    "content_text": item.content,
-                    "date_published": item.fetched_at,
-                    "url": item.url,
-                    "source_type": item.source_type.value,
-                    "source_name": item.source_name,
-                    "authors": [{"name": item.source_name}] if item.source_name else [],
-                }
-                for item in items
-            ],
+            "items": [],
             "generated_at": now,
         }
+        for item in items:
+            row = {
+                "id": item.id,
+                "title": item.title,
+                "content_text": item.content,
+                "date_published": item.fetched_at,
+                "url": item.url,
+                "source_type": item.source_type.value,
+                "source_name": item.source_name,
+                "authors": [{"name": item.source_name}] if item.source_name else [],
+            }
+            trend_context = self._item_trend_seed_context(item)
+            if trend_context is not None:
+                row["datapulse_context"] = trend_context
+            payload["items"].append(row)
+        feed_context = self._build_feed_context(items)
+        if feed_context is not None:
+            payload["datapulse_context"] = feed_context
+        return payload
 
     def build_rss_feed(
         self,
@@ -2847,6 +3116,10 @@ class DataPulseReader:
         def _xml_escape(value: str) -> str:
             return (value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;"))
 
+        feed_context = self._build_feed_context(items)
+        description = "Unified content feed"
+        if feed_context is not None:
+            description = f"{description}. {feed_context['seed_boundary']}"
         rows = []
         for item in items:
             pub = item.fetched_at
@@ -2854,6 +3127,7 @@ class DataPulseReader:
                 dt = datetime.fromisoformat(pub).strftime("%a, %d %b %Y %H:%M:%S GMT")
             except Exception:
                 dt = pub
+            category = "<category>trend-seeded-watch</category>" if self._item_trend_seed_context(item) is not None else ""
             rows.append(
                 "<item>"
                 f"<title>{_xml_escape(item.title)}</title>"
@@ -2861,6 +3135,7 @@ class DataPulseReader:
                 f"<guid>{_xml_escape(item.id)}</guid>"
                 f"<pubDate>{_xml_escape(dt)}</pubDate>"
                 f"<description>{_xml_escape(item.content[:1800])}</description>"
+                f"{category}"
                 "</item>"
             )
 
@@ -2868,7 +3143,7 @@ class DataPulseReader:
             '<?xml version="1.0" encoding="UTF-8"?>'
             "<rss version=\"2.0\"><channel>"
             "<title>DataPulse Feed</title>"
-            "<description>Unified content feed</description>"
+            f"<description>{_xml_escape(description)}</description>"
             "<link>https://datapulse.local</link>"
             + "".join(rows)
             + "</channel></rss>"
@@ -2908,6 +3183,14 @@ class DataPulseReader:
 
         if not candidates:
             today = _utc_today()
+            factuality = build_factuality_gate(
+                subject="digest",
+                surface="digest_delivery",
+                evidence_rows=[],
+                source_names=[],
+                grounded_claim_count=0,
+                contradiction_count=0,
+            )
             return {
                 "version": "1.0",
                 "generated_at": _utcnow_z(),
@@ -2928,6 +3211,7 @@ class DataPulseReader:
                     "contradictions": [],
                     "claim_candidates": [],
                 },
+                "factuality": factuality,
                 "provenance": "No items available",
             }
 
@@ -2961,6 +3245,50 @@ class DataPulseReader:
             item.digest_date = today
 
         semantic_review = self._build_semantic_review(primary + secondary)
+        selected_payloads = [serialize_item_with_governance(item) for item in primary + secondary]
+        factuality_rows: list[dict[str, Any]] = []
+        for payload in selected_payloads:
+            governance = payload.get("governance", {}) if isinstance(payload, dict) else {}
+            if not isinstance(governance, dict):
+                governance = {}
+            provenance = governance.get("provenance", {}) if isinstance(governance.get("provenance"), dict) else {}
+            grounding = governance.get("grounding", {}) if isinstance(governance.get("grounding"), dict) else {}
+            factuality_rows.append(
+                {
+                    "item_id": provenance.get("item_id", payload.get("id", "")),
+                    "title": payload.get("title", ""),
+                    "source_name": provenance.get("source_name", payload.get("source_name", "")),
+                    "evidence_grade": str(governance.get("evidence_grade", "working")).strip().lower() or "working",
+                    "evidence_score": float(governance.get("evidence_score", 0.0) or 0.0),
+                    "review_state": str(governance.get("review_state", "new") or "new").strip().lower() or "new",
+                    "confidence": float(payload.get("confidence", 0.0) or 0.0),
+                    "grounded_claim_count": int(grounding.get("claim_count", 0) or 0),
+                }
+            )
+        factuality = build_factuality_gate(
+            subject="digest",
+            surface="digest_delivery",
+            evidence_rows=factuality_rows,
+            source_names=[item.source_name for item in primary + secondary],
+            grounded_claim_count=sum(
+                int(
+                    (
+                        payload.get("governance", {}).get("grounding", {})
+                        if isinstance(payload.get("governance"), dict)
+                        and isinstance(payload.get("governance", {}).get("grounding"), dict)
+                        else {}
+                    ).get("claim_count", 0)
+                    or 0
+                )
+                for payload in selected_payloads
+                if isinstance(payload, dict)
+            ),
+            contradiction_count=len(
+                semantic_review.get("contradictions", [])
+                if isinstance(semantic_review.get("contradictions"), list)
+                else []
+            ),
+        )
 
         return {
             "version": "1.0",
@@ -2973,9 +3301,10 @@ class DataPulseReader:
                 "selected_primary": len(primary),
                 "selected_secondary": len(secondary),
             },
-            "primary": [item.to_dict() for item in primary],
-            "secondary": [item.to_dict() for item in secondary],
+            "primary": selected_payloads[: len(primary)],
+            "secondary": selected_payloads[len(primary):],
             "semantic_review": semantic_review,
+            "factuality": factuality,
             "provenance": f"Curated from {candidates_total} items across {sources_seen} sources",
         }
 
@@ -3077,12 +3406,19 @@ class DataPulseReader:
 
         now = _utcnow_z()
         base = "https://datapulse.local"
+        feed_context = self._build_feed_context(items)
+        subtitle = (
+            f"<subtitle>{_xml_escape(feed_context['seed_boundary'])}</subtitle>"
+            if feed_context is not None
+            else ""
+        )
 
         entries = []
         for item in items:
             updated = item.fetched_at
             if not updated.endswith("Z"):
                 updated += "Z"
+            category = '<category term="trend-seeded-watch"/>' if self._item_trend_seed_context(item) is not None else ""
             entries.append(
                 "<entry>"
                 f"<title>{_xml_escape(item.title)}</title>"
@@ -3091,6 +3427,7 @@ class DataPulseReader:
                 f"<updated>{_xml_escape(updated)}</updated>"
                 f"<summary>{_xml_escape(item.content[:1800])}</summary>"
                 f"<author><name>{_xml_escape(item.source_name)}</name></author>"
+                f"{category}"
                 "</entry>"
             )
 
@@ -3098,6 +3435,7 @@ class DataPulseReader:
             '<?xml version="1.0" encoding="UTF-8"?>'
             '<feed xmlns="http://www.w3.org/2005/Atom">'
             f"<title>DataPulse Feed ({_xml_escape(profile)})</title>"
+            f"{subtitle}"
             f'<link href="{base}/feed/{profile}.atom" rel="self"/>'
             f"<id>urn:datapulse:feed:{_xml_escape(profile)}</id>"
             f"<updated>{now}</updated>"

@@ -29,6 +29,16 @@ class TestWatchlistStore:
                 "freshness_max_age_hours": 24,
                 "coverage_targets": ["official statements", "developer reaction", "pricing pages"],
             },
+            trend_inputs=[
+                {
+                    "provider": "trends24",
+                    "label": "US AI trend seeds",
+                    "location": "united-states",
+                    "topics": ["#OpenAI", "Agents", "#OpenAI"],
+                    "feed_url": "https://trends24.in/united-states/",
+                    "snapshot_time": "2026-03-06T00:00:00Z",
+                }
+            ],
             platforms=["twitter", "reddit", "twitter"],
             sites=["openai.com", "reddit.com", "openai.com"],
             top_n=8,
@@ -53,6 +63,13 @@ class TestWatchlistStore:
             "developer reaction",
             "pricing pages",
         ]
+        assert len(restored.trend_inputs) == 1
+        assert restored.trend_inputs[0].provider == "trends24"
+        assert restored.trend_inputs[0].label == "US AI trend seeds"
+        assert restored.trend_inputs[0].location == "united-states"
+        assert restored.trend_inputs[0].topics == ["#OpenAI", "Agents"]
+        assert restored.trend_inputs[0].input_kind == "trend_feed"
+        assert restored.trend_inputs[0].usage_mode == "watch_seed_only"
         assert restored.platforms == ["twitter", "reddit"]
         assert restored.sites == ["openai.com", "reddit.com"]
         assert restored.top_n == 8
@@ -101,6 +118,16 @@ async def test_reader_run_watch_records_metadata(tmp_path, monkeypatch):
             "freshness_max_age_hours": 24,
             "coverage_targets": ["official release notes", "developer discussion"],
         },
+        trend_inputs=[
+            {
+                "provider": "trends24",
+                "label": "US AI trend seeds",
+                "location": "united-states",
+                "topics": ["#OpenAI", "Agents"],
+                "feed_url": "https://trends24.in/united-states/",
+                "snapshot_time": "2026-03-06T00:00:00Z",
+            }
+        ],
         platforms=["twitter"],
         top_n=3,
     )
@@ -129,14 +156,56 @@ async def test_reader_run_watch_records_metadata(tmp_path, monkeypatch):
     assert payload["mission"]["last_run_status"] == "success"
     assert payload["mission"]["mission_intent"]["demand_intent"] == "Track agent announcements that can change roadmap posture."
     assert payload["mission"]["intent_summary"]["freshness"] == "same day review | max_age<=24h"
+    assert payload["mission"]["trend_seed_summary"]["input_count"] == 1
+    assert payload["mission"]["trend_seed_summary"]["topic_count"] == 2
     assert payload["items"][0]["extra"]["watch_mission_id"] == mission["id"]
     assert payload["items"][0]["extra"]["watch_mission_intent"]["coverage_targets"] == [
         "official release notes",
         "developer discussion",
     ]
+    assert payload["items"][0]["extra"]["watch_seed_inputs"][0]["input_kind"] == "trend_feed"
+    assert payload["items"][0]["extra"]["watch_seed_boundary"]
     assert reader.inbox.items[0].extra["watch_mission_name"] == "AI Radar"
     assert reader.inbox.items[0].extra["watch_mission_intent"]["scope_topics"] == ["agents"]
+    assert reader.inbox.items[0].extra["watch_seed_inputs"][0]["usage_mode"] == "watch_seed_only"
     assert "watch" in reader.inbox.items[0].tags
+
+
+@pytest.mark.asyncio
+async def test_reader_create_watch_from_trends_seeds_watch_inputs(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+
+    async def fake_trending(*, location="", top_n=20, store=False, validate=None, validate_mode="strict"):
+        return {
+            "location": "united-states",
+            "requested_location": location or "worldwide",
+            "snapshot_time": "2026-03-06T00:00:00Z",
+            "trend_count": 2,
+            "trends": [
+                {"name": "#OpenAI", "rank": 1, "volume": "120K", "volume_raw": 120000},
+                {"name": "Claude Code", "rank": 2, "volume": "32K", "volume_raw": 32000},
+            ],
+            "degraded": False,
+        }
+
+    monkeypatch.setattr(reader, "trending", fake_trending)
+
+    payload = await reader.create_watch_from_trends(
+        name="AI Trend Watch",
+        query="OpenAI Claude agents",
+        location="us",
+        trend_limit=2,
+        platforms=["twitter"],
+    )
+
+    assert payload["trend_seed_result"]["trend_count"] == 2
+    assert payload["trend_seed_summary"]["has_trend_inputs"] is True
+    assert payload["trend_seed_summary"]["input_count"] == 1
+    assert payload["trend_seed_summary"]["providers"] == ["trends24"]
+    assert payload["trend_seed_summary"]["topics_preview"] == ["#OpenAI", "Claude Code"]
+    assert payload["trend_inputs"][0]["feed_url"] == "https://trends24.in/united-states/"
 
 
 @pytest.mark.asyncio

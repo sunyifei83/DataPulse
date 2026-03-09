@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 import requests
 
 from .models import DataPulseItem
+from .story import build_factuality_gate
 from .triage import build_item_governance, evidence_grade_priority, serialize_item_with_governance
 from .utils import alert_routing_path_from_env, alerts_markdown_path_from_env, alerts_path_from_env
 from .watchlist import WatchMission
@@ -214,6 +215,7 @@ def append_alert_markdown(event: AlertEvent, items: list[DataPulseItem], *, path
     target.parent.mkdir(parents=True, exist_ok=True)
     governance = event.governance if isinstance(event.governance, dict) else {}
     delivery_risk = governance.get("delivery_risk", {}) if isinstance(governance.get("delivery_risk"), dict) else {}
+    factuality = governance.get("factuality", {}) if isinstance(governance.get("factuality"), dict) else {}
     with target.open("a", encoding="utf-8") as handle:
         handle.write(f"\n## {event.mission_name} | {event.rule_name}\n")
         handle.write(f"- created_at: {event.created_at}\n")
@@ -221,8 +223,18 @@ def append_alert_markdown(event: AlertEvent, items: list[DataPulseItem], *, path
         handle.write(f"- alert_id: {event.id}\n")
         handle.write(f"- summary: {event.summary}\n")
         handle.write(f"- evidence_grade: {governance.get('evidence_grade', 'working')}\n")
+        handle.write(f"- factuality_status: {factuality.get('status', 'review_required')}\n")
+        handle.write(f"- factuality_score: {float(factuality.get('score', 0.0) or 0.0):.3f}\n")
         handle.write(f"- delivery_status: {delivery_risk.get('status', 'recorded')}\n")
         handle.write(f"- delivery_risk: {delivery_risk.get('level', 'medium')}\n")
+        for reason in factuality.get("reasons", []) if isinstance(factuality.get("reasons"), list) else []:
+            handle.write(f"- factuality_note: {reason}\n")
+        for signal in factuality.get("signals", []) if isinstance(factuality.get("signals"), list) else []:
+            if not isinstance(signal, dict):
+                continue
+            handle.write(
+                f"- factuality_signal: {signal.get('kind', 'signal')}={signal.get('status', 'unknown')} | {signal.get('detail', '')}\n"
+            )
         for reason in delivery_risk.get("reasons", []) if isinstance(delivery_risk.get("reasons"), list) else []:
             handle.write(f"- delivery_note: {reason}\n")
         for item in items[:5]:
@@ -238,11 +250,15 @@ def append_alert_markdown(event: AlertEvent, items: list[DataPulseItem], *, path
 def _alert_text(event: AlertEvent, items: list[DataPulseItem]) -> str:
     governance = event.governance if isinstance(event.governance, dict) else {}
     delivery_risk = governance.get("delivery_risk", {}) if isinstance(governance.get("delivery_risk"), dict) else {}
+    factuality = governance.get("factuality", {}) if isinstance(governance.get("factuality"), dict) else {}
     lines = [
         f"[DataPulse] {event.mission_name} / {event.rule_name}",
         event.summary,
+        f"factuality={factuality.get('status', 'review_required')}/{float(factuality.get('score', 0.0) or 0.0):.3f}",
         f"evidence_grade={governance.get('evidence_grade', 'working')} delivery={delivery_risk.get('status', 'recorded')}/{delivery_risk.get('level', 'medium')}",
     ]
+    for reason in factuality.get("reasons", [])[:2] if isinstance(factuality.get("reasons"), list) else []:
+        lines.append(f"- factuality_note: {reason}")
     for item in items[:5]:
         item_governance = build_item_governance(item)
         lines.append(
@@ -331,9 +347,11 @@ def _build_route_observations(
     *,
     delivered_channels: list[str] | None = None,
     delivery_errors: dict[str, str] | None = None,
+    held_channels: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     delivered = {str(label or "").strip().lower() for label in delivered_channels or [] if str(label or "").strip()}
     errors = delivery_errors if isinstance(delivery_errors, dict) else {}
+    held = {str(label or "").strip().lower() for label in held_channels or [] if str(label or "").strip()}
     observations: list[dict[str, Any]] = [
         {
             "kind": "record",
@@ -349,7 +367,9 @@ def _build_route_observations(
         if channel == "json":
             continue
         error_message = str(errors.get(channel, "") or "").strip()
-        if channel in delivered:
+        if channel in held:
+            status = "held"
+        elif channel in delivered:
             status = "delivered"
         elif error_message:
             status = "failed"
@@ -374,6 +394,8 @@ def _build_route_observations(
         error_message = str(errors.get(label) or errors.get(f"route:{route_name}") or "").strip()
         if route is None:
             status = "missing"
+        elif label in held:
+            status = "held"
         elif label in delivered:
             status = "delivered"
         elif error_message:
@@ -399,6 +421,7 @@ def _build_alert_governance(
     *,
     delivered_channels: list[str] | None = None,
     delivery_errors: dict[str, str] | None = None,
+    held_channels: list[str] | None = None,
 ) -> dict[str, Any]:
     rule = event.extra.get("rule", {}) if isinstance(event.extra, dict) else {}
     if not isinstance(rule, dict):
@@ -414,6 +437,41 @@ def _build_alert_governance(
         rule,
         delivered_channels=delivered_channels or event.delivered_channels,
         delivery_errors=delivery_errors,
+        held_channels=held_channels,
+    )
+    factuality_rows: list[dict[str, Any]] = []
+    for item, governance in zip(items, item_governances):
+        grounding = governance.get("grounding", {}) if isinstance(governance.get("grounding"), dict) else {}
+        provenance = governance.get("provenance", {}) if isinstance(governance.get("provenance"), dict) else {}
+        factuality_rows.append(
+            {
+                "item_id": provenance.get("item_id", item.id),
+                "title": item.title,
+                "source_name": provenance.get("source_name", item.source_name),
+                "evidence_grade": str(governance.get("evidence_grade", "working")).strip().lower() or "working",
+                "evidence_score": float(governance.get("evidence_score", 0.0) or 0.0),
+                "review_state": str(governance.get("review_state", "new") or "new").strip().lower() or "new",
+                "confidence": item.confidence,
+                "grounded_claim_count": int(grounding.get("claim_count", 0) or 0),
+            }
+        )
+    factuality = build_factuality_gate(
+        subject="alert",
+        surface="alert_escalation",
+        evidence_rows=factuality_rows,
+        source_names=[item.source_name for item in items],
+        grounded_claim_count=sum(
+            int(
+                (
+                    governance.get("grounding", {})
+                    if isinstance(governance.get("grounding"), dict)
+                    else {}
+                ).get("claim_count", 0)
+                or 0
+            )
+            for governance in item_governances
+        ),
+        contradiction_count=0,
     )
 
     delivery_status = "recorded"
@@ -425,15 +483,27 @@ def _build_alert_governance(
         delivery_status = "review_required"
         delivery_level = "medium"
         delivery_reasons.append("Alert is backed by evidence that is still actionable but not fully verified.")
+    if str(factuality.get("status", "review_required")).strip().lower() == "blocked":
+        delivery_status = "review_required"
+        delivery_level = _max_risk_level(delivery_level, "high")
+        delivery_reasons.append("Factuality gate blocked outward-facing alert escalation pending analyst review.")
+    elif str(factuality.get("status", "review_required")).strip().lower() != "ready":
+        delivery_status = "review_required"
+        delivery_level = _max_risk_level(delivery_level, "medium")
+        delivery_reasons.append("Factuality gate requires analyst review before outward-facing alert escalation.")
     if any(row.get("status") in {"failed", "missing"} for row in push_observations):
         delivery_status = "degraded"
         delivery_level = "high"
         delivery_reasons.append("One or more delivery targets failed or are missing route configuration.")
+    elif any(row.get("status") == "held" for row in push_observations):
+        delivery_status = "review_required"
+        delivery_level = _max_risk_level(delivery_level, "medium")
+        delivery_reasons.append("One or more external escalation targets were held by the factuality gate.")
     elif any(row.get("status") == "pending" for row in push_observations):
         delivery_status = "review_required"
         delivery_level = _max_risk_level(delivery_level, "medium")
         delivery_reasons.append("Some delivery targets are configured but not yet observed as delivered.")
-    elif push_observations and evidence_grade == "verified":
+    elif push_observations and evidence_grade == "verified" and str(factuality.get("status", "")).strip().lower() == "ready":
         delivery_status = "delivered"
 
     provenance_chain: list[dict[str, Any]] = []
@@ -454,6 +524,7 @@ def _build_alert_governance(
         "subject": "alert",
         "evidence_grade": evidence_grade,
         "evidence_score": evidence_score,
+        "factuality": factuality,
         "provenance": {
             "kind": "alert",
             "alert_id": event.id,
@@ -528,7 +599,10 @@ def dispatch_alert_event(
     targets, errors = _resolve_delivery_targets(rule)
     if not event.governance:
         event.governance = _build_alert_governance(event, items, delivery_errors=errors)
+    factuality = event.governance.get("factuality", {}) if isinstance(event.governance, dict) else {}
+    factuality_status = str(factuality.get("status", "review_required") or "review_required").strip().lower()
     delivered = ["json"]
+    held: list[str] = []
     text = _alert_text(event, items)
     timeout = float(rule.get("timeout_seconds", 10.0) or 10.0)
 
@@ -545,6 +619,9 @@ def dispatch_alert_event(
                 url = _resolve_webhook_url(config)
                 if not url:
                     raise ValueError("webhook_url is required")
+                if factuality_status != "ready":
+                    held.append(label or channel)
+                    continue
                 _post_json(
                     url,
                     {
@@ -558,6 +635,9 @@ def dispatch_alert_event(
                 url = _resolve_feishu_url(config)
                 if not url:
                     raise ValueError("feishu_webhook is required")
+                if factuality_status != "ready":
+                    held.append(label or channel)
+                    continue
                 _post_json(
                     url,
                     {"msg_type": "text", "content": {"text": text}},
@@ -568,6 +648,9 @@ def dispatch_alert_event(
                 chat_id = _resolve_telegram_chat_id(config)
                 if not bot_token or not chat_id:
                     raise ValueError("telegram_bot_token and telegram_chat_id are required")
+                if factuality_status != "ready":
+                    held.append(label or channel)
+                    continue
                 _post_json(
                     f"https://api.telegram.org/bot{bot_token}/sendMessage",
                     {"chat_id": chat_id, "text": text, "disable_web_page_preview": True},
@@ -584,6 +667,7 @@ def dispatch_alert_event(
         items,
         delivered_channels=delivered,
         delivery_errors=errors,
+        held_channels=held,
     )
     return delivered, errors
 

@@ -128,10 +128,55 @@ class MissionIntent:
 
 
 @dataclass
+class TrendFeedInput:
+    provider: str = ""
+    label: str = ""
+    location: str = ""
+    topics: list[str] = field(default_factory=list)
+    feed_url: str = ""
+    snapshot_time: str = ""
+    input_kind: str = "trend_feed"
+    usage_mode: str = "watch_seed_only"
+    notes: str = ""
+
+    def __post_init__(self) -> None:
+        self.provider = str(self.provider or "").strip().lower()
+        self.label = str(self.label or "").strip()
+        self.location = str(self.location or "").strip()
+        self.topics = _dedup_text(self.topics)
+        self.feed_url = str(self.feed_url or "").strip()
+        self.snapshot_time = str(self.snapshot_time or "").strip()
+        self.input_kind = "trend_feed"
+        self.usage_mode = "watch_seed_only"
+        self.notes = str(self.notes or "").strip()
+
+    def has_content(self) -> bool:
+        return any(
+            (
+                self.label,
+                self.location,
+                self.topics,
+                self.feed_url,
+                self.snapshot_time,
+                self.notes,
+            )
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "TrendFeedInput":
+        valid = {f.name for f in cls.__dataclass_fields__.values()}
+        return cls(**{k: v for k, v in data.items() if k in valid})
+
+
+@dataclass
 class WatchMission:
     name: str
     query: str
     mission_intent: MissionIntent = field(default_factory=MissionIntent)
+    trend_inputs: list[TrendFeedInput] = field(default_factory=list)
     platforms: list[str] = field(default_factory=list)
     sites: list[str] = field(default_factory=list)
     schedule: str = "manual"
@@ -169,6 +214,33 @@ class WatchMission:
         else:
             normalized_intent = MissionIntent()
         self.mission_intent = normalized_intent
+        normalized_trend_inputs: list[TrendFeedInput] = []
+        seen_trend_inputs: set[tuple[str, str, str, tuple[str, ...], str, str]] = set()
+        for raw in self.trend_inputs:
+            if isinstance(raw, TrendFeedInput):
+                trend_input = raw
+            elif isinstance(raw, dict):
+                try:
+                    trend_input = TrendFeedInput.from_dict(raw)
+                except (TypeError, ValueError):
+                    continue
+            else:
+                continue
+            if not trend_input.has_content():
+                continue
+            signature = (
+                trend_input.provider.casefold(),
+                trend_input.label.casefold(),
+                trend_input.location.casefold(),
+                tuple(topic.casefold() for topic in trend_input.topics),
+                trend_input.feed_url.casefold(),
+                trend_input.snapshot_time,
+            )
+            if signature in seen_trend_inputs:
+                continue
+            seen_trend_inputs.add(signature)
+            normalized_trend_inputs.append(trend_input)
+        self.trend_inputs = normalized_trend_inputs
         self.platforms = _dedup_lower(self.platforms)
         self.sites = _dedup_lower(self.sites)
         self.schedule = str(self.schedule or "manual").strip().lower() or "manual"
@@ -210,12 +282,18 @@ class WatchMission:
             if self.mission_intent.has_content()
             else {}
         )
+        payload["trend_inputs"] = [trend_input.to_dict() for trend_input in self.trend_inputs]
         return payload
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "WatchMission":
         valid = {f.name for f in cls.__dataclass_fields__.values()}
         payload = {k: v for k, v in data.items() if k in valid}
+        payload["trend_inputs"] = [
+            TrendFeedInput.from_dict(row)
+            for row in payload.get("trend_inputs", [])
+            if isinstance(row, dict)
+        ]
         payload["runs"] = [
             MissionRun.from_dict(run)
             for run in payload.get("runs", [])
@@ -297,6 +375,7 @@ class WatchlistStore:
         name: str,
         query: str,
         mission_intent: dict[str, Any] | MissionIntent | None = None,
+        trend_inputs: list[dict[str, Any] | TrendFeedInput] | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
         schedule: str = "manual",
@@ -316,6 +395,7 @@ class WatchlistStore:
             name=name,
             query=query,
             mission_intent=normalized_mission_intent,
+            trend_inputs=list(trend_inputs or []),
             platforms=list(platforms or []),
             sites=list(sites or []),
             schedule=schedule,

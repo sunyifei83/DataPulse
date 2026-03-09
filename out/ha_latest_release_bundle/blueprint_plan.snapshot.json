@@ -2,20 +2,20 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T00:00:00Z",
+  "generated_at_utc": "2026-03-08T00:00:00Z",
   "status": "completed",
   "activation": {
     "wired": true,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
-    "promotion_mode": "auto_policy_gated",
+    "promotion_mode": "manual_only",
     "auto_continuation_policy": {
       "path": "docs/governance/datapulse-auto-continuation-policy.json"
     },
     "auto_continuation": {
       "schema_version": "datapulse_auto_continuation_policy.v1",
       "project": "DataPulse",
-      "generated_at_utc": "2026-03-07T00:00:00Z",
-      "enabled": true,
+      "generated_at_utc": "2026-03-08T00:00:00Z",
+      "enabled": false,
       "mode": "scheduled_governance_entrypoint",
       "entrypoints": {
         "workflow": ".github/workflows/governance-loop-auto.yml",
@@ -44,11 +44,14 @@
           "runner": "scripts/governance/run_codex_blueprint_loop.py",
           "ignition_wrapper": "scripts/governance/ignite_datapulse_codex_loop.sh",
           "recommended_command": "bash scripts/governance/ignite_datapulse_codex_loop.sh",
+          "allow_existing_dirty_worktree_by_default": true,
+          "disable_existing_dirty_takeover_env": "DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=0",
           "side_effect_mode": "repo_mutating_slice_execution",
           "guardrails": [
             "Use this companion entrypoint only from a controlled local environment.",
             "Keep the scheduled governance workflow read-only.",
-            "Let the Codex loop land only the current next_slice and then re-evaluate state."
+            "Let the Codex loop land only the current next_slice and then re-evaluate state.",
+            "The ignition wrapper allows existing dirty worktree promotion takeover by default; set DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=0 to keep manual review before repo_landed."
           ]
         }
       },
@@ -119,7 +122,11 @@
     "L2": "completed",
     "L3": "completed",
     "L4": "completed",
-    "L5": "completed"
+    "L5": "completed",
+    "L6": "completed",
+    "L7": "completed",
+    "L8": "completed",
+    "L9": "in_progress"
   },
   "phases": [
     {
@@ -422,18 +429,694 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L6",
+      "title": "Intelligence Platformization Follow-up",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "L6.1",
+          "title": "Write unified intelligence lifecycle contract for mission-run-triage-story-delivery",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/intelligence_lifecycle_contract.md"
+          ],
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-07T13:53:33Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md",
+              "frontmatter_title": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+              "first_heading": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212"
+            }
+          }
+        },
+        {
+          "id": "L6.2",
+          "title": "Project lifecycle contract into source-feed and GUI roadmap docs",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/source_feed_enhancement_plan.md",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-07T13:53:37Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md",
+              "frontmatter_title": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+              "first_heading": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212"
+            }
+          }
+        },
+        {
+          "id": "L6.3",
+          "title": "Define delivery and subscription contract for route-backed intelligence outputs",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/intelligence_delivery_contract.md"
+          ],
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-07T13:53:40Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md",
+              "frontmatter_title": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+              "first_heading": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "L7",
+      "title": "Console Interaction Uplift",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "L7.1",
+          "title": "Upgrade deploy surface into a stateful mission deck",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "datapulse/console_server.py",
+            "datapulse/console_markup.py",
+            "docs/gui_intelligence_console_plan.md"
+          ]
+        },
+        {
+          "id": "L7.2",
+          "title": "Add server-derived mission deck suggestions and duplicate pressure hints",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "datapulse/console_server.py",
+            "datapulse/console_deck.py",
+            "tests/test_console_server.py"
+          ]
+        },
+        {
+          "id": "L7.3",
+          "title": "Ship command palette and keyboard control surface for the shell",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "datapulse/console_server.py",
+            "datapulse/console_markup.py",
+            "docs/gui_intelligence_console_plan.md"
+          ]
+        },
+        {
+          "id": "L7.4",
+          "title": "Add action log, optimistic mutation flow, and reversible browser actions",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "datapulse/core/watchlist.py",
+            "datapulse/reader.py",
+            "datapulse/console_server.py",
+            "tests/test_console_server.py"
+          ]
+        },
+        {
+          "id": "L7.5",
+          "title": "Add browser-level smoke verification for the console uplift",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "bash scripts/datapulse_console_smoke.sh",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+            "uv run --with playwright python scripts/datapulse_console_browser_smoke.py"
+          ],
+          "artifacts": [
+            "scripts/datapulse_console_smoke.sh",
+            "scripts/datapulse_console_browser_smoke.py",
+            "tests/test_console_server.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L8",
+      "title": "Commercial Intelligence Governance Uplift",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "L8.1",
+          "title": "Write repo-specific commercial intelligence governance blueprint",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "sed -n '1,260p' docs/commercial_intelligence_governance_blueprint.md"
+          ],
+          "artifacts": [
+            "docs/commercial_intelligence_governance_blueprint.md"
+          ],
+          "exit_condition": "The repo-specific commercial intelligence governance blueprint exists and maps source, mission, evidence, delivery, and scorecard follow-ups to DataPulse anchors.",
+          "fact_sources": [
+            "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+          ],
+          "notes": [
+            "Derived from the user-provided commercial intelligence collection and governance note."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T12:49:57Z",
+            "source_count": 1
+          }
+        },
+        {
+          "id": "L8.2",
+          "title": "Define source governance contract for public-source intelligence intake",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/core/models.py datapulse/core/source_catalog.py",
+            "pytest tests/test_source_catalog.py -q",
+            "sed -n '1,260p' docs/intelligence_source_governance_contract.md"
+          ],
+          "artifacts": [
+            "docs/intelligence_source_governance_contract.md",
+            "datapulse/core/source_catalog.py",
+            "datapulse/core/models.py",
+            "docs/search_gateway_config.md"
+          ],
+          "exit_condition": "A source-governance contract defines source class, collection mode, authority, sensitivity, and compliance hints and maps them to SourceCatalog and search gateway surfaces.",
+          "fact_sources": [
+            "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+          ],
+          "notes": [
+            "Derived from the repo-adapted commercial intelligence governance blueprint."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T12:50:10Z",
+            "source_count": 1
+          }
+        },
+        {
+          "id": "L8.3",
+          "title": "Project demand-intent fields into WatchMission and mission surfaces",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "uv run pytest tests/test_watchlist.py tests/test_cli.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/watchlist.py",
+            "datapulse/reader.py",
+            "tests/test_watchlist.py",
+            "tests/test_cli.py"
+          ],
+          "exit_condition": "WatchMission and mission-facing surfaces can carry analyst demand intent, scope, and freshness expectations without forking lifecycle semantics.",
+          "fact_sources": [
+            "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+          ],
+          "notes": [
+            "Derived from the repo-adapted commercial intelligence governance blueprint."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T12:50:27Z",
+            "source_count": 1
+          }
+        },
+        {
+          "id": "L8.4",
+          "title": "Carry evidence-grade and delivery-risk governance through triage, story, and alert outputs",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "uv run pytest tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/triage.py",
+            "datapulse/core/story.py",
+            "datapulse/core/alerts.py",
+            "tests/test_triage.py",
+            "tests/test_story.py",
+            "tests/test_alerts.py"
+          ],
+          "exit_condition": "Triage, story, and alert outputs share explicit evidence-grade, provenance, and delivery-risk governance semantics.",
+          "fact_sources": [
+            "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+          ],
+          "notes": [
+            "Derived from the repo-adapted commercial intelligence governance blueprint."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T12:50:50Z",
+            "source_count": 1
+          }
+        },
+        {
+          "id": "L8.5",
+          "title": "Expose intelligence governance scorecard signals in reader and console ops surfaces",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "uv run pytest tests/test_console_server.py -q"
+          ],
+          "artifacts": [
+            "datapulse/reader.py",
+            "datapulse/console_server.py",
+            "docs/gui_intelligence_console_plan.md",
+            "tests/test_console_server.py"
+          ],
+          "exit_condition": "Reader and console ops surfaces expose scorecard signals for coverage, freshness, alert yield, triage throughput, and story conversion.",
+          "fact_sources": [
+            "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+          ],
+          "notes": [
+            "Derived from the repo-adapted commercial intelligence governance blueprint."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T12:50:59Z",
+            "source_count": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "L9",
+      "title": "Content Acquisition And Fact Screening Reinforcement",
+      "goal": "Close the highest-value native-source collection and evidence-trust gaps identified by the external content-acquisition and fact-screening note.",
+      "status": "in_progress",
+      "slices": [
+        {
+          "id": "L9.1",
+          "title": "Distill the external content-acquisition and fact-screening note into a repo-specific reinforcement blueprint",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md"
+          ],
+          "exit_condition": "A repo-scoped blueprint captures the high-value facts, exclusions, and follow-up slice map from the external note.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+          ],
+          "notes": [
+            "This slice lands the repo-scoped blueprint rather than importing the external note as one open slice."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T17:38:37Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+              "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+              "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+            }
+          }
+        },
+        {
+          "id": "L9.2",
+          "title": "Define the native Chinese collector bridge contract and target shortlist",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "sed -n '1,260p' docs/governance/datapulse-native-collector-bridge-contract.md"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-native-collector-bridge-contract.md",
+            "docs/source_feed_enhancement_plan.md"
+          ],
+          "exit_condition": "A native-collector bridge contract defines shortlist order, sidecar invocation, env/session dependencies, ParseResult normalization, provenance markers, and fallback policy for Chinese-source integrations.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+          ],
+          "notes": [
+            "Contract-first slice for MediaCrawler, wechat_spider, weiboSpider, and GeneralNewsExtractor-class integrations."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T17:38:40Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+              "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+              "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+            }
+          }
+        },
+        {
+          "id": "L9.3",
+          "title": "Implement a MediaCrawler-class sidecar bridge for native Chinese platform collection",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "uv run pytest tests/test_collectors.py -q"
+          ],
+          "artifacts": [
+            "datapulse/collectors/native_bridge.py",
+            "datapulse/core/router.py",
+            "docs/source_feed_enhancement_plan.md"
+          ],
+          "exit_condition": "DataPulse can invoke a MediaCrawler-class native bridge, normalize returned content into collector results, and keep current fallback collectors intact when the bridge is unavailable.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+          ],
+          "notes": [
+            "Highest-reach native collection uplift across XHS, Zhihu, Tieba, Douyin, and other Chinese platforms."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T17:38:43Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+              "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+              "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+            }
+          }
+        },
+        {
+          "id": "L9.4",
+          "title": "Add a first native WeChat article collector path while preserving current fallbacks",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "uv run pytest tests/test_collectors.py tests/test_reader.py -q"
+          ],
+          "artifacts": [
+            "datapulse/collectors/wechat.py",
+            "datapulse/core/router.py",
+            "docs/source_feed_enhancement_plan.md"
+          ],
+          "exit_condition": "WeChat URLs prefer a native article path when available, preserve provenance of the path used, and fall back cleanly to the current Jina/browser flow.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+          ],
+          "notes": [
+            "WeChat should prefer a native path when available but retain Jina and browser fallback safety."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T17:38:47Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+              "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+              "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+            }
+          }
+        },
+        {
+          "id": "L9.5",
+          "title": "Add a first native Weibo collector path to the router",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "uv run pytest tests/test_collectors.py tests/test_reader.py -q"
+          ],
+          "artifacts": [
+            "datapulse/collectors/weibo.py",
+            "datapulse/core/router.py",
+            "docs/source_feed_enhancement_plan.md"
+          ],
+          "exit_condition": "A first-class Weibo collector exists in the router, produces normalized collector output, and preserves the rest of the routing order.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+          ],
+          "notes": [
+            "Weibo is a direct repo gap and should become a first-class collector instead of staying outside the router."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T17:38:51Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+              "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+              "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+            }
+          }
+        },
+        {
+          "id": "L9.6",
+          "title": "Add a Chinese news body extraction backend to the generic collector chain",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "uv run pytest tests/test_collectors.py -q"
+          ],
+          "artifacts": [
+            "datapulse/collectors/generic.py",
+            "docs/source_feed_enhancement_plan.md"
+          ],
+          "exit_condition": "The generic collector can use a Chinese-news\u6b63\u6587 backend when available, expose backend provenance, and retain the existing extraction chain as fallback.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+          ],
+          "notes": [
+            "GeneralNewsExtractor-class integration should improve Chinese article extraction without replacing the generic collector contract."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T17:38:58Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+              "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+              "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+            }
+          }
+        },
+        {
+          "id": "L9.7",
+          "title": "Project grounded claim and evidence extraction into triage and story surfaces",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "uv run pytest tests/test_triage.py tests/test_story.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/triage.py",
+            "datapulse/core/story.py",
+            "datapulse/reader.py"
+          ],
+          "exit_condition": "Triage and story surfaces can emit source-linked claims and evidence spans so grounded extraction becomes part of the evidence workflow instead of an external side report.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+          ],
+          "notes": [
+            "LangExtract-class grounding should convert collected text into source-linked claims and evidence spans."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T17:39:01Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+              "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+              "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+            }
+          }
+        },
+        {
+          "id": "L9.8",
+          "title": "Add a factuality gate before digest, story export, and alert escalation",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "uv run pytest tests/test_story.py tests/test_alerts.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/story.py",
+            "datapulse/core/alerts.py",
+            "datapulse/reader.py"
+          ],
+          "exit_condition": "Digest, story export, and alert escalation can expose factuality outcomes and operator-visible trust signals before outward-facing delivery.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+          ],
+          "notes": [
+            "OpenFactVerification-class scoring belongs at the output trust boundary, not inside low-level collection."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T17:39:05Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+              "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+              "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+            }
+          }
+        },
+        {
+          "id": "L9.9",
+          "title": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/watchlist.py",
+            "datapulse/reader.py",
+            "docs/source_feed_enhancement_plan.md"
+          ],
+          "exit_condition": "Trend-feed inputs can seed watch creation and feed surfaces without being confused with the core URL collector path.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+          ],
+          "notes": [
+            "TrendRadar-class inputs should seed missions and feeds rather than replace URL parsing collectors."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T17:39:08Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+              "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+              "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+            }
+          }
+        },
+        {
+          "id": "L9.10",
+          "title": "Define a manual emergency acquisition lane for EasySpider, Crawlab, and f2 class tools",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "sed -n '1,260p' docs/governance/datapulse-manual-acquisition-sidecar-contract.md"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-manual-acquisition-sidecar-contract.md",
+            "docs/source_feed_enhancement_plan.md"
+          ],
+          "exit_condition": "Operator-driven acquisition tools are placed in an explicit manual sidecar lane with clear handoff rules instead of being coupled into the core collector contract.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+          ],
+          "notes": [
+            "Keep operator-driven and orchestration-heavy tools in an explicit manual lane instead of coupling them into the core collector path."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-08T17:39:12Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+              "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+              "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+            }
+          }
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "The reusable control plane, active adapter wiring, and gated auto-continuation policy are now present in this working copy."
+    "id": "L9.10",
+    "title": "Define a manual emergency acquisition lane for EasySpider, Crawlab, and f2 class tools",
+    "reason": "Derived from the next open slice in the working copy."
   },
+  "progress_log": [
+    {
+      "at_utc": "2026-03-08T18:44:24Z",
+      "slice_id": "L9.6",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-08T18:56:25Z",
+      "slice_id": "L9.7",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-09T03:37:00Z",
+      "slice_id": "L9.8",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-09T03:51:44Z",
+      "slice_id": "L9.9",
+      "status": "completed"
+    }
+  ],
+  "last_updated_utc": "2026-03-09T03:51:44Z",
   "governance_mode": {
-    "kind": "active_auto_gated",
+    "kind": "active_manual_waiting_ignition",
     "notes": [
-      "This overlay activates the loop control plane with a repository-governance auto-continuation policy.",
-      "The auto entrypoint remains read-only and stops on machine-decidable blockers instead of mutating product workflows."
+      "This overlay activates the repository blueprint truth while keeping loop progression in manual handoff mode.",
+      "The repository-governance auto-continuation policy file remains available but disabled until an operator explicitly re-enables it.",
+      "Use scripts/governance/ignite_datapulse_codex_loop.sh when you want to start the local mutable companion loop."
     ]
   },
   "_overlay_path": "/Users/sunyifei/DataPulse/docs/governance/datapulse-blueprint-plan.json",

@@ -1,7 +1,7 @@
 {
   "schema_version": "project_specific_loop_state.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T12:58:33Z",
+  "generated_at_utc": "2026-03-09T03:52:18Z",
   "state_kind": "draft_export",
   "source_plan": "docs/governance/datapulse-blueprint-plan.json",
   "wired": true,
@@ -26,16 +26,43 @@
     "L4.3",
     "L5.1",
     "L5.2",
-    "L5.3"
+    "L5.3",
+    "L6.1",
+    "L6.2",
+    "L6.3",
+    "L7.1",
+    "L7.2",
+    "L7.3",
+    "L7.4",
+    "L7.5",
+    "L8.1",
+    "L8.2",
+    "L8.3",
+    "L8.4",
+    "L8.5",
+    "L9.1",
+    "L9.2",
+    "L9.3",
+    "L9.4",
+    "L9.5",
+    "L9.6",
+    "L9.7",
+    "L9.8",
+    "L9.9"
   ],
   "next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "category": "complete"
+    "id": "L9.10",
+    "title": "Define a manual emergency acquisition lane for EasySpider, Crawlab, and f2 class tools",
+    "category": "manual",
+    "phase_id": "L9",
+    "execution_profile": "draft_only",
+    "promotion_scope": "none",
+    "closes_gates": []
   },
   "remaining_promotion_gates": [
     "workspace_dirty",
-    "repo_landed_false"
+    "repo_landed_false",
+    "ci_run_failed"
   ],
   "blocking_facts": [],
   "pipeline_contract": {
@@ -48,12 +75,12 @@
   "control_contract": {
     "progress_truth": {
       "source": "blueprint_plan_next_open_slice",
-      "current_next_slice_id": "no-open-slice"
+      "current_next_slice_id": "L9.10"
     },
     "stop_truth": {
       "source": "blocking_facts_and_flow_control",
-      "status_if_run_now": "stopped",
-      "reason_if_run_now": "promotion_gates_open",
+      "status_if_run_now": "ready_waiting_manual_handoff",
+      "reason_if_run_now": "manual_promotion_mode",
       "machine_decidable": true,
       "expected_terminal_stop_on_complete": true
     },
@@ -89,12 +116,14 @@
     }
   },
   "flow_control": {
-    "status_if_run_now": "stopped",
-    "reason_if_run_now": "promotion_gates_open",
+    "status_if_run_now": "ready_waiting_manual_handoff",
+    "reason_if_run_now": "manual_promotion_mode",
     "machine_decidable_blockers": true,
-    "auto_continuation_enabled": true,
-    "readiness_gaps": []
+    "auto_continuation_enabled": false,
+    "readiness_gaps": [
+      "manual_handoff_still_required"
+    ]
   },
-  "promotion_mode": "auto_policy_gated",
-  "stop_reason_if_run_now": "promotion_gates_open"
+  "promotion_mode": "manual_only",
+  "stop_reason_if_run_now": ""
 }

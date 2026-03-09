@@ -72,6 +72,7 @@ class TestBuildDigest:
         assert "stats" in digest
         assert "primary" in digest
         assert "secondary" in digest
+        assert "factuality" in digest
         assert "provenance" in digest
 
     def test_primary_secondary_counts(self, tmp_path):
@@ -120,6 +121,38 @@ class TestBuildDigest:
 
         assert "Curated from" in digest["provenance"]
         assert str(len(items)) in digest["provenance"]
+
+    def test_digest_exposes_factuality_gate_and_item_governance(self, tmp_path):
+        now = datetime.now(timezone.utc)
+        items = [
+            _make_item(
+                title="OpenAI launch verified",
+                url="https://ex.com/1",
+                source_name="src_a",
+                content="OpenAI launch verified for enterprise teams.",
+                confidence=0.92,
+                fetched_at=now.isoformat(),
+            ),
+            _make_item(
+                title="OpenAI launch confirmed",
+                url="https://ex.com/2",
+                source_name="src_b",
+                content="OpenAI launch confirmed by a second source.",
+                confidence=0.9,
+                fetched_at=now.isoformat(),
+            ),
+        ]
+        items[0].review_state = "verified"
+        items[0].processed = True
+        items[1].review_state = "verified"
+        items[1].processed = True
+        reader = _setup_reader(tmp_path, items)
+
+        digest = reader.build_digest(top_n=2, secondary_n=0)
+
+        assert digest["factuality"]["status"] == "ready"
+        assert digest["primary"][0]["governance"]["evidence_grade"] == "verified"
+        assert digest["primary"][0]["governance"]["grounding"]["claim_count"] >= 1
 
     def test_fingerprint_dedup(self, tmp_path):
         """Duplicate content should be deduped, keeping only the highest scored."""
