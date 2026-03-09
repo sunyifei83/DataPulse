@@ -52,7 +52,7 @@ def test_build_ssl_context_loads_default_and_requests_bundle(monkeypatch):
     fake_context = _FakeSSLContext()
 
     monkeypatch.setattr("datapulse.collectors.generic.ssl.create_default_context", lambda: fake_context)
-    monkeypatch.setattr("datapulse.collectors.generic.requests.certs.where", lambda: "/tmp/requests-ca.pem")
+    monkeypatch.setattr("datapulse.collectors.generic.certifi.where", lambda: "/tmp/requests-ca.pem")
     monkeypatch.setattr("datapulse.collectors.generic.os.path.exists", lambda path: path == "/tmp/requests-ca.pem")
 
     context = GenericCollector()._build_ssl_context()
@@ -67,7 +67,7 @@ def test_build_ssl_context_honors_datapulse_ca_bundle_override(monkeypatch):
 
     monkeypatch.setenv("DATAPULSE_CA_BUNDLE", "/tmp/custom-ca.pem")
     monkeypatch.setattr("datapulse.collectors.generic.ssl.create_default_context", lambda: fake_context)
-    monkeypatch.setattr("datapulse.collectors.generic.requests.certs.where", lambda: "/tmp/requests-ca.pem")
+    monkeypatch.setattr("datapulse.collectors.generic.certifi.where", lambda: "/tmp/requests-ca.pem")
     monkeypatch.setattr(
         "datapulse.collectors.generic.os.path.exists",
         lambda path: path in {"/tmp/requests-ca.pem", "/tmp/custom-ca.pem"},

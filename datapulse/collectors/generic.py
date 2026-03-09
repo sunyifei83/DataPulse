@@ -7,6 +7,7 @@ import os
 import re
 import ssl
 
+import certifi
 import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
@@ -288,7 +289,7 @@ class GenericCollector(BaseCollector):
         context = ssl.create_default_context()
         context.load_default_certs()
 
-        requests_bundle = requests.certs.where()
+        requests_bundle = certifi.where()
         if requests_bundle and os.path.exists(requests_bundle):
             context.load_verify_locations(cafile=requests_bundle)
 

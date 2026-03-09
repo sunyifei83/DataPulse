@@ -2100,7 +2100,7 @@ class DataPulseReader:
         name: str,
         query: str,
         mission_intent: dict[str, Any] | None = None,
-        trend_inputs: list[dict[str, Any]] | None = None,
+        trend_inputs: list[dict[str, Any] | TrendFeedInput] | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
         schedule: str = "manual",
@@ -3069,7 +3069,7 @@ class DataPulseReader:
         )
         base = "https://datapulse.local"
         now = _utcnow_z()
-        payload = {
+        payload: dict[str, Any] = {
             "version": "https://jsonfeed.org/version/1.1",
             "title": f"DataPulse Feed ({profile})",
             "home_page_url": base,
@@ -3078,7 +3078,7 @@ class DataPulseReader:
             "generated_at": now,
         }
         for item in items:
-            row = {
+            row: dict[str, Any] = {
                 "id": item.id,
                 "title": item.title,
                 "content_text": item.content,

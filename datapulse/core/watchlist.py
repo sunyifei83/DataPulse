@@ -216,12 +216,12 @@ class WatchMission:
         self.mission_intent = normalized_intent
         normalized_trend_inputs: list[TrendFeedInput] = []
         seen_trend_inputs: set[tuple[str, str, str, tuple[str, ...], str, str]] = set()
-        for raw in self.trend_inputs:
-            if isinstance(raw, TrendFeedInput):
-                trend_input = raw
-            elif isinstance(raw, dict):
+        for trend_raw in self.trend_inputs:
+            if isinstance(trend_raw, TrendFeedInput):
+                trend_input = trend_raw
+            elif isinstance(trend_raw, dict):
                 try:
-                    trend_input = TrendFeedInput.from_dict(raw)
+                    trend_input = TrendFeedInput.from_dict(trend_raw)
                 except (TypeError, ValueError):
                     continue
             else:
@@ -258,12 +258,12 @@ class WatchMission:
         ]
         self.enabled = bool(self.enabled)
         normalized_runs: list[MissionRun] = []
-        for raw in self.runs:
-            if isinstance(raw, MissionRun):
-                normalized_runs.append(raw)
-            elif isinstance(raw, dict):
+        for run_raw in self.runs:
+            if isinstance(run_raw, MissionRun):
+                normalized_runs.append(run_raw)
+            elif isinstance(run_raw, dict):
                 try:
-                    normalized_runs.append(MissionRun.from_dict(raw))
+                    normalized_runs.append(MissionRun.from_dict(run_raw))
                 except (TypeError, ValueError):
                     continue
         self.runs = normalized_runs[:10]
@@ -391,11 +391,24 @@ class WatchlistStore:
             if isinstance(mission_intent, dict)
             else MissionIntent()
         )
+        normalized_trend_inputs: list[TrendFeedInput] = []
+        for trend_raw in trend_inputs or []:
+            if isinstance(trend_raw, TrendFeedInput):
+                trend_input = trend_raw
+            elif isinstance(trend_raw, dict):
+                try:
+                    trend_input = TrendFeedInput.from_dict(trend_raw)
+                except (TypeError, ValueError):
+                    continue
+            else:
+                continue
+            if trend_input.has_content():
+                normalized_trend_inputs.append(trend_input)
         mission = WatchMission(
             name=name,
             query=query,
             mission_intent=normalized_mission_intent,
-            trend_inputs=list(trend_inputs or []),
+            trend_inputs=normalized_trend_inputs,
             platforms=list(platforms or []),
             sites=list(sites or []),
             schedule=schedule,

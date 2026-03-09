@@ -281,18 +281,18 @@ def _normalize_grounding_span(
         or "",
         limit=0,
     )
-    start = raw_span.get("start")
-    end = raw_span.get("end")
+    start_value = raw_span.get("start")
+    end_value = raw_span.get("end")
 
-    if isinstance(start, int) and isinstance(end, int) and end >= start:
+    if isinstance(start_value, int) and isinstance(end_value, int) and end_value >= start_value:
         source_text = _source_text_for_field(item, field)
-        resolved_text = text or source_text[start:end]
+        resolved_text = text or source_text[start_value:end_value]
         if resolved_text:
             return _build_grounding_span(
                 item,
                 field=field,
-                start=start,
-                end=end,
+                start=start_value,
+                end=end_value,
                 text=resolved_text,
                 span_id=span_id,
             )
