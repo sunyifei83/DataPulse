@@ -3,7 +3,7 @@
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
   "generated_at_utc": "2026-03-08T00:00:00Z",
-  "status": "completed",
+  "status": "in_progress",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -72,7 +72,8 @@
     "L6": "completed",
     "L7": "completed",
     "L8": "completed",
-    "L9": "completed"
+    "L9": "completed",
+    "L10": "pending"
   },
   "phases": [
     {
@@ -1027,12 +1028,129 @@
           }
         }
       ]
+    },
+    {
+      "id": "L10",
+      "title": "Optional Evidence Backend Reinforcement",
+      "goal": "Turn the newly landed grounding and factuality surfaces into backend-ready extension points without regressing current heuristic and deterministic fallbacks.",
+      "status": "pending",
+      "slices": [
+        {
+          "id": "L10.1",
+          "title": "Define optional evidence-backend contracts and provenance rules",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
+            "docs/source_feed_enhancement_plan.md"
+          ],
+          "exit_condition": "The repo defines one optional evidence-backend contract for grounding and factuality work, including invocation boundaries, fallback semantics, and operator-visible provenance rules.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+          ],
+          "notes": [
+            "The original external note still points to LangExtract and OpenFactVerification as relevant tools, but now only as optional backends behind existing repo surfaces.",
+            "This slice should not reopen collector or manual-acquisition architecture."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-09T06:25:58Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+              "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+              "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+            }
+          }
+        },
+        {
+          "id": "L10.2",
+          "title": "Add a LangExtract-class grounding adapter behind the current triage and story grounding boundary",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "uv run pytest tests/test_triage.py tests/test_story.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/triage.py",
+            "datapulse/core/story.py",
+            "datapulse/reader.py",
+            "tests/test_triage.py",
+            "tests/test_story.py"
+          ],
+          "exit_condition": "Grounding can optionally call a LangExtract-class backend, preserve backend provenance, and fall back to the current provided/heuristic path when the backend is unavailable or disabled.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+          ],
+          "notes": [
+            "Treat current heuristic grounding as the stable fallback rather than deleting it.",
+            "The adapter must enrich existing governance outputs instead of creating a parallel claim product."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-09T06:25:58Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+              "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+              "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+            }
+          }
+        },
+        {
+          "id": "L10.3",
+          "title": "Add an OpenFactVerification-class backend option at the factuality gate boundary",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "uv run pytest tests/test_story.py tests/test_alerts.py tests/test_digest.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/story.py",
+            "datapulse/core/alerts.py",
+            "datapulse/reader.py",
+            "tests/test_story.py",
+            "tests/test_alerts.py",
+            "tests/test_digest.py"
+          ],
+          "exit_condition": "The factuality gate can optionally ingest backend verdicts and signals while preserving the current deterministic gate, operator-visible reasons, and delivery fallback behavior.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+          ],
+          "notes": [
+            "The backend belongs at the delivery trust boundary rather than inside low-level collection.",
+            "External verdicts should stay additive and visible instead of silently overwriting current deterministic signals."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-09T06:25:58Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+              "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+              "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+              "selected_heading": "",
+              "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+            }
+          }
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
+    "id": "L10.1",
+    "title": "Define optional evidence-backend contracts and provenance rules",
+    "reason": "Collector, trend, and manual lanes from the original note are closed; the next repo-relevant delta is optional backend contracts behind the current grounding and factuality surfaces."
   },
   "progress_log": [
     {
@@ -1061,5 +1179,5 @@
       "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-09T03:57:49Z"
+  "last_updated_utc": "2026-03-09T06:25:58Z"
 }

@@ -113,6 +113,8 @@
 - `ParsePipeline` 已把 `native_bridge` 作为相关 URL 的优先 collector，但 bridge 不可用、返回 soft failure、或内容不足时，`xhs` 仍保持 `native -> jina -> browser`；`wechat` 现保持 `native -> jina -> browser`，并为 native/Jina/browser 三条路径都写入 `collector_provenance` 以保持执行路径可见。
 - `L9.5` 现已在仓内落地 `datapulse/collectors/weibo.py`：Weibo URL 会进入 first-class `WeiboCollector`，优先尝试 `weibo_spider` profile，并在 native 未启用或失败时回退到 Jina，同时把 `source_type=weibo` 与 `collector_provenance` 归一化到稳定输出。
 - `L9.6` 现已在仓内落地 `datapulse/collectors/generic.py`：`GenericCollector` 会在 `gne` 可用且正文看起来像中文新闻时优先尝试 `GeneralNewsExtractor` 风格抽取，并把 `bridge_profile / transport / fallback_policy` 归一化到 `extra["collector_provenance"]`；若 backend 不可用、正文过薄或不适配，链路仍回退到 `trafilatura -> BeautifulSoup -> Firecrawl -> Jina`。
+- `L9.7` 现已在仓内落地 `datapulse/core/triage.py`、`datapulse/core/story.py` 与 `datapulse/reader.py`：triage 与 story surfaces 现在会投影 source-linked grounded claims 和 evidence spans；当前 grounding mode 已明确区分 `provided / heuristic / empty`，把 claim/evidence 关系带入既有治理面，而不是另起一套 claim store。
+- `L9.8` 现已在仓内落地 `datapulse/core/story.py`、`datapulse/core/alerts.py` 与 `datapulse/reader.py`：digest、story export 与 alert escalation 现在都经过 operator-visible factuality gate，输出 `status / score / reasons / signals / operator_action`；当前 gate 仍是 deterministic trust boundary，不依赖外部 verifier backend。
 - `L9.9` 现已在仓内落地 `datapulse/core/watchlist.py` 与 `datapulse/reader.py`：`WatchMission` 现在可持久化 `trend_inputs`，并固定标记为 `input_kind=trend_feed`、`usage_mode=watch_seed_only`，明确这些输入只是 mission/feed seed，不是 item-level evidence。
 - `DataPulseReader.create_watch_from_trends(...)` 会把现有 `trending()` snapshot 归一化成 trend seed input 后再创建 watch；原有 `create_watch(...)` 也可直接接收结构化 `trend_inputs`，但 watch 的执行路径仍然走既有 query/search/URL collector 链路。
 - watch 运行结果与 feed 输出现在会把 trend seed 上下文作为 `watch_seed_inputs / datapulse_context / trend_seed_summary` 暴露出来，并附带边界说明，避免把 trend feed 误读成对 URL collector 的替代。
@@ -120,6 +122,15 @@
 - `L9.10` 的 handoff 顺序固定为 `url_recollection -> manual_fact_item -> story_attachment_only`：能回到 canonical URL 的优先重新走现有 collector；只有证据会丢失时才允许以 `SourceType.MANUAL` / `collection_mode=manual_fact` 进入 repo-visible truth。
 - manual lane 的 provenance 与 automated collector 分离：若手工采集产物进入仓内对象，应该写入 `extra["manual_acquisition_provenance"]`，而不是复用 `extra["collector_provenance"]` 去伪装成 native 或 generic collector。
 - manual lane 的最小交接物固定为 `run manifest + raw export refs + operator curation note`；原始导出、下载媒体和外部 job state 应保留在 operator-controlled 路径或外部对象存储中，不直接耦合进 git 仓库。
+- 基于同一份外部 Top10 事实，当前已经没有新的 collector/trend/manual-lane open slice 需求；唯一仍然 repo-relevant 的 reopen 方向，是把 `LangExtract / OpenFactVerification` 这类工具收敛成可选 backend contract 和 adapter，而不是继续扩 collector lane。
+
+## L10：可选证据后端强化（2026-03-09）
+
+- `L10` 的目标不是再开新 collector，而是把已经落地的 grounding/factuality surfaces 升级成 backend-ready extension point。
+- `L10.1` 应先定义统一 contract：backend invocation、fallback semantics、operator-visible provenance、以及不得静默覆盖当前 deterministic outputs 的边界。
+- `L10.2` 应把 `LangExtract`-class 能力挂到现有 `build_item_grounding(...)` 边界后面，并在 backend 不可用时严格回退到当前 `provided / heuristic / empty` 路径。
+- `L10.3` 应把 `OpenFactVerification`-class 能力挂到现有 `build_factuality_gate(...)` 边界后面，并保留当前 `status / score / reasons / signals / operator_action` 的 operator-visible contract。
+- 因此下一次点火顺序应为 `L10.1 -> L10.2 -> L10.3`，而不是重新打开任何已经完成的 `L9` collector slice。
 
 ## 与现网能力映射
 

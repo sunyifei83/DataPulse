@@ -8,15 +8,18 @@ The goal is not to import a generic "Top 10 tools" list into the repo. The goal 
 
 ## Current Repo Read
 
-The current repository already has broad collector coverage and a functioning evidence pipeline:
+The current repository has now converted the original external note into landed repo truth through `L9.1` to `L9.10`:
 
-- `datapulse/core/router.py` already routes across platform collectors plus `generic` and `jina`.
-- `datapulse/collectors/wechat.py` is still `jina` first with optional browser fallback.
-- `datapulse/collectors/xhs.py` is still `jina` first with optional session-backed browser fallback.
-- `datapulse/collectors/generic.py` already stacks `trafilatura`, `BeautifulSoup`, optional `Firecrawl`, and `Jina` fallback.
-- `datapulse/core/triage.py` and `datapulse/core/story.py` already carry governance and evidence structures, but they do not yet add explicit claim grounding or a factuality gate.
+- `datapulse/core/router.py` now routes across first-class platform collectors, `native_bridge`, `generic`, and `jina`.
+- `datapulse/collectors/wechat.py` now prefers a native `wechat_spider` path when configured, then falls back to `jina -> browser`.
+- `datapulse/collectors/xhs.py` now has a `MediaCrawler`-class native bridge path ahead of `jina -> browser`.
+- `datapulse/collectors/weibo.py` exists as a first-class collector with `source_type=weibo` and `native -> jina` fallback semantics.
+- `datapulse/collectors/generic.py` now has a Chinese-news正文 backend path ahead of `trafilatura -> BeautifulSoup -> Firecrawl -> Jina`.
+- `datapulse/core/triage.py`, `datapulse/core/story.py`, `datapulse/core/alerts.py`, and `datapulse/reader.py` now project grounded claims plus a factuality gate into triage, story, digest, export, and alert surfaces.
+- `datapulse/core/watchlist.py` and `datapulse/reader.py` now carry `trend_inputs` with an explicit `watch_seed_only` boundary.
+- `docs/governance/datapulse-manual-acquisition-sidecar-contract.md` now fixes `EasySpider / Crawlab / f2` in a separate manual emergency lane.
 
-That means the largest delta is no longer "add another generic crawler." The largest delta is "close native-source gaps and improve evidence trust before delivery."
+That means the largest delta from the same external note is no longer collector coverage. The largest remaining delta is optional backend operationalization behind the newly landed grounding and factuality surfaces.
 
 ## High-Value Facts To Promote
 
@@ -94,6 +97,18 @@ Repo implication:
 - represent these as later slices or explicit secondary lanes
 - do not let them preempt native collector and fact-screening slices
 
+### 8. LangExtract and OpenFactVerification remain repo-relevant only as optional backend adapters now
+
+Current repo reality after `L9`:
+
+- grounded claim projection exists, but `build_item_grounding(...)` currently resolves to `provided`, `heuristic`, or `empty` rather than calling an optional external grounding backend
+- the factuality gate exists, but `build_factuality_gate(...)` is still a deterministic scoring boundary rather than a pluggable external verifier
+
+Repo implication:
+
+- no new collector-lane slice is justified from the original note
+- a new repo-relevant phase is justified only for optional backend contracts and adapters behind the now-stable grounding and factuality surfaces
+
 ## What Should Not Be Promoted As First-Class Slices Now
 
 The external note does not justify immediate blueprint slices for:
@@ -113,7 +128,9 @@ All follow-up slices in this phase should obey the same constraints:
 3. Emit provenance that makes native collector use, grounded claim extraction, and factuality decisions visible to operators.
 4. Keep platform-native collection,正文 extraction, grounded claims, and factuality gating as separate slices so the loop can stop on narrow, machine-decidable work.
 
-## L9 Slice Map
+## Historical L9 Slice Map
+
+All `L9` slices are now completed in repo truth.
 
 | Slice | Outcome | Why it exists |
 | --- | --- | --- |
@@ -128,18 +145,30 @@ All follow-up slices in this phase should obey the same constraints:
 | `L9.9` | Add trend-feed inputs for watch seeding | Uses TrendRadar-class inputs without confusing trend feeds with URL collectors |
 | `L9.10` | Define a manual emergency acquisition lane for operator tools | Captures `EasySpider/Crawlab/f2` value without coupling them into the core collector path |
 
-## Manual Ignition Order
+## Post-L9 Closeout Conclusion
 
-Recommended order after this promotion:
+The original external note does not currently justify another open collector, trend, or manual-lane slice.
 
-1. `L9.2`
-2. `L9.3`
-3. `L9.4`
-4. `L9.5`
-5. `L9.6`
-6. `L9.7`
-7. `L9.8`
-8. `L9.9`
-9. `L9.10`
+What it does justify now is narrower follow-up work:
 
-This order keeps DataPulse focused on the highest-reach collection gap first, then closes the evidence-trust gap before expanding auxiliary acquisition lanes.
+- formalize an optional grounding/factuality backend contract
+- plug a `LangExtract`-class backend into the current grounding surface without regressing `provided/heuristic` fallback
+- plug an `OpenFactVerification`-class backend into the current factuality gate without hiding the current deterministic operator-visible signals
+
+## L10 Slice Map
+
+| Slice | Outcome | Why it exists |
+| --- | --- | --- |
+| `L10.1` | Define optional evidence-backend contracts and provenance rules | The repo now has stable grounding/factuality surfaces but no contract for backend-assisted enrichment |
+| `L10.2` | Add a `LangExtract`-class grounding adapter | Upgrades grounded claims from heuristic-only fallback to optional backend-assisted extraction |
+| `L10.3` | Add an `OpenFactVerification`-class factuality adapter | Upgrades the delivery trust boundary from deterministic-only scoring to optional backend-assisted verification |
+
+## Recommended Ignition Order After This Refresh
+
+Recommended order after this refresh:
+
+1. `L10.1`
+2. `L10.2`
+3. `L10.3`
+
+This order keeps DataPulse from reopening already-settled collector lanes and instead focuses the next loop on backend-ready evidence enrichment where the repo still has a real delta.
