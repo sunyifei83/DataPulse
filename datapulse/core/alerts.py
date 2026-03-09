@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 import requests
 
 from .models import DataPulseItem
-from .story import build_factuality_gate
+from .story import build_factuality_gate, resolve_factuality_gate_status
 from .triage import build_item_governance, evidence_grade_priority, serialize_item_with_governance
 from .utils import alert_routing_path_from_env, alerts_markdown_path_from_env, alerts_path_from_env
 from .watchlist import WatchMission
@@ -216,6 +216,21 @@ def append_alert_markdown(event: AlertEvent, items: list[DataPulseItem], *, path
     governance = event.governance if isinstance(event.governance, dict) else {}
     delivery_risk = governance.get("delivery_risk", {}) if isinstance(governance.get("delivery_risk"), dict) else {}
     factuality = governance.get("factuality", {}) if isinstance(governance.get("factuality"), dict) else {}
+    factuality_backend = (
+        factuality.get("backend_review", {})
+        if isinstance(factuality.get("backend_review"), dict)
+        else {}
+    )
+    effective_factuality_status = resolve_factuality_gate_status(factuality)
+    show_backend_review = bool(factuality_backend) and (
+        str(factuality_backend.get("status", "skipped") or "skipped").strip().lower() != "skipped"
+        or bool(factuality_backend.get("used_output"))
+        or bool(factuality_backend.get("summary"))
+        or bool(factuality_backend.get("reasons"))
+        or bool(factuality_backend.get("signals"))
+        or bool(factuality_backend.get("warnings"))
+        or bool(factuality_backend.get("error"))
+    )
     with target.open("a", encoding="utf-8") as handle:
         handle.write(f"\n## {event.mission_name} | {event.rule_name}\n")
         handle.write(f"- created_at: {event.created_at}\n")
@@ -225,6 +240,13 @@ def append_alert_markdown(event: AlertEvent, items: list[DataPulseItem], *, path
         handle.write(f"- evidence_grade: {governance.get('evidence_grade', 'working')}\n")
         handle.write(f"- factuality_status: {factuality.get('status', 'review_required')}\n")
         handle.write(f"- factuality_score: {float(factuality.get('score', 0.0) or 0.0):.3f}\n")
+        if effective_factuality_status != str(factuality.get("status", "review_required") or "review_required").strip().lower():
+            handle.write(f"- factuality_effective_status: {effective_factuality_status}\n")
+        if show_backend_review:
+            handle.write(f"- factuality_backend_status: {factuality_backend.get('status', 'skipped')}\n")
+            handle.write(
+                f"- factuality_backend_verdict: {factuality_backend.get('backend_status', effective_factuality_status)}\n"
+            )
         handle.write(f"- delivery_status: {delivery_risk.get('status', 'recorded')}\n")
         handle.write(f"- delivery_risk: {delivery_risk.get('level', 'medium')}\n")
         for reason in factuality.get("reasons", []) if isinstance(factuality.get("reasons"), list) else []:
@@ -235,6 +257,21 @@ def append_alert_markdown(event: AlertEvent, items: list[DataPulseItem], *, path
             handle.write(
                 f"- factuality_signal: {signal.get('kind', 'signal')}={signal.get('status', 'unknown')} | {signal.get('detail', '')}\n"
             )
+        if show_backend_review:
+            if factuality_backend.get("summary"):
+                handle.write(f"- factuality_backend_summary: {factuality_backend.get('summary', '')}\n")
+            for reason in factuality_backend.get("reasons", []) if isinstance(factuality_backend.get("reasons"), list) else []:
+                handle.write(f"- factuality_backend_note: {reason}\n")
+            for signal in factuality_backend.get("signals", []) if isinstance(factuality_backend.get("signals"), list) else []:
+                if not isinstance(signal, dict):
+                    continue
+                handle.write(
+                    f"- factuality_backend_signal: {signal.get('kind', 'signal')}={signal.get('status', 'unknown')} | {signal.get('detail', '')}\n"
+                )
+            for warning in factuality_backend.get("warnings", []) if isinstance(factuality_backend.get("warnings"), list) else []:
+                handle.write(f"- factuality_backend_warning: {warning}\n")
+            if factuality_backend.get("error"):
+                handle.write(f"- factuality_backend_error: {factuality_backend.get('error', '')}\n")
         for reason in delivery_risk.get("reasons", []) if isinstance(delivery_risk.get("reasons"), list) else []:
             handle.write(f"- delivery_note: {reason}\n")
         for item in items[:5]:
@@ -251,10 +288,11 @@ def _alert_text(event: AlertEvent, items: list[DataPulseItem]) -> str:
     governance = event.governance if isinstance(event.governance, dict) else {}
     delivery_risk = governance.get("delivery_risk", {}) if isinstance(governance.get("delivery_risk"), dict) else {}
     factuality = governance.get("factuality", {}) if isinstance(governance.get("factuality"), dict) else {}
+    effective_factuality_status = resolve_factuality_gate_status(factuality)
     lines = [
         f"[DataPulse] {event.mission_name} / {event.rule_name}",
         event.summary,
-        f"factuality={factuality.get('status', 'review_required')}/{float(factuality.get('score', 0.0) or 0.0):.3f}",
+        f"factuality={effective_factuality_status}/{float(factuality.get('score', 0.0) or 0.0):.3f}",
         f"evidence_grade={governance.get('evidence_grade', 'working')} delivery={delivery_risk.get('status', 'recorded')}/{delivery_risk.get('level', 'medium')}",
     ]
     for reason in factuality.get("reasons", [])[:2] if isinstance(factuality.get("reasons"), list) else []:
@@ -478,16 +516,17 @@ def _build_alert_governance(
     delivery_level = "low"
     delivery_reasons: list[str] = []
     push_observations = [row for row in route_observations if row.get("kind") != "record"]
+    effective_factuality_status = resolve_factuality_gate_status(factuality)
 
     if evidence_grade != "verified":
         delivery_status = "review_required"
         delivery_level = "medium"
         delivery_reasons.append("Alert is backed by evidence that is still actionable but not fully verified.")
-    if str(factuality.get("status", "review_required")).strip().lower() == "blocked":
+    if effective_factuality_status == "blocked":
         delivery_status = "review_required"
         delivery_level = _max_risk_level(delivery_level, "high")
         delivery_reasons.append("Factuality gate blocked outward-facing alert escalation pending analyst review.")
-    elif str(factuality.get("status", "review_required")).strip().lower() != "ready":
+    elif effective_factuality_status != "ready":
         delivery_status = "review_required"
         delivery_level = _max_risk_level(delivery_level, "medium")
         delivery_reasons.append("Factuality gate requires analyst review before outward-facing alert escalation.")
@@ -503,7 +542,7 @@ def _build_alert_governance(
         delivery_status = "review_required"
         delivery_level = _max_risk_level(delivery_level, "medium")
         delivery_reasons.append("Some delivery targets are configured but not yet observed as delivered.")
-    elif push_observations and evidence_grade == "verified" and str(factuality.get("status", "")).strip().lower() == "ready":
+    elif push_observations and evidence_grade == "verified" and effective_factuality_status == "ready":
         delivery_status = "delivered"
 
     provenance_chain: list[dict[str, Any]] = []
@@ -600,7 +639,7 @@ def dispatch_alert_event(
     if not event.governance:
         event.governance = _build_alert_governance(event, items, delivery_errors=errors)
     factuality = event.governance.get("factuality", {}) if isinstance(event.governance, dict) else {}
-    factuality_status = str(factuality.get("status", "review_required") or "review_required").strip().lower()
+    factuality_status = resolve_factuality_gate_status(factuality)
     delivered = ["json"]
     held: list[str] = []
     text = _alert_text(event, items)

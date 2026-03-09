@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -46,6 +47,10 @@ def _reader(tmp_path: Path, items: list[DataPulseItem]) -> DataPulseReader:
 def _cleanup_env():
     yield
     os.environ.pop("DATAPULSE_SOURCE_CATALOG", None)
+    os.environ.pop("DATAPULSE_GROUNDING_BACKEND_CMD", None)
+    os.environ.pop("DATAPULSE_GROUNDING_BACKEND_CALLABLE", None)
+    os.environ.pop("DATAPULSE_GROUNDING_BACKEND_WORKDIR", None)
+    os.environ.pop("DATAPULSE_GROUNDING_BACKEND_TIMEOUT_SECONDS", None)
 
 
 def test_processed_item_migrates_to_triaged_state(tmp_path):
@@ -181,3 +186,126 @@ def test_triage_projects_structured_grounded_claims(tmp_path):
     assert grounding["claims"][0]["evidence_spans"][0]["field"] == "content"
     assert grounding["claims"][0]["evidence_spans"][0]["start"] == 0
     assert payload[0]["governance"]["provenance"]["grounded_claim_count"] == 1
+
+
+def test_triage_grounding_backend_applies_backend_claims(monkeypatch, tmp_path):
+    monkeypatch.setenv("DATAPULSE_GROUNDING_BACKEND_CMD", "grounding-backend --json")
+    item = _make_item("item-1", title="Revenue update", processed=True, review_state="triaged")
+    item.content = "Revenue reached 12M ARR in 2025. Gross margin improved to 80%."
+    reader = _reader(tmp_path, [item])
+    captured: dict[str, object] = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["request"] = json.loads(kwargs["input"])
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "schema_version": "evidence_backend_result.v1",
+                    "ok": True,
+                    "surface": "grounding",
+                    "backend_kind": "langextract_class",
+                    "transport": "subprocess_json",
+                    "result": {
+                        "claims": [
+                            {
+                                "text": "Revenue reached 12M ARR in 2025.",
+                                "evidence_spans": [
+                                    {
+                                        "field": "content",
+                                        "text": "Revenue reached 12M ARR in 2025.",
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                    "provenance": {
+                        "status": "applied",
+                        "backend_name": "langextract",
+                        "backend_version": "0.1.0",
+                        "request_id": "req-1",
+                        "latency_ms": 18,
+                        "warnings": [],
+                    },
+                    "fallback": {
+                        "used": False,
+                        "baseline": "heuristic",
+                    },
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("datapulse.core.triage.subprocess.run", fake_run)
+
+    payload = reader.triage_list(limit=5, include_closed=True)
+
+    grounding = payload[0]["governance"]["grounding"]
+    assert grounding["mode"] == "backend"
+    assert grounding["claim_count"] == 1
+    assert grounding["claims"][0]["text"] == "Revenue reached 12M ARR in 2025."
+    assert grounding["claims"][0]["evidence_spans"][0]["field"] == "content"
+    assert grounding["backend"]["status"] == "applied"
+    assert grounding["backend"]["backend_name"] == "langextract"
+    assert grounding["backend"]["fallback_mode"] == "heuristic"
+    assert grounding["backend"]["used_output"] is True
+    assert grounding["backend"]["applied_claim_count"] == 1
+    assert captured["cmd"] == ["grounding-backend", "--json"]
+    assert captured["request"]["surface"] == "grounding"
+    assert captured["request"]["subject"] == "item"
+    assert captured["request"]["deterministic"]["fallback_mode"] == "heuristic"
+
+
+def test_triage_grounding_backend_preserves_provided_claims(monkeypatch, tmp_path):
+    monkeypatch.setenv("DATAPULSE_GROUNDING_BACKEND_CMD", "grounding-backend --json")
+    monkeypatch.setattr(
+        "datapulse.core.triage.subprocess.run",
+        lambda *args, **kwargs: pytest.fail("backend should be skipped when provided claims exist"),
+    )
+    item = _make_item("item-1", title="Revenue update", processed=True, review_state="verified")
+    item.content = "Revenue reached 12M ARR in 2025. Gross margin improved to 80%."
+    item.extra["grounded_claims"] = [
+        {
+            "claim": "Revenue reached 12M ARR in 2025.",
+            "evidence_spans": [
+                {
+                    "field": "content",
+                    "text": "Revenue reached 12M ARR in 2025.",
+                }
+            ],
+        }
+    ]
+    reader = _reader(tmp_path, [item])
+
+    payload = reader.triage_list(limit=5, include_closed=True)
+
+    grounding = payload[0]["governance"]["grounding"]
+    assert grounding["mode"] == "provided"
+    assert grounding["claim_count"] == 1
+    assert grounding["backend"]["status"] == "skipped"
+    assert grounding["backend"]["fallback_mode"] == "provided"
+    assert grounding["backend"]["used_output"] is False
+
+
+def test_triage_grounding_backend_falls_back_when_unavailable(monkeypatch, tmp_path):
+    monkeypatch.setenv("DATAPULSE_GROUNDING_BACKEND_CMD", "grounding-backend --json")
+
+    def fake_run(*args, **kwargs):
+        raise OSError("backend missing")
+
+    monkeypatch.setattr("datapulse.core.triage.subprocess.run", fake_run)
+    item = _make_item("item-1", title="Revenue update", processed=True, review_state="triaged")
+    item.content = "Revenue reached 12M ARR in 2025. Gross margin improved to 80%."
+    reader = _reader(tmp_path, [item])
+
+    payload = reader.triage_list(limit=5, include_closed=True)
+
+    grounding = payload[0]["governance"]["grounding"]
+    assert grounding["mode"] == "heuristic"
+    assert grounding["claim_count"] >= 1
+    assert grounding["backend"]["status"] == "unavailable"
+    assert grounding["backend"]["fallback_mode"] == "heuristic"
+    assert grounding["backend"]["used_output"] is False
+    assert grounding["backend"]["error_code"] == "backend_unavailable"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -73,6 +74,14 @@ def _cleanup_env():
     os.environ.pop("DATAPULSE_SOURCE_CATALOG", None)
     os.environ.pop("DATAPULSE_STORIES_PATH", None)
     os.environ.pop("DATAPULSE_ENTITY_STORE", None)
+    os.environ.pop("DATAPULSE_GROUNDING_BACKEND_CMD", None)
+    os.environ.pop("DATAPULSE_GROUNDING_BACKEND_CALLABLE", None)
+    os.environ.pop("DATAPULSE_GROUNDING_BACKEND_WORKDIR", None)
+    os.environ.pop("DATAPULSE_GROUNDING_BACKEND_TIMEOUT_SECONDS", None)
+    os.environ.pop("DATAPULSE_FACTUALITY_BACKEND_CMD", None)
+    os.environ.pop("DATAPULSE_FACTUALITY_BACKEND_CALLABLE", None)
+    os.environ.pop("DATAPULSE_FACTUALITY_BACKEND_WORKDIR", None)
+    os.environ.pop("DATAPULSE_FACTUALITY_BACKEND_TIMEOUT_SECONDS", None)
 
 
 def test_story_build_clusters_related_items(tmp_path):
@@ -241,6 +250,174 @@ def test_story_build_governance_tracks_verified_primary_evidence(tmp_path):
     assert story["governance"]["provenance"]["primary_item_id"] == "item-1"
     assert story["governance"]["grounding"]["primary_claim_count"] >= 1
     assert story["governance"]["factuality"]["status"] == "ready"
+
+
+def test_story_build_projects_grounding_backend_provenance(monkeypatch, tmp_path):
+    monkeypatch.setenv("DATAPULSE_GROUNDING_BACKEND_CMD", "grounding-backend --json")
+
+    def fake_run(cmd, **kwargs):
+        request = json.loads(kwargs["input"])
+        claim_text = str(request["input"]["content"]).split(".", 1)[0].strip() + "."
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "schema_version": "evidence_backend_result.v1",
+                    "ok": True,
+                    "surface": "grounding",
+                    "backend_kind": "langextract_class",
+                    "transport": "subprocess_json",
+                    "result": {
+                        "claims": [
+                            {
+                                "text": claim_text,
+                                "evidence_spans": [
+                                    {
+                                        "field": "content",
+                                        "text": claim_text,
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                    "provenance": {
+                        "status": "applied",
+                        "backend_name": "langextract",
+                        "latency_ms": 11,
+                    },
+                    "fallback": {
+                        "used": False,
+                        "baseline": "heuristic",
+                    },
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("datapulse.core.triage.subprocess.run", fake_run)
+    reader = _reader(
+        tmp_path,
+        [
+            _make_item(
+                "item-1",
+                title="OpenAI Launch Event",
+                content="OpenAI launch event generated 12% more enterprise usage.",
+                url="https://example.com/openai-launch",
+                source_name="src-a",
+                confidence=0.93,
+                entities=["OpenAI"],
+            ),
+            _make_item(
+                "item-2",
+                title="OpenAI Launch Event Recap",
+                content="OpenAI launch event recap confirms 12% more enterprise usage.",
+                url="https://another.com/openai-launch-recap",
+                source_name="src-b",
+                confidence=0.88,
+                entities=["OpenAI"],
+            ),
+        ],
+    )
+
+    payload = reader.story_build(max_stories=3, evidence_limit=4)
+    story = payload["stories"][0]
+    exported = reader.export_story(story["id"], output_format="markdown")
+
+    backend = story["governance"]["grounding"]["backend"]
+    assert backend["status"] == "applied"
+    assert backend["backend_kind"] == "langextract_class"
+    assert backend["applied_item_count"] >= 1
+    assert any(row["item_id"] == story["primary_item_id"] for row in backend["items"])
+    assert "grounding_backend_status: applied" in exported
+
+
+def test_story_build_projects_factuality_backend_review(monkeypatch, tmp_path):
+    monkeypatch.setenv("DATAPULSE_FACTUALITY_BACKEND_CMD", "factuality-backend --json")
+
+    def fake_run(cmd, **kwargs):
+        request = json.loads(kwargs["input"])
+        assert request["surface"] == "factuality"
+        assert request["subject"] == "story"
+        assert request["input"]["surface"] == "story_export"
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "schema_version": "evidence_backend_result.v1",
+                    "ok": True,
+                    "surface": "factuality",
+                    "backend_kind": "openfactverification_class",
+                    "transport": "subprocess_json",
+                    "result": {
+                        "status": "review_required",
+                        "summary": "OpenFactVerification flagged unresolved attribution context.",
+                        "reasons": ["Backend review flagged unresolved attribution context."],
+                        "signals": [
+                            {
+                                "kind": "backend_verdict",
+                                "status": "review_required",
+                                "detail": "Attribution support remains mixed across the selected evidence.",
+                            }
+                        ],
+                    },
+                    "provenance": {
+                        "status": "applied",
+                        "backend_name": "openfactverification",
+                        "latency_ms": 9,
+                    },
+                    "fallback": {
+                        "used": False,
+                        "baseline": "deterministic_gate",
+                    },
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("datapulse.core.story.subprocess.run", fake_run)
+    reader = _reader(
+        tmp_path,
+        [
+            _make_item(
+                "item-1",
+                title="Verified Launch Watch",
+                content="OpenAI launch watch confirms enterprise rollout for developers.",
+                url="https://example.com/verified-launch",
+                source_name="src-a",
+                confidence=0.95,
+                entities=["OpenAI"],
+                review_state="verified",
+                processed=True,
+            ),
+            _make_item(
+                "item-2",
+                title="Verified Launch Watch Recap",
+                content="OpenAI launch watch recap confirms enterprise rollout for more teams.",
+                url="https://another.com/verified-launch-recap",
+                source_name="src-b",
+                confidence=0.89,
+                entities=["OpenAI"],
+                review_state="verified",
+                processed=True,
+            ),
+        ],
+    )
+
+    payload = reader.story_build(max_stories=3, evidence_limit=4)
+    story = payload["stories"][0]
+    exported = reader.export_story(story["id"], output_format="markdown")
+
+    backend = story["governance"]["factuality"]["backend_review"]
+    assert story["governance"]["factuality"]["status"] == "ready"
+    assert story["governance"]["factuality"]["effective_status"] == "review_required"
+    assert backend["status"] == "applied"
+    assert backend["backend_kind"] == "openfactverification_class"
+    assert backend["backend_status"] == "review_required"
+    assert story["governance"]["delivery_risk"]["status"] == "review_required"
+    assert "factuality_backend_status: applied" in exported
+    assert "factuality_effective_status: review_required" in exported
 
 
 def test_story_graph_uses_entity_store_relations(tmp_path):

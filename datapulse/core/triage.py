@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+import importlib
+import json
+import os
 import re
+import shlex
+import subprocess
+import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable
 
 from .utils import content_fingerprint, get_domain
@@ -73,6 +80,21 @@ GROUNDING_CLAIM_HINTS = (
     "=",
 )
 GROUNDING_SENTENCE_RE = re.compile(r"[^.!?\n\u3002\uff01\uff1f]+(?:[.!?\u3002\uff01\uff1f]+|$)")
+GROUNDING_BACKEND_REQUEST_SCHEMA_VERSION = "evidence_backend_request.v1"
+GROUNDING_BACKEND_RESULT_SCHEMA_VERSION = "evidence_backend_result.v1"
+GROUNDING_BACKEND_KIND = "langextract_class"
+GROUNDING_BACKEND_CMD_ENV = "DATAPULSE_GROUNDING_BACKEND_CMD"
+GROUNDING_BACKEND_CALLABLE_ENV = "DATAPULSE_GROUNDING_BACKEND_CALLABLE"
+GROUNDING_BACKEND_WORKDIR_ENV = "DATAPULSE_GROUNDING_BACKEND_WORKDIR"
+GROUNDING_BACKEND_TIMEOUT_ENV = "DATAPULSE_GROUNDING_BACKEND_TIMEOUT_SECONDS"
+DEFAULT_GROUNDING_BACKEND_TIMEOUT_SECONDS = 30
+GROUNDING_BACKEND_STATUSES = {
+    "applied",
+    "skipped",
+    "fallback_used",
+    "unavailable",
+    "invalid",
+}
 
 
 def _utcnow() -> str:
@@ -508,23 +530,476 @@ def _heuristic_grounded_claims(item: "DataPulseItem") -> list[dict[str, Any]]:
     ]
 
 
-def build_item_grounding(item: "DataPulseItem") -> dict[str, Any]:
-    claims = _structured_grounded_claims(item)
-    mode = "provided"
-    if not claims:
-        claims = _heuristic_grounded_claims(item)
-        mode = "heuristic" if claims else "empty"
-    evidence_span_count = sum(
+def _grounding_evidence_span_count(claims: list[dict[str, Any]]) -> int:
+    return sum(
         len(claim.get("evidence_spans", []))
         for claim in claims
         if isinstance(claim.get("evidence_spans"), list)
     )
-    return {
+
+
+def _build_grounding_payload(
+    claims: list[dict[str, Any]],
+    *,
+    mode: str,
+    backend: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload = {
         "mode": mode,
         "claim_count": len(claims),
-        "evidence_span_count": evidence_span_count,
+        "evidence_span_count": _grounding_evidence_span_count(claims),
         "claims": claims,
     }
+    if isinstance(backend, dict):
+        payload["backend"] = backend
+    return payload
+
+
+def _normalize_grounding_backend_status(value: Any, *, default: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in GROUNDING_BACKEND_STATUSES:
+        return normalized
+    return default
+
+
+def _coerce_nonnegative_int(value: Any, *, default: int = 0) -> int:
+    try:
+        return max(0, int(round(float(value))))
+    except Exception:
+        return default
+
+
+def _grounding_backend_callable_path() -> str:
+    return str(os.getenv(GROUNDING_BACKEND_CALLABLE_ENV, "") or "").strip()
+
+
+def _grounding_backend_command() -> list[str]:
+    raw = str(os.getenv(GROUNDING_BACKEND_CMD_ENV, "") or "").strip()
+    if not raw:
+        return []
+    return shlex.split(raw)
+
+
+def _grounding_backend_workdir() -> str | None:
+    raw = str(os.getenv(GROUNDING_BACKEND_WORKDIR_ENV, "") or "").strip()
+    if not raw:
+        return None
+    return str(Path(raw).expanduser())
+
+
+def _grounding_backend_timeout_seconds() -> int:
+    raw = str(os.getenv(GROUNDING_BACKEND_TIMEOUT_ENV, "") or "").strip()
+    if not raw:
+        return DEFAULT_GROUNDING_BACKEND_TIMEOUT_SECONDS
+    try:
+        return max(1, int(float(raw)))
+    except ValueError:
+        return DEFAULT_GROUNDING_BACKEND_TIMEOUT_SECONDS
+
+
+def _default_grounding_backend_name() -> str:
+    callable_path = _grounding_backend_callable_path()
+    if callable_path:
+        target = callable_path.rsplit(":", 1)[-1]
+        return target.rsplit(".", 1)[-1].strip()
+    command = _grounding_backend_command()
+    if not command:
+        return ""
+    for token in reversed(command):
+        if str(token).startswith("-"):
+            continue
+        candidate = Path(str(token)).stem.strip()
+        if candidate and candidate.lower() not in {"python", "python3", "uv"}:
+            return candidate
+    return Path(command[0]).stem.strip()
+
+
+def _build_grounding_backend_provenance(
+    *,
+    status: str,
+    fallback_mode: str,
+    transport: str = "",
+    backend_name: str = "",
+    backend_version: str = "",
+    request_id: str = "",
+    latency_ms: int = 0,
+    used_output: bool = False,
+    applied_claim_count: int = 0,
+    warnings: list[str] | None = None,
+    error_code: str = "",
+    error: str = "",
+) -> dict[str, Any]:
+    payload = {
+        "status": _normalize_grounding_backend_status(status, default="skipped"),
+        "backend_kind": GROUNDING_BACKEND_KIND,
+        "backend_name": str(backend_name or "").strip(),
+        "transport": str(transport or "").strip(),
+        "fallback_mode": str(fallback_mode or "").strip() or "empty",
+        "used_output": bool(used_output),
+        "applied_claim_count": _coerce_nonnegative_int(applied_claim_count),
+        "warnings": _normalize_string_list(warnings or []),
+    }
+    if backend_version:
+        payload["backend_version"] = str(backend_version).strip()
+    if request_id:
+        payload["request_id"] = str(request_id).strip()
+    if latency_ms > 0:
+        payload["latency_ms"] = _coerce_nonnegative_int(latency_ms)
+    if error_code:
+        payload["error_code"] = str(error_code).strip()
+    if error:
+        payload["error"] = str(error).strip()
+    return payload
+
+
+def _build_grounding_backend_request(
+    item: "DataPulseItem",
+    fallback_grounding: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "schema_version": GROUNDING_BACKEND_REQUEST_SCHEMA_VERSION,
+        "surface": "grounding",
+        "subject": "item",
+        "backend_kind": GROUNDING_BACKEND_KIND,
+        "input": {
+            "item_id": item.id,
+            "title": item.title,
+            "content": item.content,
+            "source_link": _build_grounding_source_link(item),
+        },
+        "deterministic": {
+            "fallback_mode": str(fallback_grounding.get("mode", "empty") or "empty"),
+            "claim_count": int(fallback_grounding.get("claim_count", 0) or 0),
+            "evidence_span_count": int(fallback_grounding.get("evidence_span_count", 0) or 0),
+        },
+        "metadata": {
+            "allow_fallback": True,
+            "repo_surface": "triage",
+        },
+    }
+
+
+def _resolve_grounding_backend_callable(path: str) -> Any:
+    module_name: str
+    attr_name: str
+    if ":" in path:
+        module_name, attr_name = path.split(":", 1)
+    else:
+        module_name, _, attr_name = path.rpartition(".")
+    module_name = module_name.strip()
+    attr_name = attr_name.strip()
+    if not module_name or not attr_name:
+        raise ValueError(f"Invalid grounding backend callable path: {path}")
+    module = importlib.import_module(module_name)
+    return getattr(module, attr_name)
+
+
+def _call_grounding_backend(
+    request_payload: dict[str, Any],
+) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    fallback_mode = str(
+        request_payload.get("deterministic", {}).get("fallback_mode", "empty")
+        if isinstance(request_payload.get("deterministic"), dict)
+        else "empty"
+    ).strip() or "empty"
+    callable_path = _grounding_backend_callable_path()
+    if callable_path:
+        backend_name = _default_grounding_backend_name()
+        started = time.perf_counter()
+        try:
+            backend_callable = _resolve_grounding_backend_callable(callable_path)
+            raw_result = backend_callable(request_payload)
+        except Exception as exc:
+            return None, _build_grounding_backend_provenance(
+                status="unavailable",
+                fallback_mode=fallback_mode,
+                transport="in_process",
+                backend_name=backend_name,
+                latency_ms=_coerce_nonnegative_int((time.perf_counter() - started) * 1000.0),
+                error_code="backend_unavailable",
+                error=str(exc),
+            )
+        return (
+            raw_result if isinstance(raw_result, dict) else None,
+            _build_grounding_backend_provenance(
+                status="invalid" if not isinstance(raw_result, dict) else "fallback_used",
+                fallback_mode=fallback_mode,
+                transport="in_process",
+                backend_name=backend_name,
+                latency_ms=_coerce_nonnegative_int((time.perf_counter() - started) * 1000.0),
+                error_code="invalid_result" if not isinstance(raw_result, dict) else "",
+                error="grounding backend returned a non-JSON-object result" if not isinstance(raw_result, dict) else "",
+            ),
+        )
+
+    command = _grounding_backend_command()
+    if not command:
+        return None, _build_grounding_backend_provenance(
+            status="skipped",
+            fallback_mode=fallback_mode,
+        )
+
+    backend_name = _default_grounding_backend_name()
+    timeout_seconds = _grounding_backend_timeout_seconds()
+    started = time.perf_counter()
+    try:
+        completed = subprocess.run(
+            command,
+            input=json.dumps(request_payload, ensure_ascii=True),
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+            cwd=_grounding_backend_workdir(),
+            env=dict(os.environ),
+        )
+    except subprocess.TimeoutExpired:
+        return None, _build_grounding_backend_provenance(
+            status="unavailable",
+            fallback_mode=fallback_mode,
+            transport="subprocess_json",
+            backend_name=backend_name,
+            latency_ms=_coerce_nonnegative_int((time.perf_counter() - started) * 1000.0),
+            error_code="backend_timeout",
+            error=f"grounding backend timed out after {timeout_seconds}s",
+        )
+    except OSError as exc:
+        return None, _build_grounding_backend_provenance(
+            status="unavailable",
+            fallback_mode=fallback_mode,
+            transport="subprocess_json",
+            backend_name=backend_name,
+            latency_ms=_coerce_nonnegative_int((time.perf_counter() - started) * 1000.0),
+            error_code="backend_unavailable",
+            error=str(exc),
+        )
+
+    latency_ms = _coerce_nonnegative_int((time.perf_counter() - started) * 1000.0)
+    stderr = str(completed.stderr or "").strip()
+    if completed.returncode != 0:
+        tail = stderr.splitlines()[-1] if stderr else ""
+        detail = f" ({tail})" if tail else ""
+        return None, _build_grounding_backend_provenance(
+            status="unavailable",
+            fallback_mode=fallback_mode,
+            transport="subprocess_json",
+            backend_name=backend_name,
+            latency_ms=latency_ms,
+            error_code="backend_exited_nonzero",
+            error=f"grounding backend exited with code {completed.returncode}{detail}",
+        )
+
+    stdout = str(completed.stdout or "").strip()
+    if not stdout:
+        return None, _build_grounding_backend_provenance(
+            status="unavailable",
+            fallback_mode=fallback_mode,
+            transport="subprocess_json",
+            backend_name=backend_name,
+            latency_ms=latency_ms,
+            error_code="backend_empty_stdout",
+            error="grounding backend returned empty stdout",
+        )
+    try:
+        raw_result = json.loads(stdout)
+    except json.JSONDecodeError:
+        return None, _build_grounding_backend_provenance(
+            status="invalid",
+            fallback_mode=fallback_mode,
+            transport="subprocess_json",
+            backend_name=backend_name,
+            latency_ms=latency_ms,
+            error_code="invalid_json",
+            error="grounding backend returned invalid JSON",
+        )
+    if not isinstance(raw_result, dict):
+        return None, _build_grounding_backend_provenance(
+            status="invalid",
+            fallback_mode=fallback_mode,
+            transport="subprocess_json",
+            backend_name=backend_name,
+            latency_ms=latency_ms,
+            error_code="invalid_result",
+            error="grounding backend result must be a JSON object",
+        )
+    return raw_result, _build_grounding_backend_provenance(
+        status="fallback_used",
+        fallback_mode=fallback_mode,
+        transport="subprocess_json",
+        backend_name=backend_name,
+        latency_ms=latency_ms,
+    )
+
+
+def _normalize_backend_grounded_claims(
+    item: "DataPulseItem",
+    raw_claims: Any,
+) -> list[dict[str, Any]]:
+    if not isinstance(raw_claims, list):
+        return []
+
+    claims: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for raw_claim in raw_claims:
+        normalized = _normalize_grounded_claim(item, raw_claim, index=len(claims) + 1)
+        if normalized is None or not normalized.get("evidence_spans"):
+            continue
+        signature = _grounding_claim_signature(item.id, normalized["text"])
+        if signature in seen:
+            continue
+        seen.add(signature)
+        claim_id = f"{item.id}:claim:{len(claims) + 1}"
+        normalized["claim_id"] = claim_id
+        spans = normalized.get("evidence_spans", [])
+        if isinstance(spans, list):
+            for span_index, span in enumerate(spans, start=1):
+                if isinstance(span, dict):
+                    span["span_id"] = f"{claim_id}:span:{span_index}"
+        claims.append(normalized)
+    return claims
+
+
+def _apply_grounding_backend(
+    item: "DataPulseItem",
+    fallback_grounding: dict[str, Any],
+) -> dict[str, Any]:
+    request_payload = _build_grounding_backend_request(item, fallback_grounding)
+    raw_result, backend = _call_grounding_backend(request_payload)
+    if raw_result is None:
+        payload = dict(fallback_grounding)
+        payload["backend"] = backend
+        return payload
+
+    schema_version = str(raw_result.get("schema_version", "") or "").strip()
+    if schema_version != GROUNDING_BACKEND_RESULT_SCHEMA_VERSION:
+        payload = dict(fallback_grounding)
+        payload["backend"] = _build_grounding_backend_provenance(
+            status="invalid",
+            fallback_mode=backend.get("fallback_mode", fallback_grounding.get("mode", "empty")),
+            transport=backend.get("transport", ""),
+            backend_name=backend.get("backend_name", ""),
+            latency_ms=backend.get("latency_ms", 0),
+            error_code="invalid_schema",
+            error=f"unexpected grounding backend schema {schema_version or 'missing'}",
+        )
+        return payload
+
+    if str(raw_result.get("surface", "") or "").strip().lower() != "grounding":
+        payload = dict(fallback_grounding)
+        payload["backend"] = _build_grounding_backend_provenance(
+            status="invalid",
+            fallback_mode=backend.get("fallback_mode", fallback_grounding.get("mode", "empty")),
+            transport=backend.get("transport", ""),
+            backend_name=backend.get("backend_name", ""),
+            latency_ms=backend.get("latency_ms", 0),
+            error_code="invalid_surface",
+            error="grounding backend returned a non-grounding payload",
+        )
+        return payload
+
+    if str(raw_result.get("backend_kind", GROUNDING_BACKEND_KIND) or "").strip() != GROUNDING_BACKEND_KIND:
+        payload = dict(fallback_grounding)
+        payload["backend"] = _build_grounding_backend_provenance(
+            status="invalid",
+            fallback_mode=backend.get("fallback_mode", fallback_grounding.get("mode", "empty")),
+            transport=backend.get("transport", ""),
+            backend_name=backend.get("backend_name", ""),
+            latency_ms=backend.get("latency_ms", 0),
+            error_code="invalid_backend_kind",
+            error="grounding backend returned an unexpected backend_kind",
+        )
+        return payload
+
+    provenance_payload = raw_result.get("provenance", {})
+    if not isinstance(provenance_payload, dict):
+        provenance_payload = {}
+    fallback_payload = raw_result.get("fallback", {})
+    if not isinstance(fallback_payload, dict):
+        fallback_payload = {}
+    fallback_mode = str(
+        fallback_payload.get("baseline")
+        or backend.get("fallback_mode")
+        or fallback_grounding.get("mode", "empty")
+        or "empty"
+    ).strip() or "empty"
+    warning_rows: list[str] = []
+    backend_warnings = backend.get("warnings", [])
+    if isinstance(backend_warnings, list):
+        warning_rows.extend(str(item) for item in backend_warnings)
+    provenance_warnings = provenance_payload.get("warnings", [])
+    if isinstance(provenance_warnings, list):
+        warning_rows.extend(str(item) for item in provenance_warnings)
+
+    backend_payload = _build_grounding_backend_provenance(
+        status=_normalize_grounding_backend_status(
+            provenance_payload.get("status"),
+            default="applied" if bool(raw_result.get("ok")) else backend.get("status", "fallback_used"),
+        ),
+        fallback_mode=fallback_mode,
+        transport=str(raw_result.get("transport") or backend.get("transport") or "").strip(),
+        backend_name=str(provenance_payload.get("backend_name") or backend.get("backend_name") or "").strip(),
+        backend_version=str(provenance_payload.get("backend_version") or "").strip(),
+        request_id=str(provenance_payload.get("request_id") or "").strip(),
+        latency_ms=_coerce_nonnegative_int(
+            provenance_payload.get("latency_ms", backend.get("latency_ms", 0)),
+        ),
+        used_output=False,
+        warnings=warning_rows,
+        error_code=str(raw_result.get("error_code") or backend.get("error_code") or "").strip(),
+        error=str(raw_result.get("error") or backend.get("error") or "").strip(),
+    )
+
+    if not bool(raw_result.get("ok")):
+        if backend_payload["status"] == "applied":
+            backend_payload["status"] = "fallback_used"
+        payload = dict(fallback_grounding)
+        payload["backend"] = backend_payload
+        return payload
+
+    result_payload = raw_result.get("result", {})
+    if not isinstance(result_payload, dict):
+        backend_payload["status"] = "invalid"
+        backend_payload["error_code"] = "invalid_result"
+        backend_payload["error"] = "grounding backend result payload must be an object"
+        payload = dict(fallback_grounding)
+        payload["backend"] = backend_payload
+        return payload
+
+    claims = _normalize_backend_grounded_claims(item, result_payload.get("claims"))
+    if not claims:
+        backend_payload["status"] = "fallback_used"
+        warnings = backend_payload.get("warnings", []) if isinstance(backend_payload.get("warnings"), list) else []
+        if "empty_or_unanchored_output" not in warnings:
+            warnings.append("empty_or_unanchored_output")
+        backend_payload["warnings"] = warnings
+        payload = dict(fallback_grounding)
+        payload["backend"] = backend_payload
+        return payload
+
+    backend_payload["status"] = "applied"
+    backend_payload["used_output"] = True
+    backend_payload["applied_claim_count"] = len(claims)
+    return _build_grounding_payload(claims, mode="backend", backend=backend_payload)
+
+
+def build_item_grounding(item: "DataPulseItem") -> dict[str, Any]:
+    claims = _structured_grounded_claims(item)
+    if not claims:
+        fallback_claims = _heuristic_grounded_claims(item)
+        fallback_grounding = _build_grounding_payload(
+            fallback_claims,
+            mode="heuristic" if fallback_claims else "empty",
+        )
+        return _apply_grounding_backend(item, fallback_grounding)
+
+    return _build_grounding_payload(
+        claims,
+        mode="provided",
+        backend=_build_grounding_backend_provenance(
+            status="skipped",
+            fallback_mode="provided",
+        ),
+    )
 
 
 def build_item_provenance(

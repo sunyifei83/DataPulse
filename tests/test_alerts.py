@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -359,6 +360,126 @@ async def test_watch_alert_external_channels_dispatch_when_factuality_ready(tmp_
     assert calls[0][0] == "https://hooks.example.com/datapulse"
     assert calls[1][0] == "https://open.feishu.cn/hook/abc"
     assert calls[2][0] == "https://api.telegram.org/botbot-token/sendMessage"
+
+
+@pytest.mark.asyncio
+async def test_watch_alert_backend_review_holds_external_delivery_and_is_visible(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
+    monkeypatch.setenv("DATAPULSE_ALERTS_PATH", str(tmp_path / "alerts.json"))
+    monkeypatch.setenv("DATAPULSE_ALERTS_MARKDOWN_PATH", str(tmp_path / "alerts.md"))
+    monkeypatch.setenv("DATAPULSE_ALERT_WEBHOOK_URL", "https://hooks.example.com/datapulse")
+    monkeypatch.setenv("DATAPULSE_FACTUALITY_BACKEND_CMD", "factuality-backend --json")
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    mission = reader.create_watch(
+        name="AI Radar",
+        query="OpenAI agents",
+        alert_rules=[
+            {
+                "name": "notify",
+                "min_score": 70,
+                "min_confidence": 0.8,
+                "min_results": 2,
+                "channels": ["markdown", "webhook"],
+            }
+        ],
+    )
+
+    async def fake_search(query, **kwargs):
+        return [
+            DataPulseItem(
+                source_type=SourceType.GENERIC,
+                source_name="source-a",
+                title="OpenAI agents launch confirmed",
+                content="OpenAI agents launch confirmed for enterprise teams.",
+                url="https://example.com/openai-agents-a",
+                confidence=0.96,
+                score=88,
+                review_state="verified",
+                processed=True,
+            ),
+            DataPulseItem(
+                source_type=SourceType.GENERIC,
+                source_name="source-b",
+                title="OpenAI agents rollout verified",
+                content="OpenAI agents rollout verified for enterprise customers.",
+                url="https://example.com/openai-agents-b",
+                confidence=0.94,
+                score=85,
+                review_state="verified",
+                processed=True,
+            ),
+        ]
+
+    def fake_backend(cmd, **kwargs):
+        request = json.loads(kwargs["input"])
+        assert request["surface"] == "factuality"
+        assert request["subject"] == "alert"
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "schema_version": "evidence_backend_result.v1",
+                    "ok": True,
+                    "surface": "factuality",
+                    "backend_kind": "openfactverification_class",
+                    "transport": "subprocess_json",
+                    "result": {
+                        "status": "review_required",
+                        "summary": "Backend review flagged unresolved attribution context.",
+                        "reasons": ["Backend review flagged unresolved attribution context."],
+                        "signals": [
+                            {
+                                "kind": "backend_verdict",
+                                "status": "review_required",
+                                "detail": "Cross-source attribution remains mixed.",
+                            }
+                        ],
+                    },
+                    "provenance": {
+                        "status": "applied",
+                        "backend_name": "openfactverification",
+                        "latency_ms": 7,
+                    },
+                    "fallback": {
+                        "used": False,
+                        "baseline": "deterministic_gate",
+                    },
+                }
+            ),
+            stderr="",
+        )
+
+    calls: list[tuple[str, dict]] = []
+
+    class _Resp:
+        def raise_for_status(self):
+            return None
+
+    def fake_post(url, json=None, headers=None, timeout=0):
+        calls.append((url, json or {}))
+        return _Resp()
+
+    monkeypatch.setattr(reader, "search", fake_search)
+    monkeypatch.setattr("datapulse.core.story.subprocess.run", fake_backend)
+    monkeypatch.setattr("datapulse.core.alerts.requests.post", fake_post)
+
+    payload = await reader.run_watch(mission["id"])
+
+    assert len(payload["alert_events"]) == 1
+    event = payload["alert_events"][0]
+    assert event["delivered_channels"] == ["json", "markdown"]
+    assert event["governance"]["factuality"]["status"] == "ready"
+    assert event["governance"]["factuality"]["effective_status"] == "review_required"
+    assert event["governance"]["factuality"]["backend_review"]["status"] == "applied"
+    observations = event["governance"]["delivery_risk"]["route_observations"]
+    assert any(row["label"] == "markdown" and row["status"] == "delivered" for row in observations)
+    assert any(row["label"] == "webhook" and row["status"] == "held" for row in observations)
+    assert calls == []
+    markdown = Path(tmp_path / "alerts.md").read_text(encoding="utf-8")
+    assert "factuality_backend_status: applied" in markdown
+    assert "factuality_effective_status: review_required" in markdown
 
 
 def test_alert_route_store_redacts_sensitive_fields(tmp_path, monkeypatch):

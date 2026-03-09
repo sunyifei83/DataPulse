@@ -8,7 +8,7 @@ The goal is not to import a generic "Top 10 tools" list into the repo. The goal 
 
 ## Current Repo Read
 
-The current repository has now converted the original external note into landed repo truth through `L9.1` to `L9.10`:
+The current repository has now converted the original external note into landed repo truth through `L10.1`:
 
 - `datapulse/core/router.py` now routes across first-class platform collectors, `native_bridge`, `generic`, and `jina`.
 - `datapulse/collectors/wechat.py` now prefers a native `wechat_spider` path when configured, then falls back to `jina -> browser`.
@@ -18,8 +18,9 @@ The current repository has now converted the original external note into landed 
 - `datapulse/core/triage.py`, `datapulse/core/story.py`, `datapulse/core/alerts.py`, and `datapulse/reader.py` now project grounded claims plus a factuality gate into triage, story, digest, export, and alert surfaces.
 - `datapulse/core/watchlist.py` and `datapulse/reader.py` now carry `trend_inputs` with an explicit `watch_seed_only` boundary.
 - `docs/governance/datapulse-manual-acquisition-sidecar-contract.md` now fixes `EasySpider / Crawlab / f2` in a separate manual emergency lane.
+- `docs/governance/datapulse-evidence-backend-contract.md` now fixes the optional backend boundary, fallback semantics, and operator-visible provenance rules for grounding and factuality work.
 
-That means the largest delta from the same external note is no longer collector coverage. The largest remaining delta is optional backend operationalization behind the newly landed grounding and factuality surfaces.
+That means the largest delta from the same external note is no longer collector coverage or backend boundary definition. The remaining delta is adapter implementation behind the newly formalized grounding and factuality surfaces.
 
 ## High-Value Facts To Promote
 
@@ -99,15 +100,16 @@ Repo implication:
 
 ### 8. LangExtract and OpenFactVerification remain repo-relevant only as optional backend adapters now
 
-Current repo reality after `L9`:
+Current repo reality after `L10.1`:
 
 - grounded claim projection exists, but `build_item_grounding(...)` currently resolves to `provided`, `heuristic`, or `empty` rather than calling an optional external grounding backend
 - the factuality gate exists, but `build_factuality_gate(...)` is still a deterministic scoring boundary rather than a pluggable external verifier
+- `docs/governance/datapulse-evidence-backend-contract.md` now fixes the invocation boundary, fallback semantics, and operator-visible provenance rules for both future adapters
 
 Repo implication:
 
 - no new collector-lane slice is justified from the original note
-- a new repo-relevant phase is justified only for optional backend contracts and adapters behind the now-stable grounding and factuality surfaces
+- the remaining repo-relevant work is adapter implementation behind the now-stable evidence contract
 
 ## What Should Not Be Promoted As First-Class Slices Now
 
@@ -145,13 +147,19 @@ All `L9` slices are now completed in repo truth.
 | `L9.9` | Add trend-feed inputs for watch seeding | Uses TrendRadar-class inputs without confusing trend feeds with URL collectors |
 | `L9.10` | Define a manual emergency acquisition lane for operator tools | Captures `EasySpider/Crawlab/f2` value without coupling them into the core collector path |
 
-## Post-L9 Closeout Conclusion
+## L10.1 Contract Landing
+
+- `docs/governance/datapulse-evidence-backend-contract.md` is now the contract of record for optional backend enrichment behind `build_item_grounding(...)` and `build_factuality_gate(...)`.
+- The contract fixes invocation boundaries, deterministic fallback behavior, and operator-visible provenance before any `LangExtract`-class or `OpenFactVerification`-class adapter lands.
+- Backend provenance now belongs in grounding or factuality payloads rather than `collector_provenance`, which keeps this phase inside evidence enrichment instead of reopening collector architecture.
+- Remaining open work in this phase is limited to adapter implementation slices `L10.2` and `L10.3`.
+
+## Current Closeout Conclusion
 
 The original external note does not currently justify another open collector, trend, or manual-lane slice.
 
-What it does justify now is narrower follow-up work:
+What remains justified now is narrower follow-up work:
 
-- formalize an optional grounding/factuality backend contract
 - plug a `LangExtract`-class backend into the current grounding surface without regressing `provided/heuristic` fallback
 - plug an `OpenFactVerification`-class backend into the current factuality gate without hiding the current deterministic operator-visible signals
 
@@ -159,7 +167,7 @@ What it does justify now is narrower follow-up work:
 
 | Slice | Outcome | Why it exists |
 | --- | --- | --- |
-| `L10.1` | Define optional evidence-backend contracts and provenance rules | The repo now has stable grounding/factuality surfaces but no contract for backend-assisted enrichment |
+| `L10.1` | Define optional evidence-backend contracts and provenance rules | Landed as `docs/governance/datapulse-evidence-backend-contract.md`, fixing invocation boundaries and fallback/provenance rules before adapter work |
 | `L10.2` | Add a `LangExtract`-class grounding adapter | Upgrades grounded claims from heuristic-only fallback to optional backend-assisted extraction |
 | `L10.3` | Add an `OpenFactVerification`-class factuality adapter | Upgrades the delivery trust boundary from deterministic-only scoring to optional backend-assisted verification |
 
@@ -167,8 +175,7 @@ What it does justify now is narrower follow-up work:
 
 Recommended order after this refresh:
 
-1. `L10.1`
-2. `L10.2`
-3. `L10.3`
+1. `L10.2`
+2. `L10.3`
 
-This order keeps DataPulse from reopening already-settled collector lanes and instead focuses the next loop on backend-ready evidence enrichment where the repo still has a real delta.
+This order keeps DataPulse from reopening already-settled collector lanes and instead focuses the next loop on adapter work behind an already-fixed evidence contract.

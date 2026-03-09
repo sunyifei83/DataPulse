@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import importlib
 import json
+import os
 import re
+import shlex
+import subprocess
+import time
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -14,8 +19,31 @@ from .entities import normalize_entity_name
 from .entity_store import EntityStore
 from .models import DataPulseItem
 from .semantic import build_semantic_review
-from .triage import build_item_governance, evidence_grade_priority
+from .triage import GROUNDING_BACKEND_KIND, build_item_governance, evidence_grade_priority
 from .utils import content_fingerprint, generate_slug, get_domain, stories_path_from_env
+
+FACTUALITY_BACKEND_REQUEST_SCHEMA_VERSION = "evidence_backend_request.v1"
+FACTUALITY_BACKEND_RESULT_SCHEMA_VERSION = "evidence_backend_result.v1"
+FACTUALITY_BACKEND_KIND = "openfactverification_class"
+FACTUALITY_BACKEND_CMD_ENV = "DATAPULSE_FACTUALITY_BACKEND_CMD"
+FACTUALITY_BACKEND_CALLABLE_ENV = "DATAPULSE_FACTUALITY_BACKEND_CALLABLE"
+FACTUALITY_BACKEND_WORKDIR_ENV = "DATAPULSE_FACTUALITY_BACKEND_WORKDIR"
+FACTUALITY_BACKEND_TIMEOUT_ENV = "DATAPULSE_FACTUALITY_BACKEND_TIMEOUT_SECONDS"
+DEFAULT_FACTUALITY_BACKEND_TIMEOUT_SECONDS = 30
+FACTUALITY_BACKEND_STATUSES = {
+    "applied",
+    "skipped",
+    "fallback_used",
+    "unavailable",
+    "invalid",
+}
+FACTUALITY_GATE_STATUSES = {"empty", "ready", "review_required", "blocked"}
+FACTUALITY_GATE_STATUS_PRIORITY = {
+    "empty": 0,
+    "ready": 1,
+    "review_required": 2,
+    "blocked": 3,
+}
 
 
 def _utcnow() -> str:
@@ -471,7 +499,579 @@ def _max_risk_level(left: str, right: str) -> str:
     return left if priority.get(left, 0) >= priority.get(right, 0) else right
 
 
-def build_factuality_gate(
+def _normalize_string_list(values: Any) -> list[str]:
+    if values is None:
+        return []
+    if isinstance(values, str):
+        values = [values]
+    if not isinstance(values, list):
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        value = str(raw or "").strip()
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        normalized.append(value)
+    return normalized
+
+
+def _coerce_nonnegative_int(value: Any, *, default: int = 0) -> int:
+    try:
+        return max(0, int(round(float(value))))
+    except Exception:
+        return default
+
+
+def _normalize_factuality_backend_status(value: Any, *, default: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in FACTUALITY_BACKEND_STATUSES:
+        return normalized
+    return default
+
+
+def _normalize_factuality_gate_status(value: Any, *, default: str = "review_required") -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in FACTUALITY_GATE_STATUSES:
+        return normalized
+    aliases = {
+        "ok": "ready",
+        "pass": "ready",
+        "passed": "ready",
+        "clear": "ready",
+        "supported": "ready",
+        "verified": "ready",
+        "review": "review_required",
+        "warning": "review_required",
+        "warn": "review_required",
+        "needs_review": "review_required",
+        "needs-review": "review_required",
+        "uncertain": "review_required",
+        "caution": "review_required",
+        "fail": "blocked",
+        "failed": "blocked",
+        "reject": "blocked",
+        "rejected": "blocked",
+    }
+    normalized_default = str(default or "review_required").strip().lower() or "review_required"
+    if normalized_default not in FACTUALITY_GATE_STATUSES:
+        normalized_default = "review_required"
+    return aliases.get(normalized, normalized_default)
+
+
+def _normalize_backend_factuality_signal(raw: Any, *, index: int) -> dict[str, Any] | None:
+    if isinstance(raw, str):
+        detail = str(raw).strip()
+        if not detail:
+            return None
+        return {
+            "kind": f"backend_signal_{index}",
+            "status": "noted",
+            "detail": detail,
+        }
+    if not isinstance(raw, dict):
+        return None
+    kind = str(raw.get("kind", f"backend_signal_{index}") or f"backend_signal_{index}").strip()
+    status = str(raw.get("status", "unknown") or "unknown").strip()
+    detail = str(raw.get("detail", "") or raw.get("message", "") or raw.get("summary", "")).strip()
+    if not detail:
+        detail = json.dumps(raw, ensure_ascii=True, sort_keys=True)
+    return {
+        "kind": kind,
+        "status": status,
+        "detail": detail,
+    }
+
+
+def _normalize_backend_factuality_signals(values: Any) -> list[dict[str, Any]]:
+    if not isinstance(values, list):
+        return []
+    signals: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for index, raw in enumerate(values, start=1):
+        signal = _normalize_backend_factuality_signal(raw, index=index)
+        if signal is None:
+            continue
+        signature = (
+            str(signal.get("kind", "")).strip(),
+            str(signal.get("status", "")).strip(),
+            str(signal.get("detail", "")).strip(),
+        )
+        if signature in seen:
+            continue
+        seen.add(signature)
+        signals.append(signal)
+    return signals
+
+
+def _factuality_backend_callable_path() -> str:
+    return str(os.getenv(FACTUALITY_BACKEND_CALLABLE_ENV, "") or "").strip()
+
+
+def _factuality_backend_command() -> list[str]:
+    raw = str(os.getenv(FACTUALITY_BACKEND_CMD_ENV, "") or "").strip()
+    if not raw:
+        return []
+    return shlex.split(raw)
+
+
+def _factuality_backend_workdir() -> str | None:
+    raw = str(os.getenv(FACTUALITY_BACKEND_WORKDIR_ENV, "") or "").strip()
+    if not raw:
+        return None
+    return str(Path(raw).expanduser())
+
+
+def _factuality_backend_timeout_seconds() -> int:
+    raw = str(os.getenv(FACTUALITY_BACKEND_TIMEOUT_ENV, "") or "").strip()
+    if not raw:
+        return DEFAULT_FACTUALITY_BACKEND_TIMEOUT_SECONDS
+    try:
+        return max(1, int(float(raw)))
+    except ValueError:
+        return DEFAULT_FACTUALITY_BACKEND_TIMEOUT_SECONDS
+
+
+def _has_factuality_backend_configured() -> bool:
+    return bool(_factuality_backend_callable_path() or _factuality_backend_command())
+
+
+def _default_factuality_backend_name() -> str:
+    callable_path = _factuality_backend_callable_path()
+    if callable_path:
+        target = callable_path.rsplit(":", 1)[-1]
+        return target.rsplit(".", 1)[-1].strip()
+    command = _factuality_backend_command()
+    if not command:
+        return ""
+    for token in reversed(command):
+        if str(token).startswith("-"):
+            continue
+        candidate = Path(str(token)).stem.strip()
+        if candidate and candidate.lower() not in {"python", "python3", "uv"}:
+            return candidate
+    return Path(command[0]).stem.strip()
+
+
+def _build_factuality_backend_review(
+    *,
+    status: str,
+    deterministic_status: str,
+    backend_status: str = "",
+    transport: str = "",
+    backend_name: str = "",
+    backend_version: str = "",
+    fallback_mode: str = "deterministic_gate",
+    request_id: str = "",
+    latency_ms: int = 0,
+    used_output: bool = False,
+    summary: str = "",
+    reasons: list[str] | None = None,
+    signals: list[dict[str, Any]] | None = None,
+    warnings: list[str] | None = None,
+    error_code: str = "",
+    error: str = "",
+) -> dict[str, Any]:
+    payload = {
+        "status": _normalize_factuality_backend_status(status, default="skipped"),
+        "backend_kind": FACTUALITY_BACKEND_KIND,
+        "backend_name": str(backend_name or "").strip(),
+        "transport": str(transport or "").strip(),
+        "fallback_mode": str(fallback_mode or "").strip() or "deterministic_gate",
+        "deterministic_status": _normalize_factuality_gate_status(deterministic_status, default="review_required"),
+        "backend_status": _normalize_factuality_gate_status(
+            backend_status or deterministic_status,
+            default=_normalize_factuality_gate_status(deterministic_status, default="review_required"),
+        ),
+        "used_output": bool(used_output),
+        "warnings": _normalize_string_list(warnings or []),
+    }
+    if backend_version:
+        payload["backend_version"] = str(backend_version).strip()
+    if request_id:
+        payload["request_id"] = str(request_id).strip()
+    if latency_ms > 0:
+        payload["latency_ms"] = _coerce_nonnegative_int(latency_ms)
+    if summary:
+        payload["summary"] = str(summary).strip()
+    normalized_reasons = _normalize_string_list(reasons or [])
+    if normalized_reasons:
+        payload["reasons"] = normalized_reasons
+    normalized_signals = _normalize_backend_factuality_signals(signals or [])
+    if normalized_signals:
+        payload["signals"] = normalized_signals
+    if error_code:
+        payload["error_code"] = str(error_code).strip()
+    if error:
+        payload["error"] = str(error).strip()
+    return payload
+
+
+def _build_factuality_backend_request(
+    *,
+    subject: str,
+    surface: str,
+    evidence_rows: list[dict[str, Any]],
+    source_names: list[str],
+    deterministic_gate: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "schema_version": FACTUALITY_BACKEND_REQUEST_SCHEMA_VERSION,
+        "surface": "factuality",
+        "subject": subject,
+        "backend_kind": FACTUALITY_BACKEND_KIND,
+        "input": {
+            "surface": surface,
+            "source_names": list(source_names),
+            "evidence_rows": evidence_rows,
+        },
+        "deterministic": {
+            "status": deterministic_gate.get("status", "review_required"),
+            "score": float(deterministic_gate.get("score", 0.0) or 0.0),
+            "operator_action": deterministic_gate.get("operator_action", "review_before_delivery"),
+            "summary": deterministic_gate.get("summary", ""),
+            "counts": deterministic_gate.get("counts", {}),
+            "reasons": deterministic_gate.get("reasons", []),
+            "signals": deterministic_gate.get("signals", []),
+        },
+        "metadata": {
+            "allow_fallback": True,
+            "repo_surface": surface,
+        },
+    }
+
+
+def _resolve_factuality_backend_callable(path: str) -> Any:
+    module_name: str
+    attr_name: str
+    if ":" in path:
+        module_name, attr_name = path.split(":", 1)
+    else:
+        module_name, _, attr_name = path.rpartition(".")
+    module_name = module_name.strip()
+    attr_name = attr_name.strip()
+    if not module_name or not attr_name:
+        raise ValueError(f"Invalid factuality backend callable path: {path}")
+    module = importlib.import_module(module_name)
+    return getattr(module, attr_name)
+
+
+def _call_factuality_backend(
+    request_payload: dict[str, Any],
+) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    deterministic_status = _normalize_factuality_gate_status(
+        request_payload.get("deterministic", {}).get("status", "review_required")
+        if isinstance(request_payload.get("deterministic"), dict)
+        else "review_required",
+        default="review_required",
+    )
+    callable_path = _factuality_backend_callable_path()
+    if callable_path:
+        backend_name = _default_factuality_backend_name()
+        started = time.perf_counter()
+        try:
+            backend_callable = _resolve_factuality_backend_callable(callable_path)
+            raw_result = backend_callable(request_payload)
+        except Exception as exc:
+            return None, _build_factuality_backend_review(
+                status="unavailable",
+                deterministic_status=deterministic_status,
+                transport="in_process",
+                backend_name=backend_name,
+                latency_ms=_coerce_nonnegative_int((time.perf_counter() - started) * 1000.0),
+                error_code="backend_unavailable",
+                error=str(exc),
+            )
+        return (
+            raw_result if isinstance(raw_result, dict) else None,
+            _build_factuality_backend_review(
+                status="invalid" if not isinstance(raw_result, dict) else "fallback_used",
+                deterministic_status=deterministic_status,
+                transport="in_process",
+                backend_name=backend_name,
+                latency_ms=_coerce_nonnegative_int((time.perf_counter() - started) * 1000.0),
+                error_code="invalid_result" if not isinstance(raw_result, dict) else "",
+                error=(
+                    "factuality backend returned a non-JSON-object result"
+                    if not isinstance(raw_result, dict)
+                    else ""
+                ),
+            ),
+        )
+
+    command = _factuality_backend_command()
+    backend_name = _default_factuality_backend_name()
+    timeout_seconds = _factuality_backend_timeout_seconds()
+    started = time.perf_counter()
+    try:
+        completed = subprocess.run(
+            command,
+            input=json.dumps(request_payload, ensure_ascii=True),
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+            cwd=_factuality_backend_workdir(),
+            env=dict(os.environ),
+        )
+    except subprocess.TimeoutExpired:
+        return None, _build_factuality_backend_review(
+            status="unavailable",
+            deterministic_status=deterministic_status,
+            transport="subprocess_json",
+            backend_name=backend_name,
+            latency_ms=_coerce_nonnegative_int((time.perf_counter() - started) * 1000.0),
+            error_code="backend_timeout",
+            error=f"factuality backend timed out after {timeout_seconds}s",
+        )
+    except OSError as exc:
+        return None, _build_factuality_backend_review(
+            status="unavailable",
+            deterministic_status=deterministic_status,
+            transport="subprocess_json",
+            backend_name=backend_name,
+            latency_ms=_coerce_nonnegative_int((time.perf_counter() - started) * 1000.0),
+            error_code="backend_unavailable",
+            error=str(exc),
+        )
+
+    latency_ms = _coerce_nonnegative_int((time.perf_counter() - started) * 1000.0)
+    stderr = str(completed.stderr or "").strip()
+    if completed.returncode != 0:
+        tail = stderr.splitlines()[-1] if stderr else ""
+        detail = f" ({tail})" if tail else ""
+        return None, _build_factuality_backend_review(
+            status="unavailable",
+            deterministic_status=deterministic_status,
+            transport="subprocess_json",
+            backend_name=backend_name,
+            latency_ms=latency_ms,
+            error_code="backend_exited_nonzero",
+            error=f"factuality backend exited with code {completed.returncode}{detail}",
+        )
+
+    stdout = str(completed.stdout or "").strip()
+    if not stdout:
+        return None, _build_factuality_backend_review(
+            status="unavailable",
+            deterministic_status=deterministic_status,
+            transport="subprocess_json",
+            backend_name=backend_name,
+            latency_ms=latency_ms,
+            error_code="backend_empty_stdout",
+            error="factuality backend returned empty stdout",
+        )
+    try:
+        raw_result = json.loads(stdout)
+    except json.JSONDecodeError:
+        return None, _build_factuality_backend_review(
+            status="invalid",
+            deterministic_status=deterministic_status,
+            transport="subprocess_json",
+            backend_name=backend_name,
+            latency_ms=latency_ms,
+            error_code="invalid_json",
+            error="factuality backend returned invalid JSON",
+        )
+    if not isinstance(raw_result, dict):
+        return None, _build_factuality_backend_review(
+            status="invalid",
+            deterministic_status=deterministic_status,
+            transport="subprocess_json",
+            backend_name=backend_name,
+            latency_ms=latency_ms,
+            error_code="invalid_result",
+            error="factuality backend result must be a JSON object",
+        )
+    return raw_result, _build_factuality_backend_review(
+        status="fallback_used",
+        deterministic_status=deterministic_status,
+        transport="subprocess_json",
+        backend_name=backend_name,
+        latency_ms=latency_ms,
+    )
+
+
+def _apply_factuality_backend(
+    *,
+    subject: str,
+    surface: str,
+    evidence_rows: list[dict[str, Any]],
+    source_names: list[str],
+    deterministic_gate: dict[str, Any],
+) -> dict[str, Any]:
+    request_payload = _build_factuality_backend_request(
+        subject=subject,
+        surface=surface,
+        evidence_rows=evidence_rows,
+        source_names=source_names,
+        deterministic_gate=deterministic_gate,
+    )
+    raw_result, backend_review = _call_factuality_backend(request_payload)
+    if raw_result is None:
+        return backend_review
+
+    deterministic_status = _normalize_factuality_gate_status(
+        deterministic_gate.get("status", "review_required"),
+        default="review_required",
+    )
+    schema_version = str(raw_result.get("schema_version", "") or "").strip()
+    if schema_version != FACTUALITY_BACKEND_RESULT_SCHEMA_VERSION:
+        return _build_factuality_backend_review(
+            status="invalid",
+            deterministic_status=deterministic_status,
+            transport=backend_review.get("transport", ""),
+            backend_name=backend_review.get("backend_name", ""),
+            latency_ms=backend_review.get("latency_ms", 0),
+            error_code="invalid_schema",
+            error=f"unexpected factuality backend schema {schema_version or 'missing'}",
+        )
+
+    if str(raw_result.get("surface", "") or "").strip().lower() != "factuality":
+        return _build_factuality_backend_review(
+            status="invalid",
+            deterministic_status=deterministic_status,
+            transport=backend_review.get("transport", ""),
+            backend_name=backend_review.get("backend_name", ""),
+            latency_ms=backend_review.get("latency_ms", 0),
+            error_code="invalid_surface",
+            error="factuality backend returned a non-factuality payload",
+        )
+
+    if str(raw_result.get("backend_kind", FACTUALITY_BACKEND_KIND) or "").strip() != FACTUALITY_BACKEND_KIND:
+        return _build_factuality_backend_review(
+            status="invalid",
+            deterministic_status=deterministic_status,
+            transport=backend_review.get("transport", ""),
+            backend_name=backend_review.get("backend_name", ""),
+            latency_ms=backend_review.get("latency_ms", 0),
+            error_code="invalid_backend_kind",
+            error="factuality backend returned an unexpected backend_kind",
+        )
+
+    provenance_payload = raw_result.get("provenance", {})
+    if not isinstance(provenance_payload, dict):
+        provenance_payload = {}
+    fallback_payload = raw_result.get("fallback", {})
+    if not isinstance(fallback_payload, dict):
+        fallback_payload = {}
+    fallback_mode = str(
+        fallback_payload.get("baseline")
+        or backend_review.get("fallback_mode")
+        or "deterministic_gate"
+    ).strip() or "deterministic_gate"
+
+    warnings: list[str] = []
+    for warning in backend_review.get("warnings", []) if isinstance(backend_review.get("warnings"), list) else []:
+        text = str(warning or "").strip()
+        if text and text not in warnings:
+            warnings.append(text)
+    for warning in provenance_payload.get("warnings", []) if isinstance(provenance_payload.get("warnings"), list) else []:
+        text = str(warning or "").strip()
+        if text and text not in warnings:
+            warnings.append(text)
+
+    if not bool(raw_result.get("ok")):
+        return _build_factuality_backend_review(
+            status=_normalize_factuality_backend_status(
+                provenance_payload.get("status"),
+                default=backend_review.get("status", "fallback_used"),
+            ),
+            deterministic_status=deterministic_status,
+            transport=str(raw_result.get("transport") or backend_review.get("transport") or "").strip(),
+            backend_name=str(provenance_payload.get("backend_name") or backend_review.get("backend_name") or "").strip(),
+            backend_version=str(provenance_payload.get("backend_version") or "").strip(),
+            fallback_mode=fallback_mode,
+            request_id=str(provenance_payload.get("request_id") or "").strip(),
+            latency_ms=_coerce_nonnegative_int(
+                provenance_payload.get("latency_ms", backend_review.get("latency_ms", 0)),
+            ),
+            used_output=False,
+            warnings=warnings,
+            error_code=str(raw_result.get("error_code") or backend_review.get("error_code") or "").strip(),
+            error=str(raw_result.get("error") or backend_review.get("error") or "").strip(),
+        )
+
+    result_payload = raw_result.get("result", {})
+    if not isinstance(result_payload, dict):
+        return _build_factuality_backend_review(
+            status="invalid",
+            deterministic_status=deterministic_status,
+            transport=str(raw_result.get("transport") or backend_review.get("transport") or "").strip(),
+            backend_name=str(provenance_payload.get("backend_name") or backend_review.get("backend_name") or "").strip(),
+            fallback_mode=fallback_mode,
+            latency_ms=_coerce_nonnegative_int(
+                provenance_payload.get("latency_ms", backend_review.get("latency_ms", 0)),
+            ),
+            warnings=warnings,
+            error_code="invalid_result",
+            error="factuality backend result payload must be an object",
+        )
+
+    has_backend_status = any(key in result_payload for key in ("status", "backend_status", "review_status", "verdict"))
+    backend_status = _normalize_factuality_gate_status(
+        result_payload.get("status")
+        or result_payload.get("backend_status")
+        or result_payload.get("review_status")
+        or result_payload.get("verdict")
+        or deterministic_status,
+        default=deterministic_status,
+    )
+    summary = str(
+        result_payload.get("summary")
+        or result_payload.get("detail")
+        or result_payload.get("message")
+        or provenance_payload.get("summary")
+        or ""
+    ).strip()
+    reasons = _normalize_string_list(result_payload.get("reasons") or result_payload.get("notes"))
+    signals = _normalize_backend_factuality_signals(result_payload.get("signals"))
+    used_output = bool(has_backend_status or summary or reasons or signals)
+    if not used_output:
+        warnings = list(warnings)
+        if "empty_backend_review" not in warnings:
+            warnings.append("empty_backend_review")
+        return _build_factuality_backend_review(
+            status="fallback_used",
+            deterministic_status=deterministic_status,
+            transport=str(raw_result.get("transport") or backend_review.get("transport") or "").strip(),
+            backend_name=str(provenance_payload.get("backend_name") or backend_review.get("backend_name") or "").strip(),
+            backend_version=str(provenance_payload.get("backend_version") or "").strip(),
+            fallback_mode=fallback_mode,
+            request_id=str(provenance_payload.get("request_id") or "").strip(),
+            latency_ms=_coerce_nonnegative_int(
+                provenance_payload.get("latency_ms", backend_review.get("latency_ms", 0)),
+            ),
+            used_output=False,
+            warnings=warnings,
+            error_code=str(raw_result.get("error_code") or backend_review.get("error_code") or "").strip(),
+            error=str(raw_result.get("error") or backend_review.get("error") or "").strip(),
+        )
+
+    return _build_factuality_backend_review(
+        status=_normalize_factuality_backend_status(provenance_payload.get("status"), default="applied"),
+        deterministic_status=deterministic_status,
+        backend_status=backend_status,
+        transport=str(raw_result.get("transport") or backend_review.get("transport") or "").strip(),
+        backend_name=str(provenance_payload.get("backend_name") or backend_review.get("backend_name") or "").strip(),
+        backend_version=str(provenance_payload.get("backend_version") or "").strip(),
+        fallback_mode=fallback_mode,
+        request_id=str(provenance_payload.get("request_id") or "").strip(),
+        latency_ms=_coerce_nonnegative_int(
+            provenance_payload.get("latency_ms", backend_review.get("latency_ms", 0)),
+        ),
+        used_output=True,
+        summary=summary,
+        reasons=reasons,
+        signals=signals,
+        warnings=warnings,
+        error_code=str(raw_result.get("error_code") or backend_review.get("error_code") or "").strip(),
+        error=str(raw_result.get("error") or backend_review.get("error") or "").strip(),
+    )
+
+
+def _build_deterministic_factuality_gate(
     *,
     subject: str,
     surface: str,
@@ -691,6 +1291,90 @@ def build_factuality_gate(
     }
 
 
+def resolve_factuality_gate_status(factuality: dict[str, Any] | None) -> str:
+    if not isinstance(factuality, dict):
+        return "review_required"
+    deterministic_status = _normalize_factuality_gate_status(
+        factuality.get("status", "review_required"),
+        default="review_required",
+    )
+    backend_review = factuality.get("backend_review", {})
+    if not isinstance(backend_review, dict) or not bool(backend_review.get("used_output")):
+        return deterministic_status
+    backend_status = _normalize_factuality_gate_status(
+        backend_review.get("backend_status", deterministic_status),
+        default=deterministic_status,
+    )
+    if FACTUALITY_GATE_STATUS_PRIORITY.get(backend_status, 0) > FACTUALITY_GATE_STATUS_PRIORITY.get(deterministic_status, 0):
+        return backend_status
+    return deterministic_status
+
+
+def resolve_factuality_operator_action(factuality: dict[str, Any] | None) -> str:
+    return "allow_delivery" if resolve_factuality_gate_status(factuality) == "ready" else "review_before_delivery"
+
+
+def _visible_factuality_backend_review(review: dict[str, Any]) -> bool:
+    if not isinstance(review, dict) or not review:
+        return False
+    if str(review.get("status", "skipped") or "skipped").strip().lower() != "skipped":
+        return True
+    return bool(
+        review.get("used_output")
+        or review.get("summary")
+        or review.get("reasons")
+        or review.get("signals")
+        or review.get("warnings")
+        or review.get("error")
+    )
+
+
+def build_factuality_gate(
+    *,
+    subject: str,
+    surface: str,
+    evidence_rows: list[dict[str, Any]],
+    source_names: list[str] | None = None,
+    grounded_claim_count: int = 0,
+    contradiction_count: int = 0,
+) -> dict[str, Any]:
+    deterministic_gate = _build_deterministic_factuality_gate(
+        subject=subject,
+        surface=surface,
+        evidence_rows=evidence_rows,
+        source_names=source_names,
+        grounded_claim_count=grounded_claim_count,
+        contradiction_count=contradiction_count,
+    )
+    payload = dict(deterministic_gate)
+    if (
+        _has_factuality_backend_configured()
+        and str(deterministic_gate.get("status", "empty") or "empty").strip().lower() != "empty"
+    ):
+        normalized_rows = [row for row in evidence_rows if isinstance(row, dict)]
+        resolved_sources = {
+            str(name or "").strip()
+            for name in source_names or []
+            if str(name or "").strip()
+        }
+        if not resolved_sources:
+            resolved_sources = {
+                str(row.get("source_name", "") or "").strip()
+                for row in normalized_rows
+                if str(row.get("source_name", "") or "").strip()
+            }
+        payload["backend_review"] = _apply_factuality_backend(
+            subject=subject,
+            surface=surface,
+            evidence_rows=normalized_rows,
+            source_names=sorted(resolved_sources),
+            deterministic_gate=deterministic_gate,
+        )
+    payload["effective_status"] = resolve_factuality_gate_status(payload)
+    payload["effective_operator_action"] = resolve_factuality_operator_action(payload)
+    return payload
+
+
 def _aggregate_story_evidence_grade(governances: list[dict[str, Any]]) -> str:
     if not governances:
         return "working"
@@ -702,12 +1386,84 @@ def _aggregate_story_evidence_grade(governances: list[dict[str, Any]]) -> str:
     return "working"
 
 
+def _build_story_grounding_backend(evidence_rows: list[StoryEvidence]) -> dict[str, Any]:
+    backend_rows: list[dict[str, Any]] = []
+    statuses: list[str] = []
+    warnings: list[str] = []
+    applied_claim_count = 0
+
+    for evidence in evidence_rows:
+        governance = evidence.governance if isinstance(evidence.governance, dict) else {}
+        grounding = governance.get("grounding", {}) if isinstance(governance.get("grounding"), dict) else {}
+        backend = grounding.get("backend", {}) if isinstance(grounding.get("backend"), dict) else {}
+        if not backend:
+            continue
+        entry = dict(backend)
+        entry["item_id"] = evidence.item_id
+        entry["role"] = evidence.role
+        entry["source_name"] = evidence.source_name
+        entry["title"] = evidence.title
+        status = str(entry.get("status", "skipped") or "skipped").strip().lower() or "skipped"
+        statuses.append(status)
+        try:
+            applied_claim_count += max(0, int(entry.get("applied_claim_count", 0) or 0))
+        except Exception:
+            applied_claim_count += 0
+        for warning in entry.get("warnings", []) if isinstance(entry.get("warnings"), list) else []:
+            text = str(warning or "").strip()
+            if text and text not in warnings:
+                warnings.append(text)
+        backend_rows.append(entry)
+
+    if not backend_rows:
+        return {}
+
+    summary_status = "skipped"
+    if any(status == "applied" for status in statuses):
+        summary_status = "applied"
+    elif any(status == "invalid" for status in statuses):
+        summary_status = "invalid"
+    elif any(status == "unavailable" for status in statuses):
+        summary_status = "unavailable"
+    elif any(status == "fallback_used" for status in statuses):
+        summary_status = "fallback_used"
+
+    return {
+        "status": summary_status,
+        "backend_kind": next(
+            (
+                str(row.get("backend_kind", "") or "").strip()
+                for row in backend_rows
+                if str(row.get("backend_kind", "") or "").strip()
+            ),
+            GROUNDING_BACKEND_KIND,
+        ),
+        "attempted_item_count": len(
+            {
+                str(row.get("item_id", "") or "").strip()
+                for row in backend_rows
+                if row.get("item_id")
+                and str(row.get("status", "skipped") or "skipped").strip().lower() != "skipped"
+            }
+        ),
+        "applied_item_count": sum(
+            1
+            for row in backend_rows
+            if str(row.get("status", "skipped") or "skipped").strip().lower() == "applied"
+        ),
+        "applied_claim_count": applied_claim_count,
+        "warnings": warnings,
+        "items": backend_rows,
+    }
+
+
 def _build_story_grounding(story_id: str, evidence_rows: list[StoryEvidence]) -> dict[str, Any]:
     claims: list[dict[str, Any]] = []
     grounded_items: set[str] = set()
     seen_claims: set[tuple[str, str]] = set()
     primary_claim_count = 0
     evidence_span_count = 0
+    backend_summary = _build_story_grounding_backend(evidence_rows)
 
     for evidence in evidence_rows:
         governance = evidence.governance if isinstance(evidence.governance, dict) else {}
@@ -763,7 +1519,7 @@ def _build_story_grounding(story_id: str, evidence_rows: list[StoryEvidence]) ->
         if evidence_claim_added:
             grounded_items.add(evidence.item_id)
 
-    return {
+    payload = {
         "mode": "projected" if claims else "empty",
         "grounded_item_count": len(grounded_items),
         "claim_count": len(claims),
@@ -771,6 +1527,9 @@ def _build_story_grounding(story_id: str, evidence_rows: list[StoryEvidence]) ->
         "evidence_span_count": evidence_span_count,
         "claims": claims,
     }
+    if backend_summary:
+        payload["backend"] = backend_summary
+    return payload
 
 
 def _build_story_governance(
@@ -832,6 +1591,7 @@ def _build_story_governance(
     delivery_status = "ready"
     delivery_level = "low"
     delivery_reasons: list[str] = []
+    effective_factuality_status = resolve_factuality_gate_status(factuality)
 
     if contradictions:
         delivery_status = "review_required"
@@ -845,11 +1605,11 @@ def _build_story_governance(
         delivery_status = "review_required"
         delivery_level = _max_risk_level(delivery_level, "medium")
         delivery_reasons.append("Story is currently backed by a single source.")
-    if str(factuality.get("status", "review_required")).strip().lower() == "blocked":
+    if effective_factuality_status == "blocked":
         delivery_status = "review_required"
         delivery_level = _max_risk_level(delivery_level, "high")
         delivery_reasons.append("Factuality gate blocked outward-facing story delivery pending analyst review.")
-    elif str(factuality.get("status", "review_required")).strip().lower() != "ready":
+    elif effective_factuality_status != "ready":
         delivery_status = "review_required"
         delivery_level = _max_risk_level(delivery_level, "medium")
         delivery_reasons.append("Factuality gate requires analyst review before outward-facing story delivery.")
@@ -911,7 +1671,15 @@ def render_story_markdown(story: Story) -> str:
     delivery_risk = governance.get("delivery_risk", {}) if isinstance(governance.get("delivery_risk"), dict) else {}
     provenance = governance.get("provenance", {}) if isinstance(governance.get("provenance"), dict) else {}
     grounding = governance.get("grounding", {}) if isinstance(governance.get("grounding"), dict) else {}
+    grounding_backend = grounding.get("backend", {}) if isinstance(grounding.get("backend"), dict) else {}
     factuality = governance.get("factuality", {}) if isinstance(governance.get("factuality"), dict) else {}
+    factuality_backend = (
+        factuality.get("backend_review", {})
+        if isinstance(factuality.get("backend_review"), dict)
+        else {}
+    )
+    effective_factuality_status = resolve_factuality_gate_status(factuality)
+    effective_factuality_action = resolve_factuality_operator_action(factuality)
     lines = [
         f"# {story.title}",
         "",
@@ -937,12 +1705,27 @@ def render_story_markdown(story: Story) -> str:
         f"- grounded_claims: {int(grounding.get('claim_count', 0) or 0)}",
         f"- grounded_evidence_spans: {int(grounding.get('evidence_span_count', 0) or 0)}",
     ]
+    show_grounding_backend = bool(grounding_backend) and (
+        str(grounding_backend.get("status", "skipped") or "skipped").strip().lower() != "skipped"
+        or int(grounding_backend.get("applied_item_count", 0) or 0) > 0
+        or bool(grounding_backend.get("warnings", []))
+    )
+    if show_grounding_backend:
+        lines.append(f"- grounding_backend_status: {grounding_backend.get('status', 'skipped')}")
+        lines.append(f"- grounding_backend_applied_items: {int(grounding_backend.get('applied_item_count', 0) or 0)}")
+    if effective_factuality_status != str(factuality.get("status", "review_required") or "review_required").strip().lower():
+        lines.append(f"- factuality_effective_status: {effective_factuality_status}")
+    if _visible_factuality_backend_review(factuality_backend):
+        lines.append(f"- factuality_backend_status: {factuality_backend.get('status', 'skipped')}")
+        lines.append(f"- factuality_backend_verdict: {factuality_backend.get('backend_status', effective_factuality_status)}")
     for reason in delivery_risk.get("reasons", []) if isinstance(delivery_risk.get("reasons"), list) else []:
         lines.append(f"- delivery_note: {reason}")
 
     lines.extend(["", "## Factuality Gate"])
     lines.append(f"- action: {factuality.get('operator_action', 'review_before_delivery')}")
     lines.append(f"- summary: {factuality.get('summary', 'No factuality summary recorded.')}")
+    if effective_factuality_action != str(factuality.get("operator_action", "review_before_delivery") or "review_before_delivery").strip():
+        lines.append(f"- effective_action: {effective_factuality_action}")
     for reason in factuality.get("reasons", []) if isinstance(factuality.get("reasons"), list) else []:
         lines.append(f"- factuality_note: {reason}")
     for signal in factuality.get("signals", []) if isinstance(factuality.get("signals"), list) else []:
@@ -951,6 +1734,25 @@ def render_story_markdown(story: Story) -> str:
         lines.append(
             f"- factuality_signal: {signal.get('kind', 'signal')}={signal.get('status', 'unknown')} | {signal.get('detail', '')}"
         )
+    if _visible_factuality_backend_review(factuality_backend):
+        lines.append(
+            f"- factuality_backend_review: {factuality_backend.get('status', 'skipped')} | "
+            f"verdict={factuality_backend.get('backend_status', effective_factuality_status)}"
+        )
+        if factuality_backend.get("summary"):
+            lines.append(f"- factuality_backend_summary: {factuality_backend.get('summary', '')}")
+        for reason in factuality_backend.get("reasons", []) if isinstance(factuality_backend.get("reasons"), list) else []:
+            lines.append(f"- factuality_backend_note: {reason}")
+        for signal in factuality_backend.get("signals", []) if isinstance(factuality_backend.get("signals"), list) else []:
+            if not isinstance(signal, dict):
+                continue
+            lines.append(
+                f"- factuality_backend_signal: {signal.get('kind', 'signal')}={signal.get('status', 'unknown')} | {signal.get('detail', '')}"
+            )
+        for warning in factuality_backend.get("warnings", []) if isinstance(factuality_backend.get("warnings"), list) else []:
+            lines.append(f"- factuality_backend_warning: {warning}")
+        if factuality_backend.get("error"):
+            lines.append(f"- factuality_backend_error: {factuality_backend.get('error', '')}")
 
     lines.extend([
         "",

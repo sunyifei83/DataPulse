@@ -127,10 +127,12 @@
 ## L10：可选证据后端强化（2026-03-09）
 
 - `L10` 的目标不是再开新 collector，而是把已经落地的 grounding/factuality surfaces 升级成 backend-ready extension point。
-- `L10.1` 应先定义统一 contract：backend invocation、fallback semantics、operator-visible provenance、以及不得静默覆盖当前 deterministic outputs 的边界。
+- `L10.1` 现已在仓内落地 `docs/governance/datapulse-evidence-backend-contract.md`：contract 固定 `build_item_grounding(...)` 与 `build_factuality_gate(...)` 两个 backend boundary，要求 opt-in invocation、deterministic fallback 优先、以及 operator-visible provenance。
+- grounding backend 的默认边界已固定：若已有 `provided` claims 就不应静默改写；若 backend 不可用、超时、或输出无效，必须回退到当前 `heuristic / empty` 路径。
+- factuality backend 的默认边界也已固定：当前 deterministic `status / score / reasons / signals / operator_action` 仍是 canonical delivery contract，backend verdict 只能以 additive 且 operator-visible 的方式进入治理面，不能静默放宽既有 gate。
 - `L10.2` 应把 `LangExtract`-class 能力挂到现有 `build_item_grounding(...)` 边界后面，并在 backend 不可用时严格回退到当前 `provided / heuristic / empty` 路径。
 - `L10.3` 应把 `OpenFactVerification`-class 能力挂到现有 `build_factuality_gate(...)` 边界后面，并保留当前 `status / score / reasons / signals / operator_action` 的 operator-visible contract。
-- 因此下一次点火顺序应为 `L10.1 -> L10.2 -> L10.3`，而不是重新打开任何已经完成的 `L9` collector slice。
+- 因此下一次点火顺序已前推为 `L10.2 -> L10.3`，而不是重新打开任何已经完成的 `L9` collector slice。
 
 ## 与现网能力映射
 

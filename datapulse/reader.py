@@ -31,6 +31,7 @@ from datapulse.core.story import (
     build_story_clusters,
     build_story_graph,
     render_story_markdown,
+    resolve_factuality_gate_status,
 )
 from datapulse.core.triage import (
     TriageQueue,
@@ -1794,8 +1795,20 @@ class DataPulseReader:
             "digest_payload": payload,
         }
         factuality = package["factuality"] if isinstance(package["factuality"], dict) else {}
+        factuality_backend = (
+            factuality.get("backend_review", {})
+            if isinstance(factuality.get("backend_review"), dict)
+            else {}
+        )
+        effective_factuality_status = resolve_factuality_gate_status(factuality)
+        if effective_factuality_status != str(
+            factuality.get("status", package["summary"]["factuality_status"]) or package["summary"]["factuality_status"]
+        ).strip().lower():
+            package["summary"]["factuality_effective_status"] = effective_factuality_status
         for reason in factuality.get("reasons", []) if isinstance(factuality.get("reasons"), list) else []:
             todos.append(f"事实性复核: {reason}")
+        for reason in factuality_backend.get("reasons", []) if isinstance(factuality_backend.get("reasons"), list) else []:
+            todos.append(f"事实性后端复核: {reason}")
 
         if output_format.lower() == "md" or output_format.lower() == "markdown":
             lines = [
@@ -1805,6 +1818,10 @@ class DataPulseReader:
                 f"- **总条目**: {package['summary']['item_count']}",
                 f"- **事实性状态**: {package['summary']['factuality_status']}",
                 f"- **事实性分数**: {package['summary']['factuality_score']:.3f}",
+            ]
+            if package["summary"].get("factuality_effective_status"):
+                lines.append(f"- **事实性生效状态**: {package['summary']['factuality_effective_status']}")
+            lines.extend([
                 "",
                 "## 摘要",
                 package["summary"]["title"],
@@ -1813,7 +1830,7 @@ class DataPulseReader:
                 f"- 状态: {factuality.get('status', 'review_required')}",
                 f"- 动作: {factuality.get('operator_action', 'review_before_delivery')}",
                 f"- 摘要: {factuality.get('summary', 'No factuality summary recorded.')}",
-            ]
+            ])
             for reason in factuality.get("reasons", []) if isinstance(factuality.get("reasons"), list) else []:
                 lines.append(f"- 复核提示: {reason}")
             for signal in factuality.get("signals", []) if isinstance(factuality.get("signals"), list) else []:
@@ -1822,6 +1839,34 @@ class DataPulseReader:
                 lines.append(
                     f"- 信号: {signal.get('kind', 'signal')}={signal.get('status', 'unknown')} | {signal.get('detail', '')}"
                 )
+            show_backend_review = bool(factuality_backend) and (
+                str(factuality_backend.get("status", "skipped") or "skipped").strip().lower() != "skipped"
+                or bool(factuality_backend.get("used_output"))
+                or bool(factuality_backend.get("summary"))
+                or bool(factuality_backend.get("reasons"))
+                or bool(factuality_backend.get("signals"))
+                or bool(factuality_backend.get("warnings"))
+                or bool(factuality_backend.get("error"))
+            )
+            if show_backend_review:
+                lines.append(
+                    f"- 后端复核: {factuality_backend.get('status', 'skipped')} | "
+                    f"verdict={factuality_backend.get('backend_status', effective_factuality_status)}"
+                )
+                if factuality_backend.get("summary"):
+                    lines.append(f"- 后端摘要: {factuality_backend.get('summary', '')}")
+                for reason in factuality_backend.get("reasons", []) if isinstance(factuality_backend.get("reasons"), list) else []:
+                    lines.append(f"- 后端提示: {reason}")
+                for signal in factuality_backend.get("signals", []) if isinstance(factuality_backend.get("signals"), list) else []:
+                    if not isinstance(signal, dict):
+                        continue
+                    lines.append(
+                        f"- 后端信号: {signal.get('kind', 'signal')}={signal.get('status', 'unknown')} | {signal.get('detail', '')}"
+                    )
+                for warning in factuality_backend.get("warnings", []) if isinstance(factuality_backend.get("warnings"), list) else []:
+                    lines.append(f"- 后端警告: {warning}")
+                if factuality_backend.get("error"):
+                    lines.append(f"- 后端错误: {factuality_backend.get('error', '')}")
             lines.extend([
                 "",
                 "## 来源",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -51,6 +52,10 @@ def _setup_reader(tmp_path: Path, items: list[DataPulseItem]) -> DataPulseReader
 def _cleanup_env():
     yield
     os.environ.pop("DATAPULSE_SOURCE_CATALOG", None)
+    os.environ.pop("DATAPULSE_FACTUALITY_BACKEND_CMD", None)
+    os.environ.pop("DATAPULSE_FACTUALITY_BACKEND_CALLABLE", None)
+    os.environ.pop("DATAPULSE_FACTUALITY_BACKEND_WORKDIR", None)
+    os.environ.pop("DATAPULSE_FACTUALITY_BACKEND_TIMEOUT_SECONDS", None)
 
 
 class TestBuildDigest:
@@ -153,6 +158,85 @@ class TestBuildDigest:
         assert digest["factuality"]["status"] == "ready"
         assert digest["primary"][0]["governance"]["evidence_grade"] == "verified"
         assert digest["primary"][0]["governance"]["grounding"]["claim_count"] >= 1
+
+    def test_digest_projects_factuality_backend_review(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DATAPULSE_FACTUALITY_BACKEND_CMD", "factuality-backend --json")
+
+        def fake_run(cmd, **kwargs):
+            request = json.loads(kwargs["input"])
+            assert request["surface"] == "factuality"
+            assert request["subject"] == "digest"
+            return subprocess.CompletedProcess(
+                args=cmd,
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "schema_version": "evidence_backend_result.v1",
+                        "ok": True,
+                        "surface": "factuality",
+                        "backend_kind": "openfactverification_class",
+                        "transport": "subprocess_json",
+                        "result": {
+                            "status": "review_required",
+                            "summary": "Backend review flagged unresolved attribution context.",
+                            "reasons": ["Backend review flagged unresolved attribution context."],
+                            "signals": [
+                                {
+                                    "kind": "backend_verdict",
+                                    "status": "review_required",
+                                    "detail": "Cross-source attribution remains mixed.",
+                                }
+                            ],
+                        },
+                        "provenance": {
+                            "status": "applied",
+                            "backend_name": "openfactverification",
+                            "latency_ms": 8,
+                        },
+                        "fallback": {
+                            "used": False,
+                            "baseline": "deterministic_gate",
+                        },
+                    }
+                ),
+                stderr="",
+            )
+
+        monkeypatch.setattr("datapulse.core.story.subprocess.run", fake_run)
+        now = datetime.now(timezone.utc)
+        items = [
+            _make_item(
+                title="OpenAI launch verified",
+                url="https://ex.com/1",
+                source_name="src_a",
+                content="OpenAI launch verified for enterprise teams.",
+                confidence=0.92,
+                fetched_at=now.isoformat(),
+            ),
+            _make_item(
+                title="OpenAI launch confirmed",
+                url="https://ex.com/2",
+                source_name="src_b",
+                content="OpenAI launch confirmed by a second source.",
+                confidence=0.9,
+                fetched_at=now.isoformat(),
+            ),
+        ]
+        items[0].review_state = "verified"
+        items[0].processed = True
+        items[1].review_state = "verified"
+        items[1].processed = True
+        reader = _setup_reader(tmp_path, items)
+
+        digest = reader.build_digest(top_n=2, secondary_n=0)
+        package_md = reader.emit_digest_package(top_n=2, secondary_n=0, output_format="markdown")
+
+        assert digest["factuality"]["status"] == "ready"
+        assert digest["factuality"]["effective_status"] == "review_required"
+        assert digest["factuality"]["backend_review"]["status"] == "applied"
+        assert digest["factuality"]["backend_review"]["backend_status"] == "review_required"
+        assert "事实性生效状态" in package_md
+        assert "后端复核: applied | verdict=review_required" in package_md
 
     def test_fingerprint_dedup(self, tmp_path):
         """Duplicate content should be deduped, keeping only the highest scored."""

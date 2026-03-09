@@ -472,12 +472,14 @@
       "execute_mode": "manual_edit",
       "summary": "Define optional grounding and factuality backend contracts, fallback semantics, and provenance rules.",
       "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-evidence-backend-contract.md",
         "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
         "sed -n '100,180p' docs/source_feed_enhancement_plan.md",
         "sed -n '430,740p' datapulse/core/story.py",
         "sed -n '430,580p' datapulse/core/triage.py"
       ],
       "target_artifacts": [
+        "docs/governance/datapulse-evidence-backend-contract.md",
         "docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
         "docs/source_feed_enhancement_plan.md"
       ],
