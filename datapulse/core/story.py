@@ -1519,7 +1519,7 @@ def _build_story_grounding(story_id: str, evidence_rows: list[StoryEvidence]) ->
         if evidence_claim_added:
             grounded_items.add(evidence.item_id)
 
-    payload = {
+    payload: dict[str, Any] = {
         "mode": "projected" if claims else "empty",
         "grounded_item_count": len(grounded_items),
         "claim_count": len(claims),
