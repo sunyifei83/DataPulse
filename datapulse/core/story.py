@@ -394,7 +394,7 @@ class StoryStore:
     def list_stories(self, *, limit: int = 20, min_items: int = 1) -> list[Story]:
         rows = [
             story for story in self.stories.values()
-            if story.item_count >= max(1, int(min_items))
+            if story.item_count >= max(0, int(min_items))
         ]
         rows.sort(
             key=lambda story: (
@@ -421,6 +421,20 @@ class StoryStore:
                 return candidate
         return None
 
+    def create_story(self, payload: Story | dict[str, Any]) -> Story:
+        candidate = payload if isinstance(payload, Story) else Story.from_dict(payload)
+        candidate.id = self._unique_id(candidate.id, set(self.stories))
+        provenance = (
+            candidate.governance.get("provenance", {})
+            if isinstance(candidate.governance, dict)
+            else {}
+        )
+        if isinstance(provenance, dict):
+            provenance["story_id"] = candidate.id
+        self.stories[candidate.id] = candidate
+        self.save()
+        return candidate
+
     def update_story(
         self,
         identifier: str,
@@ -445,6 +459,14 @@ class StoryStore:
                 raise ValueError("Story status cannot be empty")
             story.status = next_status
         story.updated_at = _utcnow()
+        self.save()
+        return story
+
+    def delete_story(self, identifier: str) -> Story | None:
+        story = self.get_story(identifier)
+        if story is None:
+            return None
+        del self.stories[story.id]
         self.save()
         return story
 
@@ -492,6 +514,43 @@ def _story_summary(title: str, *, item_count: int, source_count: int, entities: 
     if contradictions:
         lead += f"; contradictions: {contradictions}"
     return lead
+
+
+def _story_seed_summary(
+    items: list[DataPulseItem],
+    *,
+    title: str,
+    entities: list[str],
+    contradictions: int,
+) -> str:
+    if not items:
+        return _story_summary(title, item_count=0, source_count=0, entities=entities, contradictions=contradictions)
+    if len(items) > 1:
+        return _story_summary(
+            title,
+            item_count=len(items),
+            source_count=len({item.source_name for item in items}),
+            entities=entities,
+            contradictions=contradictions,
+        )
+    first = items[0]
+    review_notes = [
+        str(note.get("note", "") or "").strip()
+        for note in first.review_notes
+        if isinstance(note, dict) and str(note.get("note", "") or "").strip()
+    ]
+    if review_notes:
+        return review_notes[0]
+    excerpt = re.sub(r"\s+", " ", str(first.content or "")).strip()
+    if excerpt:
+        return excerpt[:217].rstrip() + "..." if len(excerpt) > 220 else excerpt
+    return _story_summary(
+        title,
+        item_count=1,
+        source_count=1,
+        entities=entities,
+        contradictions=contradictions,
+    )
 
 
 def _max_risk_level(left: str, right: str) -> str:
@@ -1983,6 +2042,131 @@ def build_story_graph(
         "edge_count": len(edges),
         "relation_count": len(relation_edges),
     }
+
+
+def build_story_from_items(
+    items: list[DataPulseItem],
+    *,
+    title: str | None = None,
+    summary: str | None = None,
+    status: str | None = None,
+    entity_store: EntityStore | None = None,
+    evidence_limit: int = 4,
+) -> Story:
+    normalized_items = [item for item in items if isinstance(item, DataPulseItem)]
+    if not normalized_items:
+        raise ValueError("At least one item is required to build a story")
+
+    descriptors = [_descriptor_for_item(item, entity_store=entity_store) for item in normalized_items]
+    evidence_limit_safe = max(1, int(evidence_limit))
+    primary_count = _select_primary_count(len(normalized_items), evidence_limit_safe)
+
+    entity_counter: Counter[str] = Counter()
+    entity_display: dict[str, str] = {}
+    for row in descriptors:
+        for label in row["entity_labels"]:
+            normalized = normalize_entity_name(label)
+            if not normalized:
+                continue
+            entity_counter[normalized] += 1
+            entity_display[normalized] = label
+    entities = [entity_display[key] for key, _ in entity_counter.most_common(6)]
+
+    evidence_rows: list[StoryEvidence] = []
+    for index, row in enumerate(descriptors[:evidence_limit_safe]):
+        item = row["item"]
+        role = "primary" if index < primary_count else "secondary"
+        evidence_rows.append(
+            StoryEvidence(
+                item_id=item.id,
+                title=item.title,
+                url=item.url,
+                source_name=item.source_name,
+                source_type=item.source_type.value,
+                score=item.score,
+                confidence=item.confidence,
+                fetched_at=item.fetched_at,
+                review_state=item.review_state,
+                role=role,
+                entities=row["entity_labels"],
+                governance=build_item_governance(item),
+            )
+        )
+
+    primary_evidence = [row for row in evidence_rows if row.role == "primary"]
+    secondary_evidence = [row for row in evidence_rows if row.role == "secondary"]
+    primary_item_id = primary_evidence[0].item_id if primary_evidence else normalized_items[0].id
+    timeline_rows = sorted(
+        descriptors,
+        key=lambda row: (_parse_dt(row["item"].extra.get("date_published", row["item"].fetched_at)), row["item"].id),
+    )
+    timeline = [
+        StoryTimelineEvent(
+            time=str(item.extra.get("date_published") or item.fetched_at),
+            item_id=item.id,
+            title=item.title,
+            source_name=item.source_name,
+            url=item.url,
+            role="primary" if item.id == primary_item_id else "secondary",
+            score=item.score,
+        )
+        for item in [row["item"] for row in timeline_rows]
+    ]
+
+    semantic_review = build_semantic_review(normalized_items)
+    contradictions = [
+        StoryConflict(
+            topic=str(row.get("topic", "")),
+            positive=int(row.get("positive", 0) or 0),
+            negative=int(row.get("negative", 0) or 0),
+            neutral=int(row.get("neutral", 0) or 0),
+            note="semantic contradiction hint",
+        )
+        for row in semantic_review.get("contradictions", [])
+        if isinstance(row, dict)
+    ]
+    source_names = sorted({item.source_name for item in normalized_items})
+    top_slice = normalized_items[: min(3, len(normalized_items))]
+    avg_score = round(sum(item.score for item in top_slice) / max(1, len(top_slice)), 2)
+    avg_confidence = round(sum(item.confidence for item in top_slice) / max(1, len(top_slice)), 4)
+    story_title = str(title or "").strip() or normalized_items[0].title
+    story_id = generate_slug(story_title, max_length=48)
+    generated_at = _utcnow()
+    story_summary_text = str(summary or "").strip() or _story_seed_summary(
+        normalized_items,
+        title=story_title,
+        entities=entities,
+        contradictions=len(contradictions),
+    )
+    story_status = str(status or "").strip().lower() or ("conflicted" if contradictions else "active")
+
+    return Story(
+        title=story_title,
+        summary=story_summary_text,
+        status=story_status,
+        score=avg_score,
+        confidence=avg_confidence,
+        item_count=len(normalized_items),
+        source_count=len(source_names),
+        primary_item_id=primary_item_id,
+        entities=entities,
+        source_names=source_names,
+        primary_evidence=primary_evidence,
+        secondary_evidence=secondary_evidence,
+        timeline=timeline,
+        contradictions=contradictions,
+        semantic_review=semantic_review,
+        generated_at=generated_at,
+        governance=_build_story_governance(
+            story_id=story_id,
+            primary_item_id=primary_item_id,
+            source_names=source_names,
+            evidence_rows=evidence_rows,
+            contradictions=contradictions,
+            generated_at=generated_at,
+        ),
+        id=story_id,
+    )
 
 
 def build_story_clusters(

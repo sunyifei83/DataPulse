@@ -219,6 +219,20 @@ class _ConsoleReader:
             "alert_rules": kwargs.get("alert_rules") or [],
         }
 
+    def update_watch(self, identifier, **kwargs):
+        if identifier != "launch-ops":
+            return None
+        payload = self.show_watch(identifier)
+        for key, value in kwargs.items():
+            if value is not None:
+                payload[key] = value
+        if kwargs.get("platforms") is not None:
+            payload["platforms"] = kwargs["platforms"]
+        if kwargs.get("alert_rules") is not None:
+            payload["alert_rules"] = kwargs["alert_rules"]
+            payload["alert_rule_count"] = len(kwargs["alert_rules"])
+        return payload
+
     def set_watch_alert_rules(self, identifier, *, alert_rules=None):
         if identifier != "launch-ops":
             return None
@@ -263,7 +277,35 @@ class _ConsoleReader:
         ]
 
     def list_alert_routes(self):
-        return [{"name": "ops-webhook", "channel": "webhook"}]
+        return [
+            {
+                "name": "ops-webhook",
+                "channel": "webhook",
+                "description": "Primary ops webhook",
+                "webhook_url": "https://hooks.example.com/ops",
+            }
+        ]
+
+    def create_alert_route(self, **payload):
+        return {
+            "name": payload["name"],
+            "channel": payload["channel"],
+            "description": payload.get("description", ""),
+            "webhook_url": payload.get("webhook_url", ""),
+        }
+
+    def update_alert_route(self, identifier, **payload):
+        if identifier != "ops-webhook":
+            return None
+        route = self.list_alert_routes()[0]
+        route.update(payload)
+        route["name"] = identifier
+        return route
+
+    def delete_alert_route(self, identifier):
+        if identifier != "ops-webhook":
+            return None
+        return self.list_alert_routes()[0]
 
     def alert_route_health(self, limit=100):
         return [
@@ -545,6 +587,9 @@ class _ConsoleReader:
     def triage_note(self, item_id, **kwargs):
         return {"id": item_id, "review_notes": [{"note": kwargs["note"]}]}
 
+    def triage_delete(self, item_id):
+        return {"id": item_id, "deleted": True}
+
     def triage_explain(self, item_id, **kwargs):
         return {
             "item": {"id": item_id, "title": "OpenAI launch post"},
@@ -629,6 +674,41 @@ class _ConsoleReader:
             }
         ]
 
+    def create_story(self, **payload):
+        story = self.list_stories()[0]
+        story.update(
+            {
+                "id": payload.get("id", "story-manual-brief"),
+                "title": payload["title"],
+                "summary": payload.get("summary", ""),
+                "status": payload.get("status", "active"),
+                "item_count": payload.get("item_count", 0),
+                "source_count": payload.get("source_count", 0),
+                "primary_evidence": payload.get("primary_evidence", []),
+                "secondary_evidence": payload.get("secondary_evidence", []),
+                "timeline": payload.get("timeline", []),
+                "contradictions": payload.get("contradictions", []),
+                "entities": payload.get("entities", []),
+                "source_names": payload.get("source_names", []),
+            }
+        )
+        return story
+
+    def create_story_from_triage(self, **payload):
+        story = self.list_stories()[0]
+        item_ids = payload.get("item_ids") or []
+        story.update(
+            {
+                "id": "story-triage-seed",
+                "title": payload.get("title") or "Triage Story Seed",
+                "summary": payload.get("summary") or "Seeded from triage queue.",
+                "status": payload.get("status", "monitoring"),
+                "item_count": len(item_ids) or 1,
+                "primary_item_id": item_ids[0] if item_ids else "item-1",
+            }
+        )
+        return story
+
     def show_story(self, identifier):
         if identifier != "story-openai-launch":
             return None
@@ -646,6 +726,11 @@ class _ConsoleReader:
             payload["status"] = kwargs["status"]
         payload["updated_at"] = "2026-03-07T00:00:00+00:00"
         return payload
+
+    def delete_story(self, identifier):
+        if identifier != "story-openai-launch":
+            return None
+        return self.list_stories()[0]
 
     def story_graph(self, identifier, **kwargs):
         if identifier != "story-openai-launch":
@@ -690,13 +775,33 @@ def test_console_index_serves_shell():
 
     assert response.status_code == 200
     assert CONSOLE_TITLE in response.text
-    assert "Command Chamber For Signal Operations" in response.text
+    assert "Run Missions, Review Signal, Publish Stories" in response.text
+    assert "Draft Mission" in response.text
+    assert "Run And Inspect" in response.text
+    assert "Triage And Promote" in response.text
+    assert "Set Route And Watch Delivery" in response.text
+    assert "Browser Lifecycle" in response.text
+    assert "The board runs it, the triage queue reviews incoming evidence" in response.text
+    assert "language-switch" in response.text
+    assert "palette-open" in response.text
+    assert "section-intake" in response.text
     assert "/brand/icon" in response.text
     assert "/brand/square" in response.text
     assert "create-watch-form" in response.text
     assert "create-watch-suggestions" in response.text
+    assert "mission-name-options-list" in response.text
+    assert "route-options-list" in response.text
+    assert "confidence-options-list" in response.text
     assert "console-action-history" in response.text
     assert "command-palette" in response.text
+    assert "context-summary" in response.text
+    assert "context-save-form" in response.text
+    assert "context-view-dock" in response.text
+    assert "data-context-dock-open" in response.text
+    assert "data-context-saved-default" in response.text
+    assert "watch_search" in response.text
+    assert "triage_filter" in response.text
+    assert "story_view" in response.text
     assert "Mission Cockpit" in response.text
     assert "retry advice" in response.text
     assert "timeline strip" in response.text
@@ -708,15 +813,24 @@ def test_console_index_serves_shell():
     assert "route drill-down" in response.text
     assert "route timeline" in response.text
     assert "Distribution Health" in response.text
+    assert "data-route-edit" in response.text
+    assert "data-route-attach" in response.text
     assert "Triage Queue" in response.text
     assert "triage filters" in response.text
     assert "triage shortcuts" in response.text
+    assert "batch actions" in response.text
+    assert "data-triage-select-visible" in response.text
+    assert "data-triage-batch-state" in response.text
+    assert "data-triage-batch-delete" in response.text
+    assert "data-triage-story" in response.text
     assert "Use J/K to move" in response.text
     assert "note composer" in response.text
     assert "Save Note" in response.text
     assert "Story Workspace" in response.text
     assert "story editor" in response.text
     assert "Save Story" in response.text
+    assert "build stories from CLI/MCP" not in response.text
+    assert "datapulse --story-build / MCP story tools first" not in response.text
 
 
 def test_console_brand_hero_serves_jpeg():
@@ -787,6 +901,28 @@ def test_console_create_watch_route():
     payload = response.json()
     assert payload["name"] == "Launch Ops"
     assert payload["alert_rules"][0]["routes"] == ["ops-webhook"]
+
+
+def test_console_update_watch_route():
+    client = _client()
+    response = client.put(
+        "/api/watches/launch-ops",
+        json={
+            "name": "Launch Ops Prime",
+            "query": "OpenAI launch update",
+            "platforms": ["reddit"],
+            "schedule": "@daily",
+            "alert_rules": [{"name": "console-threshold", "routes": ["exec-telegram"]}],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["name"] == "Launch Ops Prime"
+    assert payload["query"] == "OpenAI launch update"
+    assert payload["platforms"] == ["reddit"]
+    assert payload["schedule"] == "@daily"
+    assert payload["alert_rules"][0]["routes"] == ["exec-telegram"]
 
 
 def test_console_deck_suggestions_route():
@@ -882,6 +1018,37 @@ def test_console_routes_and_status():
     assert scorecard.json()["signals"]["story_conversion"]["converted_item_count"] == 1
 
 
+def test_console_alert_route_crud_routes():
+    client = _client()
+
+    create_response = client.post(
+        "/api/alert-routes",
+        json={
+            "name": "exec-telegram",
+            "channel": "telegram",
+            "description": "Exec escalation path",
+            "telegram_chat_id": "12345",
+        },
+    )
+    update_response = client.put(
+        "/api/alert-routes/ops-webhook",
+        json={
+            "description": "Updated ops webhook",
+            "webhook_url": "https://hooks.example.com/ops-v2",
+        },
+    )
+    delete_response = client.delete("/api/alert-routes/ops-webhook")
+
+    assert create_response.status_code == 200
+    assert create_response.json()["name"] == "exec-telegram"
+    assert create_response.json()["channel"] == "telegram"
+    assert update_response.status_code == 200
+    assert update_response.json()["description"] == "Updated ops webhook"
+    assert update_response.json()["webhook_url"] == "https://hooks.example.com/ops-v2"
+    assert delete_response.status_code == 200
+    assert delete_response.json()["name"] == "ops-webhook"
+
+
 def test_console_watch_detail_route():
     client = _client()
     response = client.get("/api/watches/launch-ops")
@@ -916,6 +1083,7 @@ def test_console_triage_routes():
     explain = client.get("/api/triage/item-1/explain?limit=3")
     update = client.post("/api/triage/item-1/state", json={"state": "verified"})
     note = client.post("/api/triage/item-1/note", json={"note": "Escalate after duplicate review", "author": "console"})
+    delete_response = client.delete("/api/triage/item-1")
 
     assert triage.status_code == 200
     assert triage.json()[0]["id"] == "item-1"
@@ -928,12 +1096,30 @@ def test_console_triage_routes():
     assert update.json()["review_state"] == "verified"
     assert note.status_code == 200
     assert note.json()["review_notes"][0]["note"] == "Escalate after duplicate review"
+    assert delete_response.status_code == 200
+    assert delete_response.json()["deleted"] is True
 
 
 def test_console_story_routes():
     client = _client()
 
     stories = client.get("/api/stories?limit=4&min_items=2")
+    create = client.post(
+        "/api/stories",
+        json={
+            "title": "Manual Brief",
+            "summary": "Operator-authored short brief",
+            "status": "monitoring",
+        },
+    )
+    from_triage = client.post(
+        "/api/stories/from-triage",
+        json={
+            "item_ids": ["item-1", "item-2"],
+            "title": "Triage Seed",
+            "status": "monitoring",
+        },
+    )
     detail = client.get("/api/stories/story-openai-launch")
     update = client.put(
         "/api/stories/story-openai-launch",
@@ -945,9 +1131,17 @@ def test_console_story_routes():
     )
     graph = client.get("/api/stories/story-openai-launch/graph?entity_limit=6")
     export = client.get("/api/stories/story-openai-launch/export?format=markdown")
+    delete = client.delete("/api/stories/story-openai-launch")
 
     assert stories.status_code == 200
     assert stories.json()[0]["id"] == "story-openai-launch"
+    assert create.status_code == 200
+    assert create.json()["title"] == "Manual Brief"
+    assert create.json()["status"] == "monitoring"
+    assert from_triage.status_code == 200
+    assert from_triage.json()["id"] == "story-triage-seed"
+    assert from_triage.json()["primary_item_id"] == "item-1"
+    assert from_triage.json()["item_count"] == 2
     assert detail.status_code == 200
     assert detail.json()["primary_item_id"] == "item-1"
     assert update.status_code == 200
@@ -959,6 +1153,8 @@ def test_console_story_routes():
     assert export.status_code == 200
     assert export.headers["content-type"].startswith("text/markdown")
     assert export.text.startswith("# OpenAI Launch")
+    assert delete.status_code == 200
+    assert delete.json()["id"] == "story-openai-launch"
 
 
 def test_console_ops_scorecard_with_real_reader(tmp_path, monkeypatch):

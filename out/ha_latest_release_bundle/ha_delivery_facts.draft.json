@@ -1,7 +1,7 @@
 {
   "schema_version": "ha_delivery_facts.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-09T03:52:26Z",
+  "generated_at_utc": "2026-03-10T06:25:59Z",
   "fact_kind": "draft_export",
   "wired": false,
   "current_level": "ha_release_structured",

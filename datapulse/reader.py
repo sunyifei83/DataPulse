@@ -28,6 +28,7 @@ from datapulse.core.storage import UnifiedInbox, output_record_md, project_markd
 from datapulse.core.story import (
     StoryStore,
     build_factuality_gate,
+    build_story_from_items,
     build_story_clusters,
     build_story_graph,
     render_story_markdown,
@@ -1966,6 +1967,44 @@ class DataPulseReader:
     def list_stories(self, *, limit: int = 20, min_items: int = 1) -> list[dict[str, Any]]:
         return [story.to_dict() for story in self.story_store.list_stories(limit=limit, min_items=min_items)]
 
+    def create_story(self, **payload: Any) -> dict[str, Any]:
+        story = self.story_store.create_story(payload)
+        return story.to_dict()
+
+    def create_story_from_triage(
+        self,
+        item_ids: list[str],
+        *,
+        title: str | None = None,
+        summary: str | None = None,
+        status: str = "monitoring",
+    ) -> dict[str, Any]:
+        normalized_ids: list[str] = []
+        seen: set[str] = set()
+        for raw in item_ids if isinstance(item_ids, list) else []:
+            item_id = str(raw or "").strip()
+            if not item_id or item_id in seen:
+                continue
+            seen.add(item_id)
+            normalized_ids.append(item_id)
+        if not normalized_ids:
+            raise ValueError("At least one triage item id is required")
+
+        item_map = {item.id: item for item in self.inbox.items}
+        missing = [item_id for item_id in normalized_ids if item_id not in item_map]
+        if missing:
+            raise ValueError(f"Triage item not found: {missing[0]}")
+
+        selected_items = [item_map[item_id] for item_id in normalized_ids]
+        story = build_story_from_items(
+            selected_items,
+            title=title,
+            summary=summary,
+            status=status,
+            entity_store=self.entity_store,
+        )
+        return self.story_store.create_story(story).to_dict()
+
     def show_story(self, identifier: str) -> dict[str, Any] | None:
         story = self.story_store.get_story(identifier)
         if story is None:
@@ -1986,6 +2025,12 @@ class DataPulseReader:
             summary=summary,
             status=status,
         )
+        if story is None:
+            return None
+        return story.to_dict()
+
+    def delete_story(self, identifier: str) -> dict[str, Any] | None:
+        story = self.story_store.delete_story(identifier)
         if story is None:
             return None
         return story.to_dict()
@@ -2124,6 +2169,12 @@ class DataPulseReader:
             return None
         return serialize_item_with_governance(item)
 
+    def triage_delete(self, item_id: str) -> dict[str, Any] | None:
+        item = self.triage.delete_item(item_id)
+        if item is None:
+            return None
+        return serialize_item_with_governance(item)
+
     def triage_stats(self, *, min_confidence: float = 0.0) -> dict[str, Any]:
         return self.triage.stats(min_confidence=min_confidence)
 
@@ -2168,6 +2219,40 @@ class DataPulseReader:
             enabled=enabled,
         )
         return self._serialize_watch_mission(mission)
+
+    def update_watch(
+        self,
+        identifier: str,
+        *,
+        name: str | None = None,
+        query: str | None = None,
+        mission_intent: dict[str, Any] | None = None,
+        trend_inputs: list[dict[str, Any] | TrendFeedInput] | None = None,
+        platforms: list[str] | None = None,
+        sites: list[str] | None = None,
+        schedule: str | None = None,
+        min_confidence: float | None = None,
+        top_n: int | None = None,
+        alert_rules: list[dict[str, Any]] | None = None,
+        enabled: bool | None = None,
+    ) -> dict[str, Any] | None:
+        mission = self.watchlist.update_mission(
+            identifier,
+            name=name,
+            query=query,
+            mission_intent=mission_intent,
+            trend_inputs=trend_inputs,
+            platforms=platforms,
+            sites=sites,
+            schedule=schedule,
+            min_confidence=min_confidence,
+            top_n=top_n,
+            alert_rules=alert_rules,
+            enabled=enabled,
+        )
+        if mission is None:
+            return None
+        return self.show_watch(mission.id)
 
     def set_watch_alert_rules(
         self,
@@ -2528,6 +2613,16 @@ class DataPulseReader:
 
     def list_alert_routes(self) -> list[dict[str, Any]]:
         return self.alert_routes.list_routes()
+
+    def create_alert_route(self, **payload: Any) -> dict[str, Any]:
+        route_name = str(payload.pop("name", "") or "").strip()
+        return self.alert_routes.create(route_name, payload)
+
+    def update_alert_route(self, name: str, **payload: Any) -> dict[str, Any] | None:
+        return self.alert_routes.update(name, payload)
+
+    def delete_alert_route(self, name: str) -> dict[str, Any] | None:
+        return self.alert_routes.delete(name)
 
     def alert_route_health(self, *, limit: int = 100) -> list[dict[str, Any]]:
         route_rows: dict[str, dict[str, Any]] = {}

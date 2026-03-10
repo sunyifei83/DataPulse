@@ -1,34 +1,56 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-09T07:16:49Z",
+  "generated_at_utc": "2026-03-10T06:40:31Z",
   "status_kind": "draft_export",
   "wired": false,
   "git": {
-    "head": "7b0698803203bba55d6cc2e1cfeb6862fcc9aa7e",
+    "head": "cb0079db77683a3f37233750c5cec310a432c99b",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "7b0698803203bba55d6cc2e1cfeb6862fcc9aa7e",
+    "upstream_head": "cb0079db77683a3f37233750c5cec310a432c99b",
     "head_published_to_upstream": true
   },
   "workspace": {
     "clean": false,
     "dirty_entries": [
-      "M datapulse/core/alerts.py",
+      "M SKILL.md",
+      " M datapulse/console_markup.py",
+      " M datapulse/console_server.py",
+      " M datapulse/core/alerts.py",
+      " M datapulse/core/storage.py",
       " M datapulse/core/story.py",
       " M datapulse/core/triage.py",
+      " M datapulse/core/watchlist.py",
       " M datapulse/reader.py",
+      " M datapulse_skill/manifest.json",
+      " M docs/brand_identity.md",
+      " M docs/datapulse_console_parameter_guide.md",
       " M docs/governance/datapulse-blueprint-plan.draft.json",
-      " M docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
-      " M docs/governance/datapulse-slice-adapter-catalog.draft.json",
-      " M docs/source_feed_enhancement_plan.md",
+      " M docs/governance/datapulse-blueprint-plan.json",
+      " M docs/gui_intelligence_console_plan.md",
+      " M out/governance/auto_continuation_runtime.draft.json",
       " M out/governance/code_landing_status.draft.json",
       " M out/governance/project_specific_loop_state.draft.json",
+      " M out/governance/slice_execution_brief.draft.json",
+      " M out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json",
+      " M out/ha_latest_release_bundle/blueprint_plan.snapshot.json",
+      " M out/ha_latest_release_bundle/code_landing_status.draft.json",
+      " M out/ha_latest_release_bundle/code_landing_status.snapshot.json",
+      " M out/ha_latest_release_bundle/evidence_bundle_manifest.draft.json",
+      " M out/ha_latest_release_bundle/ha_delivery_facts.draft.json",
+      " M out/ha_latest_release_bundle/ha_delivery_landing.draft.json",
+      " M out/ha_latest_release_bundle/ha_recovery_preset.draft.json",
+      " M out/ha_latest_release_bundle/project_specific_loop_state.draft.json",
+      " M out/ha_latest_release_bundle/release_readiness_fact.draft.json",
+      " M out/ha_latest_release_bundle/release_sidecar.draft.json",
+      " M out/ha_latest_release_bundle/slice_adapter_catalog.snapshot.json",
+      " M out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
       " M tests/test_alerts.py",
-      " M tests/test_digest.py",
+      " M tests/test_console_server.py",
       " M tests/test_story.py",
       " M tests/test_triage.py",
-      "?? docs/governance/datapulse-evidence-backend-contract.md"
+      " M tests/test_watchlist.py"
     ],
     "reason": "git status reported local modifications."
   },
@@ -100,26 +122,70 @@
     "proof_mode": "push_ci_workflow",
     "head_published_to_upstream": true,
     "required_workflow": "CI",
-    "required_run": null,
-    "latest_head_ci_run": null,
+    "required_run": {
+      "database_id": 22842774090,
+      "head_sha": "cb0079db77683a3f37233750c5cec310a432c99b",
+      "head_branch": "main",
+      "status": "completed",
+      "conclusion": "success",
+      "event": "push",
+      "workflow_name": "CI",
+      "created_at": "2026-03-09T07:24:45Z",
+      "updated_at": "2026-03-09T07:25:21Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22842774090"
+    },
+    "latest_head_ci_run": {
+      "database_id": 22842774090,
+      "head_sha": "cb0079db77683a3f37233750c5cec310a432c99b",
+      "head_branch": "main",
+      "status": "completed",
+      "conclusion": "success",
+      "event": "push",
+      "workflow_name": "CI",
+      "created_at": "2026-03-09T07:24:45Z",
+      "updated_at": "2026-03-09T07:25:21Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22842774090"
+    },
     "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
+        "SKILL.md",
+        "datapulse/console_markup.py",
+        "datapulse/console_server.py",
         "datapulse/core/alerts.py",
+        "datapulse/core/storage.py",
         "datapulse/core/story.py",
         "datapulse/core/triage.py",
+        "datapulse/core/watchlist.py",
         "datapulse/reader.py",
+        "datapulse_skill/manifest.json",
+        "docs/brand_identity.md",
+        "docs/datapulse_console_parameter_guide.md",
         "docs/governance/datapulse-blueprint-plan.draft.json",
-        "docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
-        "docs/governance/datapulse-slice-adapter-catalog.draft.json",
-        "docs/source_feed_enhancement_plan.md",
+        "docs/governance/datapulse-blueprint-plan.json",
+        "docs/gui_intelligence_console_plan.md",
+        "out/governance/auto_continuation_runtime.draft.json",
         "out/governance/code_landing_status.draft.json",
         "out/governance/project_specific_loop_state.draft.json",
+        "out/governance/slice_execution_brief.draft.json",
+        "out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json",
+        "out/ha_latest_release_bundle/blueprint_plan.snapshot.json",
+        "out/ha_latest_release_bundle/code_landing_status.draft.json",
+        "out/ha_latest_release_bundle/code_landing_status.snapshot.json",
+        "out/ha_latest_release_bundle/evidence_bundle_manifest.draft.json",
+        "out/ha_latest_release_bundle/ha_delivery_facts.draft.json",
+        "out/ha_latest_release_bundle/ha_delivery_landing.draft.json",
+        "out/ha_latest_release_bundle/ha_recovery_preset.draft.json",
+        "out/ha_latest_release_bundle/project_specific_loop_state.draft.json",
+        "out/ha_latest_release_bundle/release_readiness_fact.draft.json",
+        "out/ha_latest_release_bundle/release_sidecar.draft.json",
+        "out/ha_latest_release_bundle/slice_adapter_catalog.snapshot.json",
+        "out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
         "tests/test_alerts.py",
-        "tests/test_digest.py",
+        "tests/test_console_server.py",
         "tests/test_story.py",
         "tests/test_triage.py",
-        "docs/governance/datapulse-evidence-backend-contract.md"
+        "tests/test_watchlist.py"
       ],
       "docs_only": false
     }
@@ -159,8 +225,7 @@
     "ci_proven": {
       "satisfied": false,
       "reasons": [
-        "repo_landed_false",
-        "ci_run_not_proven"
+        "repo_landed_false"
       ]
     }
   },
@@ -205,7 +270,18 @@
         "report_root": "/Users/sunyifei/DataPulse"
       }
     },
-    "latest_head_ci_run": null,
+    "latest_head_ci_run": {
+      "database_id": 22842774090,
+      "head_sha": "cb0079db77683a3f37233750c5cec310a432c99b",
+      "head_branch": "main",
+      "status": "completed",
+      "conclusion": "success",
+      "event": "push",
+      "workflow_name": "CI",
+      "created_at": "2026-03-09T07:24:45Z",
+      "updated_at": "2026-03-09T07:25:21Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22842774090"
+    },
     "latest_head_governance_evidence_run": null
   },
   "evidence_paths": {

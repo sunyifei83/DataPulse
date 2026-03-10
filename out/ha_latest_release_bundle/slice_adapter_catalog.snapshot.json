@@ -466,6 +466,72 @@
         "Keep operator-driven tooling in an explicit manual lane instead of coupling it into the core collector contract.",
         "Define handoff rules, artifacts, and provenance expectations for emergency or manual collection workflows."
       ]
+    },
+    "L10.1": {
+      "adapter_type": "evidence_backend_contract",
+      "execute_mode": "manual_edit",
+      "summary": "Define optional grounding and factuality backend contracts, fallback semantics, and provenance rules.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-evidence-backend-contract.md",
+        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
+        "sed -n '100,180p' docs/source_feed_enhancement_plan.md",
+        "sed -n '430,740p' datapulse/core/story.py",
+        "sed -n '430,580p' datapulse/core/triage.py"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-evidence-backend-contract.md",
+        "docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
+        "docs/source_feed_enhancement_plan.md"
+      ],
+      "notes": [
+        "The contract should formalize backend invocation boundaries, operator-visible provenance, and deterministic fallback behavior before any adapter lands.",
+        "Do not reopen collector architecture; this phase is only about backend enrichment behind the new evidence surfaces."
+      ]
+    },
+    "L10.2": {
+      "adapter_type": "grounding_backend_adapter",
+      "execute_mode": "manual_implementation",
+      "summary": "Add a LangExtract-class grounding adapter behind the current triage and story grounding boundary.",
+      "candidate_commands": [
+        "sed -n '430,580p' datapulse/core/triage.py",
+        "sed -n '740,920p' datapulse/core/story.py",
+        "sed -n '1,260p' datapulse/reader.py",
+        "uv run pytest tests/test_triage.py tests/test_story.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/core/triage.py",
+        "datapulse/core/story.py",
+        "datapulse/reader.py",
+        "tests/test_triage.py",
+        "tests/test_story.py"
+      ],
+      "notes": [
+        "Preserve current `provided / heuristic / empty` grounding modes as the fallback contract.",
+        "Backend output must enrich the existing governance payload rather than inventing a new claim object model."
+      ]
+    },
+    "L10.3": {
+      "adapter_type": "factuality_backend_adapter",
+      "execute_mode": "manual_implementation",
+      "summary": "Add an OpenFactVerification-class backend option at the factuality gate boundary.",
+      "candidate_commands": [
+        "sed -n '430,740p' datapulse/core/story.py",
+        "sed -n '430,720p' datapulse/core/alerts.py",
+        "sed -n '3160,3310p' datapulse/reader.py",
+        "uv run pytest tests/test_story.py tests/test_alerts.py tests/test_digest.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/core/story.py",
+        "datapulse/core/alerts.py",
+        "datapulse/reader.py",
+        "tests/test_story.py",
+        "tests/test_alerts.py",
+        "tests/test_digest.py"
+      ],
+      "notes": [
+        "Keep the existing deterministic factuality gate as the stable fallback when the backend is unavailable or disabled.",
+        "Backend verdicts and signals should stay operator-visible and additive rather than silently replacing current reasoning."
+      ]
     }
   }
 }

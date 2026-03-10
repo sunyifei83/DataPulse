@@ -73,7 +73,8 @@
     "L7": "completed",
     "L8": "completed",
     "L9": "completed",
-    "L10": "completed"
+    "L10": "completed",
+    "L11": "completed"
   },
   "phases": [
     {
@@ -1147,13 +1148,133 @@
           }
         }
       ]
+    },
+    {
+      "id": "L11",
+      "title": "Console Productization And UX Closure",
+      "goal": "Turn the now lifecycle-complete browser shell into a lower-friction operating surface with stronger product fit, clearer information architecture, and safer regression coverage.",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "L11.1",
+          "title": "Consolidate the console visual system and hierarchy across topbar, dock, cards, toolbars, and danger states",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py",
+            "python3 -m compileall datapulse",
+            "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_watchlist.py tests/test_alerts.py tests/test_story.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "docs/brand_identity.md",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "The browser shell exposes one coherent visual hierarchy for primary actions, supporting context, empty states, and danger states without reverting to generic admin-dashboard styling.",
+          "notes": [
+            "This slice starts from the existing command-chamber shell rather than redesigning the product from scratch.",
+            "The goal is lower scan cost and clearer emphasis, not decorative churn."
+          ]
+        },
+        {
+          "id": "L11.2",
+          "title": "Compress the single-page information architecture into clearer workspace modes and lower-noise default views",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py",
+            "python3 -m compileall datapulse",
+            "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_watchlist.py tests/test_alerts.py tests/test_story.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "Operators can enter the shell and identify the relevant working mode and active modules without scanning the full page length, while deep-link and saved-view semantics stay intact.",
+          "notes": [
+            "Use explicit workspace modes such as Operations, Review, and Config rather than exposing every module at the same visual depth.",
+            "This slice should refine the current long-form shell, not fork a second console."
+          ]
+        },
+        {
+          "id": "L11.3",
+          "title": "Push next-best actions, keyboard convenience, and bulk-flow safety deeper into mission, triage, story, and route handling",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+            "python3 -m compileall datapulse",
+            "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_watchlist.py tests/test_alerts.py tests/test_story.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "datapulse/console_server.py",
+            "tests/test_console_server.py"
+          ],
+          "exit_condition": "The highest-frequency mission-to-triage-to-story-to-route flows require fewer context switches, fewer scroll jumps, and less operator recall while preserving reversible mutations and clear danger semantics.",
+          "notes": [
+            "Favor card-local quick actions and next-step affordances over adding more global controls.",
+            "Keep bulk operations safe and obvious; faster should not mean easier to misfire."
+          ]
+        },
+        {
+          "id": "L11.4",
+          "title": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py",
+            "python3 -m compileall datapulse",
+            "uv run pytest tests/test_console_server.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "docs/datapulse_console_parameter_guide.md",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "A first-time operator can understand the browser lifecycle path from mission creation to triage, story promotion, and route setup without needing to start in CLI documentation.",
+          "notes": [
+            "Guidance should be contextual and brief instead of turning the shell into a documentation wall.",
+            "This slice is about reducing onboarding friction, not adding a generic walkthrough library."
+          ]
+        },
+        {
+          "id": "L11.5",
+          "title": "Harden browser-level regression coverage for deep links, saved views, dock behavior, triage-to-story flow, and route CRUD",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "bash scripts/datapulse_console_smoke.sh",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+            "uv run --with playwright python scripts/datapulse_console_browser_smoke.py",
+            "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_watchlist.py tests/test_alerts.py tests/test_story.py -q"
+          ],
+          "artifacts": [
+            "scripts/datapulse_console_smoke.sh",
+            "scripts/datapulse_console_browser_smoke.py",
+            "tests/test_console_server.py",
+            "datapulse/console_markup.py"
+          ],
+          "exit_condition": "The most stateful browser flows have repeatable regression coverage strong enough to protect further console productization and layout work from silent breakage.",
+          "notes": [
+            "Prefer high-signal operating-flow checks over brittle visual snapshots.",
+            "If UI churn accelerates, this slice can be pulled earlier even though it is listed last in the preferred ignition order."
+          ]
+        }
+      ]
     }
   ],
-  "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
-  },
+  "recommended_next_slice": null,
   "progress_log": [
     {
       "at_utc": "2026-03-08T18:44:24Z",
@@ -1194,7 +1315,32 @@
       "at_utc": "2026-03-09T07:16:09Z",
       "slice_id": "L10.3",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-10T06:03:03Z",
+      "slice_id": "L11.1",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-10T06:17:55Z",
+      "slice_id": "L11.2",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-10T06:23:45Z",
+      "slice_id": "L11.3",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-10T06:39:52Z",
+      "slice_id": "L11.4",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-10T07:08:42Z",
+      "slice_id": "L11.5",
+      "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-09T07:16:09Z"
+  "last_updated_utc": "2026-03-10T07:08:42Z"
 }

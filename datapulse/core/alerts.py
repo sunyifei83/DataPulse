@@ -141,6 +141,8 @@ class AlertStore:
 class AlertRouteStore:
     """File-backed named delivery routes for alert sinks."""
 
+    SUPPORTED_CHANNELS = {"webhook", "feishu", "telegram", "markdown"}
+
     def __init__(self, path: str | None = None):
         self.path = Path(path or alert_routing_path_from_env()).expanduser()
         self.routes: dict[str, dict[str, Any]] = {}
@@ -172,6 +174,90 @@ class AlertRouteStore:
             normalized[route_name] = payload
         self.routes = normalized
 
+    def save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"routes": self.routes}
+        self.path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    @staticmethod
+    def _normalize_name(name: str) -> str:
+        return str(name or "").strip().lower()
+
+    @staticmethod
+    def _normalize_headers(headers: Any) -> dict[str, str]:
+        if not isinstance(headers, dict):
+            return {}
+        normalized: dict[str, str] = {}
+        for key, value in headers.items():
+            header_key = str(key or "").strip()
+            if not header_key:
+                continue
+            normalized[header_key] = str(value or "").strip()
+        return normalized
+
+    @classmethod
+    def _normalize_route_payload(
+        cls,
+        payload: dict[str, Any],
+        *,
+        existing: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            raise ValueError("alert route payload must be an object")
+        previous = dict(existing or {})
+        channel_raw = payload.get("channel", previous.get("channel", ""))
+        channel = str(channel_raw or "").strip().lower()
+        if not channel:
+            raise ValueError("channel is required")
+        if channel not in cls.SUPPORTED_CHANNELS:
+            supported = ", ".join(sorted(cls.SUPPORTED_CHANNELS))
+            raise ValueError(f"unsupported alert channel: {channel}; supported: {supported}")
+
+        normalized: dict[str, Any] = {"channel": channel}
+        description = str(payload.get("description", previous.get("description", "")) or "").strip()
+        if description:
+            normalized["description"] = description
+
+        timeout_value = payload.get("timeout_seconds", previous.get("timeout_seconds"))
+        if timeout_value not in (None, ""):
+            try:
+                timeout_seconds = float(timeout_value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("timeout_seconds must be numeric") from exc
+            if timeout_seconds <= 0:
+                raise ValueError("timeout_seconds must be greater than 0")
+            normalized["timeout_seconds"] = timeout_seconds
+
+        if channel == "webhook":
+            webhook_url = str(payload.get("webhook_url", previous.get("webhook_url", "")) or "").strip()
+            if webhook_url:
+                normalized["webhook_url"] = webhook_url
+            authorization = str(payload.get("authorization", previous.get("authorization", "")) or "").strip()
+            if authorization == "***" and str(previous.get("authorization", "")).strip():
+                authorization = str(previous.get("authorization", "")).strip()
+            if authorization:
+                normalized["authorization"] = authorization
+            headers = cls._normalize_headers(payload.get("headers", previous.get("headers", {})))
+            if headers:
+                normalized["headers"] = headers
+        elif channel == "feishu":
+            feishu_webhook = str(payload.get("feishu_webhook", previous.get("feishu_webhook", "")) or "").strip()
+            if feishu_webhook:
+                normalized["feishu_webhook"] = feishu_webhook
+        elif channel == "telegram":
+            telegram_bot_token = str(
+                payload.get("telegram_bot_token", previous.get("telegram_bot_token", "")) or ""
+            ).strip()
+            if telegram_bot_token == "***" and str(previous.get("telegram_bot_token", "")).strip():
+                telegram_bot_token = str(previous.get("telegram_bot_token", "")).strip()
+            if telegram_bot_token:
+                normalized["telegram_bot_token"] = telegram_bot_token
+            telegram_chat_id = str(payload.get("telegram_chat_id", previous.get("telegram_chat_id", "")) or "").strip()
+            if telegram_chat_id:
+                normalized["telegram_chat_id"] = telegram_chat_id
+
+        return normalized
+
     @staticmethod
     def _redact_route(route: dict[str, Any]) -> dict[str, Any]:
         redacted: dict[str, Any] = {}
@@ -193,7 +279,7 @@ class AlertRouteStore:
         return redacted
 
     def get(self, name: str) -> dict[str, Any] | None:
-        route_name = str(name or "").strip().lower()
+        route_name = self._normalize_name(name)
         if not route_name:
             return None
         payload = self.routes.get(route_name)
@@ -201,13 +287,59 @@ class AlertRouteStore:
             return None
         return dict(payload)
 
+    def show(self, name: str) -> dict[str, Any] | None:
+        route_name = self._normalize_name(name)
+        if not route_name:
+            return None
+        payload = self.get(route_name)
+        if payload is None:
+            return None
+        redacted = self._redact_route(payload)
+        redacted["name"] = route_name
+        return redacted
+
     def list_routes(self) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         for name, route in sorted(self.routes.items()):
-            payload = self._redact_route(route)
-            payload["name"] = name
-            rows.append(payload)
+            payload = self.show(name)
+            if payload is not None:
+                rows.append(payload)
         return rows
+
+    def create(self, name: str, payload: dict[str, Any]) -> dict[str, Any]:
+        route_name = self._normalize_name(name)
+        if not route_name:
+            raise ValueError("route name is required")
+        if route_name in self.routes:
+            raise ValueError(f"alert route already exists: {route_name}")
+        self.routes[route_name] = self._normalize_route_payload(payload)
+        self.save()
+        created = self.show(route_name)
+        if created is None:
+            raise ValueError(f"failed to create alert route: {route_name}")
+        return created
+
+    def update(self, name: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+        route_name = self._normalize_name(name)
+        if not route_name:
+            return None
+        existing = self.routes.get(route_name)
+        if existing is None:
+            return None
+        self.routes[route_name] = self._normalize_route_payload(payload, existing=existing)
+        self.save()
+        return self.show(route_name)
+
+    def delete(self, name: str) -> dict[str, Any] | None:
+        route_name = self._normalize_name(name)
+        if not route_name:
+            return None
+        existing = self.show(route_name)
+        if existing is None:
+            return None
+        del self.routes[route_name]
+        self.save()
+        return existing
 
 
 def append_alert_markdown(event: AlertEvent, items: list[DataPulseItem], *, path: str | None = None) -> str:
@@ -661,6 +793,10 @@ def dispatch_alert_event(
                 if factuality_status != "ready":
                     held.append(label or channel)
                     continue
+                headers = dict(config.get("headers")) if isinstance(config.get("headers"), dict) else {}
+                authorization = str(config.get("authorization", "") or "").strip()
+                if authorization and "Authorization" not in headers:
+                    headers["Authorization"] = authorization
                 _post_json(
                     url,
                     {
@@ -668,7 +804,7 @@ def dispatch_alert_event(
                         "items": [serialize_item_with_governance(item) for item in items[:10]],
                     },
                     timeout=float(config.get("timeout_seconds", timeout) or timeout),
-                    headers=config.get("headers") if isinstance(config.get("headers"), dict) else None,
+                    headers=headers or None,
                 )
             elif channel == "feishu":
                 url = _resolve_feishu_url(config)

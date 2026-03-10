@@ -100,6 +100,37 @@ class TestWatchlistStore:
         assert restored.last_run_status == "success"
         assert len(restored.runs) == 1
 
+    def test_update_mission_persists_without_changing_id(self, tmp_path):
+        path = str(tmp_path / "watchlist.json")
+        store = WatchlistStore(path)
+        mission = store.create_mission(
+            name="AI Brief",
+            query="LLM agents",
+            platforms=["twitter"],
+            alert_rules=[{"name": "console-threshold", "routes": ["ops-webhook"]}],
+        )
+
+        updated = store.update_mission(
+            mission.id,
+            name="AI Brief Prime",
+            query="LLM agents pricing",
+            platforms=["reddit"],
+            schedule="@hourly",
+            alert_rules=[{"name": "console-threshold", "routes": ["exec-telegram"]}],
+        )
+        reloaded = WatchlistStore(path)
+        restored = reloaded.get(mission.id)
+
+        assert updated is not None
+        assert updated.id == mission.id
+        assert restored is not None
+        assert restored.id == mission.id
+        assert restored.name == "AI Brief Prime"
+        assert restored.query == "LLM agents pricing"
+        assert restored.platforms == ["reddit"]
+        assert restored.schedule == "@hourly"
+        assert restored.alert_rules[0]["routes"] == ["exec-telegram"]
+
 
 @pytest.mark.asyncio
 async def test_reader_run_watch_records_metadata(tmp_path, monkeypatch):

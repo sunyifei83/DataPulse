@@ -112,6 +112,15 @@ class UnifiedInbox:
                 return item
         return None
 
+    def delete(self, item_id: str) -> DataPulseItem | None:
+        for index, item in enumerate(self.items):
+            if item.id != item_id:
+                continue
+            removed = self.items.pop(index)
+            self._rebuild_fingerprints()
+            return removed
+        return None
+
     def mark_processed(self, item_id: str, processed: bool = True) -> bool:
         for item in self.items:
             if item.id == item_id:

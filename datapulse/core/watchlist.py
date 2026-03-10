@@ -423,6 +423,50 @@ class WatchlistStore:
         self.save()
         return mission
 
+    def update_mission(
+        self,
+        identifier: str,
+        *,
+        name: str | None = None,
+        query: str | None = None,
+        mission_intent: dict[str, Any] | MissionIntent | None = None,
+        trend_inputs: list[dict[str, Any] | TrendFeedInput] | None = None,
+        platforms: list[str] | None = None,
+        sites: list[str] | None = None,
+        schedule: str | None = None,
+        min_confidence: float | None = None,
+        top_n: int | None = None,
+        alert_rules: list[dict[str, Any]] | None = None,
+        enabled: bool | None = None,
+    ) -> WatchMission | None:
+        mission = self.get(identifier)
+        if mission is None:
+            return None
+        updated = WatchMission(
+            id=mission.id,
+            name=mission.name if name is None else name,
+            query=mission.query if query is None else query,
+            mission_intent=mission.mission_intent if mission_intent is None else mission_intent,
+            trend_inputs=mission.trend_inputs if trend_inputs is None else trend_inputs,
+            platforms=mission.platforms if platforms is None else list(platforms),
+            sites=mission.sites if sites is None else list(sites),
+            schedule=mission.schedule if schedule is None else schedule,
+            min_confidence=mission.min_confidence if min_confidence is None else min_confidence,
+            top_n=mission.top_n if top_n is None else top_n,
+            alert_rules=mission.alert_rules if alert_rules is None else list(alert_rules),
+            enabled=mission.enabled if enabled is None else enabled,
+            created_at=mission.created_at,
+            updated_at=_utcnow(),
+            last_run_at=mission.last_run_at,
+            last_run_count=mission.last_run_count,
+            last_run_status=mission.last_run_status,
+            last_run_error=mission.last_run_error,
+            runs=list(mission.runs),
+        )
+        self.missions[mission.id] = updated
+        self.save()
+        return updated
+
     def get(self, identifier: str) -> WatchMission | None:
         key = str(identifier or "").strip()
         if not key:

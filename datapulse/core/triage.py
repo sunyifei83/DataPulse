@@ -1239,6 +1239,13 @@ class TriageQueue:
         self.inbox.save()
         return item
 
+    def delete_item(self, item_id: str) -> "DataPulseItem | None":
+        item = self.inbox.delete(item_id)
+        if item is None:
+            return None
+        self.inbox.save()
+        return item
+
     def stats(self, *, min_confidence: float = 0.0) -> dict[str, Any]:
         filtered = [item for item in self.inbox.items if item.confidence >= min_confidence]
         counts = triage_counts(filtered)

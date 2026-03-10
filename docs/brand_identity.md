@@ -28,6 +28,15 @@
 - `Fog Text` `#9CB1C9`
 - `Cold White` `#EAF6FF`
 
+## Console Visual System
+
+- Topbar and dock form one sticky control rail: section jumps, saved-view context, command palette, reset, and language switch all live in the same visual band.
+- Panels, cards, and tool clusters should read as one family of dark-glass surfaces with clear depth steps instead of flat admin-dashboard tiles.
+- Chips and compact toolbars carry mode, filter, and quick-action state; primary actions should stand out without turning every control into a CTA.
+- Empty states should keep the same framed shell and muted operational copy so missing data still feels intentional and navigable.
+- Danger actions reserve `Signal Red` fills and should appear only on destructive moves such as route, triage, or story deletion.
+- Bilingual console surfaces should switch to the Chinese type stack for labels, chips, and headings instead of inheriting condensed Latin styling unchanged.
+
 ## Usage Rules
 
 - README, release notes, and console entry surfaces should use the command chamber visual as the primary banner.

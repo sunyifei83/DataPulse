@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from datapulse.console_deck import build_mission_deck_suggestions
 from datapulse.console_markup import render_console_html
@@ -30,6 +30,18 @@ class WatchCreateRequest(BaseModel):
     min_confidence: float = 0.0
     top_n: int = 5
     alert_rules: list[dict[str, Any]] | None = None
+
+
+class WatchUpdateRequest(BaseModel):
+    name: str | None = None
+    query: str | None = None
+    platforms: list[str] | None = None
+    sites: list[str] | None = None
+    schedule: str | None = None
+    min_confidence: float | None = None
+    top_n: int | None = None
+    alert_rules: list[dict[str, Any]] | None = None
+    enabled: bool | None = None
 
 
 class WatchAlertRuleRequest(BaseModel):
@@ -68,6 +80,45 @@ class StoryUpdateRequest(BaseModel):
     title: str | None = None
     summary: str | None = None
     status: str | None = None
+
+
+class StoryCreateRequest(BaseModel):
+    title: str
+    summary: str = ""
+    status: str = "active"
+    model_config = ConfigDict(extra="allow")
+
+
+class StoryFromTriageRequest(BaseModel):
+    item_ids: list[str]
+    title: str | None = None
+    summary: str = ""
+    status: str = "monitoring"
+
+
+class AlertRouteCreateRequest(BaseModel):
+    name: str
+    channel: str
+    description: str | None = None
+    webhook_url: str | None = None
+    authorization: str | None = None
+    headers: dict[str, str] | None = None
+    feishu_webhook: str | None = None
+    telegram_bot_token: str | None = None
+    telegram_chat_id: str | None = None
+    timeout_seconds: float | None = Field(default=None, gt=0)
+
+
+class AlertRouteUpdateRequest(BaseModel):
+    channel: str | None = None
+    description: str | None = None
+    webhook_url: str | None = None
+    authorization: str | None = None
+    headers: dict[str, str] | None = None
+    feishu_webhook: str | None = None
+    telegram_bot_token: str | None = None
+    telegram_chat_id: str | None = None
+    timeout_seconds: float | None = Field(default=None, gt=0)
 
 
 def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) -> FastAPI:
@@ -116,7 +167,7 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
         alerts = reader.list_alerts(limit=20)
         routes = reader.list_alert_routes()
         status = reader.watch_status_snapshot()
-        stories = reader.list_stories(limit=5000, min_items=2)
+        stories = reader.list_stories(limit=5000, min_items=0)
         return {
             "enabled_watches": sum(1 for watch in watches if watch.get("enabled", True)),
             "disabled_watches": sum(1 for watch in watches if not watch.get("enabled", True)),
@@ -150,6 +201,16 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     @app.post("/api/watches")
     def create_watch(payload: WatchCreateRequest) -> dict[str, Any]:
         return reader_factory().create_watch(**payload.model_dump())
+
+    @app.put("/api/watches/{identifier}")
+    def update_watch(identifier: str, payload: WatchUpdateRequest) -> dict[str, Any]:
+        try:
+            mission = reader_factory().update_watch(identifier, **payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if mission is None:
+            raise HTTPException(status_code=404, detail=f"Watch mission not found: {identifier}")
+        return mission
 
     @app.post("/api/console/deck/suggestions")
     def mission_deck_suggestions(payload: WatchDeckSuggestionRequest) -> dict[str, Any]:
@@ -202,6 +263,30 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     def list_alert_routes() -> list[dict[str, Any]]:
         return reader_factory().list_alert_routes()
 
+    @app.post("/api/alert-routes")
+    def create_alert_route(payload: AlertRouteCreateRequest) -> dict[str, Any]:
+        try:
+            return reader_factory().create_alert_route(**payload.model_dump(exclude_none=True))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.put("/api/alert-routes/{identifier}")
+    def update_alert_route(identifier: str, payload: AlertRouteUpdateRequest) -> dict[str, Any]:
+        try:
+            route = reader_factory().update_alert_route(identifier, **payload.model_dump(exclude_none=True))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if route is None:
+            raise HTTPException(status_code=404, detail=f"Alert route not found: {identifier}")
+        return route
+
+    @app.delete("/api/alert-routes/{identifier}")
+    def delete_alert_route(identifier: str) -> dict[str, Any]:
+        route = reader_factory().delete_alert_route(identifier)
+        if route is None:
+            raise HTTPException(status_code=404, detail=f"Alert route not found: {identifier}")
+        return route
+
     @app.get("/api/alert-routes/health")
     def alert_route_health(limit: int = 100) -> list[dict[str, Any]]:
         return reader_factory().alert_route_health(limit=limit)
@@ -219,8 +304,22 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
         return reader_factory().governance_scorecard_snapshot()
 
     @app.get("/api/stories")
-    def list_stories(limit: int = 8, min_items: int = 2) -> list[dict[str, Any]]:
+    def list_stories(limit: int = 8, min_items: int = 0) -> list[dict[str, Any]]:
         return reader_factory().list_stories(limit=limit, min_items=min_items)
+
+    @app.post("/api/stories")
+    def create_story(payload: StoryCreateRequest) -> dict[str, Any]:
+        try:
+            return reader_factory().create_story(**payload.model_dump(exclude_none=True))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/stories/from-triage")
+    def create_story_from_triage(payload: StoryFromTriageRequest) -> dict[str, Any]:
+        try:
+            return reader_factory().create_story_from_triage(**payload.model_dump(exclude_none=True))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/stories/{identifier}")
     def show_story(identifier: str) -> dict[str, Any]:
@@ -235,6 +334,13 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
             story = reader_factory().update_story(identifier, **payload.model_dump())
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if story is None:
+            raise HTTPException(status_code=404, detail=f"Story not found: {identifier}")
+        return story
+
+    @app.delete("/api/stories/{identifier}")
+    def delete_story(identifier: str) -> dict[str, Any]:
+        story = reader_factory().delete_story(identifier)
         if story is None:
             raise HTTPException(status_code=404, detail=f"Story not found: {identifier}")
         return story
@@ -289,6 +395,13 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     @app.post("/api/triage/{item_id}/note")
     def triage_note(item_id: str, payload: TriageNoteRequest) -> dict[str, Any]:
         item = reader_factory().triage_note(item_id, **payload.model_dump())
+        if item is None:
+            raise HTTPException(status_code=404, detail=f"Triage item not found: {item_id}")
+        return item
+
+    @app.delete("/api/triage/{item_id}")
+    def triage_delete(item_id: str) -> dict[str, Any]:
+        item = reader_factory().triage_delete(item_id)
         if item is None:
             raise HTTPException(status_code=404, detail=f"Triage item not found: {item_id}")
         return item

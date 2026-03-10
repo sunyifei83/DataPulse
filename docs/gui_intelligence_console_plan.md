@@ -250,6 +250,161 @@ Dependency:
 4. Fold delivery observations (`AlertEvent`, routes, story export, ops facts) into one route-backed output model before richer subscriptions.
 5. Expand drill-down only after the lifecycle nouns stay stable across all surfaces.
 
+## Follow-up Baseline
+
+The console has now crossed the "missing CRUD" phase.
+
+Current browser baseline:
+
+- mission, triage, story, and route flows all have first-cut create/read/update/delete coverage inside the shell
+- triage-to-story promotion, story-to-triage evidence focus, route CRUD, command palette persistence, URL deep links, saved views, pinned views, default landing views, and context-lens sharing are all available
+- onboarding and empty states now teach the in-browser lifecycle `Mission Intake -> Mission Board/Cockpit -> Triage -> Story Workspace -> Route Manager / Distribution Health` instead of sending first-time operators back to CLI-first assumptions
+- story and route onboarding now point to browser actions such as `Create Story`, `Story Intake`, `Alert Route`, and `Route Manager`, keeping first-pass operation inside the shell
+- the remaining problem is no longer "can the browser do the lifecycle work" but "can operators move through it with lower cognitive load, clearer priorities, and stronger product fit"
+
+That changes the follow-up shape.
+
+- the next slices should optimize operating feel, information architecture, and verification safety
+- they should not reopen parallel browser-only state models or fork the Reader-backed lifecycle contract
+
+## Repo-Relevant Follow-up Slice Map
+
+This follow-up map is promoted into the repository blueprint as phase `L11` on March 10, 2026.
+
+### L11.1 Visual System Consolidation
+
+Goal:
+
+- turn the current shell from a capable dark dashboard into a more legible operating surface with clearer hierarchy, calmer scan paths, and stronger brand consistency
+
+Repo anchors:
+
+- `datapulse/console_markup.py`
+- `docs/brand_identity.md`
+- `docs/gui_intelligence_console_plan.md`
+
+Focus:
+
+- unify header, dock, card, toolbar, chip, empty-state, and danger-action styling
+- reduce large undifferentiated dark panels and make primary actions visually obvious
+- keep the command-chamber visual language without drifting into a generic admin template
+
+Exit condition:
+
+- the shell has one explicit visual system for hierarchy, emphasis, alerts, danger states, and empty states across mission, triage, story, route, and topbar surfaces
+
+Landing note on March 10, 2026:
+
+- landed a sticky topbar with explicit section navigation, context lens controls, and pinned-view dock support
+- consolidated mission intake into stepped deck sections, calmer guide cards, and clearer primary-vs-secondary toolbar emphasis
+- reused the same card, toolbox, batch-toolbar, empty-state, chip, and danger-action treatment across mission, triage, story, route, and ops surfaces
+- added bilingual typography handling so Chinese labels do not inherit the condensed Latin treatment that was tuned for the English shell
+
+### L11.2 Workspace Mode And Information-Architecture Compression
+
+Goal:
+
+- reduce first-load cognitive load by grouping the long single-page console into clearer operating modes instead of asking users to parse every module at once
+
+Repo anchors:
+
+- `datapulse/console_markup.py`
+- `docs/gui_intelligence_console_plan.md`
+
+Focus:
+
+- introduce a mode layer such as `Operations / Review / Config`
+- make default landing views and top-level section visibility feel intentional rather than exhaustive
+- preserve deep-link, saved-view, and context-lens semantics while reducing visible noise
+
+Exit condition:
+
+- a first-time operator can identify the current working mode and relevant modules without scanning the full page length
+
+Landing note on March 10, 2026:
+
+- grouped the browser shell into explicit `Operations`, `Review`, and `Config` workspace modes instead of leaving every major module visible in one long default surface
+- moved mission intake, mission board, and cockpit into the operations lane; triage and stories into the review lane; ops, alert stream, route manager, and delivery health into the config lane
+- kept section hash, saved-view, pinned-view, and context-lens behavior intact by deriving the active workspace mode from the currently focused section rather than inventing a parallel routing model
+- updated focus jumps such as mission draft, story intake, and route deck to switch to the correct workspace mode before scrolling, so hidden-mode modules still open predictably
+
+### L11.3 High-Frequency Action And Convenience Uplift
+
+Goal:
+
+- make the shell feel faster for repeat operators by pushing likely next actions closer to the data instead of relying on memory and scrolling
+
+Repo anchors:
+
+- `datapulse/console_markup.py`
+- `datapulse/console_server.py`
+- `tests/test_console_server.py`
+
+Focus:
+
+- add stronger card-level quick actions and next-best-action affordances across mission, triage, story, and route flows
+- expand keyboard shortcuts and bulk-action safety where they materially reduce handling time
+- keep reversible mutations and clear danger semantics as the guardrail for faster interaction
+
+Exit condition:
+
+- the highest-frequency mission-to-triage-to-story-to-route workflows can be driven with fewer context switches, fewer scroll jumps, and less recall burden
+
+### L11.4 Guided Onboarding And Empty-State Productization
+
+Goal:
+
+- lower the barrier for first-time and intermittent users by making the shell teach the lifecycle instead of assuming they already understand it
+
+Repo anchors:
+
+- `datapulse/console_markup.py`
+- `docs/datapulse_console_parameter_guide.md`
+- `docs/gui_intelligence_console_plan.md`
+
+Focus:
+
+- add guided empty states, first-step prompts, and short lifecycle copy for mission creation, triage review, story promotion, and route setup
+- make the shell explain why each area exists and what action is expected next
+- keep the UI concise; guidance should reduce confusion, not become a tutorial wall
+
+Exit condition:
+
+- a new operator can understand the lifecycle path `Mission -> Triage -> Story -> Route` from inside the browser without falling back to the CLI docs first
+
+### L11.5 Browser Interaction Verification Hardening
+
+Goal:
+
+- stop the growing stateful UI surface from regressing silently while the productization slices land
+
+Repo anchors:
+
+- `scripts/datapulse_console_browser_smoke.py`
+- `scripts/datapulse_console_smoke.sh`
+- `tests/test_console_server.py`
+- `datapulse/console_markup.py`
+
+Focus:
+
+- add browser-level regression coverage for deep-link restore, saved-view and pinned-dock flows, default landing behavior, triage-to-story promotion, route CRUD, and context reset
+- keep the verification surface repo-local and compatible with the existing smoke path
+- prefer a small set of high-signal operating-flow checks over brittle snapshot coverage
+
+Exit condition:
+
+- the most stateful browser workflows have repeatable regression coverage strong enough to protect further console productization work
+
+## Manual Ignition Order
+
+Recommended ignition order:
+
+1. `L11.1` because visual hierarchy is now the highest-leverage improvement to perceived quality and scan speed.
+2. `L11.2` because layout compression should follow the new hierarchy rather than be designed against the old one.
+3. `L11.3` because convenience work is easier to judge after hierarchy and mode boundaries are clearer.
+4. `L11.4` because onboarding copy should describe the refined flow rather than the current transitional one.
+5. `L11.5` before closing the phase, or earlier if UI churn accelerates and manual verification starts lagging.
+
 ## Definition of Done
 
 - console can cover current watch mission lifecycle end-to-end

@@ -214,6 +214,69 @@ def test_story_show_and_export_markdown(tmp_path):
     assert "## Timeline" in exported
 
 
+def test_story_create_and_delete_roundtrip(tmp_path):
+    reader = _reader(tmp_path, [])
+
+    created = reader.create_story(
+        title="Manual Brief",
+        summary="Operator-authored manual brief",
+        status="monitoring",
+    )
+
+    assert created["title"] == "Manual Brief"
+    assert created["status"] == "monitoring"
+    assert created["item_count"] == 0
+    assert reader.list_stories(limit=10, min_items=0)[0]["id"] == created["id"]
+
+    deleted = reader.delete_story(created["id"])
+
+    assert deleted is not None
+    assert deleted["id"] == created["id"]
+    assert reader.list_stories(limit=10, min_items=0) == []
+
+
+def test_story_create_from_triage_items(tmp_path):
+    reader = _reader(
+        tmp_path,
+        [
+            _make_item(
+                "item-1",
+                title="Launch Watch",
+                content="Launch watch says OpenAI product launch works for developers.",
+                url="https://example.com/launch-watch",
+                source_name="src-a",
+                confidence=0.9,
+                entities=["OpenAI"],
+                review_state="triaged",
+            ),
+            _make_item(
+                "item-2",
+                title="Launch Follow-up",
+                content="Follow-up confirms rollout timing and developer impact.",
+                url="https://example.com/launch-follow-up",
+                source_name="src-b",
+                confidence=0.83,
+                entities=["OpenAI", "Developers"],
+                review_state="verified",
+            ),
+        ],
+    )
+
+    created = reader.create_story_from_triage(
+        ["item-1", "item-2"],
+        title="Launch Queue Seed",
+        status="monitoring",
+    )
+
+    assert created["title"] == "Launch Queue Seed"
+    assert created["status"] == "monitoring"
+    assert created["item_count"] == 2
+    assert created["primary_item_id"] == "item-1"
+    assert created["primary_evidence"][0]["item_id"] == "item-1"
+    assert created["secondary_evidence"][0]["item_id"] == "item-2"
+    assert created["governance"]["provenance"]["story_id"] == created["id"]
+
+
 def test_story_build_governance_tracks_verified_primary_evidence(tmp_path):
     reader = _reader(
         tmp_path,

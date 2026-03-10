@@ -507,6 +507,44 @@ def test_alert_route_store_redacts_sensitive_fields(tmp_path, monkeypatch):
     assert routes[0]["authorization"] == "***"
 
 
+def test_alert_route_store_create_update_delete_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_ALERT_ROUTING_PATH", str(tmp_path / "alert-routes.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    created = reader.create_alert_route(
+        name="Ops-Webhook",
+        channel="webhook",
+        description="Primary ops path",
+        webhook_url="https://hooks.example.com/ops",
+        authorization="Bearer top-secret",
+        headers={"X-Env": "prod"},
+        timeout_seconds=12,
+    )
+
+    assert created["name"] == "ops-webhook"
+    assert created["authorization"] == "***"
+    assert created["headers"]["X-Env"] == "prod"
+
+    updated = reader.update_alert_route(
+        "ops-webhook",
+        description="Updated ops path",
+        headers={"X-Env": "prod", "X-Route": "ops"},
+    )
+
+    assert updated is not None
+    assert updated["description"] == "Updated ops path"
+    assert updated["authorization"] == "***"
+    assert updated["headers"]["X-Route"] == "ops"
+
+    deleted = reader.delete_alert_route("ops-webhook")
+
+    assert deleted is not None
+    assert deleted["name"] == "ops-webhook"
+    assert reader.list_alert_routes() == []
+    stored = json.loads((tmp_path / "alert-routes.json").read_text(encoding="utf-8"))
+    assert stored["routes"] == {}
+
+
 @pytest.mark.asyncio
 async def test_alert_route_health_reports_degraded_named_route(tmp_path, monkeypatch):
     monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))

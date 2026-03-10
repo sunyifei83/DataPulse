@@ -1,8 +1,8 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-08T00:00:00Z",
-  "status": "completed",
+  "generated_at_utc": "2026-03-10T03:12:38Z",
+  "status": "in_progress",
   "activation": {
     "wired": true,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",

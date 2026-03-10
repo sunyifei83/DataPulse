@@ -2,12 +2,12 @@
   "valid": true,
   "schema_version": "datapulse_ha_delivery_landing.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-09T03:52:30Z",
+  "generated_at_utc": "2026-03-10T06:26:03Z",
   "wired": false,
   "source_adapter_bundle": {
     "source_kind": "derived_temp_bundle",
-    "bundle_dir": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpmlp2bitu/adapter_bundle",
-    "manifest_path": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpmlp2bitu/adapter_bundle/adapter_bundle_manifest.draft.json",
+    "bundle_dir": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpoxuyfy28/adapter_bundle",
+    "manifest_path": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpoxuyfy28/adapter_bundle/adapter_bundle_manifest.draft.json",
     "ephemeral": true
   },
   "source_ha_delivery_facts": {
@@ -74,7 +74,7 @@
             "manual_handoff_still_required"
           ],
           "suggested_artifacts": [
-            "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpmlp2bitu/adapter_bundle/blueprint_plan.snapshot.json",
+            "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpoxuyfy28/adapter_bundle/blueprint_plan.snapshot.json",
             "scripts/governance/run_governance_loop_bundle_draft.py",
             "repository workflow, scheduler, or explicit loop trigger entrypoint"
           ],
@@ -89,11 +89,6 @@
       "track_id": "runtime_cutover_window",
       "status": "open",
       "items": [
-        {
-          "fact": "ci_run_failed",
-          "category": "machine_blocker",
-          "summary": "This is a machine-decidable operating blocker and should not be promoted into reusable-core coupling."
-        },
         {
           "fact": "repo_landed_false",
           "category": "derived_promotion_gate",
@@ -127,7 +122,6 @@
       "repo_auto_continuation_policy"
     ],
     "runtime_cutover_window_facts": [
-      "ci_run_failed",
       "repo_landed_false",
       "workspace_dirty"
     ],
@@ -137,7 +131,6 @@
     "release_structuring_facts": [],
     "release_structuring_projection": [],
     "machine_blockers": [
-      "ci_run_failed",
       "repo_landed_false",
       "workspace_dirty"
     ]
@@ -155,7 +148,6 @@
       "target_pipeline_class_reached": false
     },
     "stop_on_machine_blockers": [
-      "ci_run_failed",
       "repo_landed_false",
       "workspace_dirty"
     ],
@@ -165,7 +157,6 @@
         "repo_auto_continuation_policy"
       ],
       "runtime_facts": [
-        "ci_run_failed",
         "repo_landed_false",
         "workspace_dirty"
       ],
@@ -174,6 +165,6 @@
   },
   "recommended_actions": [
     "Keep repo-governance cutover limited to the declared surfaces: repo_auto_continuation_policy",
-    "Resolve runtime cutover window facts separately from architecture work: ci_run_failed, repo_landed_false, workspace_dirty"
+    "Resolve runtime cutover window facts separately from architecture work: repo_landed_false, workspace_dirty"
   ]
 }

@@ -5,49 +5,49 @@
   "reason": "awaiting_manual_slice_execution",
   "current_level": "manual_only",
   "next_slice": {
-    "id": "L8.5",
-    "title": "Expose intelligence governance scorecard signals in reader and console ops surfaces",
+    "id": "L11.5",
+    "title": "Harden browser-level regression coverage for deep links, saved views, dock behavior, triage-to-story flow, and route CRUD",
     "category": "manual",
-    "phase_id": "L8",
+    "phase_id": "L11",
     "execution_profile": "local_wrapper",
     "promotion_scope": "none",
     "closes_gates": []
   },
   "slice_execution_brief": {
-    "slice_id": "L8.5",
-    "phase_id": "L8",
-    "title": "Expose intelligence governance scorecard signals in reader and console ops surfaces",
+    "slice_id": "L11.5",
+    "phase_id": "L11",
+    "title": "Harden browser-level regression coverage for deep links, saved views, dock behavior, triage-to-story flow, and route CRUD",
     "category": "manual",
     "execution_profile": "local_wrapper",
-    "adapter_type": "governance_scorecard",
-    "execute_mode": "manual_implementation",
-    "summary": "Expose intelligence governance scorecard signals in reader and console ops surfaces.",
+    "adapter_type": "local_wrapper",
+    "execute_mode": "manual_local_command",
+    "summary": "Harden browser-level regression coverage for deep links, saved views, dock behavior, triage-to-story flow, and route CRUD",
     "candidate_commands": [
-      "sed -n '1,260p' docs/commercial_intelligence_governance_blueprint.md",
-      "sed -n '1,260p' datapulse/reader.py",
-      "sed -n '1,260p' datapulse/console_server.py",
-      "sed -n '1,220p' docs/gui_intelligence_console_plan.md",
-      "uv run pytest tests/test_console_server.py -q"
+      "bash scripts/datapulse_console_smoke.sh",
+      "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+      "uv run --with playwright python scripts/datapulse_console_browser_smoke.py",
+      "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_watchlist.py tests/test_alerts.py tests/test_story.py -q"
     ],
     "verification_commands": [
-      "uv run pytest tests/test_console_server.py -q"
+      "bash scripts/datapulse_console_smoke.sh",
+      "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+      "uv run --with playwright python scripts/datapulse_console_browser_smoke.py",
+      "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_watchlist.py tests/test_alerts.py tests/test_story.py -q"
     ],
     "target_artifacts": [
-      "datapulse/reader.py",
-      "datapulse/console_server.py",
-      "docs/gui_intelligence_console_plan.md",
-      "tests/test_console_server.py"
+      "scripts/datapulse_console_smoke.sh",
+      "scripts/datapulse_console_browser_smoke.py",
+      "tests/test_console_server.py",
+      "datapulse/console_markup.py"
     ],
-    "exit_condition": "Reader and console ops surfaces expose scorecard signals for coverage, freshness, alert yield, triage throughput, and story conversion.",
+    "exit_condition": "The most stateful browser flows have repeatable regression coverage strong enough to protect further console productization and layout work from silent breakage.",
     "notes": [
-      "Prefer scorecard signals that reflect intelligence usefulness, not only collector uptime.",
-      "Coverage, freshness, alert yield, triage throughput, and story conversion should stay derivable from existing lifecycle objects.",
-      "exit_condition: Reader and console ops surfaces expose scorecard signals for coverage, freshness, alert yield, triage throughput, and story conversion.",
+      "exit_condition: The most stateful browser flows have repeatable regression coverage strong enough to protect further console productization and layout work from silent breakage.",
       "promotion_scope: none",
-      "fact_source: conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+      "No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice."
     ],
     "source": {
-      "catalog_entry": true,
+      "catalog_entry": false,
       "plan_slice": true
     }
   },

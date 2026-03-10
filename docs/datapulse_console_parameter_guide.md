@@ -29,6 +29,30 @@
 - `max_age_minutes`
 - 非 `json` 直配 channel
 
+## 浏览器生命周期快路径
+
+控制台现在默认按浏览器内的真实操作路径组织，不需要先从 CLI 文档入手：
+
+1. `Quick Start / Deploy Mission`
+
+先填 `Name + Query` 创建 mission；需要时再补 `Schedule`、`Platform`、`Alert Route` 等范围或交付条件。
+
+2. `Mission Board / Mission Cockpit`
+
+创建后先在浏览器里执行 mission，确认最近 runs、结果流、时间线和 alert rule editor 是否符合预期。
+
+3. `Triage Queue`
+
+mission run 写入 inbox 后，证据会在这里进入分诊。你可以直接完成核验、去重、备注，并使用 `Create Story` 做故事提升。
+
+4. `Story Workspace`
+
+故事既可以从 triage 直接提升，也可以先在 `Story Intake` 手工补录。标题、摘要、状态和证据回查都在浏览器里继续完成。
+
+5. `Route Manager / Distribution Health`
+
+命名 route 先在 `Route Manager` 创建，再从 `Deploy Mission` 或 `Mission Cockpit` 的 alert rule editor 绑定；交付表现则在 `Distribution Health` 继续观察。
+
 ## 字段说明
 
 | 控制台字段 | 是否必填 | 实际写入字段 | 填写建议 | 示例 |
@@ -200,6 +224,7 @@
 
 - 快速建一个 mission
 - 快速附加一个基础告警条件
+- 在浏览器里完成 mission -> triage -> story -> route 的首轮操作路径
 - 本地单用户试运行
 
 CLI / MCP / API 更适合：

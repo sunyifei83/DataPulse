@@ -59,10 +59,10 @@
     "project": "DataPulse",
     "current_level": "manual_only",
     "next_slice": {
-      "id": "L9.9",
-      "title": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors",
+      "id": "L11.4",
+      "title": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
       "category": "manual",
-      "phase_id": "L9",
+      "phase_id": "L11",
       "execution_profile": "local_wrapper",
       "promotion_scope": "none",
       "closes_gates": []
@@ -72,8 +72,7 @@
     "ignored_blocking_facts": [],
     "remaining_promotion_gates": [
       "workspace_dirty",
-      "repo_landed_false",
-      "ci_run_failed"
+      "repo_landed_false"
     ],
     "pipeline_contract": {
       "objective": "trusted_delivery_pipeline",
@@ -85,7 +84,7 @@
     "control_contract": {
       "progress_truth": {
         "source": "blueprint_plan_next_open_slice",
-        "current_next_slice_id": "L9.9"
+        "current_next_slice_id": "L11.4"
       },
       "stop_truth": {
         "source": "blocking_facts_and_flow_control",
@@ -157,78 +156,72 @@
       ]
     },
     "adapter_entry": {
-      "slice_id": "L9.9",
-      "phase_id": "L9",
-      "title": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors",
+      "slice_id": "L11.4",
+      "phase_id": "L11",
+      "title": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
       "category": "manual",
       "execution_profile": "local_wrapper",
-      "adapter_type": "trend_feed_input",
-      "execute_mode": "manual_implementation",
-      "summary": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors.",
+      "adapter_type": "local_wrapper",
+      "execute_mode": "manual_local_command",
+      "summary": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
       "candidate_commands": [
-        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
-        "sed -n '1,260p' datapulse/core/watchlist.py",
-        "sed -n '1,260p' datapulse/reader.py",
-        "sed -n '1,260p' docs/source_feed_enhancement_plan.md",
-        "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+        "python3 -m py_compile datapulse/console_markup.py",
+        "python3 -m compileall datapulse",
+        "uv run pytest tests/test_console_server.py -q"
       ],
       "verification_commands": [
-        "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+        "python3 -m py_compile datapulse/console_markup.py",
+        "python3 -m compileall datapulse",
+        "uv run pytest tests/test_console_server.py -q"
       ],
       "target_artifacts": [
-        "datapulse/core/watchlist.py",
-        "datapulse/reader.py",
-        "docs/source_feed_enhancement_plan.md"
+        "datapulse/console_markup.py",
+        "docs/datapulse_console_parameter_guide.md",
+        "docs/gui_intelligence_console_plan.md"
       ],
-      "exit_condition": "Trend-feed inputs can seed watch creation and feed surfaces without being confused with the core URL collector path.",
+      "exit_condition": "A first-time operator can understand the browser lifecycle path from mission creation to triage, story promotion, and route setup without needing to start in CLI documentation.",
       "notes": [
-        "Trend inputs should seed missions and feeds, not pretend to be a replacement for item-level URL collection.",
-        "Keep trend signals distinguishable from directly collected evidence.",
-        "exit_condition: Trend-feed inputs can seed watch creation and feed surfaces without being confused with the core URL collector path.",
+        "exit_condition: A first-time operator can understand the browser lifecycle path from mission creation to triage, story promotion, and route setup without needing to start in CLI documentation.",
         "promotion_scope: none",
-        "source_note: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
-        "fact_source: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+        "No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice."
       ],
       "source": {
-        "catalog_entry": true,
+        "catalog_entry": false,
         "plan_slice": true
       }
     },
     "slice_execution_brief": {
-      "slice_id": "L9.9",
-      "phase_id": "L9",
-      "title": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors",
+      "slice_id": "L11.4",
+      "phase_id": "L11",
+      "title": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
       "category": "manual",
       "execution_profile": "local_wrapper",
-      "adapter_type": "trend_feed_input",
-      "execute_mode": "manual_implementation",
-      "summary": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors.",
+      "adapter_type": "local_wrapper",
+      "execute_mode": "manual_local_command",
+      "summary": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
       "candidate_commands": [
-        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
-        "sed -n '1,260p' datapulse/core/watchlist.py",
-        "sed -n '1,260p' datapulse/reader.py",
-        "sed -n '1,260p' docs/source_feed_enhancement_plan.md",
-        "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+        "python3 -m py_compile datapulse/console_markup.py",
+        "python3 -m compileall datapulse",
+        "uv run pytest tests/test_console_server.py -q"
       ],
       "verification_commands": [
-        "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+        "python3 -m py_compile datapulse/console_markup.py",
+        "python3 -m compileall datapulse",
+        "uv run pytest tests/test_console_server.py -q"
       ],
       "target_artifacts": [
-        "datapulse/core/watchlist.py",
-        "datapulse/reader.py",
-        "docs/source_feed_enhancement_plan.md"
+        "datapulse/console_markup.py",
+        "docs/datapulse_console_parameter_guide.md",
+        "docs/gui_intelligence_console_plan.md"
       ],
-      "exit_condition": "Trend-feed inputs can seed watch creation and feed surfaces without being confused with the core URL collector path.",
+      "exit_condition": "A first-time operator can understand the browser lifecycle path from mission creation to triage, story promotion, and route setup without needing to start in CLI documentation.",
       "notes": [
-        "Trend inputs should seed missions and feeds, not pretend to be a replacement for item-level URL collection.",
-        "Keep trend signals distinguishable from directly collected evidence.",
-        "exit_condition: Trend-feed inputs can seed watch creation and feed surfaces without being confused with the core URL collector path.",
+        "exit_condition: A first-time operator can understand the browser lifecycle path from mission creation to triage, story promotion, and route setup without needing to start in CLI documentation.",
         "promotion_scope: none",
-        "source_note: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
-        "fact_source: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+        "No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice."
       ],
       "source": {
-        "catalog_entry": true,
+        "catalog_entry": false,
         "plan_slice": true
       }
     },
@@ -270,49 +263,46 @@
     "eligible_now": true,
     "reason_if_not_eligible": "",
     "next_slice": {
-      "id": "L9.9",
-      "title": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors",
+      "id": "L11.4",
+      "title": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
       "category": "manual",
-      "phase_id": "L9",
+      "phase_id": "L11",
       "execution_profile": "local_wrapper",
       "promotion_scope": "none",
       "closes_gates": []
     },
     "slice_execution_brief": {
-      "slice_id": "L9.9",
-      "phase_id": "L9",
-      "title": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors",
+      "slice_id": "L11.4",
+      "phase_id": "L11",
+      "title": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
       "category": "manual",
       "execution_profile": "local_wrapper",
-      "adapter_type": "trend_feed_input",
-      "execute_mode": "manual_implementation",
-      "summary": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors.",
+      "adapter_type": "local_wrapper",
+      "execute_mode": "manual_local_command",
+      "summary": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
       "candidate_commands": [
-        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
-        "sed -n '1,260p' datapulse/core/watchlist.py",
-        "sed -n '1,260p' datapulse/reader.py",
-        "sed -n '1,260p' docs/source_feed_enhancement_plan.md",
-        "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+        "python3 -m py_compile datapulse/console_markup.py",
+        "python3 -m compileall datapulse",
+        "uv run pytest tests/test_console_server.py -q"
       ],
       "verification_commands": [
-        "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+        "python3 -m py_compile datapulse/console_markup.py",
+        "python3 -m compileall datapulse",
+        "uv run pytest tests/test_console_server.py -q"
       ],
       "target_artifacts": [
-        "datapulse/core/watchlist.py",
-        "datapulse/reader.py",
-        "docs/source_feed_enhancement_plan.md"
+        "datapulse/console_markup.py",
+        "docs/datapulse_console_parameter_guide.md",
+        "docs/gui_intelligence_console_plan.md"
       ],
-      "exit_condition": "Trend-feed inputs can seed watch creation and feed surfaces without being confused with the core URL collector path.",
+      "exit_condition": "A first-time operator can understand the browser lifecycle path from mission creation to triage, story promotion, and route setup without needing to start in CLI documentation.",
       "notes": [
-        "Trend inputs should seed missions and feeds, not pretend to be a replacement for item-level URL collection.",
-        "Keep trend signals distinguishable from directly collected evidence.",
-        "exit_condition: Trend-feed inputs can seed watch creation and feed surfaces without being confused with the core URL collector path.",
+        "exit_condition: A first-time operator can understand the browser lifecycle path from mission creation to triage, story promotion, and route setup without needing to start in CLI documentation.",
         "promotion_scope: none",
-        "source_note: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
-        "fact_source: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+        "No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice."
       ],
       "source": {
-        "catalog_entry": true,
+        "catalog_entry": false,
         "plan_slice": true
       }
     }

@@ -132,6 +132,23 @@ def test_triage_stats_counts_states(tmp_path):
     assert payload["grounding"]["evidence_span_count"] >= payload["grounding"]["claim_count"]
 
 
+def test_triage_delete_removes_item_from_inbox(tmp_path):
+    reader = _reader(
+        tmp_path,
+        [
+            _make_item("item-1", title="Delete Me"),
+            _make_item("item-2", title="Keep Me"),
+        ],
+    )
+
+    payload = reader.triage_delete("item-1")
+    reloaded = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+
+    assert payload is not None
+    assert payload["id"] == "item-1"
+    assert [item.id for item in reloaded.inbox.items] == ["item-2"]
+
+
 def test_triage_explain_duplicate_ranks_candidate(tmp_path):
     reader = _reader(
         tmp_path,
