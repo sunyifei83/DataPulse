@@ -8,13 +8,19 @@ from pathlib import Path
 from typing import Any
 
 from datapulse_loop_adapter_draft import DEFAULT_CATALOG_PATH
-from datapulse_loop_contracts import DEFAULT_OUT_DIR, DEFAULT_PLAN_PATH, build_code_landing_status, load_plan, utc_now, write_json
+from datapulse_loop_contracts import (
+    DEFAULT_OUT_DIR,
+    DEFAULT_PLAN_PATH,
+    build_code_landing_status,
+    load_plan,
+    utc_now,
+    write_json,
+)
 from export_datapulse_ha_delivery_facts import build_ha_delivery_facts
 from export_datapulse_loop_adapter_bundle import build_manifest
 from export_governance_loop_activation_intent import build_activation_intent
 from export_governance_loop_activation_plan import load_activation_plan_from_bundle
 from export_governance_loop_activation_preview import build_activation_preview
-
 
 TARGET_HA_LEVEL = "ha_release_structured"
 RELEASE_FACT_TO_SURFACE = {
@@ -77,9 +83,8 @@ def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def write_temp_bundle(bundle_dir: Path, plan_path: Path, catalog_path: Path) -> None:
+def write_temp_bundle(bundle_dir: Path, plan_path: Path, catalog_path: Path, landing_status: dict[str, Any]) -> None:
     plan = load_plan(plan_path)
-    landing_status = build_code_landing_status()
     project = str(plan.get("project", landing_status.get("project", "DataPulse")))
     activation = dict(plan.get("activation", {}))
     auto_policy = activation.get("auto_continuation", {})
@@ -271,6 +276,7 @@ def invalid_payload(errors: list[str], source_adapter_bundle: dict[str, Any], so
 
 
 def build_ha_delivery_landing(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
+    landing_status = build_code_landing_status()
     ha_facts, ha_source = load_ha_facts(args)
 
     if args.bundle_dir:
@@ -287,7 +293,7 @@ def build_ha_delivery_landing(args: argparse.Namespace) -> tuple[dict[str, Any],
         with tempfile.TemporaryDirectory() as tmp_dir:
             bundle_dir = Path(tmp_dir) / "adapter_bundle"
             bundle_dir.mkdir(parents=True, exist_ok=True)
-            write_temp_bundle(bundle_dir, args.plan, args.catalog)
+            write_temp_bundle(bundle_dir, args.plan, args.catalog, landing_status)
             activation_plan, intent, preview, exit_code = load_activation_stack(bundle_dir)
             source_adapter_bundle = {
                 "source_kind": "derived_temp_bundle",
@@ -354,6 +360,9 @@ def build_ha_delivery_landing(args: argparse.Namespace) -> tuple[dict[str, Any],
             "target_level": TARGET_HA_LEVEL,
             "target_pipeline_class": target_pipeline_class,
         },
+        "repo_loop_summary": dict(landing_status.get("headline_summary", {}))
+        if isinstance(landing_status.get("headline_summary", {}), dict)
+        else {},
         "delivery_status": {
             "status": status,
             "reason_codes": reason_codes(

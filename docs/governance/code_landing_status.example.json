@@ -4,6 +4,25 @@
   "generated_at_utc": "2026-03-07T00:00:00Z",
   "status_kind": "example_contract",
   "wired": false,
+  "headline_summary": {
+    "current_level": "manual_only",
+    "workspace_clean": false,
+    "head_published_to_upstream": false,
+    "repo_landed": false,
+    "ci_proven": false,
+    "ci_proof_mode": "governance_evidence_dispatch",
+    "required_workflow": "governance-evidence.yml",
+    "quick_test_gate": {
+      "status": "passed",
+      "observed": true,
+      "current_head_match": true,
+      "ok": true,
+      "generated_at_utc": "2026-03-10T00:00:00Z",
+      "head": "abc123",
+      "branch": "main",
+      "path": "artifacts/governance/quick_test_gate.draft.json"
+    }
+  },
   "workspace": {
     "clean": false,
     "reason": "Assessment snapshot observed a dirty worktree."
@@ -22,7 +41,7 @@
       "wrapper_command": "python3 scripts/governance/run_datapulse_quick_test_gate.py",
       "reason": "Current semantics are not declared as the canonical strict gate set.",
       "latest_observation": {
-        "path": "out/governance/quick_test_gate.draft.json",
+        "path": "artifacts/governance/quick_test_gate.draft.json",
         "schema_version": "quick_test_gate.v1",
         "generated_at_utc": "2026-03-10T00:00:00Z",
         "ok": true,
@@ -117,7 +136,7 @@
     }
   },
   "evidence_paths": {
-    "quick_test_gate": "out/governance/quick_test_gate.draft.json",
+    "quick_test_gate": "artifacts/governance/quick_test_gate.draft.json",
     "local_report": "artifacts/openclaw_datapulse_<RUN_ID>/local_report.md",
     "remote_report": "artifacts/openclaw_datapulse_<RUN_ID>/remote_report.md",
     "remote_log": "artifacts/openclaw_datapulse_<RUN_ID>/remote_test.log",

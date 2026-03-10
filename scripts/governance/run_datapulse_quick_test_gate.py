@@ -8,10 +8,9 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from datapulse_loop_contracts import DEFAULT_OUT_DIR, REPO_ROOT, display_path, utc_now, write_json
+from datapulse_loop_contracts import DEFAULT_QUICK_TEST_GATE_PATH, REPO_ROOT, display_path, utc_now, write_json
 
-
-DEFAULT_OUTPUT_PATH = DEFAULT_OUT_DIR / "quick_test_gate.draft.json"
+DEFAULT_OUTPUT_PATH = DEFAULT_QUICK_TEST_GATE_PATH
 
 
 def shell_words(value: str) -> list[str]:

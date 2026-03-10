@@ -7,8 +7,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from loop_core_draft import build_project_loop_state_core, dedupe, ensure_valid_blueprint_plan
-
+from loop_core_draft import (
+    build_project_loop_state_core,
+    current_level_from_promotion_levels,
+    dedupe,
+    ensure_valid_blueprint_plan,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts"
@@ -16,7 +20,7 @@ DRAFT_PLAN_PATH = REPO_ROOT / "docs/governance/datapulse-blueprint-plan.draft.js
 ACTIVE_PLAN_PATH = REPO_ROOT / "docs/governance/datapulse-blueprint-plan.json"
 DEFAULT_PLAN_PATH = ACTIVE_PLAN_PATH if ACTIVE_PLAN_PATH.exists() else DRAFT_PLAN_PATH
 DEFAULT_OUT_DIR = REPO_ROOT / "out/governance"
-DEFAULT_QUICK_TEST_GATE_PATH = DEFAULT_OUT_DIR / "quick_test_gate.draft.json"
+DEFAULT_QUICK_TEST_GATE_PATH = ARTIFACTS_ROOT / "governance" / "quick_test_gate.draft.json"
 WORKFLOW_RUN_FIELDS = [
     "databaseId",
     "headSha",
@@ -299,6 +303,24 @@ def summarize_quick_test_gate(report: dict[str, Any] | None, *, current_head: st
     return {
         "status": status,
         "current_head_match": current_head_match,
+    }
+
+
+def quick_test_gate_headline(verification: dict[str, Any]) -> dict[str, Any]:
+    quick_test = dict(verification.get("quick_test", {})) if isinstance(verification.get("quick_test", {}), dict) else {}
+    observation = (
+        dict(quick_test.get("latest_observation", {})) if isinstance(quick_test.get("latest_observation", {}), dict) else {}
+    )
+    git_payload = dict(observation.get("git", {})) if isinstance(observation.get("git", {}), dict) else {}
+    return {
+        "status": str(quick_test.get("latest_observation_status", "unobserved")),
+        "observed": bool(observation),
+        "current_head_match": bool(quick_test.get("latest_observation_current_head_match", False)),
+        "ok": bool(observation.get("ok", False)) if observation else False,
+        "generated_at_utc": str(observation.get("generated_at_utc", "")),
+        "head": str(git_payload.get("head", "")),
+        "branch": str(git_payload.get("branch", "")),
+        "path": str(observation.get("path", "")),
     }
 
 
@@ -610,6 +632,26 @@ def build_code_landing_status() -> dict[str, Any]:
             ]
         ),
     }
+    promotion_levels = {
+        "repo_landed": {
+            "satisfied": not repo_landed_reasons,
+            "reasons": repo_landed_reasons,
+        },
+        "ci_proven": {
+            "satisfied": not ci_proven_reasons,
+            "reasons": ci_proven_reasons,
+        },
+    }
+    headline_summary = {
+        "current_level": current_level_from_promotion_levels(promotion_levels),
+        "workspace_clean": workspace_clean,
+        "head_published_to_upstream": head_published,
+        "repo_landed": bool(promotion_levels["repo_landed"]["satisfied"]),
+        "ci_proven": bool(promotion_levels["ci_proven"]["satisfied"]),
+        "ci_proof_mode": ci_proof_mode,
+        "required_workflow": "governance-evidence.yml" if docs_only_skip_active else "CI",
+        "quick_test_gate": quick_test_gate_headline(verification),
+    }
 
     return {
         "schema_version": "code_landing_status.v1",
@@ -617,6 +659,7 @@ def build_code_landing_status() -> dict[str, Any]:
         "generated_at_utc": utc_now(),
         "status_kind": "draft_export",
         "wired": False,
+        "headline_summary": headline_summary,
         "git": {
             "head": head_sha,
             "branch": branch,
@@ -660,16 +703,7 @@ def build_code_landing_status() -> dict[str, Any]:
             ],
         },
         "gate_groups": gate_groups,
-        "promotion_levels": {
-            "repo_landed": {
-                "satisfied": not repo_landed_reasons,
-                "reasons": repo_landed_reasons,
-            },
-            "ci_proven": {
-                "satisfied": not ci_proven_reasons,
-                "reasons": ci_proven_reasons,
-            },
-        },
+        "promotion_levels": promotion_levels,
         "observed_evidence": {
             "latest_quick_test_gate": quick_test_report,
             "latest_local_report": local_report,
@@ -853,4 +887,44 @@ def build_project_loop_state(plan: dict[str, Any], landing_status: dict[str, Any
             "path": str(observation.get("path", "")),
         }
     }
+    next_slice = dict(payload.get("next_slice", {})) if isinstance(payload.get("next_slice", {}), dict) else {}
+    flow_control = dict(payload.get("flow_control", {})) if isinstance(payload.get("flow_control", {}), dict) else {}
+    payload["headline_summary"] = {
+        "current_level": str(payload.get("current_level", "")),
+        "workspace_clean": bool(payload.get("workspace_clean", False)),
+        "next_slice_id": str(next_slice.get("id", "")),
+        "next_slice_title": str(next_slice.get("title", "")),
+        "status_if_run_now": str(flow_control.get("status_if_run_now", "")),
+        "reason_if_run_now": str(flow_control.get("reason_if_run_now", "")),
+        "quick_test_gate": dict(payload["local_verification"]["quick_test_gate"]),
+    }
     return payload
+
+
+def build_loop_snapshot_summary(landing_status: dict[str, Any], loop_state: dict[str, Any]) -> dict[str, Any]:
+    landing_headline = (
+        dict(landing_status.get("headline_summary", {}))
+        if isinstance(landing_status.get("headline_summary", {}), dict)
+        else {}
+    )
+    loop_headline = (
+        dict(loop_state.get("headline_summary", {})) if isinstance(loop_state.get("headline_summary", {}), dict) else {}
+    )
+    quick_test_gate = (
+        dict(loop_headline.get("quick_test_gate", {}))
+        if isinstance(loop_headline.get("quick_test_gate", {}), dict)
+        else dict(landing_headline.get("quick_test_gate", {}))
+        if isinstance(landing_headline.get("quick_test_gate", {}), dict)
+        else {}
+    )
+    return {
+        "current_level": str(loop_headline.get("current_level", landing_headline.get("current_level", ""))),
+        "workspace_clean": bool(loop_headline.get("workspace_clean", landing_headline.get("workspace_clean", False))),
+        "next_slice_id": str(loop_headline.get("next_slice_id", "")),
+        "next_slice_title": str(loop_headline.get("next_slice_title", "")),
+        "status_if_run_now": str(loop_headline.get("status_if_run_now", "")),
+        "reason_if_run_now": str(loop_headline.get("reason_if_run_now", "")),
+        "repo_landed": bool(landing_headline.get("repo_landed", False)),
+        "ci_proven": bool(landing_headline.get("ci_proven", False)),
+        "quick_test_gate": quick_test_gate,
+    }

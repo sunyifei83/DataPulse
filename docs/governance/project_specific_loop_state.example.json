@@ -5,6 +5,24 @@
   "state_kind": "example_contract",
   "source_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
   "wired": false,
+  "headline_summary": {
+    "current_level": "manual_only",
+    "workspace_clean": false,
+    "next_slice_id": "L4.1",
+    "next_slice_title": "Add workflow_dispatch evidence workflow",
+    "status_if_run_now": "blocked",
+    "reason_if_run_now": "draft_only_not_wired",
+    "quick_test_gate": {
+      "status": "passed",
+      "observed": true,
+      "current_head_match": true,
+      "ok": true,
+      "generated_at_utc": "2026-03-10T00:00:00Z",
+      "head": "abc123",
+      "branch": "main",
+      "path": "artifacts/governance/quick_test_gate.draft.json"
+    }
+  },
   "current_level": "manual_only",
   "workspace_clean": false,
   "completed_slices": [
@@ -107,5 +125,17 @@
     ]
   },
   "promotion_mode": "manual_only",
-  "stop_reason_if_run_now": "draft_only_not_wired"
+  "stop_reason_if_run_now": "draft_only_not_wired",
+  "local_verification": {
+    "quick_test_gate": {
+      "status": "passed",
+      "observed": true,
+      "current_head_match": true,
+      "ok": true,
+      "generated_at_utc": "2026-03-10T00:00:00Z",
+      "head": "abc123",
+      "branch": "main",
+      "path": "artifacts/governance/quick_test_gate.draft.json"
+    }
+  }
 }

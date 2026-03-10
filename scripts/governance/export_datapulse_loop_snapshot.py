@@ -9,6 +9,7 @@ from datapulse_loop_contracts import (
     DEFAULT_OUT_DIR,
     DEFAULT_PLAN_PATH,
     build_code_landing_status,
+    build_loop_snapshot_summary,
     build_project_loop_state,
     load_plan,
     write_json,
@@ -45,11 +46,13 @@ def main() -> int:
     plan["_source_path"] = str(args.plan.resolve())
     landing_status = build_code_landing_status()
     loop_state = build_project_loop_state(plan, landing_status)
+    summary = build_loop_snapshot_summary(landing_status, loop_state)
 
     if args.stdout:
         print(
             json.dumps(
                 {
+                    "summary": summary,
                     "code_landing_status": landing_status,
                     "project_specific_loop_state": loop_state,
                 },
