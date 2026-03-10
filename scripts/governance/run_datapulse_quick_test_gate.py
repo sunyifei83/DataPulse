@@ -8,7 +8,10 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from datapulse_loop_contracts import REPO_ROOT
+from datapulse_loop_contracts import DEFAULT_OUT_DIR, REPO_ROOT, display_path, utc_now, write_json
+
+
+DEFAULT_OUTPUT_PATH = DEFAULT_OUT_DIR / "quick_test_gate.draft.json"
 
 
 def shell_words(value: str) -> list[str]:
@@ -42,6 +45,19 @@ def detect_python_tool(tool: str, python_cmd: list[str], *, module: str | None =
     return python_cmd + ["-m", module or tool]
 
 
+def git_output(*args: str) -> str:
+    completed = subprocess.run(
+        ["git", *args],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        return ""
+    return completed.stdout.strip()
+
+
 def run_step(name: str, command: list[str]) -> dict[str, object]:
     completed = subprocess.run(command, cwd=REPO_ROOT, check=False, capture_output=True, text=True)
     return {
@@ -59,6 +75,12 @@ def parse_args() -> argparse.Namespace:
         description="Manual-only strict, read-only quick gate for DataPulse. Not wired into existing workflows."
     )
     parser.add_argument(
+        "--out-path",
+        type=Path,
+        default=DEFAULT_OUTPUT_PATH,
+        help="Output path for the persisted quick gate fact.",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         help="Print machine-readable summary JSON.",
@@ -67,7 +89,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    _ = parse_args()
+    args = parse_args()
     python_cmd = detect_python_cmd()
     ruff_cmd = detect_python_tool("ruff", python_cmd)
     mypy_cmd = detect_python_tool("mypy", python_cmd)
@@ -102,10 +124,19 @@ def main() -> int:
 
     ok = all(bool(step["ok"]) for step in steps)
     payload = {
+        "schema_version": "quick_test_gate.v1",
+        "generated_at_utc": utc_now(),
+        "git": {
+            "head": git_output("rev-parse", "HEAD"),
+            "branch": git_output("branch", "--show-current"),
+        },
         "ok": ok,
         "read_only": True,
         "steps": steps,
     }
+    if args.out_path:
+        payload["path"] = display_path(args.out_path.resolve())
+        write_json(args.out_path, payload)
     print(json.dumps(payload, indent=2, ensure_ascii=True))
     return 0 if ok else 1
 

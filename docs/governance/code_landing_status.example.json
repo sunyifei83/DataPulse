@@ -20,7 +20,21 @@
       "required_for_loop": false,
       "truth_source": "scripts/quick_test.sh",
       "wrapper_command": "python3 scripts/governance/run_datapulse_quick_test_gate.py",
-      "reason": "Current semantics are not declared as the canonical strict gate set."
+      "reason": "Current semantics are not declared as the canonical strict gate set.",
+      "latest_observation": {
+        "path": "out/governance/quick_test_gate.draft.json",
+        "schema_version": "quick_test_gate.v1",
+        "generated_at_utc": "2026-03-10T00:00:00Z",
+        "ok": true,
+        "read_only": true,
+        "git": {
+          "head": "abc123",
+          "branch": "main"
+        },
+        "steps": []
+      },
+      "latest_observation_status": "passed",
+      "latest_observation_current_head_match": true
     },
     "local_smoke": {
       "gateable": false,
@@ -103,6 +117,7 @@
     }
   },
   "evidence_paths": {
+    "quick_test_gate": "out/governance/quick_test_gate.draft.json",
     "local_report": "artifacts/openclaw_datapulse_<RUN_ID>/local_report.md",
     "remote_report": "artifacts/openclaw_datapulse_<RUN_ID>/remote_report.md",
     "remote_log": "artifacts/openclaw_datapulse_<RUN_ID>/remote_test.log",

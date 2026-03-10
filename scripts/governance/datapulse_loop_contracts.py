@@ -16,6 +16,7 @@ DRAFT_PLAN_PATH = REPO_ROOT / "docs/governance/datapulse-blueprint-plan.draft.js
 ACTIVE_PLAN_PATH = REPO_ROOT / "docs/governance/datapulse-blueprint-plan.json"
 DEFAULT_PLAN_PATH = ACTIVE_PLAN_PATH if ACTIVE_PLAN_PATH.exists() else DRAFT_PLAN_PATH
 DEFAULT_OUT_DIR = REPO_ROOT / "out/governance"
+DEFAULT_QUICK_TEST_GATE_PATH = DEFAULT_OUT_DIR / "quick_test_gate.draft.json"
 WORKFLOW_RUN_FIELDS = [
     "databaseId",
     "headSha",
@@ -255,6 +256,52 @@ def parse_remote_report(path: Path | None) -> dict[str, Any] | None:
     }
 
 
+def parse_quick_test_gate(path: Path | None = None) -> dict[str, Any] | None:
+    target = path or DEFAULT_QUICK_TEST_GATE_PATH
+    if not target.exists():
+        return None
+    try:
+        payload = read_json(target)
+    except (json.JSONDecodeError, OSError):
+        return None
+    if str(payload.get("schema_version", "")) not in {"", "quick_test_gate.v1"}:
+        return None
+    git_payload = dict(payload.get("git", {})) if isinstance(payload.get("git", {}), dict) else {}
+    return {
+        "path": display_path(target),
+        "schema_version": str(payload.get("schema_version", "quick_test_gate.v1")),
+        "generated_at_utc": str(payload.get("generated_at_utc", "")),
+        "ok": bool(payload.get("ok", False)),
+        "read_only": bool(payload.get("read_only", True)),
+        "git": {
+            "head": str(git_payload.get("head", "")),
+            "branch": str(git_payload.get("branch", "")),
+        },
+        "steps": list(payload.get("steps", [])) if isinstance(payload.get("steps", []), list) else [],
+    }
+
+
+def summarize_quick_test_gate(report: dict[str, Any] | None, *, current_head: str) -> dict[str, Any]:
+    if not report:
+        return {
+            "status": "unobserved",
+            "current_head_match": False,
+        }
+    git_payload = dict(report.get("git", {})) if isinstance(report.get("git", {}), dict) else {}
+    observed_head = str(git_payload.get("head", "")).strip()
+    current_head_match = bool(current_head and observed_head and observed_head == current_head)
+    if current_head_match:
+        status = "passed" if bool(report.get("ok", False)) else "failed"
+    elif observed_head:
+        status = "stale_head"
+    else:
+        status = "observed"
+    return {
+        "status": status,
+        "current_head_match": current_head_match,
+    }
+
+
 def parse_emergency_state(path: Path | None) -> dict[str, Any] | None:
     if path is None or not path.exists():
         return None
@@ -408,7 +455,14 @@ def structured_release_bundle_available() -> bool:
     return False
 
 
-def verification_contracts(local_report: dict[str, Any] | None, remote_report: dict[str, Any] | None) -> dict[str, Any]:
+def verification_contracts(
+    local_report: dict[str, Any] | None,
+    remote_report: dict[str, Any] | None,
+    *,
+    quick_test_report: dict[str, Any] | None = None,
+    current_head: str = "",
+) -> dict[str, Any]:
+    quick_test_summary = summarize_quick_test_gate(quick_test_report, current_head=current_head)
     return {
         "compileall": {
             "gateable": True,
@@ -422,6 +476,9 @@ def verification_contracts(local_report: dict[str, Any] | None, remote_report: d
             "truth_source": "scripts/quick_test.sh",
             "wrapper_command": "python3 scripts/governance/run_datapulse_quick_test_gate.py",
             "reason": "Current semantics are not declared as the canonical strict gate set.",
+            "latest_observation": quick_test_report,
+            "latest_observation_status": quick_test_summary.get("status", "unobserved"),
+            "latest_observation_current_head_match": bool(quick_test_summary.get("current_head_match", False)),
         },
         "local_smoke": {
             "gateable": False,
@@ -467,12 +524,18 @@ def build_code_landing_status() -> dict[str, Any]:
     head_published, upstream_ref, upstream_head = current_head_published(head_sha)
     local_report = parse_local_report(latest_artifact_file("local_report.md"))
     remote_report = parse_remote_report(latest_artifact_file("remote_report.md"))
+    quick_test_report = parse_quick_test_gate()
     emergency_state = parse_emergency_state(latest_artifact_file("emergency_state.json"))
     structured_bundle_ready = structured_release_bundle_available()
     ci_head_run = latest_workflow_run_for_head("CI", head_sha=head_sha, branch=branch)
     governance_head_run = latest_workflow_run_for_head("governance-evidence.yml", head_sha=head_sha, branch=branch)
 
-    verification = verification_contracts(local_report, remote_report)
+    verification = verification_contracts(
+        local_report,
+        remote_report,
+        quick_test_report=quick_test_report,
+        current_head=head_sha,
+    )
     verification_gateable = all(
         (item.get("gateable", False) or item.get("gateable_via_wrapper", False))
         for item in verification.values()
@@ -608,6 +671,7 @@ def build_code_landing_status() -> dict[str, Any]:
             },
         },
         "observed_evidence": {
+            "latest_quick_test_gate": quick_test_report,
             "latest_local_report": local_report,
             "latest_remote_report": remote_report,
             "latest_emergency_state": emergency_state,
@@ -615,6 +679,7 @@ def build_code_landing_status() -> dict[str, Any]:
             "latest_head_governance_evidence_run": governance_head_run,
         },
         "evidence_paths": {
+            "quick_test_gate": display_path(DEFAULT_QUICK_TEST_GATE_PATH),
             "local_report": "artifacts/openclaw_datapulse_<RUN_ID>/local_report.md",
             "remote_report": "artifacts/openclaw_datapulse_<RUN_ID>/remote_report.md",
             "remote_log": "artifacts/openclaw_datapulse_<RUN_ID>/remote_test.log",
@@ -766,9 +831,26 @@ def mark_slice_status(plan: dict[str, Any], slice_id: str, status: str) -> dict[
     return item
 
 def build_project_loop_state(plan: dict[str, Any], landing_status: dict[str, Any]) -> dict[str, Any]:
-    return build_project_loop_state_core(
+    payload = build_project_loop_state_core(
         plan,
         landing_status,
         source_plan=display_path(Path(plan.get("_source_path", DEFAULT_PLAN_PATH))),
         generated_at_utc=utc_now(),
     )
+    verification = dict(landing_status.get("verification", {}))
+    quick_test = dict(verification.get("quick_test", {})) if isinstance(verification.get("quick_test", {}), dict) else {}
+    observation = dict(quick_test.get("latest_observation", {})) if isinstance(quick_test.get("latest_observation", {}), dict) else {}
+    git_payload = dict(observation.get("git", {})) if isinstance(observation.get("git", {}), dict) else {}
+    payload["local_verification"] = {
+        "quick_test_gate": {
+            "status": str(quick_test.get("latest_observation_status", "unobserved")),
+            "observed": bool(observation),
+            "current_head_match": bool(quick_test.get("latest_observation_current_head_match", False)),
+            "ok": bool(observation.get("ok", False)) if observation else False,
+            "generated_at_utc": str(observation.get("generated_at_utc", "")),
+            "head": str(git_payload.get("head", "")),
+            "branch": str(git_payload.get("branch", "")),
+            "path": str(observation.get("path", "")),
+        }
+    }
+    return payload
