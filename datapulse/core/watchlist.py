@@ -442,12 +442,36 @@ class WatchlistStore:
         mission = self.get(identifier)
         if mission is None:
             return None
+        normalized_mission_intent = (
+            mission.mission_intent
+            if mission_intent is None
+            else mission_intent
+            if isinstance(mission_intent, MissionIntent)
+            else MissionIntent.from_dict(mission_intent)
+            if isinstance(mission_intent, dict)
+            else MissionIntent()
+        )
+        normalized_trend_inputs = list(mission.trend_inputs)
+        if trend_inputs is not None:
+            normalized_trend_inputs = []
+            for trend_raw in trend_inputs:
+                if isinstance(trend_raw, TrendFeedInput):
+                    trend_input = trend_raw
+                elif isinstance(trend_raw, dict):
+                    try:
+                        trend_input = TrendFeedInput.from_dict(trend_raw)
+                    except (TypeError, ValueError):
+                        continue
+                else:
+                    continue
+                if trend_input.has_content():
+                    normalized_trend_inputs.append(trend_input)
         updated = WatchMission(
             id=mission.id,
             name=mission.name if name is None else name,
             query=mission.query if query is None else query,
-            mission_intent=mission.mission_intent if mission_intent is None else mission_intent,
-            trend_inputs=mission.trend_inputs if trend_inputs is None else trend_inputs,
+            mission_intent=normalized_mission_intent,
+            trend_inputs=normalized_trend_inputs,
             platforms=mission.platforms if platforms is None else list(platforms),
             sites=mission.sites if sites is None else list(sites),
             schedule=mission.schedule if schedule is None else schedule,

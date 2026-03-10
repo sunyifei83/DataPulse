@@ -37,6 +37,20 @@ def _parse_dt(value: str) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
+def _coerce_timeout_seconds(value: Any, *, default: float | None = None) -> float:
+    if value in (None, ""):
+        if default is not None:
+            return default
+        raise ValueError("timeout_seconds must be numeric")
+    try:
+        timeout_seconds = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("timeout_seconds must be numeric") from exc
+    if timeout_seconds <= 0:
+        raise ValueError("timeout_seconds must be greater than 0")
+    return timeout_seconds
+
+
 @dataclass
 class AlertEvent:
     mission_id: str
@@ -220,13 +234,7 @@ class AlertRouteStore:
 
         timeout_value = payload.get("timeout_seconds", previous.get("timeout_seconds"))
         if timeout_value not in (None, ""):
-            try:
-                timeout_seconds = float(timeout_value)
-            except (TypeError, ValueError) as exc:
-                raise ValueError("timeout_seconds must be numeric") from exc
-            if timeout_seconds <= 0:
-                raise ValueError("timeout_seconds must be greater than 0")
-            normalized["timeout_seconds"] = timeout_seconds
+            normalized["timeout_seconds"] = _coerce_timeout_seconds(timeout_value)
 
         if channel == "webhook":
             webhook_url = str(payload.get("webhook_url", previous.get("webhook_url", "")) or "").strip()
@@ -766,7 +774,8 @@ def dispatch_alert_event(
     *,
     markdown_path: str | None = None,
 ) -> tuple[list[str], dict[str, str]]:
-    rule = event.extra.get("rule", {}) if isinstance(event.extra, dict) else {}
+    rule_raw = event.extra.get("rule", {}) if isinstance(event.extra, dict) else {}
+    rule: dict[str, Any] = rule_raw if isinstance(rule_raw, dict) else {}
     targets, errors = _resolve_delivery_targets(rule)
     if not event.governance:
         event.governance = _build_alert_governance(event, items, delivery_errors=errors)
@@ -775,15 +784,15 @@ def dispatch_alert_event(
     delivered = ["json"]
     held: list[str] = []
     text = _alert_text(event, items)
-    timeout = float(rule.get("timeout_seconds", 10.0) or 10.0)
+    timeout = _coerce_timeout_seconds(rule.get("timeout_seconds", 10.0), default=10.0)
 
     for target in targets:
         label = str(target.get("label", "")).strip() or str(target.get("channel", "")).strip().lower()
         channel = str(target.get("channel", "")).strip().lower()
-        config = target.get("config", rule)
-        if not isinstance(config, dict):
-            config = rule
+        config_raw = target.get("config", rule)
+        config: dict[str, Any] = config_raw if isinstance(config_raw, dict) else rule
         try:
+            target_timeout = _coerce_timeout_seconds(config.get("timeout_seconds"), default=timeout)
             if channel == "markdown":
                 append_alert_markdown(event, items, path=markdown_path)
             elif channel == "webhook":
@@ -793,7 +802,8 @@ def dispatch_alert_event(
                 if factuality_status != "ready":
                     held.append(label or channel)
                     continue
-                headers = dict(config.get("headers")) if isinstance(config.get("headers"), dict) else {}
+                headers_raw = config.get("headers")
+                headers = dict(headers_raw) if isinstance(headers_raw, dict) else {}
                 authorization = str(config.get("authorization", "") or "").strip()
                 if authorization and "Authorization" not in headers:
                     headers["Authorization"] = authorization
@@ -803,7 +813,7 @@ def dispatch_alert_event(
                         "alert": event.to_dict(),
                         "items": [serialize_item_with_governance(item) for item in items[:10]],
                     },
-                    timeout=float(config.get("timeout_seconds", timeout) or timeout),
+                    timeout=target_timeout,
                     headers=headers or None,
                 )
             elif channel == "feishu":
@@ -816,7 +826,7 @@ def dispatch_alert_event(
                 _post_json(
                     url,
                     {"msg_type": "text", "content": {"text": text}},
-                    timeout=float(config.get("timeout_seconds", timeout) or timeout),
+                    timeout=target_timeout,
                 )
             elif channel == "telegram":
                 bot_token = _resolve_telegram_bot_token(config)
@@ -829,7 +839,7 @@ def dispatch_alert_event(
                 _post_json(
                     f"https://api.telegram.org/bot{bot_token}/sendMessage",
                     {"chat_id": chat_id, "text": text, "disable_web_page_preview": True},
-                    timeout=float(config.get("timeout_seconds", timeout) or timeout),
+                    timeout=target_timeout,
                 )
             else:
                 raise ValueError(f"unsupported alert channel: {channel}")

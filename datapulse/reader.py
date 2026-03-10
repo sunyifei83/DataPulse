@@ -28,8 +28,8 @@ from datapulse.core.storage import UnifiedInbox, output_record_md, project_markd
 from datapulse.core.story import (
     StoryStore,
     build_factuality_gate,
-    build_story_from_items,
     build_story_clusters,
+    build_story_from_items,
     build_story_graph,
     render_story_markdown,
     resolve_factuality_gate_status,
