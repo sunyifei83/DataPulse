@@ -132,7 +132,8 @@ Status:
 
 - safe for manual use
 - suitable as an opt-in governance gate
-- still optional until the project decides whether it belongs in every slice class
+- now best placed as the local Codex companion loop's pre-promotion gate, so manual ignition stays one-command and remote CI failures are caught before `repo_landed`/`ci_proven`
+- still not suitable for the scheduled auto-continuation workflow, which must remain read-only governance refresh rather than business-entrypoint execution
 
 ## Commands That Stay Contextual
 

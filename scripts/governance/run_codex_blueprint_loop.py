@@ -23,6 +23,7 @@ DEFAULT_MODEL = "gpt-5.4"
 DEFAULT_MODEL_REASONING_EFFORT = "xhigh"
 DEFAULT_APPROVAL_POLICY = "never"
 DEFAULT_PROMOTION_MODE = "manual"
+DEFAULT_PRE_PROMOTION_GATE_COMMAND = "python3 scripts/governance/run_datapulse_quick_test_gate.py"
 BLOCKED_EXIT_CODE = 2
 PROMOTION_REPO_LANDED = "repo_landed_false"
 PROMOTION_HEAD_NOT_PUSHED = "head_not_pushed"
@@ -139,6 +140,11 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=900,
         help="Timeout used while waiting for a required CI or governance evidence run.",
+    )
+    parser.add_argument(
+        "--pre-promotion-gate-command",
+        default=DEFAULT_PRE_PROMOTION_GATE_COMMAND,
+        help="Read-only verification command executed before auto repo_landed promotion. Use an empty string to disable.",
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--stdout", action="store_true", help="Accepted for compatibility. JSON is always printed.")
@@ -453,6 +459,26 @@ def run_verification_commands(
     return results, True
 
 
+def run_pre_promotion_gate(
+    *,
+    command_text: str,
+    output_dir: Path,
+    round_index: int | None,
+    dry_run: bool,
+) -> tuple[list[dict[str, Any]], bool]:
+    if not _to_text(command_text):
+        return [], True
+    gate_dir = output_dir / (
+        "pre-promotion-gate-initial" if round_index is None else f"pre-promotion-gate-round-{round_index:02d}"
+    )
+    gate_dir.mkdir(parents=True, exist_ok=True)
+    return run_verification_commands(
+        commands=[command_text],
+        round_dir=gate_dir,
+        dry_run=dry_run,
+    )
+
+
 def supports_auto_repo_landed(runtime: dict[str, Any]) -> bool:
     remaining = {_to_text(item) for item in runtime.get("remaining_promotion_gates", []) if _to_text(item)}
     if _to_text(runtime.get("status")) != "stopped":
@@ -504,6 +530,7 @@ def maybe_auto_promote(
     runtime: dict[str, Any],
     slice_execution_brief: dict[str, Any],
     round_index: int | None,
+    output_dir: Path,
     baseline_dirty_paths: list[str],
     promotion_mode: str,
     allow_existing_dirty_worktree: bool,
@@ -515,6 +542,7 @@ def maybe_auto_promote(
     project_loop_state_output: Path | None,
     poll_interval_seconds: int,
     ci_timeout_seconds: int,
+    pre_promotion_gate_command: str,
     dry_run: bool,
 ) -> tuple[dict[str, Any], dict[str, str], dict[str, Any], list[dict[str, Any]]]:
     promotions: list[dict[str, Any]] = []
@@ -533,6 +561,26 @@ def maybe_auto_promote(
         status_lines = workspace_status_lines()
         if not status_lines:
             raise RuntimeError("auto repo_landed promotion selected but workspace has no changes to commit")
+        gate_results, gate_ok = run_pre_promotion_gate(
+            command_text=pre_promotion_gate_command,
+            output_dir=output_dir,
+            round_index=round_index,
+            dry_run=dry_run,
+        )
+        if gate_results:
+            print(
+                json.dumps(
+                    {
+                        "status": "pre_promotion_gate_completed",
+                        "round": round_index,
+                        "ok": gate_ok,
+                        "results": gate_results,
+                    },
+                    ensure_ascii=False,
+                )
+            )
+        if not gate_ok:
+            raise RuntimeError("pre_promotion_gate_failed")
 
         commit_message = build_auto_commit_message(slice_execution_brief, round_index)
         promotion_payload = {
@@ -775,6 +823,7 @@ def main() -> int:
                 runtime=runtime,
                 slice_execution_brief=dict(runtime.get("slice_execution_brief") or runtime.get("adapter_entry") or {}),
                 round_index=None,
+                output_dir=output_dir,
                 baseline_dirty_paths=baseline_dirty_paths,
                 promotion_mode=str(args.promotion_mode),
                 allow_existing_dirty_worktree=bool(args.allow_existing_dirty_worktree),
@@ -786,6 +835,7 @@ def main() -> int:
                 project_loop_state_output=project_loop_state_output,
                 poll_interval_seconds=int(args.poll_interval_seconds),
                 ci_timeout_seconds=int(args.ci_timeout_seconds),
+                pre_promotion_gate_command=str(args.pre_promotion_gate_command),
                 dry_run=bool(args.dry_run),
             )
             if promotion_snapshots:
@@ -908,6 +958,7 @@ def main() -> int:
                     runtime=runtime,
                     slice_execution_brief=adapter_entry,
                     round_index=round_index,
+                    output_dir=output_dir,
                     baseline_dirty_paths=baseline_dirty_paths,
                     promotion_mode=str(args.promotion_mode),
                     allow_existing_dirty_worktree=bool(args.allow_existing_dirty_worktree),
@@ -919,6 +970,7 @@ def main() -> int:
                     project_loop_state_output=project_loop_state_output,
                     poll_interval_seconds=int(args.poll_interval_seconds),
                     ci_timeout_seconds=int(args.ci_timeout_seconds),
+                    pre_promotion_gate_command=str(args.pre_promotion_gate_command),
                     dry_run=bool(args.dry_run),
                 )
                 if promotions and promotion_snapshots:

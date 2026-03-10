@@ -51,13 +51,16 @@ The runner consumes the same machine-readable slice execution brief that the run
 - `artifacts` / `draft_artifacts`
 - `exit_condition`
 
-After each Codex round, the runner now enforces three control-plane checks before continuing:
+After each Codex round, the runner now enforces four control-plane checks before continuing:
 
 1. run the current slice's `verification_commands` when declared
 2. stop on `no_progress_detected` if the round leaves the slice, plan state, promotion gates, and workspace state unchanged
-3. when `--promotion-mode auto` is enabled, first auto-resolve local `repo_landed`, then attempt the lowest-coupling `ci_proven` path that matches the current change scope:
+3. before any automatic `repo_landed` promotion, run the strict local quick gate so `lint/typecheck/console smoke` regressions are caught before commit/push instead of by remote CI
+4. when `--promotion-mode auto` is enabled, first auto-resolve local `repo_landed`, then attempt the lowest-coupling `ci_proven` path that matches the current change scope:
    - non-docs changes: `git push` and wait for the real `CI` workflow run for the current `HEAD`
    - docs-only changes: `git push`, dispatch `.github/workflows/governance-evidence.yml`, and wait for that run to succeed for the current `HEAD`
+
+That pre-promotion quick gate also covers the ignition-wrapper "take over an already dirty worktree" path, so operators do not need to remember a separate manual verification command before starting the local companion loop.
 
 Recommended trigger:
 
