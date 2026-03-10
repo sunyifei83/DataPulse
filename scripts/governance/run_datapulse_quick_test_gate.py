@@ -34,6 +34,14 @@ def detect_command(preferred: str, fallback: list[str]) -> list[str]:
     return fallback
 
 
+def detect_python_tool(tool: str, python_cmd: list[str], *, module: str | None = None) -> list[str]:
+    if shutil.which("uv"):
+        return ["uv", "run", tool]
+    if shutil.which(tool):
+        return [tool]
+    return python_cmd + ["-m", module or tool]
+
+
 def run_step(name: str, command: list[str]) -> dict[str, object]:
     completed = subprocess.run(command, cwd=REPO_ROOT, check=False, capture_output=True, text=True)
     return {
@@ -61,6 +69,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     _ = parse_args()
     python_cmd = detect_python_cmd()
+    ruff_cmd = detect_python_tool("ruff", python_cmd)
+    mypy_cmd = detect_python_tool("mypy", python_cmd)
     datapulse_cli = detect_command("datapulse", python_cmd + ["-m", "datapulse.cli"])
     datapulse_smoke = detect_command("datapulse-smoke", python_cmd + ["-m", "datapulse.tools.smoke"])
 
@@ -71,6 +81,8 @@ def main() -> int:
             python_cmd + ["-c", "import datapulse; print(datapulse.__name__)"],
         )
     )
+    steps.append(run_step("lint_datapulse", ruff_cmd + ["check", "datapulse/"]))
+    steps.append(run_step("typecheck_datapulse", mypy_cmd + ["datapulse/"]))
     steps.append(run_step("console_smoke", ["bash", "scripts/datapulse_console_smoke.sh"]))
     steps.append(run_step("smoke_list", datapulse_smoke + ["--list"]))
     steps.append(run_step("cli_list", datapulse_cli + ["--list", "--limit", "5", "--min-confidence", "0.0"]))
