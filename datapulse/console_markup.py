@@ -44,6 +44,16 @@ def render_console_html(title: str) -> str:
       --headline-zh: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
       --body-zh: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
       --mono-zh: "SF Mono", "IBM Plex Mono", "PingFang SC", "Microsoft YaHei", monospace;
+      --panel-padding: 22px;
+      --card-padding: 14px 16px;
+      --cluster-padding: 14px;
+      --guide-padding: 14px;
+      --deck-padding: 14px;
+      --control-height: 44px;
+      --action-control-height: 36px;
+      --context-lens-width: 540px;
+      --context-lens-radius: 28px;
+      --context-lens-padding: 24px 22px;
     }}
     * {{ box-sizing: border-box; }}
     body {{
@@ -57,6 +67,45 @@ def render_console_html(title: str) -> str:
         radial-gradient(circle at 90% 8%, rgba(127, 228, 255, 0.12), transparent 22%),
         linear-gradient(180deg, #101a2c 0%, #0a111c 52%, var(--paper) 100%);
       font-family: var(--body);
+    }}
+    body[data-context-lens-open="true"] {{
+      overflow: hidden;
+    }}
+    body[data-density-mode="comfortable"] {{
+      --panel-padding: 22px;
+      --card-padding: 14px 16px;
+      --cluster-padding: 14px;
+      --guide-padding: 14px;
+      --deck-padding: 14px;
+      --control-height: 44px;
+      --action-control-height: 36px;
+      --context-lens-width: 540px;
+      --context-lens-radius: 28px;
+      --context-lens-padding: 24px 22px;
+    }}
+    body[data-density-mode="compact"] {{
+      --panel-padding: 20px;
+      --card-padding: 14px 15px;
+      --cluster-padding: 13px;
+      --guide-padding: 13px;
+      --deck-padding: 13px;
+      --control-height: 44px;
+      --action-control-height: 38px;
+      --context-lens-width: 680px;
+      --context-lens-radius: 24px;
+      --context-lens-padding: 22px 20px;
+    }}
+    body[data-density-mode="touch"] {{
+      --panel-padding: 18px;
+      --card-padding: 16px;
+      --cluster-padding: 14px;
+      --guide-padding: 12px;
+      --deck-padding: 12px;
+      --control-height: 48px;
+      --action-control-height: 42px;
+      --context-lens-width: 100%;
+      --context-lens-radius: 0;
+      --context-lens-padding: 20px 18px;
     }}
     body[data-lang="zh"] {{
       font-family: var(--body-zh);
@@ -164,11 +213,11 @@ def render_console_html(title: str) -> str:
       justify-content: center;
     }}
     .nav-pill {{
-      padding: 10px 12px;
+      padding: 10px 14px;
       border: 1px solid rgba(147, 181, 215, 0.16);
       background: rgba(127, 228, 255, 0.05);
       color: var(--muted);
-      font-size: 0.76rem;
+      font-size: 0.82rem;
     }}
     .nav-pill.active {{
       color: var(--ink);
@@ -195,10 +244,12 @@ def render_console_html(title: str) -> str:
       gap: 10px;
       padding: 12px 14px;
       border: 1px solid rgba(147, 181, 215, 0.14);
-      border-radius: 18px;
+      border-radius: 20px;
       background:
-        linear-gradient(180deg, rgba(11, 19, 31, 0.76), rgba(9, 15, 25, 0.54));
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+        linear-gradient(180deg, rgba(10, 18, 31, 0.64), rgba(9, 15, 25, 0.42));
+      box-shadow:
+        inset 0 0 0 1px rgba(127, 228, 255, 0.03),
+        0 10px 24px rgba(3, 8, 18, 0.12);
     }}
     .context-view-dock[hidden] {{
       display: none;
@@ -212,9 +263,22 @@ def render_console_html(title: str) -> str:
     }}
     .context-view-dock-title {{
       color: var(--muted);
-      font-size: 0.72rem;
+      font-size: 0.74rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
+    }}
+    .context-view-dock-summary {{
+      min-width: 0;
+      color: var(--ink);
+      font-size: 0.92rem;
+      line-height: 1.4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }}
+    .context-view-dock-section {{
+      display: grid;
+      gap: 8px;
     }}
     .context-view-dock-list {{
       display: flex;
@@ -222,13 +286,25 @@ def render_console_html(title: str) -> str:
       gap: 8px;
     }}
     .context-view-dock-tools {{
-      display: grid;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
       gap: 10px;
       padding-top: 4px;
     }}
-    .context-view-dock-active {{
-      display: grid;
-      gap: 4px;
+    .context-view-dock-copy {{
+      min-width: 0;
+      max-width: 72ch;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }}
+    .context-view-dock-actions {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
     }}
     .context-view-dock-form {{
       display: grid;
@@ -250,6 +326,10 @@ def render_console_html(title: str) -> str:
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      padding: 10px 14px;
+      font: 700 0.84rem/1.2 var(--body);
+      letter-spacing: 0.01em;
+      text-transform: none;
     }}
     .context-chip-button {{
       appearance: none;
@@ -263,61 +343,92 @@ def render_console_html(title: str) -> str:
         linear-gradient(180deg, rgba(127, 228, 255, 0.16), rgba(127, 228, 255, 0.08));
       box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.08);
     }}
-    .context-lens {{
-      position: absolute;
-      top: calc(100% + 10px);
-      right: 0;
-      z-index: 50;
-      width: min(420px, calc(100vw - 56px));
+    .context-lens-backdrop {{
+      position: fixed;
+      inset: 0;
+      z-index: 65;
+      display: none;
+      align-items: stretch;
+      justify-content: flex-end;
       padding: 16px;
-      display: grid;
-      gap: 14px;
+      background: rgba(4, 8, 16, 0.6);
+      backdrop-filter: blur(12px);
+    }}
+    .context-lens-backdrop.open {{
+      display: flex;
+    }}
+    .context-lens-shell {{
+      width: min(var(--context-lens-width), 100%);
+      height: 100%;
       border: 1px solid rgba(147, 181, 215, 0.18);
-      border-radius: 20px;
+      border-radius: var(--context-lens-radius);
       background:
-        linear-gradient(180deg, rgba(17, 29, 46, 0.96), rgba(8, 14, 24, 0.94));
-      box-shadow: 0 24px 60px rgba(3, 8, 18, 0.38);
-      backdrop-filter: blur(18px);
+        linear-gradient(180deg, rgba(17, 29, 46, 0.98), rgba(8, 14, 24, 0.97));
+      box-shadow: 0 30px 80px rgba(3, 8, 18, 0.52);
+      overflow: hidden;
+    }}
+    .context-lens-shell:focus {{
+      outline: 2px solid rgba(127, 228, 255, 0.38);
+      outline-offset: 0;
+    }}
+    .context-lens {{
+      height: 100%;
+      padding: var(--context-lens-padding);
+      display: grid;
+      gap: 16px;
+      align-content: start;
+      overflow-y: auto;
     }}
     .context-lens-head {{
+      display: flex;
+      gap: 14px;
+      align-items: start;
+      justify-content: space-between;
+    }}
+    .context-lens-head-copy {{
+      min-width: 0;
       display: grid;
-      gap: 4px;
+      gap: 6px;
     }}
     .context-lens-title {{
       font-family: var(--headline);
-      font-size: 0.84rem;
+      font-size: 0.92rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }}
+    .context-lens-close {{
+      flex: 0 0 auto;
+      min-width: 86px;
+    }}
     .context-lens-copy {{
       color: var(--muted);
-      font-size: 0.76rem;
-      line-height: 1.5;
+      font-size: 0.88rem;
+      line-height: 1.6;
     }}
     .context-lens-body {{
       display: grid;
-      gap: 10px;
+      gap: 12px;
     }}
     .context-lens-row {{
       display: grid;
-      grid-template-columns: minmax(0, 112px) minmax(0, 1fr);
-      gap: 10px;
+      grid-template-columns: minmax(0, 124px) minmax(0, 1fr);
+      gap: 12px;
       align-items: start;
-      padding: 10px 12px;
-      border-radius: 14px;
+      padding: 12px 14px;
+      border-radius: 16px;
       border: 1px solid rgba(147, 181, 215, 0.12);
       background: rgba(127, 228, 255, 0.04);
     }}
     .context-lens-label {{
       color: var(--muted);
-      font-size: 0.72rem;
+      font-size: 0.76rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }}
     .context-lens-value {{
       min-width: 0;
-      font-size: 0.83rem;
-      line-height: 1.5;
+      font-size: 0.92rem;
+      line-height: 1.6;
       color: var(--ink);
       word-break: break-word;
     }}
@@ -326,20 +437,22 @@ def render_console_html(title: str) -> str:
     }}
     .context-lens-value.mono {{
       font-family: var(--mono);
-      font-size: 0.78rem;
+      font-size: 0.84rem;
     }}
     .context-lens-actions {{
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(147, 181, 215, 0.12);
     }}
     .context-lens-history {{
       display: grid;
-      gap: 10px;
+      gap: 12px;
     }}
     .context-lens-save {{
       display: grid;
-      gap: 10px;
+      gap: 12px;
     }}
     .context-save-form {{
       display: grid;
@@ -359,7 +472,7 @@ def render_console_html(title: str) -> str:
     }}
     .context-lens-history-title {{
       color: var(--muted);
-      font-size: 0.72rem;
+      font-size: 0.76rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }}
@@ -376,8 +489,8 @@ def render_console_html(title: str) -> str:
       background: rgba(255, 255, 255, 0.03);
     }}
     .context-history-summary {{
-      font-size: 0.82rem;
-      line-height: 1.45;
+      font-size: 0.9rem;
+      line-height: 1.6;
       color: var(--ink);
     }}
     .context-history-meta {{
@@ -385,12 +498,12 @@ def render_console_html(title: str) -> str:
       flex-wrap: wrap;
       gap: 8px;
       color: var(--muted);
-      font-size: 0.74rem;
+      font-size: 0.8rem;
     }}
     .context-history-url {{
       color: var(--muted);
       font-family: var(--mono);
-      font-size: 0.73rem;
+      font-size: 0.78rem;
       word-break: break-all;
     }}
     .context-history-actions {{
@@ -575,7 +688,7 @@ def render_console_html(title: str) -> str:
     .guide-card {{
       display: grid;
       gap: 8px;
-      padding: 14px;
+      padding: var(--guide-padding);
       border-radius: 18px;
       border: 1px solid rgba(147, 181, 215, 0.16);
       background: rgba(12, 20, 34, 0.68);
@@ -598,6 +711,7 @@ def render_console_html(title: str) -> str:
       cursor: pointer;
       border-radius: 999px;
       padding: 12px 16px;
+      min-height: var(--control-height);
       font: 700 0.88rem/1 var(--mono);
       letter-spacing: 0.02em;
       transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
@@ -624,8 +738,8 @@ def render_console_html(title: str) -> str:
     }}
     .workspace-mode-shell {{
       display: grid;
-      gap: 14px;
-      padding: 18px;
+      gap: 16px;
+      padding: 20px;
       border: 1px solid rgba(147, 181, 215, 0.16);
       border-radius: 24px;
       background:
@@ -648,7 +762,7 @@ def render_console_html(title: str) -> str:
     }}
     .workspace-mode-title {{
       font-family: var(--headline);
-      font-size: 1.3rem;
+      font-size: 1.4rem;
       letter-spacing: 0.03em;
       text-transform: uppercase;
     }}
@@ -667,9 +781,9 @@ def render_console_html(title: str) -> str:
     .workspace-mode-card {{
       width: 100%;
       display: grid;
-      gap: 12px;
+      gap: 14px;
       text-align: left;
-      padding: 16px;
+      padding: 18px;
       border-radius: 20px;
       border: 1px solid rgba(147, 181, 215, 0.14);
       background: rgba(10, 18, 31, 0.52);
@@ -699,14 +813,14 @@ def render_console_html(title: str) -> str:
     }}
     .workspace-mode-kicker {{
       color: var(--muted);
-      font-size: 0.72rem;
+      font-size: 0.76rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }}
     .workspace-mode-copy {{
       color: var(--muted);
-      font-size: 0.84rem;
-      line-height: 1.55;
+      font-size: 0.92rem;
+      line-height: 1.6;
     }}
     .workspace-mode-modules {{
       display: flex;
@@ -946,7 +1060,7 @@ def render_console_html(title: str) -> str:
       animation-delay: .12s;
     }}
     .panel {{
-      padding: 22px;
+      padding: var(--panel-padding);
       display: grid;
       gap: 14px;
       align-content: start;
@@ -976,7 +1090,7 @@ def render_console_html(title: str) -> str:
     .card {{
       border: 1px solid var(--line);
       border-radius: 18px;
-      padding: 14px 16px;
+      padding: var(--card-padding);
       background: rgba(16, 27, 43, 0.76);
     }}
     .card-top {{
@@ -995,8 +1109,8 @@ def render_console_html(title: str) -> str:
       align-items: center;
       gap: 6px;
       border-radius: 999px;
-      padding: 5px 9px;
-      font: 700 11px/1 var(--mono);
+      padding: 6px 10px;
+      font: 700 12px/1 var(--mono);
       text-transform: uppercase;
       background: rgba(127, 228, 255, 0.08);
       color: var(--muted);
@@ -1045,6 +1159,7 @@ def render_console_html(title: str) -> str:
     }}
     .actions button {{
       padding: 9px 12px;
+      min-height: var(--action-control-height);
       font-size: 0.76rem;
     }}
     .actions a {{
@@ -1053,6 +1168,7 @@ def render_console_html(title: str) -> str:
       justify-content: center;
       border-radius: 999px;
       padding: 9px 12px;
+      min-height: var(--action-control-height);
       font: 700 0.76rem/1 var(--mono);
       letter-spacing: 0.02em;
       background: rgba(127, 228, 255, 0.08);
@@ -1063,6 +1179,62 @@ def render_console_html(title: str) -> str:
     .actions a:hover {{
       transform: translateY(-1px);
     }}
+    .action-hierarchy {{
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }}
+    .action-hierarchy .actions {{
+      margin-top: 0;
+    }}
+    .action-primary-row button,
+    .action-primary-row a {{
+      min-width: 156px;
+      justify-content: center;
+    }}
+    .action-danger-row {{
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 106, 130, 0.12);
+    }}
+    .action-sheet {{
+      display: none;
+      margin: 0;
+    }}
+    .action-sheet-toggle {{
+      list-style: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 12px;
+      min-height: var(--action-control-height);
+      border-radius: 999px;
+      background: rgba(127, 228, 255, 0.08);
+      color: var(--ink);
+      font: 700 0.76rem/1 var(--mono);
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      user-select: none;
+    }}
+    .action-sheet-toggle::before {{
+      content: "+";
+      font-size: 0.9rem;
+      line-height: 1;
+    }}
+    .action-sheet[open] .action-sheet-toggle::before {{
+      content: "-";
+    }}
+    .action-sheet-toggle::-webkit-details-marker {{
+      display: none;
+    }}
+    .action-sheet-panel {{
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(147, 181, 215, 0.12);
+    }}
     form {{
       display: grid;
       gap: 12px;
@@ -1070,7 +1242,7 @@ def render_console_html(title: str) -> str:
     .control-cluster {{
       display: grid;
       gap: 10px;
-      padding: 14px;
+      padding: var(--cluster-padding);
       border-radius: 18px;
       border: 1px solid rgba(147, 181, 215, 0.14);
       background: rgba(10, 18, 31, 0.44);
@@ -1123,7 +1295,7 @@ def render_console_html(title: str) -> str:
     .deck-section {{
       display: grid;
       gap: 12px;
-      padding: 14px;
+      padding: var(--deck-padding);
       border-radius: 18px;
       border: 1px solid rgba(147, 181, 215, 0.14);
       background: rgba(10, 18, 31, 0.5);
@@ -1213,6 +1385,84 @@ def render_console_html(title: str) -> str:
       gap: 12px;
       justify-content: space-between;
       align-items: start;
+    }}
+    .continuity-shell {{
+      display: grid;
+      gap: 14px;
+    }}
+    .continuity-lane {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }}
+    .continuity-stage {{
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(147, 181, 215, 0.14);
+      background: rgba(12, 21, 34, 0.74);
+    }}
+    .continuity-stage.ok {{
+      border-color: rgba(127, 228, 255, 0.26);
+    }}
+    .continuity-stage.hot {{
+      border-color: rgba(255, 106, 130, 0.28);
+    }}
+    .continuity-stage-kicker {{
+      font: 700 11px/1 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }}
+    .continuity-stage-title {{
+      font-size: 0.98rem;
+      line-height: 1.35;
+      color: var(--ink);
+    }}
+    .continuity-stage-copy {{
+      font-size: 0.84rem;
+      line-height: 1.55;
+      color: var(--muted);
+    }}
+    .continuity-fact-list {{
+      display: grid;
+      gap: 8px;
+    }}
+    .continuity-fact {{
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: var(--muted);
+    }}
+    .continuity-fact strong {{
+      flex: 0 0 auto;
+      font: 700 12px/1.3 var(--mono);
+      color: var(--ink);
+      text-align: right;
+    }}
+    .workbench-shell {{
+      display: grid;
+      gap: 12px;
+    }}
+    .workbench-columns {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      align-items: start;
+    }}
+    .workbench-meta {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }}
+    .workbench-story-links {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
     }}
     .checkbox-inline {{
       display: inline-flex;
@@ -1583,6 +1833,72 @@ def render_console_html(title: str) -> str:
       font-size: 0.92rem;
       text-align: center;
     }}
+    body[data-pane-contract="stacked"] .dual-grid,
+    body[data-pane-contract="stacked"] .grid,
+    body[data-pane-contract="stacked"] .story-grid,
+    body[data-pane-contract="stacked"] .story-columns,
+    body[data-pane-contract="stacked"] .preview-grid,
+    body[data-pane-contract="stacked"] .guide-grid,
+    body[data-pane-contract="stacked"] .continuity-lane,
+    body[data-pane-contract="stacked"] .workbench-columns,
+    body[data-pane-contract="single"] .dual-grid,
+    body[data-pane-contract="single"] .grid,
+    body[data-pane-contract="single"] .story-grid,
+    body[data-pane-contract="single"] .story-columns,
+    body[data-pane-contract="single"] .preview-grid,
+    body[data-pane-contract="single"] .guide-grid,
+    body[data-pane-contract="single"] .continuity-lane,
+    body[data-pane-contract="single"] .workbench-columns {{
+      grid-template-columns: 1fr;
+    }}
+    body[data-modal-presentation="sheet"] .context-lens-backdrop {{
+      align-items: flex-end;
+      justify-content: center;
+      padding: 12px;
+    }}
+    body[data-modal-presentation="sheet"] .context-lens-shell {{
+      width: min(var(--context-lens-width), 100%);
+      height: min(84vh, 780px);
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }}
+    body[data-modal-presentation="fullscreen"] .context-lens-backdrop {{
+      padding: 0;
+      align-items: stretch;
+      justify-content: stretch;
+    }}
+    body[data-modal-presentation="fullscreen"] .context-lens-shell {{
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+      border-left: 0;
+      border-right: 0;
+    }}
+    body[data-modal-presentation="fullscreen"] .palette-backdrop {{
+      padding: 0;
+      align-items: stretch;
+      justify-content: stretch;
+    }}
+    body[data-modal-presentation="fullscreen"] .palette-shell {{
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      border-radius: 0;
+    }}
+    body[data-modal-presentation="fullscreen"] .palette-list {{
+      max-height: none;
+    }}
+    body[data-action-sheet-mode="sheet"] [data-card-action-secondary],
+    body[data-action-sheet-mode="sheet"] [data-card-action-danger] {{
+      display: none;
+    }}
+    body[data-action-sheet-mode="sheet"] .action-sheet {{
+      display: grid;
+    }}
+    body[data-action-sheet-mode="sheet"] .action-sheet-toggle {{
+      width: 100%;
+    }}
     @keyframes rise {{
       from {{ opacity: 0; transform: translateY(12px); }}
       to {{ opacity: 1; transform: translateY(0); }}
@@ -1602,7 +1918,8 @@ def render_console_html(title: str) -> str:
       .topbar-nav::-webkit-scrollbar {{ display: none; }}
       .workspace-mode-grid {{ grid-template-columns: 1fr; }}
       .hero, .grid, .dual-grid {{ grid-template-columns: 1fr; }}
-      .hero-side {{ order: -1; }}
+      .hero-main {{ order: 0; }}
+      .hero-side {{ order: 1; }}
       .story-grid, .story-columns {{ grid-template-columns: 1fr; }}
       .preview-grid, .guide-grid {{ grid-template-columns: 1fr; }}
       .batch-toolbar-card {{ top: 152px; }}
@@ -1617,11 +1934,24 @@ def render_console_html(title: str) -> str:
       .signal-strip, .field-grid {{ grid-template-columns: 1fr 1fr; }}
       .topbar-tools {{ flex-wrap: wrap; justify-content: start; }}
       .topbar-context {{ width: 100%; }}
+      .context-view-dock-tools {{
+        flex-direction: column;
+        align-items: start;
+      }}
+      .context-view-dock-actions {{
+        justify-content: start;
+      }}
       .context-chip-button {{ max-width: 100%; width: 100%; }}
-      .context-lens {{
-        left: 0;
-        right: auto;
+      .context-lens-backdrop {{
+        padding: 12px;
+      }}
+      .context-lens-shell {{
         width: min(100%, 520px);
+        border-radius: 24px;
+      }}
+      .continuity-lane,
+      .workbench-columns {{
+        grid-template-columns: 1fr;
       }}
       .context-chip {{ max-width: 100%; }}
       .hero-main, .hero-side, .panel {{ border-radius: 22px; }}
@@ -1658,6 +1988,16 @@ def render_console_html(title: str) -> str:
         width: 100%;
       }}
       .topbar-tools {{ width: 100%; }}
+      .context-lens-backdrop {{
+        padding: 10px;
+      }}
+      .context-lens-shell {{
+        width: 100%;
+        border-radius: 22px;
+      }}
+      .continuity-stage {{
+        padding: 12px;
+      }}
       .context-lens-row {{
         grid-template-columns: 1fr;
         gap: 4px;
@@ -1676,49 +2016,25 @@ def render_console_html(title: str) -> str:
     }}
   </style>
 </head>
-<body>
+<body data-responsive-viewport="desktop" data-density-mode="comfortable" data-pane-contract="split" data-modal-presentation="side-panel" data-action-sheet-mode="inline">
   <div class="shell">
     <header class="topbar">
       <div class="topbar-brand">
         <span class="dot"></span>
         <div class="topbar-copy">
           <strong id="topbar-title">DataPulse Operations Console</strong>
-          <span id="topbar-subtitle">Mission -> Triage -> Story -> Delivery</span>
+          <span id="topbar-subtitle">Lifecycle rail | Intake -&gt; Missions -&gt; Review -&gt; Delivery</span>
         </div>
       </div>
-      <nav class="topbar-nav" aria-label="Section Navigation">
-        <button class="nav-pill" id="nav-intake" type="button" data-jump-target="section-intake">Quick Start</button>
-        <button class="nav-pill" id="nav-board" type="button" data-jump-target="section-board">Mission Board</button>
-        <button class="nav-pill" id="nav-cockpit" type="button" data-jump-target="section-cockpit">Cockpit</button>
-        <button class="nav-pill" id="nav-triage" type="button" data-jump-target="section-triage">Triage</button>
-        <button class="nav-pill" id="nav-story" type="button" data-jump-target="section-story">Stories</button>
-        <button class="nav-pill" id="nav-ops" type="button" data-jump-target="section-ops">Ops</button>
+      <nav class="topbar-nav" aria-label="Primary Lifecycle Rail">
+        <button class="nav-pill" id="nav-intake" type="button" data-jump-target="section-intake" data-workspace-mode="intake">Intake</button>
+        <button class="nav-pill" id="nav-missions" type="button" data-jump-target="section-board" data-workspace-mode="missions">Missions</button>
+        <button class="nav-pill" id="nav-review" type="button" data-jump-target="section-triage" data-workspace-mode="review">Review</button>
+        <button class="nav-pill" id="nav-delivery" type="button" data-jump-target="section-ops" data-workspace-mode="delivery">Delivery</button>
       </nav>
       <div class="topbar-tools">
         <div class="topbar-context" id="context-shell">
-          <button class="chip context-chip context-chip-button" id="context-summary" type="button" aria-expanded="false" aria-controls="context-lens">Quick Start | Mission intake</button>
-          <div class="context-lens" id="context-lens" hidden>
-            <div class="context-lens-head">
-              <div class="context-lens-title" id="context-lens-title">Context Lens</div>
-              <div class="context-lens-copy" id="context-lens-copy">See the current section, active filters, and copy a shareable deep link.</div>
-            </div>
-            <div class="context-lens-body" id="context-lens-body"></div>
-            <div class="context-lens-save">
-              <div class="context-lens-history-head">
-                <div class="context-lens-history-title" id="context-save-title">Save Current View</div>
-              </div>
-              <form class="context-save-form" id="context-save-form">
-                <input class="context-save-input" id="context-save-name" type="text" maxlength="72" placeholder="Ops desk / Escalations">
-                <button class="btn-secondary" id="context-save-submit" type="submit">Save View</button>
-              </form>
-            </div>
-            <div class="context-lens-saved" id="context-lens-saved"></div>
-            <div class="context-lens-history" id="context-lens-history"></div>
-            <div class="context-lens-actions">
-              <button class="btn-secondary" id="context-open-section" type="button">Open Section</button>
-              <button class="btn-secondary" id="context-copy-link" type="button">Copy Link</button>
-            </div>
-          </div>
+          <button class="chip context-chip context-chip-button" id="context-summary" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="context-lens-shell">Intake | Mission intake</button>
         </div>
         <button class="btn-secondary palette-trigger" id="palette-open" type="button">Command Palette</button>
         <button class="btn-secondary" id="context-reset" type="button">Reset Context</button>
@@ -1731,9 +2047,7 @@ def render_console_html(title: str) -> str:
 
     <div class="context-view-dock" id="context-view-dock" hidden></div>
 
-    <section class="workspace-mode-shell" id="workspace-mode-shell"></section>
-
-    <div class="workspace-mode-group" data-workspace-group="operations">
+    <div class="workspace-mode-group" data-workspace-group="intake">
     <section class="hero" id="section-intake">
       <div class="hero-main" id="hero-main">
         <div class="eyebrow" id="hero-eyebrow"><span class="dot"></span> Guided Analyst Workflow</div>
@@ -1909,13 +2223,17 @@ def render_console_html(title: str) -> str:
         </div>
       </aside>
     </section>
+    </div>
 
+    <section class="workspace-mode-shell" id="workspace-mode-shell" hidden></section>
+
+    <div class="workspace-mode-group" data-workspace-group="missions" hidden>
     <section class="dual-grid">
       <article class="panel" id="section-board">
         <div class="panel-head">
           <div>
             <h2 class="panel-title" id="board-title">Mission Board</h2>
-            <div class="panel-sub" id="board-copy">Run, inspect, pause, or remove watch missions from one board.</div>
+            <div class="panel-sub" id="board-copy">Run missions and keep cockpit handoff facts close before review starts.</div>
           </div>
         </div>
         <div class="stack" id="watch-list"></div>
@@ -1925,7 +2243,7 @@ def render_console_html(title: str) -> str:
         <div class="panel-head">
           <div>
             <h2 class="panel-title" id="cockpit-title">Mission Cockpit</h2>
-            <div class="panel-sub" id="cockpit-copy">Open one mission to inspect runs, filters, retry guidance, and alert rules.</div>
+            <div class="panel-sub" id="cockpit-copy">Open one mission to inspect runs, review continuity, and delivery state in one cockpit.</div>
           </div>
         </div>
         <div class="stack" id="watch-detail"></div>
@@ -1938,7 +2256,7 @@ def render_console_html(title: str) -> str:
       <div class="panel-head">
         <div>
           <h2 class="panel-title" id="triage-title">Triage Queue</h2>
-          <div class="panel-sub" id="triage-copy">Review open items, mark duplicates, and capture analyst reasoning without leaving the queue.</div>
+          <div class="panel-sub" id="triage-copy">Review evidence with one selected workbench and a visible story handoff.</div>
         </div>
       </div>
       <div class="meta" id="triage-stats-inline"></div>
@@ -1949,7 +2267,7 @@ def render_console_html(title: str) -> str:
       <div class="panel-head">
         <div>
           <h2 class="panel-title" id="story-title">Story Workspace</h2>
-          <div class="panel-sub" id="story-copy">Inspect clustered stories, evidence stacks, contradictions, and exportable summaries.</div>
+          <div class="panel-sub" id="story-copy">Keep evidence, editing, and delivery readiness visible around the same story.</div>
         </div>
       </div>
       <div class="meta" id="story-stats-inline"></div>
@@ -1970,13 +2288,13 @@ def render_console_html(title: str) -> str:
     </section>
     </div>
 
-    <div class="workspace-mode-group" data-workspace-group="config" hidden>
+    <div class="workspace-mode-group" data-workspace-group="delivery" hidden>
     <section class="grid">
       <article class="panel" id="section-ops">
         <div class="panel-head">
           <div>
             <h2 class="panel-title" id="ops-title">Ops Snapshot</h2>
-            <div class="panel-sub" id="ops-copy">Watch daemon health, collector risk, route delivery, and recent failures in one slice.</div>
+            <div class="panel-sub" id="ops-copy">Watch alerting missions, ready stories, route delivery, and recent failures in one slice.</div>
           </div>
         </div>
         <div class="status-shell" id="status-card"></div>
@@ -1986,7 +2304,7 @@ def render_console_html(title: str) -> str:
         <div class="panel-head">
           <div>
             <h2 class="panel-title" id="alert-stream-title">Alert Stream</h2>
-            <div class="panel-sub" id="alert-stream-copy">Read recent alert events without confusing them with editable route configuration.</div>
+            <div class="panel-sub" id="alert-stream-copy">Read alert events beside route editing and health, not in a detached feed.</div>
           </div>
           <span class="chip" id="alert-stream-mode">Events read-only</span>
         </div>
@@ -2008,7 +2326,7 @@ def render_console_html(title: str) -> str:
         <div class="panel-head">
           <div>
             <h2 class="panel-title" id="distribution-title">Distribution Health</h2>
-            <div class="panel-sub" id="distribution-copy">See whether named delivery routes are healthy before they become silent failures.</div>
+            <div class="panel-sub" id="distribution-copy">See whether named delivery routes are healthy and which upstream work is feeding them.</div>
           </div>
           <span class="chip" id="distribution-mode">Read-only</span>
         </div>
@@ -2020,6 +2338,35 @@ def render_console_html(title: str) -> str:
     <div class="footer-note" id="footer-note">The browser is the operating surface. CLI and MCP remain first-class control planes.</div>
   </div>
   <div class="toast-rack" id="toast-rack" aria-live="polite" aria-atomic="false"></div>
+  <div class="context-lens-backdrop" id="context-lens-backdrop" hidden>
+    <div class="context-lens-shell" id="context-lens-shell" role="dialog" aria-modal="true" aria-labelledby="context-lens-title" aria-describedby="context-lens-copy" tabindex="-1">
+      <div class="context-lens" id="context-lens">
+        <div class="context-lens-head">
+          <div class="context-lens-head-copy">
+            <div class="context-lens-title" id="context-lens-title">Workspace Context</div>
+            <div class="context-lens-copy" id="context-lens-copy">See the current section, active filters, and save or share the current workspace state.</div>
+          </div>
+          <button class="btn-secondary context-lens-close" id="context-lens-close" type="button">Close</button>
+        </div>
+        <div class="context-lens-body" id="context-lens-body"></div>
+        <div class="context-lens-save">
+          <div class="context-lens-history-head">
+            <div class="context-lens-history-title" id="context-save-title">Save Current View</div>
+          </div>
+          <form class="context-save-form" id="context-save-form">
+            <input class="context-save-input" id="context-save-name" type="text" maxlength="72" placeholder="Ops desk / Escalations">
+            <button class="btn-secondary" id="context-save-submit" type="submit">Save View</button>
+          </form>
+        </div>
+        <div class="context-lens-saved" id="context-lens-saved"></div>
+        <div class="context-lens-history" id="context-lens-history"></div>
+        <div class="context-lens-actions">
+          <button class="btn-secondary" id="context-open-section" type="button">Open Section</button>
+          <button class="btn-secondary" id="context-copy-link" type="button">Copy Link</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="palette-backdrop" id="command-palette">
     <div class="palette-shell">
       <div class="palette-head">
@@ -2049,7 +2396,7 @@ def render_console_html(title: str) -> str:
       ops: null,
       overview: null,
       activeSectionId: "section-intake",
-      activeWorkspaceMode: "operations",
+      activeWorkspaceMode: "intake",
       triage: [],
       triageStats: null,
       triageFilter: "open",
@@ -2085,6 +2432,7 @@ def render_console_html(title: str) -> str:
       contextLinkHistory: [],
       contextSavedViews: [],
       contextDockEditingName: "",
+      contextLensRestoreFocusId: "context-summary",
       contextDefaultBootPending: true,
       loading: {{
         board: false,
@@ -2097,6 +2445,13 @@ def render_console_html(title: str) -> str:
         query: "",
         selectedIndex: 0,
         recentIds: [],
+      }},
+      responsiveContract: {{
+        viewport: "desktop",
+        density: "comfortable",
+        pane: "split",
+        modal: "side-panel",
+        actionSheet: "inline",
       }},
     }};
 
@@ -2165,6 +2520,97 @@ def render_console_html(title: str) -> str:
       return `${{text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}}…`;
     }}
 
+    const responsiveInteractionContracts = {{
+      desktop: {{
+        viewport: "desktop",
+        density: "comfortable",
+        pane: "split",
+        modal: "side-panel",
+        actionSheet: "inline",
+      }},
+      compact: {{
+        viewport: "compact",
+        density: "compact",
+        pane: "stacked",
+        modal: "sheet",
+        actionSheet: "inline",
+      }},
+      touch: {{
+        viewport: "touch",
+        density: "touch",
+        pane: "single",
+        modal: "fullscreen",
+        actionSheet: "sheet",
+      }},
+    }};
+
+    function resolveResponsiveInteractionContract(width = 0) {{
+      const viewportWidth = Number(width) > 0
+        ? Number(width)
+        : window.innerWidth || document.documentElement?.clientWidth || 1280;
+      if (viewportWidth <= 760) {{
+        return responsiveInteractionContracts.touch;
+      }}
+      if (viewportWidth <= 1100) {{
+        return responsiveInteractionContracts.compact;
+      }}
+      return responsiveInteractionContracts.desktop;
+    }}
+
+    function applyResponsiveInteractionContract() {{
+      const contract = resolveResponsiveInteractionContract();
+      state.responsiveContract = contract;
+      if (!document.body) {{
+        return contract;
+      }}
+      document.body.dataset.responsiveViewport = contract.viewport;
+      document.body.dataset.densityMode = contract.density;
+      document.body.dataset.paneContract = contract.pane;
+      document.body.dataset.modalPresentation = contract.modal;
+      document.body.dataset.actionSheetMode = contract.actionSheet;
+      if (contract.actionSheet !== "sheet") {{
+        document.querySelectorAll("[data-card-action-sheet]").forEach((sheet) => {{
+          sheet.removeAttribute("open");
+        }});
+      }}
+      return contract;
+    }}
+
+    function bindResponsiveInteractionContract() {{
+      applyResponsiveInteractionContract();
+      let resizeTimer = 0;
+      let lastViewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0;
+      const scheduleContractApply = () => {{
+        window.clearTimeout(resizeTimer);
+        resizeTimer = window.setTimeout(() => {{
+          applyResponsiveInteractionContract();
+        }}, 80);
+      }};
+      window.addEventListener("resize", scheduleContractApply, {{ passive: true }});
+      if (window.visualViewport?.addEventListener) {{
+        window.visualViewport.addEventListener("resize", scheduleContractApply, {{ passive: true }});
+      }}
+      ["(max-width: 760px)", "(max-width: 1100px)"].forEach((query) => {{
+        const media = window.matchMedia ? window.matchMedia(query) : null;
+        if (!media) {{
+          return;
+        }}
+        if (typeof media.addEventListener === "function") {{
+          media.addEventListener("change", scheduleContractApply);
+        }} else if (typeof media.addListener === "function") {{
+          media.addListener(scheduleContractApply);
+        }}
+      }});
+      window.setInterval(() => {{
+        const nextViewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0;
+        if (!nextViewportWidth || nextViewportWidth === lastViewportWidth) {{
+          return;
+        }}
+        lastViewportWidth = nextViewportWidth;
+        scheduleContractApply();
+      }}, 250);
+    }}
+
     const languageStorageKey = "datapulse.console.language.v1";
     const createWatchStorageKey = "datapulse.console.create-watch-draft.v2";
     const commandPaletteQueryStorageKey = "datapulse.console.palette-query.v1";
@@ -2198,9 +2644,10 @@ def render_console_html(title: str) -> str:
     ];
     const triageFilterOptions = ["open", "all", "new", "triaged", "verified", "duplicate", "ignored", "escalated"];
     const workspaceModeSectionMap = {{
-      operations: ["section-intake", "section-board", "section-cockpit"],
+      intake: ["section-intake"],
+      missions: ["section-board", "section-cockpit"],
       review: ["section-triage", "section-story"],
-      config: ["section-ops"],
+      delivery: ["section-ops"],
     }};
 
     function copy(enText, zhText) {{
@@ -4351,59 +4798,76 @@ def render_console_html(title: str) -> str:
 
     function activeSectionLabel(sectionId) {{
       const labels = {{
-        "section-intake": copy("Quick Start", "快速开始"),
+        "section-intake": copy("Mission Intake", "任务录入"),
         "section-board": copy("Mission Board", "任务列表"),
         "section-cockpit": copy("Cockpit", "任务详情"),
         "section-triage": copy("Triage", "分诊"),
         "section-story": copy("Stories", "故事"),
-        "section-ops": copy("Ops", "运行状态"),
+        "section-ops": copy("Ops Snapshot", "运行状态"),
       }};
       return labels[normalizeSectionId(sectionId)] || labels["section-intake"];
     }}
 
     function normalizeWorkspaceMode(value) {{
       const normalized = String(value || "").trim().toLowerCase();
-      return Object.prototype.hasOwnProperty.call(workspaceModeSectionMap, normalized) ? normalized : "operations";
+      return Object.prototype.hasOwnProperty.call(workspaceModeSectionMap, normalized) ? normalized : "intake";
     }}
 
     function workspaceModeForSection(sectionId) {{
       const normalizedSection = normalizeSectionId(sectionId);
+      if (workspaceModeSectionMap.missions.includes(normalizedSection)) {{
+        return "missions";
+      }}
       if (workspaceModeSectionMap.review.includes(normalizedSection)) {{
         return "review";
       }}
-      if (workspaceModeSectionMap.config.includes(normalizedSection)) {{
-        return "config";
+      if (workspaceModeSectionMap.delivery.includes(normalizedSection)) {{
+        return "delivery";
       }}
-      return "operations";
+      return "intake";
     }}
 
     function workspaceModeDescriptor(modeId) {{
       const normalized = normalizeWorkspaceMode(modeId);
       const descriptors = {{
-        operations: {{
-          id: "operations",
-          label: copy("Operations", "执行"),
-          kicker: copy("Run", "执行"),
+        intake: {{
+          id: "intake",
+          label: copy("Intake", "录入"),
+          kicker: copy("Start", "开始"),
           summary: copy(
-            "Keep mission intake, board control, and cockpit inspection together so the default shell stays focused on active work.",
-            "把任务创建、任务列表和任务详情放在同一工作模式里，让默认界面只保留执行相关内容。"
+            "Keep mission intake as the clean landing surface so the first decision is just what to monitor next.",
+            "把任务录入单独作为落地面，确保进入控制台后的第一个判断只是下一步要监测什么。"
           ),
           modules: [
-            copy("Quick Start", "快速开始"),
+            copy("Mission Intake", "任务录入"),
+          ],
+          landingSection: "section-intake",
+          footnote: copy("Best for starting or cloning one mission without downstream noise.", "适合在不受下游噪音干扰的情况下新建或复制任务。"),
+          topbarSubtitle: copy("Lifecycle rail | Intake -> Missions -> Review -> Delivery", "生命周期主轨 | 录入 -> 任务 -> 审阅 -> 交付"),
+        }},
+        missions: {{
+          id: "missions",
+          label: copy("Missions", "任务"),
+          kicker: copy("Run", "执行"),
+          summary: copy(
+            "Keep board control and cockpit inspection in one lane so dispatch, recent evidence, and downstream handoff facts stay together.",
+            "把任务列表和任务详情收进同一条工作线，让执行、近期证据和下游交接事实保持连贯。"
+          ),
+          modules: [
             copy("Mission Board", "任务列表"),
             copy("Cockpit", "任务详情"),
           ],
-          landingSection: "section-intake",
-          footnote: copy("Best for draft, dispatch, and active mission control.", "适合创建、触发和查看活跃任务。"),
-          topbarSubtitle: copy("Operations | Quick Start -> Board -> Cockpit", "执行 | 快速开始 -> 任务列表 -> 任务详情"),
+          landingSection: "section-board",
+          footnote: copy("Best for dispatch, inspection, and alert-rule tuning.", "适合执行任务、查看结果和调整告警规则。"),
+          topbarSubtitle: copy("Missions | Board -> Cockpit", "任务 | 列表 -> 详情"),
         }},
         review: {{
           id: "review",
           label: copy("Review", "审阅"),
           kicker: copy("Review", "审阅"),
           summary: copy(
-            "Keep analyst queues isolated so triage and story work do not compete with mission setup and route tuning.",
-            "把分诊与故事审阅单独收拢，避免与任务创建和路由配置混在一起。"
+            "Keep triage and stories in one evidence lane so reviewed items can move into narrative work without losing context.",
+            "把分诊与故事收进同一条证据工作线，让已审阅条目推进成叙事时不再丢失上下文。"
           ),
           modules: [
             copy("Triage", "分诊"),
@@ -4413,13 +4877,13 @@ def render_console_html(title: str) -> str:
           footnote: copy("Best for evidence review, clustering, and story promotion.", "适合证据审阅、聚类与故事沉淀。"),
           topbarSubtitle: copy("Review | Triage -> Stories", "审阅 | 分诊 -> 故事"),
         }},
-        config: {{
-          id: "config",
-          label: copy("Config", "配置"),
-          kicker: copy("Tune", "配置"),
+        delivery: {{
+          id: "delivery",
+          label: copy("Delivery", "交付"),
+          kicker: copy("Deliver", "交付"),
           summary: copy(
-            "Keep ops status, alert stream, route management, and delivery health off the default lane until setup or incident review is needed.",
-            "把运行状态、告警流、路由管理和投递健康收进配置模式，只有在设置或排障时才展开。"
+            "Keep alerting missions, route-backed delivery, and output health in one lane so downstream status stays visible without backtracking.",
+            "把触发告警的任务、路由交付和输出健康收进同一条工作线，让下游状态保持可见而不用来回跳转。"
           ),
           modules: [
             copy("Ops Snapshot", "运行状态"),
@@ -4428,11 +4892,11 @@ def render_console_html(title: str) -> str:
             copy("Distribution Health", "分发健康"),
           ],
           landingSection: "section-ops",
-          footnote: copy("Best for delivery sinks, health checks, and operator setup.", "适合交付路由、健康检查和配置维护。"),
-          topbarSubtitle: copy("Config | Ops -> Alerts -> Delivery", "配置 | 运行状态 -> 告警 -> 分发"),
+          footnote: copy("Best for delivery sinks, route health, and operator setup.", "适合交付路由、分发健康和配置维护。"),
+          topbarSubtitle: copy("Delivery | Ops -> Alerts -> Routes", "交付 | 运行状态 -> 告警 -> 路由"),
         }},
       }};
-      return descriptors[normalized] || descriptors.operations;
+      return descriptors[normalized] || descriptors.intake;
     }}
 
     function renderWorkspaceModeShell() {{
@@ -4440,59 +4904,8 @@ def render_console_html(title: str) -> str:
       if (!root) {{
         return;
       }}
-      const activeMode = workspaceModeDescriptor(state.activeWorkspaceMode || workspaceModeForSection(state.activeSectionId));
-      const currentSectionLabel = activeSectionLabel(state.activeSectionId);
-      const sectionCount = workspaceModeSectionMap[activeMode.id]?.length || 0;
-      root.innerHTML = `
-        <div class="workspace-mode-head">
-          <div class="workspace-mode-summary">
-            <div class="mono">${{copy("Workspace Modes", "工作模式")}}</div>
-            <div class="workspace-mode-title">${{escapeHtml(activeMode.label)}} / ${{escapeHtml(currentSectionLabel)}}</div>
-            <div class="panel-sub">${{escapeHtml(activeMode.summary)}}</div>
-          </div>
-          <div class="workspace-mode-meta">
-            <span class="chip ok">${{copy("Active Mode", "当前模式")}}</span>
-            <span class="chip">${{escapeHtml(currentSectionLabel)}}</span>
-            <span class="chip">${{escapeHtml(phrase("{{count}} deep-link sections", "{{count}} 个深链区块", {{ count: sectionCount }}))}}</span>
-          </div>
-        </div>
-        <div class="workspace-mode-grid">
-          ${{["operations", "review", "config"].map((modeId) => {{
-            const descriptor = workspaceModeDescriptor(modeId);
-            const active = descriptor.id === activeMode.id;
-            return `
-              <button class="workspace-mode-card ${{active ? "active" : ""}}" type="button" data-workspace-mode="${{descriptor.id}}">
-                <div class="workspace-mode-card-head">
-                  <div>
-                    <div class="workspace-mode-kicker">${{escapeHtml(descriptor.kicker)}}</div>
-                    <div class="workspace-mode-title">${{escapeHtml(descriptor.label)}}</div>
-                  </div>
-                  <span class="chip ${{active ? "ok" : ""}}">${{escapeHtml(active ? copy("Active", "当前") : copy("Open", "打开"))}}</span>
-                </div>
-                <div class="workspace-mode-copy">${{escapeHtml(descriptor.summary)}}</div>
-                <div class="workspace-mode-modules">
-                  ${{descriptor.modules.map((moduleLabel) => `<span class="workspace-mode-module">${{escapeHtml(moduleLabel)}}</span>`).join("")}}
-                </div>
-                <div class="workspace-mode-foot">
-                  <span>${{copy("Landing", "落点")}}: ${{escapeHtml(activeSectionLabel(descriptor.landingSection))}}</span>
-                  <span>${{escapeHtml(descriptor.footnote)}}</span>
-                </div>
-              </button>
-            `;
-          }}).join("")}}
-        </div>
-      `;
-      root.querySelectorAll("[data-workspace-mode]").forEach((button) => {{
-        button.addEventListener("click", () => {{
-          const modeId = String(button.dataset.workspaceMode || "").trim();
-          const descriptor = workspaceModeDescriptor(modeId);
-          state.activeWorkspaceMode = descriptor.id;
-          state.activeSectionId = descriptor.landingSection;
-          renderWorkspaceModeChrome();
-          renderTopbarContext();
-          jumpToSection(descriptor.landingSection);
-        }});
-      }});
+      root.hidden = true;
+      root.innerHTML = "";
     }}
 
     function renderWorkspaceModeChrome() {{
@@ -4505,10 +4918,11 @@ def render_console_html(title: str) -> str:
         group.hidden = groupMode !== modeDescriptor.id;
       }});
       document.querySelectorAll(".topbar-nav [data-jump-target]").forEach((button) => {{
-        const sectionId = normalizeSectionId(button.dataset.jumpTarget || "");
-        const visible = workspaceModeForSection(sectionId) === modeDescriptor.id;
-        button.hidden = !visible;
-        button.classList.toggle("active", visible && sectionId === activeSectionId);
+        const buttonMode = normalizeWorkspaceMode(button.dataset.workspaceMode || workspaceModeForSection(button.dataset.jumpTarget || ""));
+        const active = buttonMode === modeDescriptor.id;
+        button.hidden = false;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-current", active ? "page" : "false");
       }});
       setText("topbar-subtitle", modeDescriptor.topbarSubtitle);
       renderWorkspaceModeShell();
@@ -4543,7 +4957,7 @@ def render_console_html(title: str) -> str:
           ].filter(Boolean).join(" "),
         }});
       }};
-      pushRow(copy("Workspace", "工作模式"), descriptor.modeLabel);
+      pushRow(copy("Rail", "主轨"), descriptor.modeLabel);
 
       if (activeSectionId === "section-intake") {{
         const draftName = String(state.createWatchDraft?.name || "").trim();
@@ -4642,53 +5056,46 @@ def render_console_html(title: str) -> str:
       if (!root) {{
         return;
       }}
+      const modeDescriptor = workspaceModeDescriptor(state.activeWorkspaceMode || workspaceModeForSection(state.activeSectionId));
+      const stageSections = workspaceModeSectionMap[modeDescriptor.id] || [];
       const current = buildCurrentContextLinkRecord();
       const currentUrl = current ? current.url : "";
       const currentSavedIndex = current ? findContextSavedViewIndexByUrl(current.url) : -1;
       const currentSavedEntry = currentSavedIndex >= 0 ? normalizeContextSavedViewEntry(state.contextSavedViews[currentSavedIndex]) : null;
       const defaultEntry = getDefaultContextSavedView();
-      const savedEntries = (Array.isArray(state.contextSavedViews) ? state.contextSavedViews : [])
-        .map((entry) => normalizeContextSavedViewEntry(entry))
-        .filter(Boolean);
       const pinnedEntries = (Array.isArray(state.contextSavedViews) ? state.contextSavedViews : [])
         .map((entry) => normalizeContextSavedViewEntry(entry))
         .filter((entry) => entry && entry.pinned)
         .slice(0, 4);
       const pinnedCount = pinnedEntries.length;
       const remainingSlots = Math.max(0, 4 - pinnedCount);
+      const onIntake = normalizeSectionId(state.activeSectionId) === "section-intake";
+      const showSectionRail = stageSections.length > 1;
       const shouldShowDock = Boolean(
         pinnedEntries.length ||
-        savedEntries.length ||
-        normalizeSectionId(state.activeSectionId) !== "section-intake"
-      );
-      const editingName = String(state.contextDockEditingName || "").trim();
-      if (editingName && !pinnedEntries.some((entry) => entry.name.toLowerCase() === editingName.toLowerCase())) {{
-        state.contextDockEditingName = "";
-      }}
-      const activePinnedEntry = pinnedEntries.find((entry) => entry.url === currentUrl)
-        || pinnedEntries.find((entry) => entry.name.toLowerCase() === String(state.contextDockEditingName || "").trim().toLowerCase())
-        || pinnedEntries[0]
-        || null;
-      const dockEditing = Boolean(
-        activePinnedEntry &&
-        String(state.contextDockEditingName || "").trim().toLowerCase() === activePinnedEntry.name.toLowerCase()
+        showSectionRail ||
+        !onIntake ||
+        currentSavedEntry ||
+        defaultEntry
       );
       const showUnsavedHint = Boolean(
         current &&
         !currentSavedEntry &&
-        normalizeSectionId(state.activeSectionId) !== "section-intake"
+        !onIntake
       );
       const showSavedOnlyHint = Boolean(currentSavedEntry && !currentSavedEntry.pinned);
-      const buildPinnedPreviewMarkup = (entry, {{ previewing = false }} = {{}}) => `
-        <div class="mono">${{previewing ? copy("Pinned view preview", "固定视图预览") : copy("Active pinned view", "当前固定视图")}}</div>
-        <div>${{escapeHtml(entry.name)}}</div>
-        <div class="panel-sub">${{escapeHtml(entry.summary)}}</div>
-        <div class="meta">
-          <span>${{escapeHtml(activeSectionLabel(entry.sectionId))}}</span>
-          ${{entry.isDefault ? `<span class="chip ok">${{copy("Default", "默认")}}</span>` : ""}}
-          ${{previewing ? `<span class="chip">${{copy("Preview", "预览")}}</span>` : ""}}
-        </div>
-      `;
+      const canSaveCurrent = Boolean(!onIntake && current && !currentSavedEntry);
+      const canPinCurrent = Boolean(currentSavedIndex >= 0 && currentSavedEntry && !currentSavedEntry.pinned);
+      const summaryLabel = current?.summary || copy("No active context", "当前没有激活上下文");
+      const summaryCopy = pinnedEntries.length
+        ? copy(
+            "Use the lifecycle rail for primary movement. Pinned views stay here as accelerators, while deep links and palette actions remain optional speed paths.",
+            "主导航仍由生命周期主轨负责；这里保留固定视图作为加速入口，而深链和命令面板继续只是可选捷径。"
+          )
+        : copy(
+            "Use the lifecycle rail for primary movement. Open Workspace Context only when you need section detail, saved views, or shareable links.",
+            "主导航由生命周期主轨负责；只有在需要区块细节、保存视图或分享链接时，再展开“工作上下文”。"
+          );
       root.hidden = !shouldShowDock;
       if (!shouldShowDock) {{
         root.innerHTML = "";
@@ -4696,17 +5103,39 @@ def render_console_html(title: str) -> str:
       }}
       root.innerHTML = `
         <div class="context-view-dock-head">
-          <div class="context-view-dock-title">${{copy("Pinned Views", "固定视图")}}</div>
+          <div>
+            <div class="context-view-dock-title">${{copy("Workspace Context", "工作上下文")}}</div>
+            <div class="context-view-dock-summary">${{escapeHtml(summaryLabel)}}</div>
+          </div>
           <div class="meta">
-            <span class="chip">${{remainingSlots ? phrase("{{count}} open", "{{count}} 个空位", {{ count: remainingSlots }}) : copy("Dock full", "坞站已满")}}</span>
+            <span class="chip ok">${{escapeHtml(modeDescriptor.label)}}</span>
+            <span class="chip">${{remainingSlots ? phrase("{{count}} open", "{{count}} 个空位", {{ count: remainingSlots }}) : copy("Rail full", "轨道已满")}}</span>
             ${{showUnsavedHint ? `<span class="chip hot">${{copy("Unsaved", "未保存")}}</span>` : ""}}
             ${{showSavedOnlyHint ? `<span class="chip">${{copy("Saved only", "仅已保存")}}</span>` : ""}}
             ${{defaultEntry ? `<span class="chip ok">${{copy("Default", "默认")}}: ${{escapeHtml(clampLabel(defaultEntry.name, 28))}}</span>` : ""}}
-            <button class="btn-secondary" type="button" data-context-dock-manage>${{copy("Manage", "管理")}}</button>
+            <button class="btn-secondary" type="button" data-context-dock-manage>${{copy("Open Context", "打开上下文")}}</button>
           </div>
         </div>
+        ${{showSectionRail
+          ? `<div class="context-view-dock-section">
+              <div class="context-view-dock-title">${{copy("Current Rail", "当前主轨")}}</div>
+              <div class="context-view-dock-list">
+                ${{stageSections.map((sectionId) => `
+                  <button
+                    class="chip-btn ${{sectionId === normalizeSectionId(state.activeSectionId) ? "active" : ""}}"
+                    type="button"
+                    data-context-section="${{sectionId}}"
+                  >
+                    ${{escapeHtml(activeSectionLabel(sectionId))}}
+                  </button>
+                `).join("")}}
+              </div>
+            </div>`
+          : ""}}
         ${{pinnedEntries.length
-          ? `<div class="context-view-dock-list">
+          ? `<div class="context-view-dock-section">
+              <div class="context-view-dock-title">${{copy("Pinned Views", "已固定视图")}}</div>
+              <div class="context-view-dock-list">
               ${{pinnedEntries.map((entry, index) => `
                 <button
                   class="chip-btn ${{entry.url === currentUrl ? "active" : ""}}"
@@ -4717,54 +5146,30 @@ def render_console_html(title: str) -> str:
                   ${{escapeHtml(entry.isDefault ? phrase("{{name}} [default]", "{{name}} [默认]", {{ name: entry.name }}) : entry.name)}}
                 </button>
               `).join("")}}
+              </div>
             </div>`
-          : `<div class="empty">${{copy("No pinned view yet. Save the current workspace here and it will stay on top.", "还没有固定视图。把当前工作态固定到这里，它就会一直留在顶部。")}}</div>`}}
-        ${{activePinnedEntry ? `
-          <div class="context-view-dock-tools">
-            <div class="context-view-dock-active" id="context-dock-preview">
-              ${{buildPinnedPreviewMarkup(activePinnedEntry)}}
-            </div>
-            ${{dockEditing
-              ? `<form class="context-view-dock-form" id="context-dock-rename-form">
-                  <input id="context-dock-rename-input" type="text" maxlength="72" value="${{escapeHtml(activePinnedEntry.name)}}" placeholder="${{escapeHtml(activePinnedEntry.name)}}">
-                  <button class="btn-secondary" type="submit">${{copy("Save", "保存")}}</button>
-                  <button class="btn-secondary" type="button" data-context-dock-cancel>${{copy("Cancel", "取消")}}</button>
-                </form>`
-              : `<div class="context-history-actions">
-                  <button class="btn-secondary" type="button" data-context-dock-rename="${{escapeHtml(activePinnedEntry.name)}}">${{copy("Rename", "重命名")}}</button>
-                </div>`}}
+          : ""}}
+        <div class="context-view-dock-tools">
+          <div class="context-view-dock-copy">${{escapeHtml(summaryCopy)}}</div>
+          <div class="context-view-dock-actions">
+            ${{currentSavedEntry?.pinned ? `<span class="chip ok">${{copy("Current pinned", "当前已固定")}}</span>` : ""}}
+            ${{canPinCurrent ? `<button class="btn-secondary" type="button" data-context-dock-pin-current>${{copy("Pin Current View", "固定当前视图")}}</button>` : ""}}
+            ${{canSaveCurrent ? `<button class="btn-secondary" type="button" data-context-dock-save-pin>${{copy("Save + Pin Current", "保存并固定当前视图")}}</button>` : ""}}
           </div>
-        ` : `
-          <div class="context-view-dock-tools">
-            <div class="context-view-dock-active" id="context-dock-preview">
-              <div class="mono">${{copy("Current workspace", "当前工作态")}}</div>
-              <div>${{escapeHtml(current?.summary || copy("No active context", "当前没有激活上下文"))}}</div>
-              <div class="panel-sub">${{currentSavedEntry
-                ? escapeHtml(currentSavedEntry.pinned
-                    ? copy("This view is already pinned in the dock.", "这个视图已经固定在顶部坞站。")
-                    : copy("This view is already saved. Pin it in one click.", "这个视图已经保存过，可以一键固定。"))
-                : escapeHtml(copy("Save the current filters, section, and focus as a pinned workspace shortcut.", "把当前筛选、区块和焦点保存成一个固定工作台快捷入口。"))}}</div>
-            </div>
-            <div class="context-history-actions">
-              ${{currentSavedEntry && !currentSavedEntry.pinned
-                ? `<button class="btn-secondary" type="button" data-context-dock-pin-current>${{copy("Pin Current View", "固定当前视图")}}</button>`
-                : (!currentSavedEntry
-                    ? `<button class="btn-secondary" type="button" data-context-dock-save-pin>${{copy("Save + Pin Current", "保存并固定当前视图")}}</button>`
-                    : `<span class="chip ok">${{copy("Current view pinned", "当前视图已固定")}}</span>`)}}
-            </div>
-          </div>
-        `}}
+        </div>
       `;
       root.querySelector("[data-context-dock-manage]")?.addEventListener("click", () => {{
+        state.contextLensRestoreFocusId = "context-summary";
         setContextLensOpen(true);
       }});
-      const previewNode = $("context-dock-preview");
-      const resetPreview = () => {{
-        if (!previewNode || !activePinnedEntry) {{
-          return;
-        }}
-        previewNode.innerHTML = buildPinnedPreviewMarkup(activePinnedEntry);
-      }};
+      root.querySelectorAll("[data-context-section]").forEach((button) => {{
+        button.addEventListener("click", () => {{
+          const sectionId = String(button.dataset.contextSection || "").trim();
+          if (sectionId) {{
+            jumpToSection(sectionId);
+          }}
+        }});
+      }});
       root.querySelectorAll("[data-context-dock-open]").forEach((button) => {{
         button.addEventListener("click", () => {{
           const pinnedIndex = Number(button.dataset.contextDockOpen || -1);
@@ -4773,36 +5178,6 @@ def render_console_html(title: str) -> str:
             restoreContextSavedViewByName(entry.name);
           }}
         }});
-        button.addEventListener("mouseenter", () => {{
-          const pinnedIndex = Number(button.dataset.contextDockOpen || -1);
-          const entry = pinnedEntries[pinnedIndex];
-          if (previewNode && entry) {{
-            previewNode.innerHTML = buildPinnedPreviewMarkup(entry, {{
-              previewing: !activePinnedEntry || entry.name.toLowerCase() !== activePinnedEntry.name.toLowerCase(),
-            }});
-          }}
-        }});
-        button.addEventListener("focus", () => {{
-          const pinnedIndex = Number(button.dataset.contextDockOpen || -1);
-          const entry = pinnedEntries[pinnedIndex];
-          if (previewNode && entry) {{
-            previewNode.innerHTML = buildPinnedPreviewMarkup(entry, {{
-              previewing: !activePinnedEntry || entry.name.toLowerCase() !== activePinnedEntry.name.toLowerCase(),
-            }});
-          }}
-        }});
-        button.addEventListener("mouseleave", resetPreview);
-        button.addEventListener("blur", resetPreview);
-      }});
-      root.querySelector("[data-context-dock-rename]")?.addEventListener("click", () => {{
-        startContextDockRename(String(root.querySelector("[data-context-dock-rename]")?.dataset.contextDockRename || ""));
-      }});
-      root.querySelector("[data-context-dock-cancel]")?.addEventListener("click", () => {{
-        cancelContextDockRename();
-      }});
-      root.querySelector("#context-dock-rename-form")?.addEventListener("submit", (event) => {{
-        event.preventDefault();
-        renameContextSavedView(activePinnedEntry?.name || "", String($("context-dock-rename-input")?.value || ""));
       }});
       root.querySelector("[data-context-dock-pin-current]")?.addEventListener("click", () => {{
         if (currentSavedIndex >= 0) {{
@@ -4968,16 +5343,44 @@ def render_console_html(title: str) -> str:
       renderContextLinkHistory();
     }}
 
+    function getContextLensFocusableElements() {{
+      const shell = $("context-lens-shell");
+      if (!shell) {{
+        return [];
+      }}
+      return Array.from(shell.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+        .filter((element) => !element.hasAttribute("hidden") && element.getAttribute("aria-hidden") !== "true");
+    }}
+
     function setContextLensOpen(nextOpen) {{
       state.contextLensOpen = Boolean(nextOpen);
       const summary = $("context-summary");
       const lens = $("context-lens");
+      const backdrop = $("context-lens-backdrop");
+      const shell = $("context-lens-shell");
       if (summary) {{
         summary.setAttribute("aria-expanded", state.contextLensOpen ? "true" : "false");
+      }}
+      if (document.body) {{
+        document.body.dataset.contextLensOpen = state.contextLensOpen ? "true" : "false";
+      }}
+      if (backdrop) {{
+        backdrop.hidden = !state.contextLensOpen;
+        backdrop.classList.toggle("open", state.contextLensOpen);
       }}
       if (lens) {{
         lens.hidden = !state.contextLensOpen;
       }}
+      if (state.contextLensOpen) {{
+        renderContextLens();
+        window.setTimeout(() => {{
+          shell?.focus();
+        }}, 10);
+        return;
+      }}
+      window.setTimeout(() => {{
+        $(state.contextLensRestoreFocusId || "context-summary")?.focus();
+      }}, 0);
     }}
 
     function toggleContextLens() {{
@@ -5176,18 +5579,17 @@ def render_console_html(title: str) -> str:
       document.body.dataset.lang = state.language;
       document.title = state.language === "zh" ? "DataPulse 情报控制台" : initial.title;
       setText("topbar-title", copy("DataPulse Operations Console", "DataPulse 情报控制台"));
-      setText("nav-intake", copy("New Mission", "新建任务"));
-      setText("nav-board", copy("Mission Board", "任务列表"));
-      setText("nav-cockpit", copy("Cockpit", "任务详情"));
-      setText("nav-triage", copy("Triage", "分诊"));
-      setText("nav-story", copy("Stories", "故事"));
-      setText("nav-ops", copy("Ops", "运行状态"));
-      setText("context-lens-title", copy("Context Lens", "上下文透镜"));
-      setText("context-lens-copy", copy("See the current section, active filters, and copy a shareable deep link.", "查看当前区块、正在生效的筛选条件，并复制可分享的深链。"));
+      setText("nav-intake", copy("Intake", "录入"));
+      setText("nav-missions", copy("Missions", "任务"));
+      setText("nav-review", copy("Review", "审阅"));
+      setText("nav-delivery", copy("Delivery", "交付"));
+      setText("context-lens-title", copy("Workspace Context", "工作上下文"));
+      setText("context-lens-copy", copy("See the current rail, active filters, and save or share the current workspace state.", "查看当前主轨、正在生效的筛选条件，并保存或分享当前工作区状态。"));
+      setText("context-lens-close", copy("Close", "关闭"));
       setText("context-save-title", copy("Save Current View", "保存当前视图"));
       setText("context-save-submit", copy("Save View", "保存视图"));
       setPlaceholder("context-save-name", copy("Ops desk / Escalations", "运营台 / 升级队列"));
-      setText("context-open-section", copy("Open Section", "打开区块"));
+      setText("context-open-section", copy("Open Current Surface", "打开当前区块"));
       setText("context-copy-link", copy("Copy Link", "复制链接"));
       setText("palette-open", copy("Command Palette", "快速命令"));
       setText("context-reset", copy("Reset Context", "重置上下文"));
@@ -5218,7 +5620,7 @@ def render_console_html(title: str) -> str:
       setText("jump-cockpit", copy("Cockpit", "任务详情"));
       setText("jump-triage", copy("Triage", "分诊"));
       setText("jump-story", copy("Stories", "故事"));
-      setText("jump-ops", copy("Ops", "运行状态"));
+      setText("jump-ops", copy("Delivery", "交付"));
       setText("deploy-title", copy("Deploy Mission", "创建监测任务"));
       setText("deploy-copy", copy("Create one watch, add optional scope, then decide whether alert routing is needed.", "先定义监测任务，再按需补充范围和通知条件。"));
       setText("preset-title", copy("Mission Modes", "任务预设"));
@@ -5257,24 +5659,24 @@ def render_console_html(title: str) -> str:
       setText("actions-title", copy("Recent Actions", "最近变更"));
       setText("actions-copy", copy("Every reversible mutation stays here briefly so you can undo false starts without losing flow.", "最近的可撤销操作会暂时保留在这里，方便你快速回退。"));
       setText("board-title", copy("Mission Board", "任务看板"));
-      setText("board-copy", copy("Run missions, open the cockpit, and move from draft setup into live evidence collection.", "在一个列表里完成执行任务、打开详情，并把草稿真正推进到实时证据采集。"));
+      setText("board-copy", copy("Run missions, open the cockpit, and keep review handoff facts attached to the active board lane.", "在一个列表里完成执行任务、打开详情，并把审阅交接事实保持在当前任务工作线附近。"));
       setText("alert-stream-title", copy("Alert Stream", "告警动态"));
-      setText("alert-stream-copy", copy("Read recent alert events without mixing them up with editable route configuration.", "这里专门查看最近告警事件，不再和可编辑路由配置混在一起。"));
+      setText("alert-stream-copy", copy("Read recent alert events beside route editing and health instead of treating them as a detached feed.", "把最近告警事件放在路由编辑和健康状态旁边查看，而不是再把它当成一条脱离上下文的独立信息流。"));
       setText("alert-stream-mode", copy("Events read-only", "事件只读"));
       setText("route-manager-title", copy("Route Manager", "路由管理"));
       setText("route-manager-copy", copy("Create named delivery sinks once, then attach them from Mission Intake or the Cockpit alert editor without retyping webhook or chat details.", "把命名交付路由先配置一次，后续在新建任务或任务详情的告警编辑器里直接绑定，不必重复填写 webhook 或会话信息。"));
       setText("route-manager-mode", copy("Editable", "可编辑"));
       setText("ops-title", copy("Ops Snapshot", "运行状态"));
-      setText("ops-copy", copy("Watch daemon health, collector risk, route delivery, and recent failures in one slice.", "把守护进程健康、采集器风险、路由投递和近期失败集中到一个视图。"));
+      setText("ops-copy", copy("Watch alerting missions, story readiness, route delivery, and recent failures in one delivery slice.", "把触发告警的任务、故事就绪度、路由投递和近期失败集中到一个交付视图。"));
       setText("cockpit-title", copy("Mission Cockpit", "任务详情"));
-      setText("cockpit-copy", copy("Open one mission to inspect runs, review output, trigger follow-up action, and tune alert rules before triage.", "打开单个任务后，可以查看执行记录、审阅结果、触发下一步动作，并在进入分诊前调整告警规则。"));
+      setText("cockpit-copy", copy("Open one mission to inspect runs, review continuity, follow-up actions, and route-backed delivery without losing the cockpit context.", "打开单个任务后，可以在不离开任务详情的前提下查看执行记录、审阅连续性、后续动作和路由交付。"));
       setText("distribution-title", copy("Distribution Health", "分发健康"));
-      setText("distribution-copy", copy("See whether named delivery routes are healthy before they become silent failures.", "提前发现命名路由是否异常，避免进入静默失败。"));
+      setText("distribution-copy", copy("See whether named delivery routes are healthy and which upstream work is feeding them before they go silent.", "提前发现命名路由是否健康，以及哪些上游工作正在给它们供流，避免进入静默失败。"));
       setText("distribution-mode", copy("Read-only", "只读"));
       setText("triage-title", copy("Triage Queue", "分诊队列"));
-      setText("triage-copy", copy("Review open items, mark duplicates, capture analyst reasoning, and promote verified signal into stories without leaving the queue.", "在不离开队列的前提下完成审阅、去重、备注记录，并把已核验信号提升为故事。"));
+      setText("triage-copy", copy("Review open items with one selected evidence workbench, keep analyst reasoning visible, and hand verified signal into stories without leaving the queue.", "通过一个选中证据工作台完成审阅，持续看到分析师推理，并在不离开队列的前提下把已核验信号交接给故事。"));
       setText("story-title", copy("Story Workspace", "故事工作台"));
-      setText("story-copy", copy("Inspect promoted stories, evidence stacks, contradictions, and summaries before delivery leaves the browser.", "查看已提升的故事、证据堆栈、冲突点和摘要，并在交付出浏览器前完成整理。"));
+      setText("story-copy", copy("Inspect promoted stories, evidence stacks, contradictions, and delivery readiness before the narrative leaves the browser.", "查看已提升的故事、证据堆栈、冲突点和交付就绪度，并在叙事离开浏览器前完成整理。"));
       setText("story-intake-title", copy("Story Intake", "故事录入"));
       setText("story-intake-copy", copy("Capture a manual brief when a story should exist before clustering catches up, then refine it inside the workspace.", "当某个故事需要先落下来、而聚类还没跟上时，可以先手工补录，再在工作台里继续完善。"));
       setText("story-intake-mode", copy("Editable", "可编辑"));
@@ -6496,32 +6898,53 @@ def render_console_html(title: str) -> str:
     }}
 
     function bindContextLens() {{
-      const shell = $("context-shell");
       const summary = $("context-summary");
       const lens = $("context-lens");
+      const backdrop = $("context-lens-backdrop");
+      const dialog = $("context-lens-shell");
       const saveForm = $("context-save-form");
       const saveInput = $("context-save-name");
-      if (!shell || !summary || !lens) {{
+      if (!summary || !lens || !backdrop || !dialog) {{
         return;
       }}
       summary.addEventListener("click", (event) => {{
         event.stopPropagation();
+        state.contextLensRestoreFocusId = "context-summary";
         toggleContextLens();
       }});
-      lens.addEventListener("click", (event) => {{
-        event.stopPropagation();
+      backdrop.addEventListener("click", (event) => {{
+        if (event.target === backdrop) {{
+          setContextLensOpen(false);
+        }}
+      }});
+      dialog.addEventListener("keydown", (event) => {{
+        if (String(event.key || "") !== "Tab" || !state.contextLensOpen) {{
+          return;
+        }}
+        const focusable = getContextLensFocusableElements();
+        if (!focusable.length) {{
+          event.preventDefault();
+          dialog.focus();
+          return;
+        }}
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement;
+        if (event.shiftKey && (active === first || active === dialog)) {{
+          event.preventDefault();
+          last.focus();
+          return;
+        }}
+        if (!event.shiftKey && active === last) {{
+          event.preventDefault();
+          first.focus();
+        }}
       }});
       saveForm?.addEventListener("submit", (event) => {{
         event.preventDefault();
         saveCurrentContextView(saveInput?.value || "");
       }});
-      document.addEventListener("click", (event) => {{
-        if (!state.contextLensOpen) {{
-          return;
-        }}
-        if (shell.contains(event.target)) {{
-          return;
-        }}
+      $("context-lens-close")?.addEventListener("click", () => {{
         setContextLensOpen(false);
       }});
       $("context-open-section")?.addEventListener("click", () => {{
@@ -6773,6 +7196,351 @@ def render_console_html(title: str) -> str:
       }});
     }}
 
+    function getGovernanceSignals() {{
+      const scorecard = state.ops?.governance_scorecard;
+      return scorecard && typeof scorecard.signals === "object" ? scorecard.signals : {{}};
+    }}
+
+    function getGovernanceSignal(signalId) {{
+      const signal = getGovernanceSignals()[signalId];
+      return signal && typeof signal === "object" ? signal : {{}};
+    }}
+
+    function getStoryEvidenceIds(story) {{
+      return uniqueValues([
+        story?.primary_item_id,
+        ...(Array.isArray(story?.primary_evidence) ? story.primary_evidence.map((row) => row.item_id) : []),
+        ...(Array.isArray(story?.secondary_evidence) ? story.secondary_evidence.map((row) => row.item_id) : []),
+      ]);
+    }}
+
+    function getStoriesForEvidenceItem(itemId) {{
+      const normalizedId = String(itemId || "").trim();
+      if (!normalizedId) {{
+        return [];
+      }}
+      return state.stories.filter((story) => getStoryEvidenceIds(story).includes(normalizedId));
+    }}
+
+    function getStoryDeliveryStatus(story) {{
+      const governance = story && typeof story.governance === "object" ? story.governance : {{}};
+      const deliveryRisk = governance && typeof governance.delivery_risk === "object" ? governance.delivery_risk : {{}};
+      const rawStatus = String(deliveryRisk.status || "").trim().toLowerCase();
+      if (rawStatus === "ready") {{
+        return {{ key: "ready", label: copy("Ready", "已就绪"), tone: "ok" }};
+      }}
+      if (rawStatus === "blocked") {{
+        return {{ key: "blocked", label: copy("Blocked", "已阻塞"), tone: "hot" }};
+      }}
+      if (rawStatus) {{
+        return {{ key: rawStatus, label: localizeWord(rawStatus), tone: rawStatus === "watch" ? "hot" : "" }};
+      }}
+      return {{ key: "pending", label: copy("Not assessed", "未评估"), tone: "" }};
+    }}
+
+    function renderLifecycleContinuityCard({{ title = "", summary = "", stages = [], actions = [], tone = "ok" }} = {{}}) {{
+      const stagesHtml = stages.map((stage) => `
+        <div class="continuity-stage ${{escapeHtml(stage.tone || "")}}">
+          <div class="continuity-stage-kicker">${{escapeHtml(stage.kicker || "")}}</div>
+          <div class="continuity-stage-title">${{escapeHtml(stage.title || "")}}</div>
+          <div class="continuity-stage-copy">${{escapeHtml(stage.copy || "")}}</div>
+          <div class="continuity-fact-list">
+            ${{(stage.facts || []).map((fact) => {{
+              const hasValue = ![null, undefined].includes(fact.value) && String(fact.value).trim() !== "";
+              return `
+                <div class="continuity-fact">
+                  <span>${{escapeHtml(fact.label || "")}}</span>
+                  <strong>${{escapeHtml(hasValue ? String(fact.value).trim() : copy("n/a", "暂无"))}}</strong>
+                </div>
+              `;
+            }}).join("")}}
+          </div>
+        </div>
+      `).join("");
+      const actionsHtml = actions.length
+        ? `<div class="actions" style="margin-top:14px;">${{actions.map((action) => `
+            <button
+              class="${{action.primary ? "btn-primary" : "btn-secondary"}}"
+              type="button"
+              ${{action.section ? `data-empty-jump="${{escapeHtml(action.section)}}"` : ""}}
+              ${{action.focus ? `data-empty-focus="${{escapeHtml(action.focus)}}"` : ""}}
+              ${{action.field ? `data-empty-field="${{escapeHtml(action.field)}}"` : ""}}
+              ${{action.watch ? `data-empty-watch="${{escapeHtml(action.watch)}}"` : ""}}
+              ${{action.runWatch ? `data-empty-run-watch="${{escapeHtml(action.runWatch)}}"` : ""}}
+            >${{escapeHtml(action.label || "")}}</button>
+          `).join("")}}</div>`
+        : "";
+      return `
+        <div class="card">
+          <div class="card-top">
+            <div>
+              <div class="mono">${{copy("lifecycle continuity", "生命周期衔接")}}</div>
+              <h3 class="card-title" style="margin-top:10px;">${{escapeHtml(title)}}</h3>
+            </div>
+            <span class="chip ${{tone}}">${{copy("cross-stage", "跨阶段")}}</span>
+          </div>
+          <div class="panel-sub">${{escapeHtml(summary)}}</div>
+          <div class="continuity-lane" style="margin-top:14px;">${{stagesHtml}}</div>
+          ${{actionsHtml}}
+        </div>
+      `;
+    }}
+
+    function makeSurfaceAction(label, attrs = {{}}, extra = {{}}) {{
+      return {{ label, attrs, ...extra }};
+    }}
+
+    function renderCardActionControl(action, tone = "secondary") {{
+      if (!action || !action.label) {{
+        return "";
+      }}
+      const className = tone === "primary" ? "btn-primary" : tone === "danger" ? "btn-danger" : "btn-secondary";
+      const attrList = Object.entries(action.attrs || {{}})
+        .filter(([, value]) => value !== null && value !== undefined && value !== false && value !== "")
+        .map(([key, value]) => (value === true ? key : `${{key}}="${{escapeHtml(String(value))}}"`));
+      if (action.href) {{
+        attrList.push(`href="${{escapeHtml(String(action.href))}}"`);
+        if (action.target) {{
+          attrList.push(`target="${{escapeHtml(String(action.target))}}"`);
+        }}
+        if (action.rel) {{
+          attrList.push(`rel="${{escapeHtml(String(action.rel))}}"`);
+        }}
+        return `<a class="${{className}}" data-action-tone="${{tone}}" ${{attrList.join(" ")}}>${{escapeHtml(action.label)}}</a>`;
+      }}
+      if (action.disabled) {{
+        attrList.push("disabled");
+      }}
+      return `<button class="${{className}}" type="button" data-action-tone="${{tone}}" ${{attrList.join(" ")}}>${{escapeHtml(action.label)}}</button>`;
+    }}
+
+    function renderCardActionHierarchy({{ primary = null, secondary = [], danger = [] }} = {{}}) {{
+      const sections = [];
+      if (primary) {{
+        sections.push(`
+          <div class="actions action-primary-row" data-card-action-primary>
+            ${{renderCardActionControl(primary, "primary")}}
+          </div>
+        `);
+      }}
+      const secondaryActions = secondary.filter(Boolean);
+      if (secondaryActions.length) {{
+        sections.push(`
+          <div class="actions action-secondary-row" data-card-action-secondary>
+            ${{secondaryActions.map((action) => renderCardActionControl(action, "secondary")).join("")}}
+          </div>
+        `);
+      }}
+      const dangerActions = danger.filter(Boolean);
+      if (dangerActions.length) {{
+        sections.push(`
+          <div class="actions action-danger-row" data-card-action-danger>
+            ${{dangerActions.map((action) => renderCardActionControl(action, "danger")).join("")}}
+          </div>
+        `);
+      }}
+      if (secondaryActions.length || dangerActions.length) {{
+        sections.push(`
+          <details class="action-sheet" data-card-action-sheet>
+            <summary class="action-sheet-toggle">${{copy("More Actions", "更多操作")}}</summary>
+            <div class="action-sheet-panel">
+              ${{secondaryActions.length
+                ? `<div class="actions action-secondary-row" data-card-action-sheet-secondary>
+                    ${{secondaryActions.map((action) => renderCardActionControl(action, "secondary")).join("")}}
+                  </div>`
+                : ""}}
+              ${{dangerActions.length
+                ? `<div class="actions action-danger-row" data-card-action-sheet-danger>
+                    ${{dangerActions.map((action) => renderCardActionControl(action, "danger")).join("")}}
+                  </div>`
+                : ""}}
+            </div>
+          </details>
+        `);
+      }}
+      return sections.length ? `<div class="action-hierarchy">${{sections.join("")}}</div>` : "";
+    }}
+
+    function isHighRiskTriageItem(item) {{
+      return Number(item?.score || 0) >= 80 || Number(item?.confidence || 0) >= 0.9;
+    }}
+
+    function getMissionCardActionHierarchy(watch) {{
+      const enabled = Boolean(watch?.enabled);
+      const lastStatus = String(watch?.last_run_status || "").trim().toLowerCase();
+      const neverRun = !String(watch?.last_run_at || "").trim();
+      const due = Boolean(watch?.is_due);
+      const secondary = [];
+      const danger = [];
+      if (!watch || !watch.id) {{
+        return {{ primary: null, secondary, danger }};
+      }}
+      const openCockpit = makeSurfaceAction(copy("Open Cockpit", "打开驾驶舱"), {{ "data-watch-open": watch.id }});
+      const editMission = makeSurfaceAction(copy("Edit Mission", "编辑任务"), {{ "data-edit-watch": watch.id }});
+      const runMission = makeSurfaceAction(copy("Run Mission", "执行任务"), {{ "data-run-watch": watch.id }});
+      const retryMission = makeSurfaceAction(copy("Retry Mission", "重试任务"), {{ "data-run-watch": watch.id }});
+      const enableMission = makeSurfaceAction(copy("Enable", "启用"), {{
+        "data-watch-toggle": watch.id,
+        "data-watch-enabled": "0",
+      }});
+      const disableMission = makeSurfaceAction(copy("Disable", "停用"), {{
+        "data-watch-toggle": watch.id,
+        "data-watch-enabled": "1",
+      }});
+      const deleteMission = makeSurfaceAction(copy("Delete", "删除"), {{ "data-delete-watch": watch.id }});
+      if (!enabled) {{
+        return {{
+          primary: enableMission,
+          secondary: [openCockpit, editMission],
+          danger: [deleteMission],
+        }};
+      }}
+      danger.push(disableMission, deleteMission);
+      if (lastStatus === "error") {{
+        secondary.push(openCockpit, editMission);
+        return {{ primary: retryMission, secondary, danger }};
+      }}
+      if (due || neverRun) {{
+        secondary.push(openCockpit, editMission);
+        return {{ primary: runMission, secondary, danger }};
+      }}
+      secondary.push(runMission, editMission);
+      return {{ primary: openCockpit, secondary, danger }};
+    }}
+
+    function getTriageCardActionHierarchy(item, linkedStories = []) {{
+      const reviewState = String(item?.review_state || "new").trim().toLowerCase() || "new";
+      const hasLinkedStory = Array.isArray(linkedStories) && linkedStories.length > 0;
+      const isOpenState = reviewState === "new" || reviewState === "triaged";
+      const openStoryWorkspace = makeSurfaceAction(copy("Open Story Workspace", "打开故事工作台"), {{
+        "data-empty-jump": "section-story",
+      }});
+      const createStory = makeSurfaceAction(copy("Create Story", "生成故事"), {{ "data-triage-story": item.id }});
+      const explainDup = makeSurfaceAction(copy("Explain Dup", "查看重复解释"), {{ "data-triage-explain": item.id }});
+      const verifyItem = makeSurfaceAction(copy("Verify", "核验"), {{
+        "data-triage-state": "verified",
+        "data-triage-id": item.id,
+      }});
+      const escalateItem = makeSurfaceAction(copy("Escalate", "升级"), {{
+        "data-triage-state": "escalated",
+        "data-triage-id": item.id,
+      }});
+      const ignoreItem = makeSurfaceAction(copy("Ignore", "忽略"), {{
+        "data-triage-state": "ignored",
+        "data-triage-id": item.id,
+      }});
+      const deleteItem = makeSurfaceAction(copy("Delete", "删除"), {{ "data-triage-delete": item.id }});
+      const storyAction = hasLinkedStory ? openStoryWorkspace : createStory;
+      const danger = reviewState === "ignored" ? [deleteItem] : [ignoreItem, deleteItem];
+      if (isOpenState && isHighRiskTriageItem(item)) {{
+        return {{
+          primary: escalateItem,
+          secondary: [verifyItem, storyAction],
+          danger,
+        }};
+      }}
+      if (isOpenState) {{
+        return {{
+          primary: verifyItem,
+          secondary: [escalateItem, storyAction],
+          danger,
+        }};
+      }}
+      if (reviewState === "verified" || reviewState === "escalated") {{
+        return {{
+          primary: storyAction,
+          secondary: [explainDup, reviewState === "escalated" ? verifyItem : null].filter(Boolean).slice(0, 2),
+          danger,
+        }};
+      }}
+      return {{
+        primary: hasLinkedStory ? openStoryWorkspace : explainDup,
+        secondary: [storyAction, verifyItem],
+        danger,
+      }};
+    }}
+
+    function getTriageWorkbenchActionHierarchy(item, linkedStories = []) {{
+      const base = getTriageCardActionHierarchy(item, linkedStories);
+      const hasLinkedStory = Array.isArray(linkedStories) && linkedStories.length > 0;
+      const primary = hasLinkedStory
+        ? makeSurfaceAction(copy("Open Story Workspace", "打开故事工作台"), {{ "data-empty-jump": "section-story" }})
+        : makeSurfaceAction(copy("Create Story", "生成故事"), {{ "data-triage-story": item.id }});
+      const explainDup = makeSurfaceAction(copy("Explain Dup", "查看重复解释"), {{ "data-triage-explain": item.id }});
+      const secondary = [];
+      if (base.primary && base.primary.label !== primary.label) {{
+        secondary.push(base.primary);
+      }}
+      secondary.push(explainDup);
+      const reviewState = String(item?.review_state || "new").trim().toLowerCase() || "new";
+      const danger = reviewState === "ignored"
+        ? [makeSurfaceAction(copy("Delete", "删除"), {{ "data-triage-delete": item.id }})]
+        : [
+            makeSurfaceAction(copy("Ignore", "忽略"), {{
+              "data-triage-state": "ignored",
+              "data-triage-id": item.id,
+            }}),
+            makeSurfaceAction(copy("Delete", "删除"), {{ "data-triage-delete": item.id }}),
+          ];
+      return {{
+        primary,
+        secondary: secondary.filter(Boolean).slice(0, 2),
+        danger,
+      }};
+    }}
+
+    function getStoryCardActionHierarchy(story) {{
+      const archived = String(story?.status || "active").trim().toLowerCase() === "archived";
+      return {{
+        primary: makeSurfaceAction(copy("Open Story", "打开故事"), {{ "data-story-open": story.id }}),
+        secondary: [
+          makeSurfaceAction(
+            archived ? copy("Restore", "恢复") : copy("Archive", "归档"),
+            {{
+              "data-story-quick-status": story.id,
+              "data-story-next-status": archived ? "active" : "archived",
+            }},
+          ),
+          makeSurfaceAction(copy("Preview MD", "预览 MD"), {{ "data-story-preview": story.id }}),
+        ],
+        danger: [],
+      }};
+    }}
+
+    function getRouteCardActionHierarchy(route, health = null, usageCount = 0) {{
+      const routeName = String(route?.name || health?.name || "").trim();
+      if (!routeName) {{
+        return {{ primary: null, secondary: [], danger: [] }};
+      }}
+      const healthStatus = String(health?.status || route?.status || "idle").trim().toLowerCase() || "idle";
+      const unhealthy = healthStatus && !["healthy", "idle"].includes(healthStatus);
+      const editRoute = makeSurfaceAction(
+        unhealthy ? copy("Inspect Route", "检查路由") : copy("Edit Route", "编辑路由"),
+        {{ "data-route-edit": routeName }},
+      );
+      const attachRoute = makeSurfaceAction(copy("Attach To Mission", "绑定到任务"), {{ "data-route-attach": routeName }});
+      const deleteRoute = makeSurfaceAction(copy("Delete", "删除"), {{ "data-route-delete": routeName }});
+      if (unhealthy) {{
+        return {{
+          primary: editRoute,
+          secondary: [attachRoute],
+          danger: [deleteRoute],
+        }};
+      }}
+      if (!usageCount) {{
+        return {{
+          primary: attachRoute,
+          secondary: [editRoute],
+          danger: [deleteRoute],
+        }};
+      }}
+      return {{
+        primary: editRoute,
+        secondary: [attachRoute],
+        danger: [deleteRoute],
+      }};
+    }}
+
     function renderOverview() {{
       const metrics = state.overview || {{}};
       if (state.loading.board && !state.overview) {{
@@ -6783,7 +7551,9 @@ def render_console_html(title: str) -> str:
       $("overview-metrics").innerHTML = [
         metricCard(copy("Enabled Missions", "已启用任务"), metrics.enabled_watches ?? 0),
         metricCard(copy("Due Now", "当前到点"), metrics.due_watches ?? 0, "hot"),
+        metricCard(copy("Acted On Queue", "已处理队列"), metrics.triage_acted_on_count ?? 0),
         metricCard(copy("Stories", "故事"), metrics.story_count ?? 0),
+        metricCard(copy("Ready Stories", "待交付故事"), metrics.story_ready_count ?? 0),
         metricCard(copy("Alert Routes", "告警路由"), metrics.route_count ?? 0),
         metricCard(copy("Open Queue", "待分诊队列"), metrics.triage_open_count ?? 0),
         metricCard(copy("Daemon State", "守护进程状态"), localizeWord(String(metrics.daemon_state || "idle")).toUpperCase()),
@@ -6892,6 +7662,7 @@ def render_console_html(title: str) -> str:
         const stateChip = watch.enabled ? "ok" : "";
         const dueChip = watch.is_due ? "hot" : "";
         const selected = watch.id === state.selectedWatchId ? "selected" : "";
+        const actionHierarchy = getMissionCardActionHierarchy(watch);
         return `
           <div class="card selectable ${{selected}}">
             <div class="card-top">
@@ -6915,13 +7686,7 @@ def render_console_html(title: str) -> str:
               <span>${{copy("status", "状态")}}=${{localizeWord(watch.last_run_status || "-")}}</span>
               <span>${{copy("next", "下次")}}=${{watch.next_run_at || "-"}}</span>
             </div>
-            <div class="actions">
-              <button class="btn-secondary" data-watch-open="${{watch.id}}">${{copy("Open Cockpit", "打开驾驶舱")}}</button>
-              <button class="btn-secondary" data-edit-watch="${{watch.id}}">${{copy("Edit", "编辑")}}</button>
-              <button class="btn-secondary" data-run-watch="${{watch.id}}">${{copy("Run Mission", "执行任务")}}</button>
-              <button class="btn-secondary" data-watch-toggle="${{watch.id}}" data-watch-enabled="${{watch.enabled ? "1" : "0"}}">${{watch.enabled ? copy("Disable", "停用") : copy("Enable", "启用")}}</button>
-              <button class="btn-danger" data-delete-watch="${{watch.id}}">${{copy("Delete", "删除")}}</button>
-            </div>
+            ${{renderCardActionHierarchy(actionHierarchy)}}
           </div>`;
       }}).join("")}}`;
 
@@ -7145,6 +7910,7 @@ def render_console_html(title: str) -> str:
       const retryAdvice = watch.retry_advice || null;
       const runStats = watch.run_stats || {{}};
       const resultStats = watch.result_stats || {{}};
+      const visibleResultCount = Number(resultStats.visible_result_count);
       const deliveryStats = watch.delivery_stats || {{}};
       const resultFilters = watch.result_filters || {{}};
       const timelineEvents = Array.isArray(watch.timeline_strip) ? watch.timeline_strip : [];
@@ -7327,6 +8093,65 @@ def render_console_html(title: str) -> str:
             </div>
           `
         : "";
+      const triageSignal = getGovernanceSignal("triage_throughput");
+      const storySignal = getGovernanceSignal("story_conversion");
+      const routeSummary = state.ops?.route_summary || {{}};
+      const missionContinuityBlock = renderLifecycleContinuityCard({{
+        title: copy("Mission Continuity", "任务连续性"),
+        summary: copy(
+          "Mission output, review backlog, and downstream delivery facts stay visible together before you leave the cockpit.",
+          "在离开任务详情之前，任务输出、审阅积压和下游交付事实会同时保持可见。"
+        ),
+        stages: [
+          {{
+            kicker: copy("Current", "当前"),
+            title: copy("Mission Output", "任务输出"),
+            copy: copy(
+              "Runs, result filters, and retry context stay attached to the active mission instead of splitting into separate hops.",
+              "执行记录、结果筛选和重试上下文会继续附着在当前任务上，而不是被拆成多个跳转。"
+            ),
+            tone: Number.isFinite(visibleResultCount) && visibleResultCount > 0 ? "ok" : "",
+            facts: [
+              {{ label: copy("Visible results", "可见结果"), value: String(Number.isFinite(visibleResultCount) ? visibleResultCount : (resultStats.stored_result_count || 0)) }},
+              {{ label: copy("Filtered out", "已过滤"), value: String(resultStats.filtered_result_count || 0) }},
+              {{ label: copy("Last run", "最近执行"), value: formatCompactDateTime(watch.last_run_at || recentRuns[0]?.finished_at || "") }},
+            ],
+          }},
+          {{
+            kicker: copy("Review", "审阅"),
+            title: copy("Review Lane", "审阅工作线"),
+            copy: copy(
+              "Queue load and story carry-over stay visible here so you can decide whether this mission needs review attention next.",
+              "这里直接保留队列压力和故事承接情况，方便判断这个任务下一步是否需要进入审阅。"
+            ),
+            tone: (state.overview?.triage_open_count ?? triageSignal.open_items ?? 0) > 0 ? "hot" : "ok",
+            facts: [
+              {{ label: copy("Open queue", "开放队列"), value: String(state.overview?.triage_open_count ?? triageSignal.open_items ?? 0) }},
+              {{ label: copy("Acted on", "已处理"), value: String(state.overview?.triage_acted_on_count ?? triageSignal.acted_on_items ?? 0) }},
+              {{ label: copy("Stories", "故事"), value: String(state.overview?.story_count ?? storySignal.story_count ?? state.stories.length) }},
+            ],
+          }},
+          {{
+            kicker: copy("Delivery", "交付"),
+            title: copy("Delivery Lane", "交付工作线"),
+            copy: copy(
+              "Alert events, ready stories, and healthy routes stay one glance away from the same mission.",
+              "告警事件、待交付故事和健康路由会与同一任务保持一眼可见。"
+            ),
+            tone: (deliveryStats.recent_alert_count || 0) > 0 || (routeSummary.healthy || 0) > 0 ? "ok" : "",
+            facts: [
+              {{ label: copy("Recent alerts", "最近告警"), value: String(deliveryStats.recent_alert_count || 0) }},
+              {{ label: copy("Ready stories", "待交付故事"), value: String(state.overview?.story_ready_count ?? storySignal.ready_story_count ?? 0) }},
+              {{ label: copy("Healthy routes", "健康路由"), value: String(routeSummary.healthy || 0) }},
+            ],
+          }},
+        ],
+        actions: [
+          {{ label: copy("Open Triage", "打开分诊"), section: "section-triage", primary: true }},
+          {{ label: copy("Open Stories", "打开故事"), section: "section-story" }},
+          {{ label: copy("Open Delivery", "打开交付"), section: "section-ops" }},
+        ],
+      }});
 
       root.innerHTML = `
         <div class="card">
@@ -7348,7 +8173,7 @@ def render_console_html(title: str) -> str:
             <span>${{copy("runs", "执行")}}=${{runStats.total || 0}}</span>
             <span>${{copy("success", "成功")}}=${{runStats.success || 0}}</span>
             <span>${{copy("errors", "错误")}}=${{runStats.error || 0}}</span>
-            <span>${{copy("results", "结果")}}=${{resultStats.stored_result_count || 0}}</span>
+            <span>${{copy("results", "结果")}}=${{Number.isFinite(visibleResultCount) ? visibleResultCount : (resultStats.stored_result_count || 0)}}</span>
             <span>${{copy("alerts", "告警")}}=${{deliveryStats.recent_alert_count || 0}}</span>
           </div>
           <div class="actions" style="margin-top:12px;">
@@ -7359,6 +8184,7 @@ def render_console_html(title: str) -> str:
           </div>
           <div class="panel-sub">${{watch.last_run_error || copy("Mission history and recent delivery outcomes are visible below.", "下方可查看任务历史和最近交付结果。")}}</div>
         </div>
+        ${{missionContinuityBlock}}
         ${{failureBlock}}
         ${{retryAdviceBlock}}
         <div class="card">
@@ -7770,6 +8596,46 @@ def render_console_html(title: str) -> str:
       }}
     }}
 
+    function wireRouteSurfaceActions(root) {{
+      if (!root) {{
+        return;
+      }}
+      root.querySelectorAll("[data-route-edit]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          button.disabled = true;
+          try {{
+            await editRouteInDeck(String(button.dataset.routeEdit || ""));
+          }} catch (error) {{
+            reportError(error, copy("Edit route", "编辑路由"));
+          }} finally {{
+            button.disabled = false;
+          }}
+        }});
+      }});
+      root.querySelectorAll("[data-route-attach]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          button.disabled = true;
+          try {{
+            await applyRouteToMissionDraft(String(button.dataset.routeAttach || ""));
+          }} catch (error) {{
+            reportError(error, copy("Apply route", "应用路由"));
+          }} finally {{
+            button.disabled = false;
+          }}
+        }});
+      }});
+      root.querySelectorAll("[data-route-delete]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          button.disabled = true;
+          try {{
+            await deleteRouteFromBoard(String(button.dataset.routeDelete || ""));
+          }} finally {{
+            button.disabled = false;
+          }}
+        }});
+      }});
+    }}
+
     function renderRouteDeck() {{
       const root = $("route-deck");
       if (!root) {{
@@ -7971,28 +8837,36 @@ def render_console_html(title: str) -> str:
         wireLifecycleGuideActions(root);
         return;
       }}
-      root.innerHTML = state.routeHealth.map((route) => `
-        <div class="card">
-          <div class="card-top">
-            <div>
-              <h3 class="card-title">${{route.name}}</h3>
-              <div class="meta">
-                <span>${{copy("channel", "通道")}}=${{routeChannelLabel(route.channel || "unknown")}}</span>
-                <span>${{copy("status", "状态")}}=${{localizeWord(route.status || "idle")}}</span>
-                <span>${{copy("rate", "成功率")}}=${{formatRate(route.success_rate)}}</span>
+      root.innerHTML = state.routeHealth.map((route) => {{
+        const usageCount = Array.isArray(route.mission_ids) && route.mission_ids.length
+          ? route.mission_ids.length
+          : getRouteUsageCount(route.name);
+        const actionHierarchy = getRouteCardActionHierarchy(route, route, usageCount);
+        return `
+          <div class="card">
+            <div class="card-top">
+              <div>
+                <h3 class="card-title">${{route.name}}</h3>
+                <div class="meta">
+                  <span>${{copy("channel", "通道")}}=${{routeChannelLabel(route.channel || "unknown")}}</span>
+                  <span>${{copy("status", "状态")}}=${{localizeWord(route.status || "idle")}}</span>
+                  <span>${{copy("rate", "成功率")}}=${{formatRate(route.success_rate)}}</span>
+                </div>
               </div>
+              <span class="chip ${{route.status === "healthy" ? "ok" : route.status === "idle" ? "" : "hot"}}">${{localizeWord(route.status || "idle")}}</span>
             </div>
-            <span class="chip ${{route.status === "healthy" ? "ok" : route.status === "idle" ? "" : "hot"}}">${{localizeWord(route.status || "idle")}}</span>
+            <div class="meta">
+              <span>${{copy("events", "事件")}}=${{route.event_count || 0}}</span>
+              <span>${{copy("delivered", "送达")}}=${{route.delivered_count || 0}}</span>
+              <span>${{copy("failed", "失败")}}=${{route.failure_count || 0}}</span>
+              <span>${{copy("last", "最近")}}=${{route.last_event_at || "-"}}</span>
+            </div>
+            <div class="panel-sub">${{route.last_error || route.last_summary || copy("No recent route delivery attempt recorded.", "近期没有记录到路由投递尝试。")}}</div>
+            ${{renderCardActionHierarchy(actionHierarchy)}}
           </div>
-          <div class="meta">
-            <span>${{copy("events", "事件")}}=${{route.event_count || 0}}</span>
-            <span>${{copy("delivered", "送达")}}=${{route.delivered_count || 0}}</span>
-            <span>${{copy("failed", "失败")}}=${{route.failure_count || 0}}</span>
-            <span>${{copy("last", "最近")}}=${{route.last_event_at || "-"}}</span>
-          </div>
-          <div class="panel-sub">${{route.last_error || route.last_summary || copy("No recent route delivery attempt recorded.", "近期没有记录到路由投递尝试。")}}</div>
-        </div>
-      `).join("");
+        `;
+      }}).join("");
+      wireRouteSurfaceActions(root);
     }}
 
     function renderRoutes() {{
@@ -8088,6 +8962,7 @@ def render_console_html(title: str) -> str:
         const usageCount = usageNames.length;
         const healthTone = health?.status === "healthy" ? "ok" : health?.status && health.status !== "idle" ? "hot" : "";
         const destination = summarizeRouteDestination(route);
+        const actionHierarchy = getRouteCardActionHierarchy(route, health, usageCount);
         return `
           <div class="card">
             <div class="card-top">
@@ -8115,11 +8990,7 @@ def render_console_html(title: str) -> str:
                 ? `<div class="panel-sub">${{copy("Used by", "正在被这些任务引用")}}: ${{escapeHtml(usageNames.slice(0, 3).join(", "))}}${{usageCount > 3 ? " ..." : ""}}</div>`
                 : ""
             }}
-            <div class="actions">
-              <button class="btn-secondary" type="button" data-route-edit="${{escapeHtml(route.name)}}">${{copy("Edit", "编辑")}}</button>
-              <button class="btn-secondary" type="button" data-route-attach="${{escapeHtml(route.name)}}">${{copy("Use In Mission", "用于任务草稿")}}</button>
-              <button class="btn-danger" type="button" data-route-delete="${{escapeHtml(route.name)}}">${{copy("Delete", "删除")}}</button>
-            </div>
+            ${{renderCardActionHierarchy(actionHierarchy)}}
           </div>
         `;
       }}).join("")}}`;
@@ -8131,40 +9002,7 @@ def render_console_html(title: str) -> str:
         state.routeSearch = "";
         renderRoutes();
       }});
-      root.querySelectorAll("[data-route-edit]").forEach((button) => {{
-        button.addEventListener("click", async () => {{
-          button.disabled = true;
-          try {{
-            await editRouteInDeck(String(button.dataset.routeEdit || ""));
-          }} catch (error) {{
-            reportError(error, copy("Edit route", "编辑路由"));
-          }} finally {{
-            button.disabled = false;
-          }}
-        }});
-      }});
-      root.querySelectorAll("[data-route-attach]").forEach((button) => {{
-        button.addEventListener("click", async () => {{
-          button.disabled = true;
-          try {{
-            await applyRouteToMissionDraft(String(button.dataset.routeAttach || ""));
-          }} catch (error) {{
-            reportError(error, copy("Apply route", "应用路由"));
-          }} finally {{
-            button.disabled = false;
-          }}
-        }});
-      }});
-      root.querySelectorAll("[data-route-delete]").forEach((button) => {{
-        button.addEventListener("click", async () => {{
-          button.disabled = true;
-          try {{
-            await deleteRouteFromBoard(String(button.dataset.routeDelete || ""));
-          }} finally {{
-            button.disabled = false;
-          }}
-        }});
-      }});
+      wireRouteSurfaceActions(root);
     }}
 
     function renderStatus() {{
@@ -8227,7 +9065,66 @@ def render_console_html(title: str) -> str:
             <div class="mini-item">${{failure.kind}} | ${{failure.mission_name || failure.name || "-"}} | ${{localizeWord(failure.status || "error")}} | ${{failure.error || "-"}}</div>
           `).join("")
         : `<div class="empty">${{copy("No recent failure captured.", "近期没有失败记录。")}}</div>`;
+      const alertSignal = getGovernanceSignal("alert_yield");
+      const storySignal = getGovernanceSignal("story_conversion");
+      const deliveryContinuityBlock = renderLifecycleContinuityCard({{
+        title: copy("Delivery Continuity", "交付连续性"),
+        summary: copy(
+          "Alerting missions, ready stories, and route-backed delivery health stay in one lane so downstream status is visible without backtracking.",
+          "触发告警的任务、待交付故事和路由健康会保持在同一条工作线里，让下游状态无需回跳即可看清。"
+        ),
+        stages: [
+          {{
+            kicker: copy("Mission", "任务"),
+            title: copy("Alerting Missions", "触发告警任务"),
+            copy: copy(
+              "Mission-side alert load stays visible here so delivery work starts from real upstream pressure instead of guesswork.",
+              "这里会持续展示任务侧的告警压力，让交付工作基于真实上游负载，而不是靠猜测。"
+            ),
+            tone: (state.overview?.alerting_mission_count ?? alertSignal.alerting_missions ?? 0) > 0 ? "ok" : "",
+            facts: [
+              {{ label: copy("Alerting missions", "触发告警任务"), value: String(state.overview?.alerting_mission_count ?? alertSignal.alerting_missions ?? 0) }},
+              {{ label: copy("Recent alerts", "最近告警"), value: String(alertSignal.alert_count ?? state.alerts.length ?? 0) }},
+              {{ label: copy("Successful runs", "成功执行"), value: String(alertSignal.successful_runs ?? metrics.runs_total ?? 0) }},
+            ],
+          }},
+          {{
+            kicker: copy("Story", "故事"),
+            title: copy("Story Readiness", "故事就绪度"),
+            copy: copy(
+              "Ready stories stay visible beside delivery operations so handoff decisions do not require a separate story audit pass.",
+              "待交付故事会与交付操作并排可见，避免为了判断交接是否成立再单独回去审计故事。"
+            ),
+            tone: (state.overview?.story_ready_count ?? storySignal.ready_story_count ?? 0) > 0 ? "ok" : "",
+            facts: [
+              {{ label: copy("Stories", "故事"), value: String(state.overview?.story_count ?? storySignal.story_count ?? state.stories.length) }},
+              {{ label: copy("Ready", "已就绪"), value: String(state.overview?.story_ready_count ?? storySignal.ready_story_count ?? 0) }},
+              {{ label: copy("Converted items", "已转化条目"), value: String(storySignal.converted_item_count ?? 0) }},
+            ],
+          }},
+          {{
+            kicker: copy("Route", "路由"),
+            title: copy("Route Delivery", "路由交付"),
+            copy: copy(
+              "Route health and the latest delivery event stay close to the editor so fix-or-forward decisions happen in one place.",
+              "路由健康和最新投递事件会贴近编辑器展示，让修复或继续推进都能在同一位置完成。"
+            ),
+            tone: (routeSummary.degraded || 0) > 0 ? "hot" : "ok",
+            facts: [
+              {{ label: copy("Healthy", "健康"), value: String(routeSummary.healthy || 0) }},
+              {{ label: copy("Degraded", "降级"), value: String(routeSummary.degraded || 0) }},
+              {{ label: copy("Last event", "最近事件"), value: formatCompactDateTime(routeTimeline[0]?.created_at || "") }},
+            ],
+          }},
+        ],
+        actions: [
+          {{ label: copy("Focus Route Deck", "聚焦路由草稿"), focus: "route", field: "name", primary: true }},
+          {{ label: copy("Open Mission Board", "打开任务列表"), section: "section-board" }},
+          {{ label: copy("Open Stories", "打开故事"), section: "section-story" }},
+        ],
+      }});
       root.innerHTML = `
+        ${{deliveryContinuityBlock}}
         <div class="state-banner ${{isError ? "error" : ""}}">
           <div class="eyebrow"><span class="dot"></span> ${{copy("daemon", "守护进程")}} / ${{localizeWord(status.state || "idle")}}</div>
           <h3 class="card-title" style="margin-top:12px;">${{copy("Heartbeat", "心跳")}}: ${{status.heartbeat_at || "-"}}</h3>
@@ -8315,6 +9212,7 @@ def render_console_html(title: str) -> str:
             ${{collectorBlock}}
           </div>
         </div>`;
+      wireLifecycleGuideActions(root);
     }}
 
     function renderDuplicateExplain(payload) {{
@@ -8371,6 +9269,109 @@ def render_console_html(title: str) -> str:
             <div class="mini-item">${{escapeHtml(entry.author || "console")}} | ${{escapeHtml(entry.created_at || "-")}}</div>
             <div class="panel-sub">${{escapeHtml(entry.note || "")}}</div>
           `).join("")}}
+        </div>
+      `;
+    }}
+
+    function renderTriageWorkbench(item, {{ filteredCount = 0, evidenceFocusCount = 0 }} = {{}}) {{
+      if (!item) {{
+        return "";
+      }}
+      const linkedStories = getStoriesForEvidenceItem(item.id);
+      const nextHopActions = getTriageWorkbenchActionHierarchy(item, linkedStories);
+      const triageSignal = getGovernanceSignal("triage_throughput");
+      const storySignal = getGovernanceSignal("story_conversion");
+      const noteCount = Array.isArray(item.review_notes) ? item.review_notes.length : 0;
+      const itemMission = String(item?.extra?.watch_mission_name || item?.watch_mission_name || "").trim();
+      const duplicateExplain = state.triageExplain[item.id];
+      return `
+        <div class="card workbench-shell">
+          <div class="card-top">
+            <div>
+              <div class="mono">${{copy("Selected Evidence Workbench", "选中证据工作台")}}</div>
+              <h3 class="card-title" style="margin-top:10px;">${{escapeHtml(item.title || item.id || copy("Selected evidence", "选中证据"))}}</h3>
+            </div>
+            <span class="chip ${{item.review_state === "escalated" ? "hot" : "ok"}}">${{localizeWord(item.review_state || "new")}}</span>
+          </div>
+          <div class="panel-sub">${{copy(
+            "Keep queue context, reviewer notes, and story handoff in one focused surface while the list stays available for fast switching.",
+            "把队列上下文、审核备注和故事交接集中在一个聚焦工作面里，同时保留列表用于快速切换。"
+          )}}</div>
+          <div class="workbench-meta">
+            <span class="chip">${{copy("Queue", "队列")}}: ${{escapeHtml(localizeWord(state.triageFilter || "open"))}}</span>
+            <span class="chip">${{copy("Shown", "显示")}}: ${{filteredCount}}</span>
+            <span class="chip">${{copy("Score", "分数")}}: ${{item.score || 0}}</span>
+            <span class="chip">${{copy("Confidence", "置信度")}}: ${{Number(item.confidence || 0).toFixed(2)}}</span>
+            ${{itemMission ? `<span class="chip ok">${{copy("Mission", "任务")}}: ${{escapeHtml(clampLabel(itemMission, 28))}}</span>` : ""}}
+            ${{evidenceFocusCount ? `<span class="chip hot">${{copy("Evidence Focus", "证据聚焦")}}: ${{evidenceFocusCount}}</span>` : ""}}
+          </div>
+          ${{linkedStories.length
+            ? `<div class="workbench-story-links">
+                ${{linkedStories.map((story) => `<span class="chip ok">${{escapeHtml(clampLabel(story.title || story.id, 28))}}</span>`).join("")}}
+              </div>`
+            : ""}}
+          <div class="continuity-lane">
+            <div class="continuity-stage ${{itemMission ? "ok" : ""}}">
+              <div class="continuity-stage-kicker">${{copy("From", "来自")}}</div>
+              <div class="continuity-stage-title">${{copy("Mission Intake", "任务入口")}}</div>
+              <div class="continuity-stage-copy">${{copy(
+                "The queue keeps mission context close so evidence review does not require bouncing back to the board first.",
+                "队列会把任务上下文保持在附近，避免为了回忆来源而先跳回任务列表。"
+              )}}</div>
+              <div class="continuity-fact-list">
+                <div class="continuity-fact"><span>${{copy("Mission", "任务")}}</span><strong>${{escapeHtml(itemMission || copy("Shared queue", "共享队列"))}}</strong></div>
+                <div class="continuity-fact"><span>${{copy("Open queue", "开放队列")}}</span><strong>${{String(state.overview?.triage_open_count ?? triageSignal.open_items ?? 0)}}</strong></div>
+                <div class="continuity-fact"><span>${{copy("Enabled missions", "已启用任务")}}</span><strong>${{String(state.overview?.enabled_watches ?? 0)}}</strong></div>
+              </div>
+            </div>
+            <div class="continuity-stage ok">
+              <div class="continuity-stage-kicker">${{copy("Now", "当前")}}</div>
+              <div class="continuity-stage-title">${{copy("Selected Evidence", "选中证据")}}</div>
+              <div class="continuity-stage-copy">${{copy(
+                "State transitions and reviewer notes stay attached to the selected evidence instead of being buried inside the full queue.",
+                "状态切换和审核备注会直接附着在当前证据上，而不是继续埋在整条长队列里。"
+              )}}</div>
+              <div class="continuity-fact-list">
+                <div class="continuity-fact"><span>${{copy("State", "状态")}}</span><strong>${{escapeHtml(localizeWord(item.review_state || "new"))}}</strong></div>
+                <div class="continuity-fact"><span>${{copy("Notes", "备注")}}</span><strong>${{String(noteCount)}}</strong></div>
+                <div class="continuity-fact"><span>${{copy("URL", "链接")}}</span><strong>${{escapeHtml(clampLabel(item.url || "-", 28))}}</strong></div>
+              </div>
+            </div>
+            <div class="continuity-stage ${{linkedStories.length ? "ok" : ""}}">
+              <div class="continuity-stage-kicker">${{copy("Next", "下一步")}}</div>
+              <div class="continuity-stage-title">${{copy("Story Handoff", "故事交接")}}</div>
+              <div class="continuity-stage-copy">${{copy(
+                "Linked stories and conversion headroom stay visible so you can decide when this evidence should become narrative work.",
+                "已关联故事和转化余量会继续可见，方便判断这条证据何时该进入叙事工作。"
+              )}}</div>
+              <div class="continuity-fact-list">
+                <div class="continuity-fact"><span>${{copy("Linked stories", "已关联故事")}}</span><strong>${{String(linkedStories.length)}}</strong></div>
+                <div class="continuity-fact"><span>${{copy("Eligible evidence", "可转故事证据")}}</span><strong>${{String(storySignal.eligible_item_count ?? 0)}}</strong></div>
+                <div class="continuity-fact"><span>${{copy("Ready stories", "待交付故事")}}</span><strong>${{String(state.overview?.story_ready_count ?? storySignal.ready_story_count ?? 0)}}</strong></div>
+              </div>
+            </div>
+          </div>
+          <div class="workbench-columns">
+            <div class="card">
+              <div class="mono">${{copy("review notes", "审核备注")}}</div>
+              <div class="panel-sub">${{copy("Capture reviewer rationale, route hints, and merge context without losing the selected evidence lane.", "在不丢失当前证据工作线的前提下，记录审核理由、路由提示和合并上下文。")}}</div>
+              ${{renderReviewNotes(item.review_notes)}}
+              <form data-triage-note-form="${{item.id}}" style="margin-top:12px;">
+                <label>${{copy("note composer", "备注编辑")}}<textarea name="note" rows="3" data-triage-note-input="${{item.id}}" placeholder="${{copy("Capture reviewer rationale, routing hint, or merge context.", "记录审核理由、路由提示或合并上下文。")}}">${{escapeHtml(state.triageNoteDrafts[item.id] || "")}}</textarea></label>
+                <div class="toolbar">
+                  <button class="btn-primary" type="submit">${{copy("Save Note", "保存备注")}}</button>
+                </div>
+              </form>
+            </div>
+            <div class="card">
+              <div class="mono">${{copy("next hop controls", "下一跳控制")}}</div>
+              <div class="panel-sub">${{copy("Create a story, inspect duplicate context, or jump into the story lane without reselecting this evidence.", "无需重新选择这条证据，就可以直接生成故事、查看重复上下文或跳转到故事工作线。")}}</div>
+              ${{renderCardActionHierarchy(nextHopActions)}}
+              ${{duplicateExplain
+                ? renderDuplicateExplain(duplicateExplain)
+                : `<div class="panel-sub" style="margin-top:12px;">${{copy("Duplicate explain stays here once loaded so the list can remain focused on switching items.", "加载后的重复解释会留在这里，列表本身只负责切换条目。")}}</div>`}}
+            </div>
+          </div>
         </div>
       `;
     }}
@@ -8866,19 +9867,28 @@ def render_console_html(title: str) -> str:
               </div>
               <span class="chip ${{selectedCount ? "ok" : ""}}">${{copy("selected", "已选")}}=${{selectedCount}}</span>
             </div>
-            <div class="actions">
-              <button class="btn-secondary" type="button" data-triage-select-visible ${{(!filteredItems.length || batchBusy) ? "disabled" : ""}}>${{copy("Select Visible", "选择当前列表")}}</button>
-              <button class="btn-secondary" type="button" data-triage-selection-clear ${{(!selectedCount || batchBusy) ? "disabled" : ""}}>${{copy("Clear Selection", "清空选择")}}</button>
-              <button class="btn-secondary" type="button" data-triage-batch-state="triaged" ${{(!selectedCount || batchBusy) ? "disabled" : ""}}>${{copy("Batch Triage", "批量分诊")}}</button>
-              <button class="btn-secondary" type="button" data-triage-batch-state="verified" ${{(!selectedCount || batchBusy) ? "disabled" : ""}}>${{copy("Batch Verify", "批量核验")}}</button>
-              <button class="btn-secondary" type="button" data-triage-batch-state="escalated" ${{(!selectedCount || batchBusy) ? "disabled" : ""}}>${{copy("Batch Escalate", "批量升级")}}</button>
-              <button class="btn-secondary" type="button" data-triage-batch-state="ignored" ${{(!selectedCount || batchBusy) ? "disabled" : ""}}>${{copy("Batch Ignore", "批量忽略")}}</button>
-              <button class="btn-secondary" type="button" data-triage-batch-story ${{(!selectedCount || batchBusy) ? "disabled" : ""}}>${{copy("Batch Story", "批量生成故事")}}</button>
-              <button class="btn-danger" type="button" data-triage-batch-delete ${{(!selectedCount || batchBusy) ? "disabled" : ""}}>${{copy("Batch Delete", "批量删除")}}</button>
-            </div>
+            ${{
+              selectedCount
+                ? `<div class="actions">
+                    <button class="btn-secondary" type="button" data-triage-selection-clear ${{batchBusy ? "disabled" : ""}}>${{copy("Clear Selection", "清空选择")}}</button>
+                    <button class="btn-secondary" type="button" data-triage-batch-state="triaged" ${{batchBusy ? "disabled" : ""}}>${{copy("Batch Triage", "批量分诊")}}</button>
+                    <button class="btn-secondary" type="button" data-triage-batch-state="verified" ${{batchBusy ? "disabled" : ""}}>${{copy("Batch Verify", "批量核验")}}</button>
+                    <button class="btn-secondary" type="button" data-triage-batch-state="escalated" ${{batchBusy ? "disabled" : ""}}>${{copy("Batch Escalate", "批量升级")}}</button>
+                    <button class="btn-secondary" type="button" data-triage-batch-state="ignored" ${{batchBusy ? "disabled" : ""}}>${{copy("Batch Ignore", "批量忽略")}}</button>
+                    <button class="btn-secondary" type="button" data-triage-batch-story ${{batchBusy ? "disabled" : ""}}>${{copy("Batch Story", "批量生成故事")}}</button>
+                    <button class="btn-danger" type="button" data-triage-batch-delete ${{batchBusy ? "disabled" : ""}}>${{copy("Batch Delete", "批量删除")}}</button>
+                  </div>`
+                : `<div class="actions">
+                    <button class="btn-secondary" type="button" data-triage-select-visible ${{(!filteredItems.length || batchBusy) ? "disabled" : ""}}>${{copy("Select Visible", "选择当前列表")}}</button>
+                  </div>`
+            }}
           </div>
         </div>
       `;
+      const selectedTriageItem = filteredItems.find((item) => item.id === state.selectedTriageId) || null;
+      const triageWorkbench = selectedTriageItem
+        ? renderTriageWorkbench(selectedTriageItem, {{ filteredCount: filteredItems.length, evidenceFocusCount }})
+        : "";
       inlineStats.innerHTML = `
         <span>${{copy("open", "开放")}}=${{stats.open_count || 0}}</span>
         <span>${{copy("closed", "关闭")}}=${{stats.closed_count || 0}}</span>
@@ -8951,9 +9961,15 @@ def render_console_html(title: str) -> str:
           <div class="panel-sub">${{copy("Use J/K to move, V to verify, T to triage, E to escalate, I to ignore, S to create a story, D to explain duplicates, and N to focus the note composer.", "使用 J/K 上下移动，V 核验，T 分诊，E 升级，I 忽略，S 生成故事，D 查看重复解释，N 聚焦备注输入。")}}</div>
         </div>
         ${{batchToolbar}}
+        ${{triageWorkbench}}
         ${{
           filteredItems.length
-            ? filteredItems.map((item) => `
+            ? filteredItems.map((item) => {{
+                const linkedStories = getStoriesForEvidenceItem(item.id);
+                const noteCount = Array.isArray(item.review_notes) ? item.review_notes.length : 0;
+                const itemMission = String(item?.extra?.watch_mission_name || item?.watch_mission_name || "").trim();
+                const actionHierarchy = getTriageCardActionHierarchy(item, linkedStories);
+                return `
         <div class="card selectable ${{item.id === state.selectedTriageId ? "selected" : ""}}" data-triage-card="${{item.id}}">
           <div class="card-top">
             <div class="triage-card-head">
@@ -8974,29 +9990,15 @@ def render_console_html(title: str) -> str:
             <span class="chip ${{item.review_state === "escalated" ? "hot" : ""}}">${{localizeWord(item.review_state || "new")}}</span>
           </div>
           <div class="panel-sub">${{item.url}}</div>
-          <div class="actions">
-            <button class="btn-secondary" data-triage-explain="${{item.id}}">${{copy("Explain Dup", "查看重复解释")}}</button>
-            <button class="btn-secondary" data-triage-state="triaged" data-triage-id="${{item.id}}">${{copy("Triaged", "分诊")}}</button>
-            <button class="btn-secondary" data-triage-state="verified" data-triage-id="${{item.id}}">${{copy("Verify", "核验")}}</button>
-            <button class="btn-secondary" data-triage-state="escalated" data-triage-id="${{item.id}}">${{copy("Escalate", "升级")}}</button>
-            <button class="btn-secondary" data-triage-state="ignored" data-triage-id="${{item.id}}">${{copy("Ignore", "忽略")}}</button>
-            <button class="btn-secondary" data-triage-story="${{item.id}}">${{copy("Create Story", "生成故事")}}</button>
-            <button class="btn-danger" data-triage-delete="${{item.id}}">${{copy("Delete", "删除")}}</button>
+          <div class="meta">
+            <span>${{copy("notes", "备注")}}=${{noteCount}}</span>
+            <span>${{copy("stories", "故事")}}=${{linkedStories.length}}</span>
+            ${{itemMission ? `<span>${{copy("mission", "任务")}}=${{escapeHtml(clampLabel(itemMission, 28))}}</span>` : ""}}
           </div>
-          <div class="card" style="margin-top:12px;">
-            <div class="mono">${{copy("review notes", "审核备注")}}</div>
-            <div class="panel-sub">${{copy("Capture reviewer rationale, routing hints, and merge context without leaving the queue.", "在不离开队列的前提下，记录审核理由、路由提示和合并上下文。")}}</div>
-            ${{renderReviewNotes(item.review_notes)}}
-            <form data-triage-note-form="${{item.id}}" style="margin-top:12px;">
-              <label>${{copy("note composer", "备注编辑")}}<textarea name="note" rows="3" data-triage-note-input="${{item.id}}" placeholder="${{copy("Capture reviewer rationale, routing hint, or merge context.", "记录审核理由、路由提示或合并上下文。")}}">${{escapeHtml(state.triageNoteDrafts[item.id] || "")}}</textarea></label>
-              <div class="toolbar">
-                <button class="btn-primary" type="submit">${{copy("Save Note", "保存备注")}}</button>
-              </div>
-            </form>
-          </div>
-          ${{renderDuplicateExplain(state.triageExplain[item.id])}}
+          ${{renderCardActionHierarchy(actionHierarchy)}}
         </div>
-      `).join("")
+      `;
+              }}).join("")
             : `<div class="empty">${{copy("No triage item matched the active queue filter.", "没有条目匹配当前分诊筛选。")}}</div>`
         }}
       `;
@@ -9177,6 +10179,7 @@ def render_console_html(title: str) -> str:
           }}
         }});
       }});
+      wireLifecycleGuideActions(root);
       syncTriageUrlState({{ defaultItemId }});
       flushTriageUrlFocus();
       renderTopbarContext();
@@ -9427,11 +10430,11 @@ def render_console_html(title: str) -> str:
         wireLifecycleGuideActions(root);
         return;
       }}
-      const storyEvidenceIds = uniqueValues([
-        story.primary_item_id,
-        ...(Array.isArray(story.primary_evidence) ? story.primary_evidence.map((row) => row.item_id) : []),
-        ...(Array.isArray(story.secondary_evidence) ? story.secondary_evidence.map((row) => row.item_id) : []),
-      ]);
+      const storyEvidenceIds = getStoryEvidenceIds(story);
+      const storyDeliveryStatus = getStoryDeliveryStatus(story);
+      const storySignal = getGovernanceSignal("story_conversion");
+      const alertSignal = getGovernanceSignal("alert_yield");
+      const routeSummary = state.ops?.route_summary || {{}};
       const evidenceBlock = (rows, emptyLabel) => rows.length
         ? rows.map((row) => `
             <div class="card">
@@ -9499,6 +10502,62 @@ def render_console_html(title: str) -> str:
           `
         : "";
       const graphPreview = renderStoryGraph(state.storyGraph[selected]);
+      const storyContinuityBlock = renderLifecycleContinuityCard({{
+        title: copy("Story Delivery Readiness", "故事交付就绪度"),
+        summary: copy(
+          "Evidence, story editing, and downstream delivery status stay connected around the same narrative object.",
+          "证据、故事编辑和下游交付状态会继续围绕同一个叙事对象保持连贯。"
+        ),
+        stages: [
+          {{
+            kicker: copy("Review", "审阅"),
+            title: copy("Evidence Context", "证据上下文"),
+            copy: copy(
+              "Primary and secondary evidence stay visible so the story never drifts away from reviewed signal.",
+              "主次证据会继续保持可见，避免故事脱离已审阅信号。"
+            ),
+            tone: storyEvidenceIds.length ? "ok" : "",
+            facts: [
+              {{ label: copy("Evidence", "证据"), value: String(storyEvidenceIds.length) }},
+              {{ label: copy("Primary item", "主条目"), value: story.primary_item_id || "-" }},
+              {{ label: copy("Conflicts", "冲突"), value: String((story.contradictions || []).length) }},
+            ],
+          }},
+          {{
+            kicker: copy("Current", "当前"),
+            title: copy("Story Workspace", "故事工作台"),
+            copy: copy(
+              "Narrative edits happen beside evidence, timeline, and entity structure instead of in a detached editor.",
+              "叙事编辑会与证据、时间线和实体结构并排存在，而不是进入一个脱离上下文的编辑器。"
+            ),
+            tone: storyDeliveryStatus.tone || "ok",
+            facts: [
+              {{ label: copy("Status", "状态"), value: localizeWord(story.status || "active") }},
+              {{ label: copy("Updated", "更新"), value: formatCompactDateTime(story.updated_at || story.generated_at || "") }},
+              {{ label: copy("Delivery", "交付"), value: storyDeliveryStatus.label }},
+            ],
+          }},
+          {{
+            kicker: copy("Delivery", "交付"),
+            title: copy("Output Handoff", "输出交接"),
+            copy: copy(
+              "Ready stories, alerting missions, and route health stay nearby so the delivery decision is visible before you leave the workspace.",
+              "待交付故事、触发告警的任务和路由健康会保留在附近，方便在离开工作台前判断是否该进入交付。"
+            ),
+            tone: (state.overview?.story_ready_count ?? storySignal.ready_story_count ?? 0) > 0 ? "ok" : "",
+            facts: [
+              {{ label: copy("Ready stories", "待交付故事"), value: String(state.overview?.story_ready_count ?? storySignal.ready_story_count ?? 0) }},
+              {{ label: copy("Alerting missions", "触发告警任务"), value: String(state.overview?.alerting_mission_count ?? alertSignal.alerting_missions ?? 0) }},
+              {{ label: copy("Healthy routes", "健康路由"), value: String(routeSummary.healthy || 0) }},
+            ],
+          }},
+        ],
+        actions: [
+          {{ label: copy("Focus Evidence In Triage", "回查分诊证据"), section: "section-triage", primary: true }},
+          {{ label: copy("Open Delivery", "打开交付"), section: "section-ops" }},
+          {{ label: copy("Open Route Manager", "打开路由管理"), focus: "route", field: "name" }},
+        ],
+      }});
       root.innerHTML = `
         <div class="card">
           <div class="card-top">
@@ -9526,6 +10585,7 @@ def render_console_html(title: str) -> str:
             <a href="/api/stories/${{story.id}}/export?format=markdown" target="_blank" rel="noreferrer">${{copy("Export MD", "导出 MD")}}</a>
           </div>
         </div>
+        ${{storyContinuityBlock}}
         <div class="card">
           <div class="mono">${{copy("story editor", "故事编辑器")}}</div>
           <div class="meta" style="margin-top:8px;">
@@ -9698,6 +10758,7 @@ def render_console_html(title: str) -> str:
           button.disabled = false;
         }}
       }});
+      wireLifecycleGuideActions(root);
     }}
 
     function renderStories() {{
@@ -9824,13 +10885,18 @@ def render_console_html(title: str) -> str:
               </div>
               <span class="chip ${{storyBatchCount ? "ok" : ""}}">${{copy("selected", "已选")}}=${{storyBatchCount}}</span>
             </div>
-            <div class="actions">
-              <button class="btn-secondary" type="button" data-story-select-visible ${{(!filteredStories.length || storyBatchBusy) ? "disabled" : ""}}>${{copy("Select Visible", "选择当前列表")}}</button>
-              <button class="btn-secondary" type="button" data-story-selection-clear ${{(!storyBatchCount || storyBatchBusy) ? "disabled" : ""}}>${{copy("Clear Selection", "清空选择")}}</button>
-              <button class="btn-secondary" type="button" data-story-batch-status="monitoring" ${{(!storyBatchCount || storyBatchBusy) ? "disabled" : ""}}>${{copy("Batch Monitor", "批量监控")}}</button>
-              <button class="btn-secondary" type="button" data-story-batch-status="resolved" ${{(!storyBatchCount || storyBatchBusy) ? "disabled" : ""}}>${{copy("Batch Resolve", "批量解决")}}</button>
-              <button class="btn-secondary" type="button" data-story-batch-status="archived" ${{(!storyBatchCount || storyBatchBusy) ? "disabled" : ""}}>${{copy("Batch Archive", "批量归档")}}</button>
-            </div>
+            ${{
+              storyBatchCount
+                ? `<div class="actions">
+                    <button class="btn-secondary" type="button" data-story-selection-clear ${{storyBatchBusy ? "disabled" : ""}}>${{copy("Clear Selection", "清空选择")}}</button>
+                    <button class="btn-secondary" type="button" data-story-batch-status="monitoring" ${{storyBatchBusy ? "disabled" : ""}}>${{copy("Batch Monitor", "批量监控")}}</button>
+                    <button class="btn-secondary" type="button" data-story-batch-status="resolved" ${{storyBatchBusy ? "disabled" : ""}}>${{copy("Batch Resolve", "批量解决")}}</button>
+                    <button class="btn-secondary" type="button" data-story-batch-status="archived" ${{storyBatchBusy ? "disabled" : ""}}>${{copy("Batch Archive", "批量归档")}}</button>
+                  </div>`
+                : `<div class="actions">
+                    <button class="btn-secondary" type="button" data-story-select-visible ${{(!filteredStories.length || storyBatchBusy) ? "disabled" : ""}}>${{copy("Select Visible", "选择当前列表")}}</button>
+                  </div>`
+            }}
           </div>
         </div>
       `;
@@ -9945,6 +11011,8 @@ def render_console_html(title: str) -> str:
         const primary = (story.primary_evidence || [])[0];
         const updatedLabel = formatCompactDateTime(story.updated_at || story.generated_at || "");
         const priority = describeStoryPriority(story);
+        const deliveryStatus = getStoryDeliveryStatus(story);
+        const actionHierarchy = getStoryCardActionHierarchy(story);
         return `
           <div class="card selectable ${{selected}}" data-story-card="${{story.id}}">
             <div class="card-top">
@@ -9977,12 +11045,9 @@ def render_console_html(title: str) -> str:
               <span>${{copy("primary", "主证据")}}=${{primary ? primary.title : "-"}}</span>
               <span>${{copy("timeline", "时间线")}}=${{(story.timeline || []).length}}</span>
               <span>${{copy("conflicts", "冲突")}}=${{(story.contradictions || []).length}}</span>
+              <span>${{copy("delivery", "交付")}}=${{deliveryStatus.label}}</span>
             </div>
-            <div class="actions">
-              <button class="btn-secondary" data-story-open="${{story.id}}">${{copy("Open Story", "打开故事")}}</button>
-              <button class="btn-secondary" data-story-preview="${{story.id}}">${{copy("Preview MD", "预览 MD")}}</button>
-              <button class="btn-secondary" data-story-quick-status="${{story.id}}" data-story-next-status="${{story.status === "archived" ? "active" : "archived"}}">${{story.status === "archived" ? copy("Restore", "恢复") : copy("Archive", "归档")}}</button>
-            </div>
+            ${{renderCardActionHierarchy(actionHierarchy)}}
           </div>
         `;
       }}).join("")}}`;
@@ -10194,6 +11259,7 @@ def render_console_html(title: str) -> str:
     bindContextLens();
     bindLanguageSwitch();
     bindCommandPalette();
+    bindResponsiveInteractionContract();
     applyLanguageChrome();
     renderActionHistory();
     renderCommandPalette();

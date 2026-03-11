@@ -37,6 +37,13 @@
 - Danger actions reserve `Signal Red` fills and should appear only on destructive moves such as route, triage, or story deletion.
 - Bilingual console surfaces should switch to the Chinese type stack for labels, chips, and headings instead of inheriting condensed Latin styling unchanged.
 
+## Responsive Interaction Contract
+
+- Desktop `> 1100px`: comfortable density, split-pane work surfaces, side-panel utilities, and inline secondary actions remain the default operating posture.
+- Compact `761px - 1100px`: compact density, stacked panes, and sheet-style utilities keep the same lifecycle order while reducing scroll churn and chrome weight.
+- Touch `<= 760px`: touch density, one dominant pane at a time, full-screen context/palette utilities, and action-sheet fallback for secondary or danger controls.
+- The command-chamber visual language survives every breakpoint, but hero treatment must yield to current-object facts, the active rail, and the primary CTA on smaller screens.
+
 ## Usage Rules
 
 - README, release notes, and console entry surfaces should use the command chamber visual as the primary banner.

@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from typing import Any, cast
 from urllib.parse import urlparse
@@ -106,6 +107,19 @@ PLATFORM_SEARCH_SITES: dict[str, list[str]] = {
 TREND_SEED_BOUNDARY_TEXT = (
     "Trend inputs seed watches and feed surfaces only; item-level evidence still comes from collected URLs and search hits."
 )
+_WATCH_QUERY_ASCII_TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9._-]{1,}", re.IGNORECASE)
+_WATCH_QUERY_CJK_TOKEN_RE = re.compile(r"[\u4e00-\u9fff]{2,}")
+_WATCH_QUERY_ASCII_STOPWORDS = {
+    "and", "the", "for", "with", "from", "into", "onto", "news", "latest", "update",
+    "official", "company", "corp", "inc", "ltd", "group", "watch", "radar", "monitor",
+    "mission", "query", "release", "launch", "event", "product", "products",
+}
+_WATCH_QUERY_CJK_PREFIXES = ("关于", "有关", "最新", "今年", "今日", "本周", "本月")
+_WATCH_QUERY_CJK_SUFFIXES = (
+    "有限公司官网", "官方旗舰店", "股份有限公司", "有限责任公司", "有限公司", "发布会", "新品发布",
+    "新机发布", "新品", "发布", "公司", "集团", "监测", "消息", "新闻",
+)
+_WATCH_QUERY_CJK_EXACT_STOPWORDS = {"新品", "发布", "公司", "集团", "消息", "新闻", "监测"}
 
 
 class DataPulseReader:
@@ -250,6 +264,151 @@ class DataPulseReader:
             "latest_snapshot_time": latest_snapshot,
             "seed_boundary": TREND_SEED_BOUNDARY_TEXT if trend_inputs else "",
         }
+
+    @staticmethod
+    def _watch_query_ascii_terms(query: str) -> list[str]:
+        seen: set[str] = set()
+        terms: list[str] = []
+        for raw in _WATCH_QUERY_ASCII_TOKEN_RE.findall(str(query or "").casefold()):
+            token = raw.strip("._-")
+            if len(token) < 2 or token.isdigit() or token in _WATCH_QUERY_ASCII_STOPWORDS:
+                continue
+            if token in seen:
+                continue
+            seen.add(token)
+            terms.append(token)
+        return terms
+
+    @staticmethod
+    def _watch_query_cjk_terms(query: str) -> list[str]:
+        seen: set[str] = set()
+        terms: list[str] = []
+        for raw_chunk in _WATCH_QUERY_CJK_TOKEN_RE.findall(str(query or "")):
+            chunk = str(raw_chunk).strip()
+            for prefix in _WATCH_QUERY_CJK_PREFIXES:
+                if chunk.startswith(prefix) and len(chunk) - len(prefix) >= 2:
+                    chunk = chunk[len(prefix):]
+                    break
+            trimmed = True
+            while trimmed:
+                trimmed = False
+                for suffix in _WATCH_QUERY_CJK_SUFFIXES:
+                    if chunk.endswith(suffix) and len(chunk) - len(suffix) >= 2:
+                        chunk = chunk[: -len(suffix)]
+                        trimmed = True
+                        break
+            candidates = [chunk]
+            if len(chunk) >= 4:
+                candidates.append(chunk[:2])
+            if len(chunk) >= 5:
+                candidates.append(chunk[:3])
+            for candidate in candidates:
+                candidate = str(candidate or "").strip()
+                if len(candidate) < 2 or candidate in _WATCH_QUERY_CJK_EXACT_STOPWORDS:
+                    continue
+                if candidate in seen:
+                    continue
+                seen.add(candidate)
+                terms.append(candidate)
+        return terms
+
+    @staticmethod
+    def _watch_item_entity_labels(item: DataPulseItem) -> list[str]:
+        raw_entities = item.extra.get("entities", [])
+        if not isinstance(raw_entities, list):
+            return []
+        labels: list[str] = []
+        seen: set[str] = set()
+        for raw in raw_entities:
+            if isinstance(raw, dict):
+                label = str(raw.get("display_name") or raw.get("name") or "").strip()
+            else:
+                label = str(raw or "").strip()
+            if not label:
+                continue
+            key = label.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            labels.append(label)
+        return labels
+
+    def _watch_query_relevance(self, mission: WatchMission, item: DataPulseItem) -> dict[str, Any]:
+        query = str(mission.query or "").strip()
+        ascii_terms = self._watch_query_ascii_terms(query)
+        cjk_terms = self._watch_query_cjk_terms(query)
+        title = str(item.title or "")
+        content = str(item.content or "")[:1600]
+        url = str(item.url or "")
+        entity_labels = self._watch_item_entity_labels(item)
+        entity_text = " ".join(entity_labels)
+
+        title_folded = title.casefold()
+        content_folded = content.casefold()
+        url_folded = url.casefold()
+        entity_folded = entity_text.casefold()
+        combined_folded = " ".join(part for part in (title_folded, content_folded, url_folded, entity_folded) if part)
+        combined_raw = " ".join(part for part in (title, content, url, entity_text) if part)
+
+        ascii_title_matches = [term for term in ascii_terms if term in title_folded or term in entity_folded]
+        ascii_body_matches = [
+            term for term in ascii_terms
+            if term not in ascii_title_matches and term in combined_folded
+        ]
+        cjk_title_matches = [term for term in cjk_terms if term in title or term in entity_text]
+        cjk_body_matches = [
+            term for term in cjk_terms
+            if term not in cjk_title_matches and term in combined_raw
+        ]
+
+        matched_terms: list[str] = []
+        for term in [*cjk_title_matches, *ascii_title_matches, *cjk_body_matches, *ascii_body_matches]:
+            if term not in matched_terms:
+                matched_terms.append(term)
+
+        exact_query_match = bool(query and len(query) >= 4 and query.casefold() in combined_folded)
+        anchor_terms = [*cjk_terms, *ascii_terms]
+        if exact_query_match:
+            passed = True
+        elif cjk_terms:
+            passed = bool(cjk_title_matches or cjk_body_matches)
+        elif ascii_terms:
+            passed = bool(ascii_title_matches) or len(set(ascii_title_matches + ascii_body_matches)) >= min(2, len(ascii_terms))
+        else:
+            passed = True
+
+        coverage = round(len(matched_terms) / max(1, len(anchor_terms)), 4) if anchor_terms else 1.0
+        return {
+            "query": query,
+            "anchor_terms": anchor_terms,
+            "matched_terms": matched_terms,
+            "matched_in_title": [*cjk_title_matches, *ascii_title_matches],
+            "matched_in_body": [*cjk_body_matches, *ascii_body_matches],
+            "coverage": coverage,
+            "exact_query_match": exact_query_match,
+            "passed": passed,
+        }
+
+    def _filter_watch_results_by_query(self, mission: WatchMission, items: list[DataPulseItem]) -> list[DataPulseItem]:
+        if not items:
+            return []
+        filtered: list[DataPulseItem] = []
+        dropped = 0
+        for item in items:
+            relevance = self._watch_query_relevance(mission, item)
+            item.extra["watch_query_relevance"] = dict(relevance)
+            if relevance.get("passed", True):
+                filtered.append(item)
+            else:
+                dropped += 1
+        if dropped:
+            logger.info(
+                "Filtered %s low-relevance watch result(s) for mission=%s query=%r",
+                dropped,
+                mission.id,
+                mission.query,
+            )
+        return filtered
 
     @staticmethod
     def _latest_failed_run(mission: WatchMission) -> MissionRun | None:
@@ -2276,13 +2435,14 @@ class DataPulseReader:
         mission: WatchMission,
         *,
         min_confidence: float = 0.0,
+        apply_query_filter: bool = True,
     ) -> list[DataPulseItem]:
         matched = [
             item
             for item in self.inbox.all_items(min_confidence=min_confidence)
             if str(item.extra.get("watch_mission_id", "")).strip() == mission.id
         ]
-        return sorted(
+        ordered = sorted(
             matched,
             key=lambda item: (
                 (_parse_timestamp(item.fetched_at) or datetime.fromtimestamp(0, tz=timezone.utc)).timestamp(),
@@ -2291,6 +2451,9 @@ class DataPulseReader:
             ),
             reverse=True,
         )
+        if not apply_query_filter:
+            return ordered
+        return self._filter_watch_results_by_query(mission, ordered)
 
     @staticmethod
     def _watch_result_filter_tags(item: DataPulseItem) -> dict[str, str]:
@@ -2449,12 +2612,24 @@ class DataPulseReader:
         last_failure = self._latest_failed_run(mission)
         payload["last_failure"] = last_failure.to_dict() if last_failure is not None else None
         payload["retry_advice"] = self._watch_retry_advice(mission, last_failure)
-        result_items = self._watch_result_items(mission, min_confidence=0.0)
+        stored_result_items = self._watch_result_items(
+            mission,
+            min_confidence=0.0,
+            apply_query_filter=False,
+        )
+        result_items = self._filter_watch_results_by_query(mission, stored_result_items)
+        filtered_result_count = max(0, len(stored_result_items) - len(result_items))
         payload["recent_results"] = [self._serialize_watch_result(item) for item in result_items[:8]]
         payload["result_stats"] = {
-            "stored_result_count": len(result_items),
+            "stored_result_count": len(stored_result_items),
+            "visible_result_count": len(result_items),
+            "filtered_result_count": filtered_result_count,
             "returned_result_count": min(8, len(result_items)),
-            "latest_result_at": result_items[0].fetched_at if result_items else "",
+            "latest_result_at": (
+                result_items[0].fetched_at
+                if result_items
+                else (stored_result_items[0].fetched_at if stored_result_items else "")
+            ),
         }
         payload["result_filters"] = self._build_watch_result_filters(payload["recent_results"])
         recent_alerts = self.list_alerts(limit=6, mission_id=mission.id)
@@ -3022,6 +3197,7 @@ class DataPulseReader:
                     min_confidence=mission.min_confidence,
                 )
 
+            items = self._filter_watch_results_by_query(mission, items)
             self._tag_items_with_watch(mission, items)
             alert_events = self._evaluate_and_dispatch_watch_alerts(mission, items)
             run = MissionRun(

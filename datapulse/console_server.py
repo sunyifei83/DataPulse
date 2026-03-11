@@ -168,14 +168,23 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
         routes = reader.list_alert_routes()
         status = reader.watch_status_snapshot()
         stories = reader.list_stories(limit=5000, min_items=0)
+        scorecard = reader.governance_scorecard_snapshot()
+        signals = scorecard.get("signals", {}) if isinstance(scorecard, dict) else {}
+        triage_signal = signals.get("triage_throughput", {}) if isinstance(signals, dict) else {}
+        story_signal = signals.get("story_conversion", {}) if isinstance(signals, dict) else {}
+        alert_signal = signals.get("alert_yield", {}) if isinstance(signals, dict) else {}
         return {
             "enabled_watches": sum(1 for watch in watches if watch.get("enabled", True)),
             "disabled_watches": sum(1 for watch in watches if not watch.get("enabled", True)),
             "due_watches": sum(1 for watch in watches if watch.get("is_due")),
             "story_count": len(stories),
+            "story_ready_count": int(story_signal.get("ready_story_count", 0) or 0),
+            "story_converted_count": int(story_signal.get("converted_item_count", 0) or 0),
             "alert_count": len(alerts),
+            "alerting_mission_count": int(alert_signal.get("alerting_missions", 0) or 0),
             "route_count": len(routes),
             "triage_open_count": reader.triage_stats().get("open_count", 0),
+            "triage_acted_on_count": int(triage_signal.get("acted_on_items", 0) or 0),
             "daemon_state": status.get("state", "idle"),
             "daemon_heartbeat_at": status.get("heartbeat_at", ""),
         }
@@ -200,7 +209,12 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
 
     @app.post("/api/watches")
     def create_watch(payload: WatchCreateRequest) -> dict[str, Any]:
-        return reader_factory().create_watch(**payload.model_dump())
+        try:
+            return reader_factory().create_watch(**payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=f"Unable to persist watch mission: {exc}") from exc
 
     @app.put("/api/watches/{identifier}")
     def update_watch(identifier: str, payload: WatchUpdateRequest) -> dict[str, Any]:
@@ -208,6 +222,8 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
             mission = reader_factory().update_watch(identifier, **payload.model_dump())
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=f"Unable to persist watch mission: {exc}") from exc
         if mission is None:
             raise HTTPException(status_code=404, detail=f"Watch mission not found: {identifier}")
         return mission

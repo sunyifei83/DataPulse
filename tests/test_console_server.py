@@ -373,6 +373,7 @@ class _ConsoleReader:
                     "detail": "Compares persisted AlertEvent rows against successful MissionRun records for enabled missions.",
                     "alert_count": 1,
                     "successful_runs": 2,
+                    "alerting_missions": 1,
                 },
                 "triage_throughput": {
                     "id": "triage_throughput",
@@ -384,6 +385,8 @@ class _ConsoleReader:
                     "detail": "Measures how much of the persisted inbox has received analyst triage state changes or notes.",
                     "total_items": 2,
                     "acted_on_items": 1,
+                    "open_items": 1,
+                    "note_count": 1,
                 },
                 "story_conversion": {
                     "id": "story_conversion",
@@ -394,6 +397,7 @@ class _ConsoleReader:
                     "display": "1/1 triaged items referenced by stories",
                     "detail": "Tracks how much reviewed evidence is already represented in persisted story objects.",
                     "story_count": 1,
+                    "ready_story_count": 1,
                     "eligible_item_count": 1,
                     "converted_item_count": 1,
                 },
@@ -785,6 +789,12 @@ def test_console_index_serves_shell():
     assert "language-switch" in response.text
     assert "palette-open" in response.text
     assert "section-intake" in response.text
+    assert "Primary Lifecycle Rail" in response.text
+    assert 'data-workspace-mode="intake"' in response.text
+    assert 'data-workspace-mode="missions"' in response.text
+    assert 'data-workspace-mode="review"' in response.text
+    assert 'data-workspace-mode="delivery"' in response.text
+    assert 'data-workspace-mode="operations"' not in response.text
     assert "/brand/icon" in response.text
     assert "/brand/square" in response.text
     assert "create-watch-form" in response.text
@@ -795,14 +805,45 @@ def test_console_index_serves_shell():
     assert "console-action-history" in response.text
     assert "command-palette" in response.text
     assert "context-summary" in response.text
+    assert "context-lens-backdrop" in response.text
+    assert 'aria-modal="true"' in response.text
+    assert "context-lens-close" in response.text
     assert "context-save-form" in response.text
     assert "context-view-dock" in response.text
+    assert 'data-responsive-viewport="desktop"' in response.text
+    assert 'data-density-mode="comfortable"' in response.text
+    assert 'data-pane-contract="split"' in response.text
+    assert 'data-modal-presentation="side-panel"' in response.text
+    assert 'data-action-sheet-mode="inline"' in response.text
     assert "data-context-dock-open" in response.text
     assert "data-context-saved-default" in response.text
+    assert '<section class="workspace-mode-shell" id="workspace-mode-shell" hidden></section>' in response.text
+    assert "Workspace Modes" not in response.text
+    assert "function resolveResponsiveInteractionContract" in response.text
+    assert "function applyResponsiveInteractionContract" in response.text
+    assert "function bindResponsiveInteractionContract" in response.text
+    assert 'window.visualViewport.addEventListener("resize", scheduleContractApply' in response.text
+    assert 'window.matchMedia(query)' in response.text
+    assert 'media.addEventListener("change", scheduleContractApply)' in response.text
+    assert "let lastViewportWidth = window.innerWidth" in response.text
+    assert "window.setInterval(() => {" in response.text
+    assert "function renderCardActionHierarchy" in response.text
+    assert "function getMissionCardActionHierarchy" in response.text
+    assert "function getTriageCardActionHierarchy" in response.text
+    assert "function getStoryCardActionHierarchy" in response.text
+    assert "function getRouteCardActionHierarchy" in response.text
+    assert "data-card-action-primary" in response.text
+    assert "data-card-action-secondary" in response.text
+    assert "data-card-action-danger" in response.text
+    assert "data-card-action-sheet" in response.text
+    assert "action-sheet-toggle" in response.text
+    assert "action-danger-row" in response.text
     assert "watch_search" in response.text
     assert "triage_filter" in response.text
     assert "story_view" in response.text
     assert "Mission Cockpit" in response.text
+    assert "Mission Continuity" in response.text
+    assert "Retry Mission" in response.text
     assert "retry advice" in response.text
     assert "timeline strip" in response.text
     assert "filter chips" in response.text
@@ -823,12 +864,17 @@ def test_console_index_serves_shell():
     assert "data-triage-batch-state" in response.text
     assert "data-triage-batch-delete" in response.text
     assert "data-triage-story" in response.text
+    assert "Selected Evidence Workbench" in response.text
+    assert "Open Story Workspace" in response.text
     assert "Use J/K to move" in response.text
     assert "note composer" in response.text
     assert "Save Note" in response.text
     assert "Story Workspace" in response.text
+    assert "Story Delivery Readiness" in response.text
     assert "story editor" in response.text
     assert "Save Story" in response.text
+    assert "Inspect Route" in response.text
+    assert "Delivery Continuity" in response.text
     assert "build stories from CLI/MCP" not in response.text
     assert "datapulse --story-build / MCP story tools first" not in response.text
 
@@ -879,8 +925,12 @@ def test_console_overview_returns_aggregates():
     assert payload["disabled_watches"] == 1
     assert payload["due_watches"] == 1
     assert payload["story_count"] == 1
+    assert payload["story_ready_count"] == 1
+    assert payload["story_converted_count"] == 1
     assert payload["route_count"] == 1
     assert payload["triage_open_count"] == 1
+    assert payload["triage_acted_on_count"] == 1
+    assert payload["alerting_mission_count"] == 1
     assert payload["daemon_state"] == "running"
 
 
@@ -901,6 +951,24 @@ def test_console_create_watch_route():
     payload = response.json()
     assert payload["name"] == "Launch Ops"
     assert payload["alert_rules"][0]["routes"] == ["ops-webhook"]
+
+
+def test_console_create_watch_route_reports_persistence_error():
+    class _FailingCreateReader(_ConsoleReader):
+        def create_watch(self, **kwargs):
+            raise OSError("Read-only file system")
+
+    client = TestClient(create_app(reader_factory=lambda: _FailingCreateReader()))
+    response = client.post(
+        "/api/watches",
+        json={
+            "name": "Launch Ops",
+            "query": "OpenAI launch",
+        },
+    )
+
+    assert response.status_code == 500
+    assert "Unable to persist watch mission" in response.text
 
 
 def test_console_update_watch_route():

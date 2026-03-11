@@ -412,3 +412,329 @@ Recommended ignition order:
 - visual system is distinct from generic admin boilerplate
 - desktop and mobile both load correctly
 - GUI remains aligned with Reader/MCP domain contracts
+
+## Follow-up Promotion: L12 Console Operating-Surface Refactor Blueprint
+
+This follow-up map is promoted into the repository blueprint as phase `L12` on March 10, 2026.
+
+The current browser shell is no longer missing core lifecycle capability. The remaining problem is operating-surface convergence:
+
+- there are too many competing navigation and context systems for repeat operators
+- cross-stage continuity is weaker than the lifecycle copy implies
+- card action density is high enough to flatten priority and increase hesitation
+- desktop and mobile behavior exist, but they are not yet governed by one explicit interaction contract
+
+The next phase should therefore treat the console as a workbench-refactor problem rather than as another CRUD-expansion phase.
+
+### North-Star Restatement
+
+The console should become:
+
+- the primary in-browser operating surface for `Mission -> Triage -> Story -> Delivery`
+- a thinner, lower-noise projection of the existing Reader-backed lifecycle contract
+- a state-driven workbench where the likely next action is obvious without relying on copy walls, memory, or palette recall
+
+The console should not become:
+
+- a second product with GUI-only nouns
+- a shell where navigation, context management, and acceleration features compete as equal first-class entry points
+- a desktop-only visual showcase that degrades into stacked confusion on mobile
+
+### Information-Architecture Blueprint
+
+The next IA should stabilize around four layers only:
+
+1. Primary lifecycle rail
+   - `Intake`
+   - `Missions`
+   - `Review`
+   - `Delivery`
+2. Context bar
+   - current object
+   - active filters or queue mode
+   - saved-view or deep-link state
+   - compact status facts that explain "where am I and what is scoped right now?"
+3. Working surface
+   - list
+   - detail
+   - editor or drill-down pane
+4. Accelerators
+   - command palette
+   - deep links
+   - saved views
+   - keyboard shortcuts
+
+Concretely:
+
+- `Intake` should center mission drafting, presets, clone, and live mission projection.
+- `Missions` should treat mission board plus cockpit as one workspace, with list-selection continuity instead of two mentally separate zones.
+- `Review` should treat triage and story as one evidence lane, with explicit triage-to-story and story-to-evidence continuity.
+- `Delivery` should group alert stream, route manager, distribution health, and ops facts into one route-backed output plane.
+
+IA rules:
+
+- onboarding copy must be subordinate to the working surface once real data exists
+- the current object should remain visible while moving within a workspace
+- cross-stage counts should be surfaced where they reduce hopping, for example mission-to-triage and mission-to-story continuity facts
+
+### Navigation Convergence Contract
+
+Only one persistent primary navigation model should remain visible at a time.
+
+Navigation rules:
+
+- merge current workspace-mode and section-nav semantics into one explicit primary rail
+- keep the context lens and workspace rail as secondary utilities, not competing top-level nav
+- keep the command palette as an accelerator, not as a required discovery path for common work
+- preserve deep-link, saved-view, and pinned-view restoration, but do not let them define the primary information hierarchy
+- ensure mutations return operators to the same working context unless the mutation explicitly promotes them to the next lifecycle stage
+
+Practical outcome:
+
+- operators should understand where they are from one rail plus one context bar
+- they should not need to parse topbar nav, workspace mode, context dock, context lens, and command palette as separate nav systems
+
+### Card Action Priority Contract
+
+Every high-frequency card should expose one state-driven primary CTA.
+
+Global rules:
+
+- one primary action per card
+- at most two visible secondary quick actions
+- destructive and low-frequency actions move to a danger row or overflow treatment
+- bulk action bars appear only when selection is nonzero
+- empty states teach the next action, but real cards should not require reading instructional prose before acting
+
+Mission card priority:
+
+- due or never-run mission: primary `Run Mission`
+- failed mission: primary `Inspect Failure` or `Retry`
+- active mission with output: primary `Open Cockpit`
+- disabled mission: primary `Enable`
+
+Triage card priority:
+
+- `new` or `triaged`: primary `Verify`
+- high-risk or contradictory evidence: primary `Escalate`
+- note capture, duplicate explain, and story promotion remain visible but secondary
+- delete stays destructive and tertiary
+
+Story card priority:
+
+- conflicted story: primary `Open Story` with explicit conflict emphasis
+- active story: primary `Open Story`
+- archive or restore remains secondary
+- markdown preview remains tertiary
+
+Route and delivery card priority:
+
+- unhealthy route: primary `Inspect Route`
+- unused route: primary `Edit Route` or `Attach To Mission`
+- health facts should lead, not configuration chrome
+
+### Desktop Interaction Contract
+
+Desktop rules should optimize for continuous handling and low scroll churn:
+
+- `>= 1280px`: list-detail or list-detail-editor split panes are the default where the workflow is selection-heavy
+- `1024px - 1279px`: keep sticky context and batch bars, but collapse nonessential supporting panels before collapsing primary data
+- keyboard shortcuts should be available contextually and discoverably, not as permanent visual noise
+- list selection should preserve scroll position and detail focus after state mutations where possible
+- the hero surface and long guidance blocks should collapse when the operator is already inside a populated workspace
+
+### Mobile Interaction Contract
+
+Mobile rules should prioritize one dominant task at a time:
+
+- use one primary pane at a time rather than stacking full desktop density
+- detail views should open as full-screen panels or clear mode switches, not half-visible desktop leftovers
+- command palette and context lens should behave as full-screen modal utilities
+- only the primary action should remain persistently visible; secondary actions should move into an action sheet or expandable menu
+- long chip rows should compress into summaries or horizontal rails rather than wrapping into tall noise walls
+- decorative hero treatment should yield to mission, triage, story, and delivery facts on small screens
+
+### Repo-Relevant Follow-up Slice Map
+
+### L12.1 GUI Refactor Blueprint Promotion
+
+Goal:
+
+- convert the current UX judgment into repo-truth documentation plus machine-readable ignition slices
+
+Repo anchors:
+
+- `docs/gui_intelligence_console_plan.md`
+- `docs/governance/datapulse-blueprint-plan.draft.json`
+
+Exit condition:
+
+- the repository contains an explicit GUI refactor blueprint and a next-slice map for manual ignition
+
+Landing note on March 10, 2026:
+
+- captured the next-phase IA, navigation, action-priority, and responsive-interaction contract in this document
+- split the refactor into repo-relevant follow-up slices instead of leaving it as prose-only design intent
+- promoted those slices into the machine-readable blueprint so the next manual ignition target is explicit
+
+### L12.2 Navigation Convergence And Chrome Reduction
+
+Goal:
+
+- collapse overlapping meta-navigation into one primary rail and one secondary context layer
+
+Repo anchors:
+
+- `datapulse/console_markup.py`
+- `tests/test_console_server.py`
+- `docs/gui_intelligence_console_plan.md`
+
+Focus:
+
+- converge topbar nav, workspace-mode semantics, dock visibility, and context-summary behavior into one hierarchy
+- keep saved views, deep links, and palette acceleration intact without treating them as co-primary navigation
+- reduce nonessential chrome above populated workspaces
+
+Exit condition:
+
+- operators can reliably move across intake, missions, review, and delivery without learning multiple competing navigation systems
+
+Landing note on March 10, 2026:
+
+- replaced the `Operations / Review / Config` workspace cards as the primary entry system with one lifecycle rail: `Intake / Missions / Review / Delivery`
+- moved board-vs-cockpit and triage-vs-story switching into the secondary workspace-context layer so section detail stays close without creating a second top-level nav
+- kept command palette, saved views, and deep links intact as accelerators, but no longer treat them as co-primary wayfinding surfaces
+
+### L12.3 Information-Architecture Recomposition And Cross-Stage Continuity
+
+Goal:
+
+- make lifecycle continuity visible in the workspace structure instead of leaving it implicit in copy
+
+Repo anchors:
+
+- `datapulse/console_markup.py`
+- `datapulse/console_server.py`
+- `tests/test_console_server.py`
+- `docs/gui_intelligence_console_plan.md`
+
+Focus:
+
+- recompose mission, review, and delivery workspaces around shared object continuity
+- surface cross-stage counters and next-hop facts where they reduce context switching
+- tighten list-detail-editor relationships across mission board, cockpit, triage, and story workspaces
+
+Exit condition:
+
+- the browser shell shows how work moves from mission to evidence to story to delivery without relying on explanatory text alone
+
+Landing note on March 10, 2026:
+
+- added mission continuity cards so cockpit detail keeps mission output, review load, and downstream delivery facts visible together
+- turned triage into a list-plus-workbench relationship, moving note capture, duplicate explain, and story handoff into one selected-evidence surface instead of repeating full editors inside every card
+- added story and delivery readiness cards so evidence, narrative state, alerting missions, and route health stay connected as one lifecycle flow inside the browser shell
+
+### L12.4 State-Driven Card Action Hierarchy
+
+Goal:
+
+- make the likely next action obvious on mission, triage, story, and route cards
+
+Repo anchors:
+
+- `datapulse/console_markup.py`
+- `datapulse/console_server.py`
+- `tests/test_console_server.py`
+- `docs/gui_intelligence_console_plan.md`
+
+Focus:
+
+- implement one-primary-CTA rules across high-frequency cards
+- demote destructive or low-frequency actions into clearer secondary treatments
+- align batch-tool visibility, quick actions, and danger semantics to the same hierarchy rules
+
+Exit condition:
+
+- action priority is legible enough that operators can act from card state without reading dense button rows
+
+Landing note on March 10, 2026:
+
+- replaced static mission, triage, story, and route button rows with shared CTA hierarchy helpers so each card now exposes one state-driven primary action plus calmer secondary and danger rows
+- pushed triage next-hop controls and route health cards onto the same hierarchy, so story handoff and route inspection no longer compete with delete or low-frequency controls at the same visual weight
+- reduced idle batch-toolbar noise by showing selection-driven bulk controls only after evidence or story selection is live
+
+### L12.5 Desktop And Mobile Interaction Normalization
+
+Goal:
+
+- codify responsive behavior so the shell stays coherent across desktop and mobile review use
+
+Repo anchors:
+
+- `datapulse/console_markup.py`
+- `docs/brand_identity.md`
+- `docs/gui_intelligence_console_plan.md`
+
+Focus:
+
+- define pane behavior, density rules, sticky bars, modal behavior, and action-sheet fallbacks by breakpoint
+- preserve command-chamber brand language without letting it dominate small-screen utility
+- make mobile review safe for alerts, status, and focused triage or story work
+
+Responsive contract:
+
+- `> 1100px`: comfortable density, split-pane work surfaces, side-panel utilities, inline secondary actions
+- `761px - 1100px`: compact density, stacked panes, sheet-style utilities, inline secondary actions
+- `<= 760px`: touch density, one dominant pane at a time, full-screen context or palette utilities, action-sheet fallback for secondary and danger actions
+
+Exit condition:
+
+- desktop and mobile share one interaction contract instead of a collection of ad hoc breakpoint exceptions
+
+Landing note on March 10, 2026:
+
+- codified one shared responsive contract in the console shell, covering density, pane layout, modal presentation, and secondary-action fallback instead of relying on ad hoc breakpoint tweaks
+- aligned context lens and command palette behavior with the same modal contract so desktop uses a side-panel posture while touch viewports promote full-screen utility surfaces
+- added action-sheet fallback for secondary and danger controls on touch widths so cards keep one dominant inline action while preserving the existing desktop CTA hierarchy
+- updated brand guidance so command-chamber chrome stays recognizable across breakpoints without outranking operational facts on smaller screens
+
+### L12.6 Interaction Verification For Navigation, CTA Priority, And Responsive Behavior
+
+Goal:
+
+- protect the refactor slices from silent regressions while the shell structure changes
+
+Repo anchors:
+
+- `scripts/datapulse_console_smoke.sh`
+- `scripts/datapulse_console_browser_smoke.py`
+- `tests/test_console_server.py`
+- `datapulse/console_markup.py`
+
+Focus:
+
+- extend high-signal browser checks for navigation convergence, context restore, CTA prominence, and responsive behavior
+- prefer workflow-level assertions over brittle visual snapshots
+- keep the verification path repo-local and compatible with the current manual ignition model
+
+Exit condition:
+
+- the next console refactor wave can ship with regression protection strong enough to support further productization work
+
+## L12 Manual Ignition Order
+
+Recommended ignition order:
+
+1. `L12.2` because navigation convergence removes the highest-cost source of cognitive overhead.
+2. `L12.3` because IA recomposition should follow the new navigation hierarchy, not the old shell shape.
+3. `L12.4` because card action hierarchy is easier to judge once workspace boundaries are stable.
+4. `L12.5` because responsive behavior should be normalized against the converged IA and CTA model.
+5. `L12.6` before closing the phase, or earlier if UI churn accelerates and manual verification starts lagging.
+
+## L12 Definition of Done
+
+- one primary navigation model governs the shell
+- lifecycle continuity is visible in workspace structure, not only in copy
+- high-frequency cards expose state-driven primary actions and calmer secondary action density
+- desktop and mobile behavior follow one explicit interaction contract
+- verification coverage is strong enough to protect further console refactor work

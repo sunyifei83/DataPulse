@@ -203,6 +203,58 @@ async def test_reader_run_watch_records_metadata(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_reader_run_watch_filters_low_relevance_results(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    mission = reader.create_watch(
+        name="Xiaomi Launch Radar",
+        query="2026小米公司新品",
+        platforms=["news"],
+        top_n=5,
+    )
+
+    async def fake_search(query, **kwargs):
+        relevant = DataPulseItem(
+            source_type=SourceType.GENERIC,
+            source_name="news",
+            title="小米 2026 新品发布会时间曝光",
+            content="小米公司将于 2026 年发布新品手机与生态设备。",
+            url="https://example.com/xiaomi-launch",
+            confidence=0.92,
+            score=78,
+        )
+        irrelevant = DataPulseItem(
+            source_type=SourceType.GENERIC,
+            source_name="news",
+            title="比亚迪技术大会要点总结",
+            content="汽车之家直击比亚迪技术发布会，聚焦智驾与汽车价格。",
+            url="https://example.com/byd-tech",
+            confidence=0.93,
+            score=81,
+        )
+        for item in (relevant, irrelevant):
+            reader.inbox.add(item, fingerprint_dedup=False)
+        reader.inbox.save()
+        return [relevant, irrelevant]
+
+    monkeypatch.setattr(reader, "search", fake_search)
+
+    payload = await reader.run_watch(mission["id"])
+
+    assert payload["run"]["status"] == "success"
+    assert payload["run"]["item_count"] == 1
+    assert [item["title"] for item in payload["items"]] == ["小米 2026 新品发布会时间曝光"]
+    assert payload["items"][0]["extra"]["watch_mission_id"] == mission["id"]
+    assert payload["items"][0]["extra"]["watch_query_relevance"]["passed"] is True
+    assert payload["items"][0]["extra"]["watch_query_relevance"]["matched_terms"] == ["小米"]
+    assert reader.inbox.items[0].extra["watch_mission_id"] == mission["id"]
+    assert reader.inbox.items[0].extra["watch_query_relevance"]["passed"] is True
+    assert "watch_mission_id" not in reader.inbox.items[1].extra
+    assert reader.inbox.items[1].extra["watch_query_relevance"]["passed"] is False
+
+
+@pytest.mark.asyncio
 async def test_reader_create_watch_from_trends_seeds_watch_inputs(tmp_path, monkeypatch):
     monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
 
@@ -348,6 +400,17 @@ async def test_reader_list_watch_results_filters_by_mission(tmp_path, monkeypatc
         score=73,
         extra={"watch_mission_id": mission["id"], "watch_mission_name": mission["name"]},
     )
+    stale_irrelevant = DataPulseItem(
+        source_type=SourceType.GENERIC,
+        source_name="search",
+        title="GPU infra result",
+        content="Synthetic unrelated infrastructure result without the mission query.",
+        url="https://example.com/infra-watch",
+        fetched_at="2026-03-06T00:02:00+00:00",
+        confidence=0.94,
+        score=84,
+        extra={"watch_mission_id": mission["id"], "watch_mission_name": mission["name"]},
+    )
     unrelated = DataPulseItem(
         source_type=SourceType.GENERIC,
         source_name="search",
@@ -360,6 +423,7 @@ async def test_reader_list_watch_results_filters_by_mission(tmp_path, monkeypatc
     )
 
     reader.inbox.add(matched, fingerprint_dedup=False)
+    reader.inbox.add(stale_irrelevant, fingerprint_dedup=False)
     reader.inbox.add(unrelated, fingerprint_dedup=False)
     reader.inbox.save()
 
@@ -369,6 +433,50 @@ async def test_reader_list_watch_results_filters_by_mission(tmp_path, monkeypatc
     assert len(payload) == 1
     assert payload[0]["title"] == "OpenAI agents result"
     assert payload[0]["extra"]["watch_mission_id"] == mission["id"]
+    assert reader.inbox.items[0].extra["watch_query_relevance"]["passed"] is False
+
+
+def test_reader_show_watch_hides_stale_low_relevance_results(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    mission = reader.create_watch(name="AI Radar", query="OpenAI agents")
+
+    relevant = DataPulseItem(
+        source_type=SourceType.GENERIC,
+        source_name="search",
+        title="OpenAI agents launch recap",
+        content="Synthetic search result content about OpenAI agents shipping to users.",
+        url="https://example.com/openai-agents-launch",
+        fetched_at="2026-03-06T00:01:00+00:00",
+        confidence=0.91,
+        score=78,
+        extra={"watch_mission_id": mission["id"], "watch_mission_name": mission["name"]},
+    )
+    stale_irrelevant = DataPulseItem(
+        source_type=SourceType.GENERIC,
+        source_name="search",
+        title="GPU infra ops checklist",
+        content="Synthetic unrelated infrastructure result that stayed attached to the mission.",
+        url="https://example.com/gpu-infra",
+        fetched_at="2026-03-06T00:02:00+00:00",
+        confidence=0.95,
+        score=87,
+        extra={"watch_mission_id": mission["id"], "watch_mission_name": mission["name"]},
+    )
+
+    reader.inbox.add(relevant, fingerprint_dedup=False)
+    reader.inbox.add(stale_irrelevant, fingerprint_dedup=False)
+    reader.inbox.save()
+
+    payload = reader.show_watch(mission["id"])
+
+    assert payload is not None
+    assert [item["title"] for item in payload["recent_results"]] == ["OpenAI agents launch recap"]
+    assert payload["result_stats"]["stored_result_count"] == 2
+    assert payload["result_stats"]["visible_result_count"] == 1
+    assert payload["result_stats"]["filtered_result_count"] == 1
+    assert payload["result_stats"]["returned_result_count"] == 1
 
 
 @pytest.mark.asyncio

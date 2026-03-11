@@ -728,6 +728,54 @@ def _wait_for_console_ready(page: Page) -> None:
     page.wait_for_function("() => document.querySelector('#route-form') && document.querySelector('#triage-list') && document.querySelector('#story-list')", timeout=10000)
 
 
+def _wait_for_active_rail(page: Page, nav_id: str, expected_hash: str) -> None:
+    page.wait_for_function(
+        """([selector, hashValue]) => {
+            const button = document.querySelector(selector);
+            return !!button
+                && button.getAttribute('aria-current') === 'page'
+                && button.classList.contains('active')
+                && window.location.hash === hashValue;
+        }""",
+        arg=[f"#{nav_id}", expected_hash],
+        timeout=10000,
+    )
+
+
+def _wait_for_responsive_contract(
+    page: Page,
+    *,
+    viewport: str,
+    density: str,
+    pane: str,
+    modal: str,
+    action_sheet: str,
+) -> None:
+    expected = {
+        "responsiveViewport": viewport,
+        "densityMode": density,
+        "paneContract": pane,
+        "modalPresentation": modal,
+        "actionSheetMode": action_sheet,
+    }
+    deadline = time.time() + 10
+    current = {}
+    while time.time() < deadline:
+        current = page.evaluate(
+            """() => ({
+                responsiveViewport: document.body?.dataset.responsiveViewport || "",
+                densityMode: document.body?.dataset.densityMode || "",
+                paneContract: document.body?.dataset.paneContract || "",
+                modalPresentation: document.body?.dataset.modalPresentation || "",
+                actionSheetMode: document.body?.dataset.actionSheetMode || "",
+            })"""
+        )
+        if current == expected:
+            return
+        page.wait_for_timeout(150)
+    raise AssertionError(f"responsive contract mismatch: expected {expected}, got {current}")
+
+
 def _click(page: Page, selector: str) -> None:
     locator = page.locator(selector).first
     locator.wait_for(state="attached", timeout=10000)
@@ -739,6 +787,10 @@ def _click(page: Page, selector: str) -> None:
 
 def _submit_form(page: Page, selector: str) -> None:
     page.locator(selector).evaluate("(form) => form.requestSubmit()")
+
+
+def _goto(page: Page, url: str) -> None:
+    page.goto(url, wait_until="domcontentloaded", timeout=20000)
 
 
 def _launch_browser(playwright: Playwright):
@@ -757,7 +809,7 @@ def _launch_browser(playwright: Playwright):
 
 def _exercise_deep_link_and_existing_flow(page: Page, base_url: str) -> None:
     print("[console-browser-smoke] deep-link watch")
-    page.goto(f"{base_url}/?watch_search=Launch#section-cockpit", wait_until="load")
+    _goto(page, f"{base_url}/?watch_search=Launch#section-cockpit")
     _wait_for_console_ready(page)
     page.wait_for_function("() => window.location.hash === '#section-cockpit'", timeout=10000)
     page.wait_for_function("() => window.location.search.includes('watch_search=Launch')", timeout=10000)
@@ -770,11 +822,27 @@ def _exercise_deep_link_and_existing_flow(page: Page, base_url: str) -> None:
     page.fill("#command-palette-input", "run due")
     page.keyboard.press("Enter")
     page.wait_for_function("() => document.body.textContent.includes('Due missions dispatched')", timeout=10000)
+    page.keyboard.press("Escape")
+    page.wait_for_function("() => !document.querySelector('.palette-backdrop')?.classList.contains('open')", timeout=10000)
+
+
+def _exercise_navigation_convergence(page: Page) -> None:
+    print("[console-browser-smoke] navigation convergence")
+    page.wait_for_function("() => document.querySelectorAll('.topbar-nav .nav-pill').length === 4", timeout=10000)
+    _wait_for_active_rail(page, "nav-missions", "#section-cockpit")
+    _click(page, "#nav-review")
+    _wait_for_active_rail(page, "nav-review", "#section-triage")
+    _click(page, "#nav-delivery")
+    _wait_for_active_rail(page, "nav-delivery", "#section-ops")
+    _click(page, "#nav-intake")
+    _wait_for_active_rail(page, "nav-intake", "#section-intake")
+    _click(page, "#nav-missions")
+    _wait_for_active_rail(page, "nav-missions", "#section-board")
 
 
 def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
     print("[console-browser-smoke] save view and set default")
-    page.goto(f"{base_url}/?triage_filter=verified#section-triage", wait_until="load")
+    _goto(page, f"{base_url}/?triage_filter=verified#section-triage")
     _wait_for_console_ready(page)
     page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
     page.wait_for_function("() => window.location.search.includes('triage_filter=verified')", timeout=10000)
@@ -795,22 +863,35 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
     print("[console-browser-smoke] default boot and dock restore")
     next_page = browser.new_page()
     _bind_page_logging(next_page, "page-2")
-    next_page.goto(base_url, wait_until="load")
+    _goto(next_page, base_url)
     _wait_for_console_ready(next_page)
     next_page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
     next_page.wait_for_function("() => window.location.search.includes('triage_filter=verified')", timeout=10000)
     next_page.wait_for_function("() => document.querySelector('[data-triage-card=\"item-2\"]')?.classList.contains('selected')", timeout=10000)
     next_page.wait_for_function("() => document.querySelector('[data-context-dock-open=\"0\"]')?.textContent?.includes('Verified Queue')", timeout=10000)
-    _click(next_page, "[data-context-dock-rename='Verified Queue']")
-    next_page.wait_for_selector("#context-dock-rename-input", timeout=10000)
-    next_page.fill("#context-dock-rename-input", "Verified Dock")
-    next_page.press("#context-dock-rename-input", "Enter")
-    next_page.wait_for_function("() => document.querySelector('[data-context-dock-open=\"0\"]')?.textContent?.includes('Verified Dock')", timeout=10000)
+    _wait_for_active_rail(next_page, "nav-review", "#section-triage")
+    _click(next_page, "[data-context-section='section-story']")
+    next_page.wait_for_function("() => window.location.hash === '#section-story'", timeout=10000)
+    _wait_for_active_rail(next_page, "nav-review", "#section-story")
+    _click(next_page, "[data-context-section='section-triage']")
+    next_page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
+    _click(next_page, "[data-context-dock-manage]")
+    next_page.wait_for_function(
+        "() => document.body.dataset.contextLensOpen === 'true' && document.querySelector('#context-lens-backdrop')?.classList.contains('open')",
+        timeout=10000,
+    )
+    _click(next_page, "#context-lens-close")
+    next_page.wait_for_function(
+        "() => document.body.dataset.contextLensOpen !== 'true' && document.querySelector('#context-summary')?.getAttribute('aria-expanded') === 'false'",
+        timeout=10000,
+    )
     next_page.evaluate("jumpToSection('section-intake')")
     next_page.wait_for_function("() => window.location.hash === '#section-intake'", timeout=10000)
+    _wait_for_active_rail(next_page, "nav-intake", "#section-intake")
     _click(next_page, "[data-context-dock-open='0']")
     next_page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
     next_page.wait_for_function("() => window.location.search.includes('triage_filter=verified')", timeout=10000)
+    _wait_for_active_rail(next_page, "nav-review", "#section-triage")
     return next_page
 
 
@@ -818,16 +899,37 @@ def _exercise_route_crud(page: Page) -> None:
     print("[console-browser-smoke] route crud")
     page.evaluate("jumpToSection('section-ops')")
     page.wait_for_function("() => window.location.hash === '#section-ops'", timeout=10000)
+    _wait_for_active_rail(page, "nav-delivery", "#section-ops")
+    page.wait_for_function(
+        """() => {
+            const primary = document.querySelector('[data-card-action-primary] button[data-route-edit="ops-webhook"]');
+            const secondary = document.querySelector('[data-card-action-secondary] button[data-route-attach="ops-webhook"]');
+            const danger = document.querySelector('[data-card-action-danger] button[data-route-delete="ops-webhook"]');
+            return !!primary && !!secondary && !!danger;
+        }""",
+        timeout=10000,
+    )
     page.fill("#route-form [name='name']", "shadow-webhook")
     page.fill("#route-form [name='webhook_url']", "https://hooks.example.com/shadow")
     _submit_form(page, "#route-form")
-    page.wait_for_function("() => document.querySelector('[data-route-edit=\"shadow-webhook\"]')", timeout=10000)
+    page.wait_for_timeout(1500)
+    assert page.evaluate("() => !!document.querySelector('[data-route-edit=\"shadow-webhook\"]')"), "shadow-webhook route was not rendered after create"
+    page.wait_for_function(
+        """() => {
+            const primary = document.querySelector('[data-card-action-primary] button[data-route-attach="shadow-webhook"]');
+            const secondary = document.querySelector('[data-card-action-secondary] button[data-route-edit="shadow-webhook"]');
+            const danger = document.querySelector('[data-card-action-danger] button[data-route-delete="shadow-webhook"]');
+            return !!primary && !!secondary && !!danger;
+        }""",
+        timeout=10000,
+    )
     page.evaluate("editRouteInDeck('shadow-webhook')")
     page.wait_for_function("() => document.querySelector('#route-form [name=\"name\"]')?.value === 'shadow-webhook'", timeout=10000)
     page.fill("#route-form [name='description']", "Shadow webhook route")
     page.fill("#route-form [name='webhook_url']", "https://hooks.example.com/shadow-v2")
     _submit_form(page, "#route-form")
-    page.wait_for_function("() => document.querySelector('#route-list')?.textContent?.includes('Shadow webhook route')", timeout=10000)
+    page.wait_for_timeout(1000)
+    assert page.evaluate("() => !!document.querySelector('[data-route-delete=\"shadow-webhook\"]')"), "shadow-webhook route was not available after update"
     page.evaluate("window.confirm = () => true")
     page.evaluate("deleteRouteFromBoard('shadow-webhook')")
     page.wait_for_function("() => !document.querySelector('[data-route-edit=\"shadow-webhook\"]')", timeout=10000)
@@ -835,15 +937,127 @@ def _exercise_route_crud(page: Page) -> None:
 
 def _exercise_triage_to_story(page: Page, base_url: str) -> None:
     print("[console-browser-smoke] triage to story")
-    page.goto(f"{base_url}/?triage_filter=all#section-triage", wait_until="load")
+    _goto(page, f"{base_url}/?triage_filter=all#section-triage")
     _wait_for_console_ready(page)
     page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
-    page.wait_for_function("() => document.querySelector('[data-triage-story=\"item-1\"]')", timeout=10000)
-    _click(page, "[data-triage-story='item-1']")
-    page.wait_for_function("() => window.location.hash === '#section-story'", timeout=10000)
-    page.wait_for_function("() => document.querySelector('[data-story-card=\"story-triage-seed\"]')?.classList.contains('selected')", timeout=10000)
-    page.wait_for_function("() => document.querySelector('#story-list')?.textContent?.includes('Triage Seed')", timeout=10000)
-    page.wait_for_function("() => document.querySelector('#story-detail')?.textContent?.includes('Seeded from triage queue.')", timeout=10000)
+    _wait_for_active_rail(page, "nav-review", "#section-triage")
+    page.wait_for_function(
+        """() => {
+            const primary = document.querySelector('[data-card-action-primary] button[data-triage-state="escalated"][data-triage-id="item-1"]');
+            const verify = document.querySelector('[data-card-action-secondary] button[data-triage-state="verified"][data-triage-id="item-1"]');
+            const story = document.querySelector('[data-card-action-secondary] button[data-empty-jump="section-story"]');
+            const danger = document.querySelector('[data-card-action-danger] button[data-triage-delete="item-1"]');
+            return !!primary && !!verify && !!story && !!danger;
+        }""",
+        timeout=10000,
+    )
+    page.wait_for_function(
+        """() => {
+            const primary = document.querySelector('[data-card-action-primary] button[data-triage-story="item-2"]');
+            const secondary = document.querySelector('[data-card-action-secondary] button[data-triage-explain="item-2"]');
+            const danger = document.querySelector('[data-card-action-danger] button[data-triage-delete="item-2"]');
+            return !!primary && !!secondary && !!danger;
+        }""",
+        timeout=10000,
+    )
+    _click(page, "[data-triage-story='item-2']")
+    page.wait_for_timeout(2000)
+    assert page.evaluate("() => window.location.hash === '#section-story'"), "triage-to-story flow did not jump to section-story"
+    _wait_for_active_rail(page, "nav-review", "#section-story")
+    assert page.evaluate("() => document.querySelector('[data-story-card=\"story-triage-seed\"]')?.classList.contains('selected')"), "story-triage-seed was not selected after create"
+    assert page.evaluate("() => document.querySelector('#story-list')?.textContent?.includes('Triage Seed')"), "story list did not include Triage Seed"
+    assert page.evaluate("() => document.querySelector('#story-detail')?.textContent?.includes('Seeded from triage queue.')"), "story detail did not show seeded summary"
+    page.wait_for_function(
+        """() => {
+            const primary = document.querySelector('[data-card-action-primary] button[data-story-open="story-triage-seed"]');
+            const preview = document.querySelector('[data-card-action-secondary] button[data-story-preview="story-triage-seed"]');
+            const archive = document.querySelector('[data-card-action-secondary] button[data-story-quick-status="story-triage-seed"]');
+            const hierarchy = primary?.closest('.action-hierarchy');
+            return !!primary && !!preview && !!archive && !!hierarchy && !hierarchy.querySelector('[data-card-action-danger]');
+        }""",
+        timeout=10000,
+    )
+
+
+def _exercise_responsive_interaction_safety(page: Page) -> None:
+    print("[console-browser-smoke] responsive interaction safety")
+    page.set_viewport_size({"width": 980, "height": 1100})
+    _wait_for_responsive_contract(
+        page,
+        viewport="compact",
+        density="compact",
+        pane="stacked",
+        modal="sheet",
+        action_sheet="inline",
+    )
+    page.set_viewport_size({"width": 720, "height": 1280})
+    _wait_for_responsive_contract(
+        page,
+        viewport="touch",
+        density="touch",
+        pane="single",
+        modal="fullscreen",
+        action_sheet="sheet",
+    )
+    _click(page, "#context-summary")
+    page.wait_for_function(
+        "() => document.body.dataset.contextLensOpen === 'true' && document.querySelector('#context-lens-backdrop')?.classList.contains('open')",
+        timeout=10000,
+    )
+    _click(page, "#context-lens-close")
+    page.wait_for_function(
+        "() => document.body.dataset.contextLensOpen !== 'true' && document.querySelector('#context-summary')?.getAttribute('aria-expanded') === 'false'",
+        timeout=10000,
+    )
+    page.wait_for_function(
+        """() => {
+            const primary = document.querySelector('[data-card-action-primary] button[data-run-watch="launch-ops"]');
+            const hierarchy = primary?.closest('.action-hierarchy');
+            const secondary = hierarchy?.querySelector('[data-card-action-secondary]');
+            const danger = hierarchy?.querySelector('[data-card-action-danger]');
+            const sheet = hierarchy?.querySelector('[data-card-action-sheet]');
+            const sheetSecondary = hierarchy?.querySelector('[data-card-action-sheet-secondary] button[data-watch-open="launch-ops"]');
+            const sheetDanger = hierarchy?.querySelector('[data-card-action-sheet-danger] button[data-delete-watch="launch-ops"]');
+            return !!primary
+                && !!secondary
+                && !!danger
+                && !!sheet
+                && getComputedStyle(secondary).display === 'none'
+                && getComputedStyle(danger).display === 'none'
+                && getComputedStyle(sheet).display !== 'none'
+                && !!sheetSecondary
+                && !!sheetDanger;
+        }""",
+        timeout=10000,
+    )
+    page.evaluate(
+        """() => {
+            const primary = document.querySelector('[data-card-action-primary] button[data-run-watch="launch-ops"]');
+            const hierarchy = primary?.closest('.action-hierarchy');
+            const sheet = hierarchy?.querySelector('[data-card-action-sheet]');
+            if (sheet) {
+                sheet.open = true;
+            }
+        }"""
+    )
+    page.wait_for_function(
+        """() => {
+            const primary = document.querySelector('[data-card-action-primary] button[data-run-watch="launch-ops"]');
+            const hierarchy = primary?.closest('.action-hierarchy');
+            const sheet = hierarchy?.querySelector('[data-card-action-sheet]');
+            return !!sheet?.open && !!hierarchy?.querySelector('[data-card-action-sheet-secondary] button[data-watch-open="launch-ops"]');
+        }""",
+        timeout=10000,
+    )
+    page.set_viewport_size({"width": 1360, "height": 1100})
+    _wait_for_responsive_contract(
+        page,
+        viewport="desktop",
+        density="comfortable",
+        pane="split",
+        modal="side-panel",
+        action_sheet="inline",
+    )
 
 
 def main() -> int:
@@ -863,9 +1077,11 @@ def main() -> int:
             page = context.new_page()
             _bind_page_logging(page, "page-1")
             _exercise_deep_link_and_existing_flow(page, base_url)
+            _exercise_navigation_convergence(page)
             second_page = _exercise_saved_views_and_dock(page, base_url, context)
             _exercise_route_crud(second_page)
             _exercise_triage_to_story(second_page, base_url)
+            _exercise_responsive_interaction_safety(second_page)
             browser.close()
     finally:
         server.should_exit = True

@@ -1,7 +1,7 @@
 {
   "schema_version": "project_specific_loop_state.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-10T06:40:31Z",
+  "generated_at_utc": "2026-03-10T15:19:09Z",
   "state_kind": "draft_export",
   "source_plan": "docs/governance/datapulse-blueprint-plan.json",
   "wired": true,
@@ -56,16 +56,19 @@
     "L11.1",
     "L11.2",
     "L11.3",
-    "L11.4"
+    "L11.4",
+    "L11.5",
+    "L12.1",
+    "L12.2",
+    "L12.3",
+    "L12.4",
+    "L12.5",
+    "L12.6"
   ],
   "next_slice": {
-    "id": "L11.5",
-    "title": "Harden browser-level regression coverage for deep links, saved views, dock behavior, triage-to-story flow, and route CRUD",
-    "category": "manual",
-    "phase_id": "L11",
-    "execution_profile": "local_wrapper",
-    "promotion_scope": "none",
-    "closes_gates": []
+    "id": "no-open-slice",
+    "title": "No open slice",
+    "category": "complete"
   },
   "remaining_promotion_gates": [
     "workspace_dirty",
@@ -82,12 +85,12 @@
   "control_contract": {
     "progress_truth": {
       "source": "blueprint_plan_next_open_slice",
-      "current_next_slice_id": "L11.5"
+      "current_next_slice_id": "no-open-slice"
     },
     "stop_truth": {
       "source": "blocking_facts_and_flow_control",
-      "status_if_run_now": "ready_waiting_manual_handoff",
-      "reason_if_run_now": "manual_promotion_mode",
+      "status_if_run_now": "stopped",
+      "reason_if_run_now": "promotion_gates_open",
       "machine_decidable": true,
       "expected_terminal_stop_on_complete": true
     },
@@ -123,8 +126,8 @@
     }
   },
   "flow_control": {
-    "status_if_run_now": "ready_waiting_manual_handoff",
-    "reason_if_run_now": "manual_promotion_mode",
+    "status_if_run_now": "stopped",
+    "reason_if_run_now": "promotion_gates_open",
     "machine_decidable_blockers": true,
     "auto_continuation_enabled": false,
     "readiness_gaps": [
@@ -132,5 +135,35 @@
     ]
   },
   "promotion_mode": "manual_only",
-  "stop_reason_if_run_now": ""
+  "stop_reason_if_run_now": "promotion_gates_open",
+  "local_verification": {
+    "quick_test_gate": {
+      "status": "passed",
+      "observed": true,
+      "current_head_match": true,
+      "ok": true,
+      "generated_at_utc": "2026-03-10T11:34:06Z",
+      "head": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
+      "branch": "main",
+      "path": "artifacts/governance/quick_test_gate.draft.json"
+    }
+  },
+  "headline_summary": {
+    "current_level": "manual_only",
+    "workspace_clean": false,
+    "next_slice_id": "no-open-slice",
+    "next_slice_title": "No open slice",
+    "status_if_run_now": "stopped",
+    "reason_if_run_now": "promotion_gates_open",
+    "quick_test_gate": {
+      "status": "passed",
+      "observed": true,
+      "current_head_match": true,
+      "ok": true,
+      "generated_at_utc": "2026-03-10T11:34:06Z",
+      "head": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
+      "branch": "main",
+      "path": "artifacts/governance/quick_test_gate.draft.json"
+    }
+  }
 }

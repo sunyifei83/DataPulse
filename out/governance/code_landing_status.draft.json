@@ -1,55 +1,50 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-10T06:40:31Z",
+  "generated_at_utc": "2026-03-10T15:19:09Z",
   "status_kind": "draft_export",
   "wired": false,
+  "headline_summary": {
+    "current_level": "manual_only",
+    "workspace_clean": false,
+    "head_published_to_upstream": true,
+    "repo_landed": false,
+    "ci_proven": false,
+    "ci_proof_mode": "push_ci_workflow",
+    "required_workflow": "CI",
+    "quick_test_gate": {
+      "status": "passed",
+      "observed": true,
+      "current_head_match": true,
+      "ok": true,
+      "generated_at_utc": "2026-03-10T11:34:06Z",
+      "head": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
+      "branch": "main",
+      "path": "artifacts/governance/quick_test_gate.draft.json"
+    }
+  },
   "git": {
-    "head": "cb0079db77683a3f37233750c5cec310a432c99b",
+    "head": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "cb0079db77683a3f37233750c5cec310a432c99b",
+    "upstream_head": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
     "head_published_to_upstream": true
   },
   "workspace": {
     "clean": false,
     "dirty_entries": [
-      "M SKILL.md",
-      " M datapulse/console_markup.py",
+      "M datapulse/console_markup.py",
       " M datapulse/console_server.py",
-      " M datapulse/core/alerts.py",
-      " M datapulse/core/storage.py",
-      " M datapulse/core/story.py",
-      " M datapulse/core/triage.py",
-      " M datapulse/core/watchlist.py",
+      " M datapulse/core/utils.py",
       " M datapulse/reader.py",
-      " M datapulse_skill/manifest.json",
       " M docs/brand_identity.md",
-      " M docs/datapulse_console_parameter_guide.md",
       " M docs/governance/datapulse-blueprint-plan.draft.json",
-      " M docs/governance/datapulse-blueprint-plan.json",
       " M docs/gui_intelligence_console_plan.md",
-      " M out/governance/auto_continuation_runtime.draft.json",
       " M out/governance/code_landing_status.draft.json",
       " M out/governance/project_specific_loop_state.draft.json",
-      " M out/governance/slice_execution_brief.draft.json",
-      " M out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json",
-      " M out/ha_latest_release_bundle/blueprint_plan.snapshot.json",
-      " M out/ha_latest_release_bundle/code_landing_status.draft.json",
-      " M out/ha_latest_release_bundle/code_landing_status.snapshot.json",
-      " M out/ha_latest_release_bundle/evidence_bundle_manifest.draft.json",
-      " M out/ha_latest_release_bundle/ha_delivery_facts.draft.json",
-      " M out/ha_latest_release_bundle/ha_delivery_landing.draft.json",
-      " M out/ha_latest_release_bundle/ha_recovery_preset.draft.json",
-      " M out/ha_latest_release_bundle/project_specific_loop_state.draft.json",
-      " M out/ha_latest_release_bundle/release_readiness_fact.draft.json",
-      " M out/ha_latest_release_bundle/release_sidecar.draft.json",
-      " M out/ha_latest_release_bundle/slice_adapter_catalog.snapshot.json",
-      " M out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
-      " M tests/test_alerts.py",
+      " M scripts/datapulse_console_browser_smoke.py",
       " M tests/test_console_server.py",
-      " M tests/test_story.py",
-      " M tests/test_triage.py",
+      " M tests/test_utils.py",
       " M tests/test_watchlist.py"
     ],
     "reason": "git status reported local modifications."
@@ -66,7 +61,133 @@
       "required_for_loop": false,
       "truth_source": "scripts/quick_test.sh",
       "wrapper_command": "python3 scripts/governance/run_datapulse_quick_test_gate.py",
-      "reason": "Current semantics are not declared as the canonical strict gate set."
+      "reason": "Current semantics are not declared as the canonical strict gate set.",
+      "latest_observation": {
+        "path": "artifacts/governance/quick_test_gate.draft.json",
+        "schema_version": "quick_test_gate.v1",
+        "generated_at_utc": "2026-03-10T11:34:06Z",
+        "ok": true,
+        "read_only": true,
+        "git": {
+          "head": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
+          "branch": "main"
+        },
+        "steps": [
+          {
+            "name": "python_import",
+            "command": [
+              "uv",
+              "run",
+              "python3",
+              "-c",
+              "import datapulse; print(datapulse.__name__)"
+            ],
+            "rc": 0,
+            "ok": true,
+            "stdout_tail": [
+              "datapulse"
+            ],
+            "stderr_tail": []
+          },
+          {
+            "name": "lint_datapulse",
+            "command": [
+              "uv",
+              "run",
+              "ruff",
+              "check",
+              "datapulse/"
+            ],
+            "rc": 0,
+            "ok": true,
+            "stdout_tail": [
+              "All checks passed!"
+            ],
+            "stderr_tail": []
+          },
+          {
+            "name": "typecheck_datapulse",
+            "command": [
+              "uv",
+              "run",
+              "mypy",
+              "datapulse/"
+            ],
+            "rc": 0,
+            "ok": true,
+            "stdout_tail": [
+              "datapulse/cli.py:315: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
+              "Success: no issues found in 57 source files"
+            ],
+            "stderr_tail": []
+          },
+          {
+            "name": "console_smoke",
+            "command": [
+              "bash",
+              "scripts/datapulse_console_smoke.sh"
+            ],
+            "rc": 0,
+            "ok": true,
+            "stdout_tail": [
+              "[console-smoke] check: module help",
+              "[console-smoke] check: wrapper help",
+              "[console-smoke] skip: datapulse-console not installed in PATH",
+              "[console-smoke] skip: browser smoke (set DATAPULSE_CONSOLE_BROWSER_SMOKE=1 to enable)",
+              "[console-smoke] pass"
+            ],
+            "stderr_tail": []
+          },
+          {
+            "name": "smoke_list",
+            "command": [
+              "uv",
+              "run",
+              "python3",
+              "-m",
+              "datapulse.tools.smoke",
+              "--list"
+            ],
+            "rc": 0,
+            "ok": true,
+            "stdout_tail": [
+              "- telegram   MISSING  set DATAPULSE_SMOKE_TELEGRAM_URL for 1 Telegram public/channel URL",
+              "- twitter    MISSING  set DATAPULSE_SMOKE_TWITTER_URL for 1 X/Twitter single status URL",
+              "- wechat     MISSING  set DATAPULSE_SMOKE_WECHAT_URL for 1 WeChat public article URL",
+              "- xhs        MISSING  set DATAPULSE_SMOKE_XHS_URL for 1 Xiaohongshu note URL",
+              "- youtube    MISSING  set DATAPULSE_SMOKE_YOUTUBE_URL for 1 YouTube video URL"
+            ],
+            "stderr_tail": []
+          },
+          {
+            "name": "cli_list",
+            "command": [
+              "uv",
+              "run",
+              "python3",
+              "-m",
+              "datapulse.cli",
+              "--list",
+              "--limit",
+              "5",
+              "--min-confidence",
+              "0.0"
+            ],
+            "rc": 0,
+            "ok": true,
+            "stdout_tail": [
+              "    https://www.reddit.com/r/dataengineering/comments/1qxxvxc/whats_your_biggest_data_warehouse_headache_right/",
+              " 4. [reddit] [r/dataengineering] Logging run results in dbt - 0.990",
+              "    https://www.reddit.com/r/dataengineering/comments/1rkic8b/logging_run_results_in_dbt/",
+              " 5. [reddit] [r/dataengineering] dbtective: Rust-based dbt metadata  - 0.990",
+              "    https://www.reddit.com/r/dataengineering/comments/1r14s59/dbtective_rustbased_dbt_metadata_detective_and/"
+            ],
+            "stderr_tail": []
+          }
+        ]
+      },
+      "latest_observation_status": "passed",
+      "latest_observation_current_head_match": true
     },
     "local_smoke": {
       "gateable": false,
@@ -123,68 +244,44 @@
     "head_published_to_upstream": true,
     "required_workflow": "CI",
     "required_run": {
-      "database_id": 22842774090,
-      "head_sha": "cb0079db77683a3f37233750c5cec310a432c99b",
+      "database_id": 22897071252,
+      "head_sha": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
       "head_branch": "main",
       "status": "completed",
       "conclusion": "success",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-09T07:24:45Z",
-      "updated_at": "2026-03-09T07:25:21Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22842774090"
+      "created_at": "2026-03-10T10:01:10Z",
+      "updated_at": "2026-03-10T10:01:46Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22897071252"
     },
     "latest_head_ci_run": {
-      "database_id": 22842774090,
-      "head_sha": "cb0079db77683a3f37233750c5cec310a432c99b",
+      "database_id": 22897071252,
+      "head_sha": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
       "head_branch": "main",
       "status": "completed",
       "conclusion": "success",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-09T07:24:45Z",
-      "updated_at": "2026-03-09T07:25:21Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22842774090"
+      "created_at": "2026-03-10T10:01:10Z",
+      "updated_at": "2026-03-10T10:01:46Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22897071252"
     },
     "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
-        "SKILL.md",
         "datapulse/console_markup.py",
         "datapulse/console_server.py",
-        "datapulse/core/alerts.py",
-        "datapulse/core/storage.py",
-        "datapulse/core/story.py",
-        "datapulse/core/triage.py",
-        "datapulse/core/watchlist.py",
+        "datapulse/core/utils.py",
         "datapulse/reader.py",
-        "datapulse_skill/manifest.json",
         "docs/brand_identity.md",
-        "docs/datapulse_console_parameter_guide.md",
         "docs/governance/datapulse-blueprint-plan.draft.json",
-        "docs/governance/datapulse-blueprint-plan.json",
         "docs/gui_intelligence_console_plan.md",
-        "out/governance/auto_continuation_runtime.draft.json",
         "out/governance/code_landing_status.draft.json",
         "out/governance/project_specific_loop_state.draft.json",
-        "out/governance/slice_execution_brief.draft.json",
-        "out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json",
-        "out/ha_latest_release_bundle/blueprint_plan.snapshot.json",
-        "out/ha_latest_release_bundle/code_landing_status.draft.json",
-        "out/ha_latest_release_bundle/code_landing_status.snapshot.json",
-        "out/ha_latest_release_bundle/evidence_bundle_manifest.draft.json",
-        "out/ha_latest_release_bundle/ha_delivery_facts.draft.json",
-        "out/ha_latest_release_bundle/ha_delivery_landing.draft.json",
-        "out/ha_latest_release_bundle/ha_recovery_preset.draft.json",
-        "out/ha_latest_release_bundle/project_specific_loop_state.draft.json",
-        "out/ha_latest_release_bundle/release_readiness_fact.draft.json",
-        "out/ha_latest_release_bundle/release_sidecar.draft.json",
-        "out/ha_latest_release_bundle/slice_adapter_catalog.snapshot.json",
-        "out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
-        "tests/test_alerts.py",
+        "scripts/datapulse_console_browser_smoke.py",
         "tests/test_console_server.py",
-        "tests/test_story.py",
-        "tests/test_triage.py",
+        "tests/test_utils.py",
         "tests/test_watchlist.py"
       ],
       "docs_only": false
@@ -230,6 +327,130 @@
     }
   },
   "observed_evidence": {
+    "latest_quick_test_gate": {
+      "path": "artifacts/governance/quick_test_gate.draft.json",
+      "schema_version": "quick_test_gate.v1",
+      "generated_at_utc": "2026-03-10T11:34:06Z",
+      "ok": true,
+      "read_only": true,
+      "git": {
+        "head": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
+        "branch": "main"
+      },
+      "steps": [
+        {
+          "name": "python_import",
+          "command": [
+            "uv",
+            "run",
+            "python3",
+            "-c",
+            "import datapulse; print(datapulse.__name__)"
+          ],
+          "rc": 0,
+          "ok": true,
+          "stdout_tail": [
+            "datapulse"
+          ],
+          "stderr_tail": []
+        },
+        {
+          "name": "lint_datapulse",
+          "command": [
+            "uv",
+            "run",
+            "ruff",
+            "check",
+            "datapulse/"
+          ],
+          "rc": 0,
+          "ok": true,
+          "stdout_tail": [
+            "All checks passed!"
+          ],
+          "stderr_tail": []
+        },
+        {
+          "name": "typecheck_datapulse",
+          "command": [
+            "uv",
+            "run",
+            "mypy",
+            "datapulse/"
+          ],
+          "rc": 0,
+          "ok": true,
+          "stdout_tail": [
+            "datapulse/cli.py:315: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
+            "Success: no issues found in 57 source files"
+          ],
+          "stderr_tail": []
+        },
+        {
+          "name": "console_smoke",
+          "command": [
+            "bash",
+            "scripts/datapulse_console_smoke.sh"
+          ],
+          "rc": 0,
+          "ok": true,
+          "stdout_tail": [
+            "[console-smoke] check: module help",
+            "[console-smoke] check: wrapper help",
+            "[console-smoke] skip: datapulse-console not installed in PATH",
+            "[console-smoke] skip: browser smoke (set DATAPULSE_CONSOLE_BROWSER_SMOKE=1 to enable)",
+            "[console-smoke] pass"
+          ],
+          "stderr_tail": []
+        },
+        {
+          "name": "smoke_list",
+          "command": [
+            "uv",
+            "run",
+            "python3",
+            "-m",
+            "datapulse.tools.smoke",
+            "--list"
+          ],
+          "rc": 0,
+          "ok": true,
+          "stdout_tail": [
+            "- telegram   MISSING  set DATAPULSE_SMOKE_TELEGRAM_URL for 1 Telegram public/channel URL",
+            "- twitter    MISSING  set DATAPULSE_SMOKE_TWITTER_URL for 1 X/Twitter single status URL",
+            "- wechat     MISSING  set DATAPULSE_SMOKE_WECHAT_URL for 1 WeChat public article URL",
+            "- xhs        MISSING  set DATAPULSE_SMOKE_XHS_URL for 1 Xiaohongshu note URL",
+            "- youtube    MISSING  set DATAPULSE_SMOKE_YOUTUBE_URL for 1 YouTube video URL"
+          ],
+          "stderr_tail": []
+        },
+        {
+          "name": "cli_list",
+          "command": [
+            "uv",
+            "run",
+            "python3",
+            "-m",
+            "datapulse.cli",
+            "--list",
+            "--limit",
+            "5",
+            "--min-confidence",
+            "0.0"
+          ],
+          "rc": 0,
+          "ok": true,
+          "stdout_tail": [
+            "    https://www.reddit.com/r/dataengineering/comments/1qxxvxc/whats_your_biggest_data_warehouse_headache_right/",
+            " 4. [reddit] [r/dataengineering] Logging run results in dbt - 0.990",
+            "    https://www.reddit.com/r/dataengineering/comments/1rkic8b/logging_run_results_in_dbt/",
+            " 5. [reddit] [r/dataengineering] dbtective: Rust-based dbt metadata  - 0.990",
+            "    https://www.reddit.com/r/dataengineering/comments/1r14s59/dbtective_rustbased_dbt_metadata_detective_and/"
+          ],
+          "stderr_tail": []
+        }
+      ]
+    },
     "latest_local_report": {
       "path": "artifacts/openclaw_datapulse_20260307_185520/local_report.md",
       "run_id": "20260307_185520",
@@ -271,20 +492,21 @@
       }
     },
     "latest_head_ci_run": {
-      "database_id": 22842774090,
-      "head_sha": "cb0079db77683a3f37233750c5cec310a432c99b",
+      "database_id": 22897071252,
+      "head_sha": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
       "head_branch": "main",
       "status": "completed",
       "conclusion": "success",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-09T07:24:45Z",
-      "updated_at": "2026-03-09T07:25:21Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22842774090"
+      "created_at": "2026-03-10T10:01:10Z",
+      "updated_at": "2026-03-10T10:01:46Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22897071252"
     },
     "latest_head_governance_evidence_run": null
   },
   "evidence_paths": {
+    "quick_test_gate": "artifacts/governance/quick_test_gate.draft.json",
     "local_report": "artifacts/openclaw_datapulse_<RUN_ID>/local_report.md",
     "remote_report": "artifacts/openclaw_datapulse_<RUN_ID>/remote_report.md",
     "remote_log": "artifacts/openclaw_datapulse_<RUN_ID>/remote_test.log",

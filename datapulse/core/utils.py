@@ -26,6 +26,17 @@ _T = TypeVar("_T")
 _CONFIG_CACHE: dict[str, dict[str, str]] = {}
 
 
+def _default_datapulse_storage_dir() -> Path:
+    for candidate in Path(__file__).resolve().parents:
+        if (candidate / "pyproject.toml").exists() and (candidate / "datapulse").exists():
+            return candidate
+    return Path.home() / ".datapulse"
+
+
+def _default_datapulse_storage_path(filename: str) -> str:
+    return str(_default_datapulse_storage_dir() / filename)
+
+
 def extract_urls(text: str) -> list[str]:
     """Extract URLs from arbitrary text and deduplicate while preserving order."""
     found: list[str] = []
@@ -297,7 +308,7 @@ def inbox_path_from_env() -> str:
             return str(candidate)
         return str(candidate / "unified_inbox.json")
 
-    return "unified_inbox.json"
+    return _default_datapulse_storage_path("unified_inbox.json")
 
 
 def watchlist_path_from_env() -> str:
@@ -312,7 +323,7 @@ def watchlist_path_from_env() -> str:
             return str(candidate.with_name("datapulse_watchlist.json"))
         return str(candidate / "datapulse_watchlist.json")
 
-    return "datapulse_watchlist.json"
+    return _default_datapulse_storage_path("datapulse_watchlist.json")
 
 
 def alerts_path_from_env() -> str:
@@ -327,7 +338,7 @@ def alerts_path_from_env() -> str:
             return str(candidate.with_name("datapulse_alerts.json"))
         return str(candidate / "datapulse_alerts.json")
 
-    return "datapulse_alerts.json"
+    return _default_datapulse_storage_path("datapulse_alerts.json")
 
 
 def alerts_markdown_path_from_env() -> str:
@@ -342,7 +353,7 @@ def alerts_markdown_path_from_env() -> str:
             return str(candidate.with_name("datapulse_alerts.md"))
         return str(candidate / "datapulse_alerts.md")
 
-    return "datapulse_alerts.md"
+    return _default_datapulse_storage_path("datapulse_alerts.md")
 
 
 def alert_routing_path_from_env() -> str:
@@ -357,7 +368,7 @@ def alert_routing_path_from_env() -> str:
             return str(candidate.with_name("datapulse_alert_routes.json"))
         return str(candidate / "datapulse_alert_routes.json")
 
-    return "datapulse_alert_routes.json"
+    return _default_datapulse_storage_path("datapulse_alert_routes.json")
 
 
 def watch_daemon_lock_path_from_env() -> str:
@@ -372,7 +383,7 @@ def watch_daemon_lock_path_from_env() -> str:
             return str(candidate.with_name("datapulse_watch_daemon.lock"))
         return str(candidate / "datapulse_watch_daemon.lock")
 
-    return "datapulse_watch_daemon.lock"
+    return _default_datapulse_storage_path("datapulse_watch_daemon.lock")
 
 
 def watch_status_path_from_env() -> str:
@@ -387,7 +398,7 @@ def watch_status_path_from_env() -> str:
             return str(candidate.with_name("datapulse_watch_status.json"))
         return str(candidate / "datapulse_watch_status.json")
 
-    return "datapulse_watch_status.json"
+    return _default_datapulse_storage_path("datapulse_watch_status.json")
 
 
 def watch_status_html_path_from_env() -> str:
@@ -402,7 +413,7 @@ def watch_status_html_path_from_env() -> str:
             return str(candidate.with_name("datapulse_watch_status.html"))
         return str(candidate / "datapulse_watch_status.html")
 
-    return "datapulse_watch_status.html"
+    return _default_datapulse_storage_path("datapulse_watch_status.html")
 
 
 def stories_path_from_env() -> str:
@@ -417,7 +428,7 @@ def stories_path_from_env() -> str:
             return str(candidate.with_name("datapulse_stories.json"))
         return str(candidate / "datapulse_stories.json")
 
-    return "datapulse_stories.json"
+    return _default_datapulse_storage_path("datapulse_stories.json")
 
 
 def output_path_from_env():

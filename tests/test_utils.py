@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from datapulse.core.utils import (
@@ -27,6 +29,7 @@ from datapulse.core.utils import (
     resolve_platform_hint,
     session_valid,
     validate_external_url,
+    watchlist_path_from_env,
 )
 
 
@@ -60,6 +63,18 @@ class TestExtractUrls:
         text = "First: https://b.com then https://a.com"
         urls = extract_urls(text)
         assert urls == ["https://b.com", "https://a.com"]
+
+
+def test_watchlist_default_path_is_not_cwd_relative(monkeypatch, tmp_path):
+    monkeypatch.delenv("DATAPULSE_WATCHLIST_PATH", raising=False)
+    monkeypatch.delenv("DATAPULSE_MEMORY_DIR", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    resolved = Path(watchlist_path_from_env())
+
+    assert resolved.is_absolute()
+    assert resolved.name == "datapulse_watchlist.json"
+    assert resolved.parent == Path(__file__).resolve().parents[1]
 
 
 class TestValidateExternalUrl:
