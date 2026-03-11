@@ -891,6 +891,10 @@ def render_console_html(title: str) -> str:
       display: grid;
       gap: 18px;
     }}
+    .workspace-mode-group[data-workspace-group="review"] {{
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+    }}
     .workspace-mode-group[hidden] {{
       display: none;
     }}
@@ -1770,6 +1774,13 @@ def render_console_html(title: str) -> str:
       gap: 16px;
       align-items: start;
     }}
+    .story-workspace-mode-switch {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: 12px 0 6px;
+    }}
     .story-list {{
       display: grid;
       gap: 12px;
@@ -1799,6 +1810,9 @@ def render_console_html(title: str) -> str:
     .story-detail {{
       display: grid;
       gap: 12px;
+    }}
+    body[data-story-workspace-mode="editor"] .story-list {{
+      display: none;
     }}
     .story-columns {{
       display: grid;
@@ -1962,6 +1976,9 @@ def render_console_html(title: str) -> str:
       }}
       .topbar-nav::-webkit-scrollbar {{ display: none; }}
       .workspace-mode-grid {{ grid-template-columns: 1fr; }}
+      .workspace-mode-group[data-workspace-group="review"] {{
+        grid-template-columns: 1fr;
+      }}
       .hero, .grid, .dual-grid {{ grid-template-columns: 1fr; }}
       .hero-main {{ order: 0; }}
       .hero-side {{ order: 1; }}
@@ -2343,6 +2360,11 @@ def render_console_html(title: str) -> str:
         </div>
       </div>
       <div class="meta" id="story-stats-inline"></div>
+      <div class="story-workspace-mode-switch" id="story-workspace-mode-switch">
+        <span class="mono" id="story-mode-switch-label"></span>
+        <button class="chip-btn" id="story-mode-board-button" type="button" data-story-workspace-mode="board"></button>
+        <button class="chip-btn" id="story-mode-editor-button" type="button" data-story-workspace-mode="editor"></button>
+      </div>
       <div class="control-cluster" id="story-intake-shell">
         <div class="deck-mode-head">
           <div>
@@ -2487,6 +2509,7 @@ def render_console_html(title: str) -> str:
       storySearch: "",
       storyFilter: "all",
       storySort: "attention",
+      storyWorkspaceMode: "board",
       storyUrlFocusPending: false,
       selectedStoryIds: [],
       storyBulkBusy: false,
@@ -2559,11 +2582,18 @@ def render_console_html(title: str) -> str:
       if (!target) {{
         return;
       }}
+      const currentSectionId = normalizeSectionId(state.activeSectionId);
+      const currentMode = workspaceModeForSection(currentSectionId);
+      const targetMode = workspaceModeForSection(normalized);
+      const paneContract = String(document.body && document.body.dataset ? document.body.dataset.paneContract : "").trim() || "split";
+      const shouldScroll = targetMode !== currentMode || paneContract !== "split";
       setContextLensOpen(false);
       state.activeSectionId = normalized;
       renderWorkspaceModeChrome();
       renderTopbarContext();
-      target.scrollIntoView({{ block: "start", behavior: "smooth" }});
+      if (shouldScroll) {{
+        target.scrollIntoView({{ block: "start", behavior: "smooth" }});
+      }}
       if (!updateHash) {{
         return;
       }}
@@ -2701,8 +2731,10 @@ def render_console_html(title: str) -> str:
     const storyUrlSortParam = "story_sort";
     const storyUrlSearchParam = "story_search";
     const storyUrlIdParam = "story_id";
+    const storyUrlModeParam = "story_mode";
     const storyFilterStorageKey = "datapulse.console.story-filter.v1";
     const storySortStorageKey = "datapulse.console.story-sort.v1";
+    const storyWorkspaceModeStorageKey = "datapulse.console.story-workspace-mode.v1";
     const createWatchFormFields = ["name", "schedule", "query", "platform", "domain", "route", "keyword", "min_score", "min_confidence"];
     const routeFormFields = [
       "name",
@@ -2881,6 +2913,7 @@ def render_console_html(title: str) -> str:
     ];
     const storyStatusOptions = ["active", "monitoring", "resolved", "archived"];
     const storySortOptions = ["attention", "recent", "evidence", "conflict", "score"];
+    const storyWorkspaceModeOptions = ["board", "editor"];
     const storyViewPresetOptions = ["desk", "fresh", "conflicts", "archive"];
     const scoreSuggestionOptions = ["40", "55", "68", "70", "80", "90"];
     const confidenceSuggestionOptions = ["0.6", "0.65", "0.75", "0.8", "0.88", "0.95"];
@@ -2903,6 +2936,11 @@ def render_console_html(title: str) -> str:
         return normalized;
       }}
       return storyStatusOptions.includes(normalized) ? normalized : "all";
+    }}
+
+    function normalizeStoryWorkspaceMode(value) {{
+      const normalized = String(value || "").trim().toLowerCase() || "board";
+      return storyWorkspaceModeOptions.includes(normalized) ? normalized : "board";
     }}
 
     function normalizeTriageFilter(value) {{
@@ -3953,6 +3991,7 @@ def render_console_html(title: str) -> str:
     function persistStoryWorkspacePrefs() {{
       safeLocalStorageSet(storyFilterStorageKey, normalizeStoryFilter(state.storyFilter));
       safeLocalStorageSet(storySortStorageKey, normalizeStorySort(state.storySort));
+      safeLocalStorageSet(storyWorkspaceModeStorageKey, normalizeStoryWorkspaceMode(state.storyWorkspaceMode));
     }}
 
     function loadCommandPaletteQuery() {{
@@ -4505,6 +4544,7 @@ def render_console_html(title: str) -> str:
       state.triageUrlFocusPending = false;
 
       state.storySearch = "";
+      state.storyWorkspaceMode = "board";
       state.storyFilter = "all";
       state.storySort = "attention";
       state.selectedStoryIds = [];
@@ -4712,6 +4752,28 @@ def render_console_html(title: str) -> str:
       }}, 0);
     }}
 
+    function applyStoryWorkspaceMode(mode, {{ persist = true, syncUrl = false, defaultStoryId = "" }} = {{}}) {{
+      state.storyWorkspaceMode = normalizeStoryWorkspaceMode(mode);
+      if (document.body) {{
+        document.body.dataset.storyWorkspaceMode = state.storyWorkspaceMode;
+      }}
+      const storyWorkspaceModeSwitch = $("story-workspace-mode-switch");
+      if (storyWorkspaceModeSwitch) {{
+        storyWorkspaceModeSwitch.querySelectorAll("[data-story-workspace-mode]").forEach((button) => {{
+          const buttonMode = normalizeStoryWorkspaceMode(button.dataset.storyWorkspaceMode);
+          const isActive = buttonMode === state.storyWorkspaceMode;
+          button.classList.toggle("active", isActive);
+          button.setAttribute("aria-pressed", isActive ? "true" : "false");
+        }});
+      }}
+      if (persist) {{
+        safeLocalStorageSet(storyWorkspaceModeStorageKey, normalizeStoryWorkspaceMode(state.storyWorkspaceMode));
+      }}
+      if (syncUrl) {{
+        syncStoryUrlState({{ defaultStoryId }});
+      }}
+    }}
+
     function readStoryUrlState() {{
       const url = new URL(window.location.href);
       const params = url.searchParams;
@@ -4720,6 +4782,7 @@ def render_console_html(title: str) -> str:
       const sort = String(params.get(storyUrlSortParam) || "").trim().toLowerCase();
       const search = String(params.get(storyUrlSearchParam) || "").trim();
       const storyId = String(params.get(storyUrlIdParam) || "").trim();
+      const storyWorkspaceMode = String(params.get(storyUrlModeParam) || "").trim().toLowerCase();
       const preset = getStoryViewPreset(view);
       const resolvedFilter = filter
         ? normalizeStoryFilter(filter)
@@ -4727,6 +4790,7 @@ def render_console_html(title: str) -> str:
       const resolvedSort = sort
         ? normalizeStorySort(sort)
         : (preset ? normalizeStorySort(preset.sort) : normalizeStorySort(state.storySort));
+      const resolvedStoryWorkspaceMode = normalizeStoryWorkspaceMode(storyWorkspaceMode);
       const hasStoryContext = Boolean(view || filter || sort || search || storyId || url.hash === "#section-story");
       return {{
         hasStoryContext,
@@ -4734,6 +4798,7 @@ def render_console_html(title: str) -> str:
         sort: resolvedSort,
         search,
         storyId,
+        storyWorkspaceMode: resolvedStoryWorkspaceMode,
       }};
     }}
 
@@ -4745,6 +4810,7 @@ def render_console_html(title: str) -> str:
       state.storyFilter = urlState.filter;
       state.storySort = urlState.sort;
       state.storySearch = urlState.search;
+      state.storyWorkspaceMode = urlState.storyWorkspaceMode;
       if (urlState.storyId) {{
         state.selectedStoryId = urlState.storyId;
       }}
@@ -4796,6 +4862,11 @@ def render_console_html(title: str) -> str:
       }} else {{
         params.delete(storyUrlIdParam);
       }}
+      if (state.storyWorkspaceMode === "editor") {{
+        params.set(storyUrlModeParam, state.storyWorkspaceMode);
+      }} else {{
+        params.delete(storyUrlModeParam);
+      }}
 
       const nextSearch = params.toString();
       const nextUrl = `${{url.pathname}}${{nextSearch ? `?${{nextSearch}}` : ""}}${{url.hash || ""}}`;
@@ -4817,9 +4888,11 @@ def render_console_html(title: str) -> str:
 
     applyWatchUrlStateFromLocation();
     applyTriageUrlStateFromLocation();
+    state.storyWorkspaceMode = normalizeStoryWorkspaceMode(safeLocalStorageGet(storyWorkspaceModeStorageKey) || state.storyWorkspaceMode);
     state.storyFilter = normalizeStoryFilter(safeLocalStorageGet(storyFilterStorageKey) || state.storyFilter);
     state.storySort = normalizeStorySort(safeLocalStorageGet(storySortStorageKey) || state.storySort);
     applyStoryUrlStateFromLocation();
+    applyStoryWorkspaceMode(state.storyWorkspaceMode, {{ persist: false }});
     state.commandPalette.query = loadCommandPaletteQuery();
     state.commandPalette.recentIds = loadCommandPaletteRecent();
     state.contextLinkHistory = loadContextLinkHistory();
@@ -5096,6 +5169,10 @@ def render_console_html(title: str) -> str:
                 }})
               : storyViewPresetLabel(activeStoryView));
         pushRow(copy("View", "视图"), storyViewPresetLabel(activeStoryView));
+        pushRow(
+          copy("Workspace Mode", "工作区模式"),
+          state.storyWorkspaceMode === "editor" ? copy("Editor", "编辑") : copy("Board", "看板"),
+        );
         pushRow(copy("Sort", "排序"), storySortLabel(state.storySort));
         pushRow(copy("Search", "搜索"), clampLabel(storySearch, 52), {{ mono: true }});
         pushRow(copy("Selected", "当前故事"), selectedStory ? clampLabel(selectedStory.title || selectedStory.id, 52) : "");
@@ -5477,6 +5554,7 @@ def render_console_html(title: str) -> str:
       state.triageUrlFocusPending = false;
 
       state.storySearch = "";
+      state.storyWorkspaceMode = "board";
       state.storyFilter = "all";
       state.storySort = "attention";
       state.selectedStoryIds = [];
@@ -5486,6 +5564,8 @@ def render_console_html(title: str) -> str:
       applyWatchUrlStateFromLocation();
       applyTriageUrlStateFromLocation();
       applyStoryUrlStateFromLocation();
+      state.storyWorkspaceMode = normalizeStoryWorkspaceMode(state.storyWorkspaceMode);
+      applyStoryWorkspaceMode(state.storyWorkspaceMode, {{ persist: false }});
       setContextRouteFromWatch();
       persistStoryWorkspacePrefs();
       state.activeSectionId = normalizeSectionId(window.location.hash || "section-intake");
@@ -6097,6 +6177,9 @@ def render_console_html(title: str) -> str:
       setText("triage-copy", copy("Review open items with one selected evidence workbench, keep analyst reasoning visible, and hand verified signal into stories without leaving the queue.", "通过一个选中证据工作台完成审阅，持续看到分析师推理，并在不离开队列的前提下把已核验信号交接给故事。"));
       setText("story-title", copy("Story Workspace", "故事工作台"));
       setText("story-copy", copy("Inspect promoted stories, evidence stacks, contradictions, and delivery readiness before the narrative leaves the browser.", "查看已提升的故事、证据堆栈、冲突点和交付就绪度，并在叙事离开浏览器前完成整理。"));
+      setText("story-mode-switch-label", copy("Workspace mode", "工作区模式"));
+      setText("story-mode-board-button", copy("Board", "看板"));
+      setText("story-mode-editor-button", copy("Editor", "编辑"));
       setText("story-intake-title", copy("Story Intake", "故事录入"));
       setText("story-intake-copy", copy("Capture a manual brief when a story should exist before clustering catches up, then refine it inside the workspace.", "当某个故事需要先落下来、而聚类还没跟上时，可以先手工补录，再在工作台里继续完善。"));
       setText("story-intake-mode", copy("Editable", "可编辑"));
@@ -6785,6 +6868,15 @@ def render_console_html(title: str) -> str:
         state.storyDraft = defaultStoryDraft();
       }}
       renderStoryCreateDeck();
+      const storyWorkspaceModeSwitch = $("story-workspace-mode-switch");
+      if (storyWorkspaceModeSwitch) {{
+        storyWorkspaceModeSwitch.querySelectorAll("[data-story-workspace-mode]").forEach((button) => {{
+          button.addEventListener("click", () => {{
+            const nextMode = String(button.dataset.storyWorkspaceMode || "").trim().toLowerCase();
+            applyStoryWorkspaceMode(nextMode, {{ persist: true, syncUrl: true }});
+          }});
+        }});
+      }}
     }}
 
     function bindHeroStageMotion() {{
@@ -7563,6 +7655,10 @@ def render_console_html(title: str) -> str:
       }}
       root.querySelectorAll("[data-empty-jump]").forEach((button) => {{
         button.addEventListener("click", () => {{
+          const requestedMode = normalizeStoryWorkspaceMode(button.dataset.storyWorkspaceMode || "");
+          if (requestedMode) {{
+            applyStoryWorkspaceMode(requestedMode, {{ persist: true, syncUrl: true }});
+          }}
           const section = String(button.dataset.emptyJump || "").trim();
           if (section) {{
             jumpToSection(section);
@@ -7863,6 +7959,7 @@ def render_console_html(title: str) -> str:
       const isOpenState = reviewState === "new" || reviewState === "triaged";
       const openStoryWorkspace = makeSurfaceAction(copy("Open Story Workspace", "打开故事工作台"), {{
         "data-empty-jump": "section-story",
+        "data-story-workspace-mode": "editor",
       }});
       const createStory = makeSurfaceAction(copy("Create Story", "生成故事"), {{ "data-triage-story": item.id }});
       const explainDup = makeSurfaceAction(copy("Explain Dup", "查看重复解释"), {{ "data-triage-explain": item.id }});
@@ -7913,7 +8010,10 @@ def render_console_html(title: str) -> str:
       const base = getTriageCardActionHierarchy(item, linkedStories);
       const hasLinkedStory = Array.isArray(linkedStories) && linkedStories.length > 0;
       const primary = hasLinkedStory
-        ? makeSurfaceAction(copy("Open Story Workspace", "打开故事工作台"), {{ "data-empty-jump": "section-story" }})
+        ? makeSurfaceAction(copy("Open Story Workspace", "打开故事工作台"), {{
+          "data-empty-jump": "section-story",
+          "data-story-workspace-mode": "editor",
+        }})
         : makeSurfaceAction(copy("Create Story", "生成故事"), {{ "data-triage-story": item.id }});
       const explainDup = makeSurfaceAction(copy("Explain Dup", "查看重复解释"), {{ "data-triage-explain": item.id }});
       const secondary = [];
@@ -7941,7 +8041,10 @@ def render_console_html(title: str) -> str:
     function getStoryCardActionHierarchy(story) {{
       const archived = String(story?.status || "active").trim().toLowerCase() === "archived";
       return {{
-        primary: makeSurfaceAction(copy("Open Story", "打开故事"), {{ "data-story-open": story.id }}),
+        primary: makeSurfaceAction(copy("Open Story", "打开故事"), {{
+          "data-story-open": story.id,
+          "data-story-open-mode": state.storyWorkspaceMode,
+        }}),
         secondary: [
           makeSurfaceAction(
             archived ? copy("Restore", "恢复") : copy("Archive", "归档"),
@@ -10063,8 +10166,7 @@ def render_console_html(title: str) -> str:
         }},
       }});
       await refreshBoard();
-      state.selectedStoryId = created.id;
-      renderStories();
+      await loadStory(created.id, {{ mode: "editor", syncUrl: true }});
       jumpToSection("section-story");
       showToast(
         state.language === "zh"
@@ -10644,19 +10746,30 @@ def render_console_html(title: str) -> str:
       renderTopbarContext();
     }}
 
-    async function loadStory(identifier) {{
-      state.selectedStoryId = identifier;
+    async function loadStory(identifier, {{ mode = null, syncUrl = true }} = {{}}) {{
+      const normalizedId = String(identifier || "").trim();
+      if (!normalizedId) {{
+        return;
+      }}
+      const normalizedMode = mode == null ? null : normalizeStoryWorkspaceMode(mode);
+      if (normalizedMode !== null) {{
+        applyStoryWorkspaceMode(normalizedMode, {{ persist: true, syncUrl: false }});
+      }}
+      state.selectedStoryId = normalizedId;
       state.loading.storyDetail = true;
       renderStories();
       try {{
         const [detail, graph] = await Promise.all([
-          api(`/api/stories/${{identifier}}`),
-          api(`/api/stories/${{identifier}}/graph`),
+          api(`/api/stories/${{normalizedId}}`),
+          api(`/api/stories/${{normalizedId}}/graph`),
         ]);
-        state.storyDetails[identifier] = detail;
-        state.storyGraph[identifier] = graph;
+        state.storyDetails[normalizedId] = detail;
+        state.storyGraph[normalizedId] = graph;
       }} finally {{
         state.loading.storyDetail = false;
+      }}
+      if (syncUrl) {{
+        syncStoryUrlState({{ defaultStoryId: normalizedId }});
       }}
       renderStories();
     }}
@@ -11589,7 +11702,11 @@ def render_console_html(title: str) -> str:
         button.addEventListener("click", async () => {{
           button.disabled = true;
           try {{
-            await loadStory(button.dataset.storyOpen);
+            const requestedMode = String(button.dataset.storyOpenMode || "").trim();
+            await loadStory(button.dataset.storyOpen, {{
+              mode: requestedMode || undefined,
+              syncUrl: true,
+            }});
           }} catch (error) {{
             reportError(error, copy("Open story", "打开故事"));
           }} finally {{
