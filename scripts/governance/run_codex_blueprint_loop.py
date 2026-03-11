@@ -29,6 +29,7 @@ DEFAULT_MODEL_REASONING_EFFORT = "xhigh"
 DEFAULT_APPROVAL_POLICY = "never"
 DEFAULT_PROMOTION_MODE = "manual"
 DEFAULT_PRE_PROMOTION_GATE_COMMAND = "uv run python scripts/governance/run_datapulse_quick_test_gate.py"
+DEFAULT_SYNC_TRACKED_GOVERNANCE_ON_STOP = True
 BLOCKED_EXIT_CODE = 2
 PROMOTION_REPO_LANDED = "repo_landed_false"
 PROMOTION_HEAD_NOT_PUSHED = "head_not_pushed"
@@ -110,7 +111,7 @@ def parse_args() -> argparse.Namespace:
         "--bundle-dir",
         type=Path,
         default=DEFAULT_BUNDLE_DIR,
-        help="Structured evidence bundle directory refreshed before and after each round.",
+        help="Repository structured evidence bundle directory refreshed when tracked governance snapshots are synced after a terminal stop.",
     )
     parser.add_argument(
         "--output-dir",
@@ -150,6 +151,12 @@ def parse_args() -> argparse.Namespace:
         "--pre-promotion-gate-command",
         default=DEFAULT_PRE_PROMOTION_GATE_COMMAND,
         help="Read-only verification command executed before auto repo_landed promotion. Use an empty string to disable.",
+    )
+    parser.add_argument(
+        "--sync-tracked-governance-on-stop",
+        action=argparse.BooleanOptionalAction,
+        default=DEFAULT_SYNC_TRACKED_GOVERNANCE_ON_STOP,
+        help="Refresh tracked out/governance and release bundle snapshots when the loop reaches a terminal stopped state.",
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--stdout", action="store_true", help="Accepted for compatibility. JSON is always printed.")
@@ -768,6 +775,21 @@ def stop_snapshot(runtime: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def refresh_tracked_governance_on_stop(
+    *,
+    runtime: dict[str, Any],
+    plan_path: Path,
+    bundle_dir: Path,
+    enabled: bool,
+    dry_run: bool,
+) -> dict[str, str]:
+    if not enabled or dry_run:
+        return {}
+    if _to_text(runtime.get("status")) != "stopped":
+        return {}
+    return refresh_governance_snapshots(bundle_dir.resolve(), plan_path=plan_path.resolve())
+
+
 def run_round(
     *,
     command: list[str],
@@ -802,6 +824,7 @@ def main() -> int:
         code_landing_status_output = temp_root / "governance" / "code_landing_status.draft.json"
         project_loop_state_output = temp_root / "governance" / "project_specific_loop_state.draft.json"
         bundle_dir = temp_root / "bundle"
+        tracked_bundle_dir = args.bundle_dir.expanduser().resolve()
         output_dir = args.output_dir.expanduser().resolve() if args.output_dir is not None else temp_root / "rounds"
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -853,6 +876,15 @@ def main() -> int:
             print(json.dumps(stop_snapshot(runtime), ensure_ascii=False))
             return BLOCKED_EXIT_CODE
         if _to_text(runtime.get("status")) == "stopped":
+            tracked_snapshots = refresh_tracked_governance_on_stop(
+                runtime=runtime,
+                plan_path=args.plan,
+                bundle_dir=tracked_bundle_dir,
+                enabled=bool(args.sync_tracked_governance_on_stop),
+                dry_run=bool(args.dry_run),
+            )
+            if tracked_snapshots:
+                print(json.dumps({"status": "tracked_snapshots_refreshed", "snapshots_refreshed": tracked_snapshots}, ensure_ascii=False))
             print(json.dumps(stop_snapshot(runtime), ensure_ascii=False))
             return 0
 
@@ -1013,6 +1045,24 @@ def main() -> int:
                 print(json.dumps(payload, ensure_ascii=False))
                 return BLOCKED_EXIT_CODE
             if status_text == "stopped":
+                tracked_snapshots = refresh_tracked_governance_on_stop(
+                    runtime=runtime,
+                    plan_path=args.plan,
+                    bundle_dir=tracked_bundle_dir,
+                    enabled=bool(args.sync_tracked_governance_on_stop),
+                    dry_run=bool(args.dry_run),
+                )
+                if tracked_snapshots:
+                    print(
+                        json.dumps(
+                            {
+                                "status": "tracked_snapshots_refreshed",
+                                "round": round_index,
+                                "snapshots_refreshed": tracked_snapshots,
+                            },
+                            ensure_ascii=False,
+                        )
+                    )
                 payload = stop_snapshot(runtime)
                 payload["round"] = round_index
                 print(json.dumps(payload, ensure_ascii=False))
