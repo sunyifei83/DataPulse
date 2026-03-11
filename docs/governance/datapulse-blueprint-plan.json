@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-10T03:12:38Z",
+  "generated_at_utc": "2026-03-11T08:06:11Z",
   "status": "in_progress",
   "activation": {
     "wired": true,
@@ -16,6 +16,7 @@
     "notes": [
       "This overlay activates the repository blueprint truth while keeping loop progression in manual handoff mode.",
       "The repository-governance auto-continuation policy file remains available but disabled until an operator explicitly re-enables it.",
+      "Phase L13 is now promoted for the console workbench-convergence wave; the next manual ignition target is L13.3.",
       "Use scripts/governance/ignite_datapulse_codex_loop.sh when you want to start the local mutable companion loop."
     ]
   }

@@ -321,6 +321,47 @@ def render_console_html(title: str) -> str:
       position: relative;
       min-width: 0;
     }}
+    .context-object-rail {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font: 600 0.74rem/1.2 var(--mono);
+      letter-spacing: 0.02em;
+    }}
+    .context-object-step {{
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(127, 228, 255, 0.24);
+      background: rgba(127, 228, 255, 0.06);
+      min-height: 26px;
+      max-width: 210px;
+      appearance: none;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+    }}
+    .context-object-step-title {{
+      opacity: 0.85;
+      white-space: nowrap;
+    }}
+    .context-object-step-value {{
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 130px;
+    }}
+    .context-object-divider {{
+      color: rgba(127, 228, 255, 0.4);
+      font-weight: 700;
+      margin: 0 1px;
+    }}
     .context-chip {{
       max-width: min(360px, 38vw);
       overflow: hidden;
@@ -897,6 +938,10 @@ def render_console_html(title: str) -> str:
         linear-gradient(90deg, rgba(147, 181, 215, 0.08) 1px, transparent 1px);
       background-size: 30px 30px;
       opacity: 0.85;
+    }}
+    .intake-live-shell {{
+      display: grid;
+      gap: 12px;
     }}
     .hero-visual {{
       position: absolute;
@@ -2032,8 +2077,29 @@ def render_console_html(title: str) -> str:
         <button class="nav-pill" id="nav-review" type="button" data-jump-target="section-triage" data-workspace-mode="review">Review</button>
         <button class="nav-pill" id="nav-delivery" type="button" data-jump-target="section-ops" data-workspace-mode="delivery">Delivery</button>
       </nav>
-      <div class="topbar-tools">
+    <div class="topbar-tools">
         <div class="topbar-context" id="context-shell">
+          <div class="context-object-rail" id="context-object-rail" data-context-object-rail>
+            <button class="context-object-step" type="button" data-context-object-step="mission" data-context-object-id="" data-context-object-section="section-board">
+              <span class="context-object-step-title">Mission</span>
+              <span class="context-object-step-value">Not set</span>
+            </button>
+            <span class="context-object-divider">→</span>
+            <button class="context-object-step" type="button" data-context-object-step="evidence" data-context-object-id="" data-context-object-section="section-triage">
+              <span class="context-object-step-title">Evidence</span>
+              <span class="context-object-step-value">Not set</span>
+            </button>
+            <span class="context-object-divider">→</span>
+            <button class="context-object-step" type="button" data-context-object-step="story" data-context-object-id="" data-context-object-section="section-story">
+              <span class="context-object-step-title">Story</span>
+              <span class="context-object-step-value">Not set</span>
+            </button>
+            <span class="context-object-divider">→</span>
+            <button class="context-object-step" type="button" data-context-object-step="route" data-context-object-id="" data-context-object-section="section-ops">
+              <span class="context-object-step-title">Route</span>
+              <span class="context-object-step-value">Not set</span>
+            </button>
+          </div>
           <button class="chip context-chip context-chip-button" id="context-summary" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="context-lens-shell">Intake | Mission intake</button>
         </div>
         <button class="btn-secondary palette-trigger" id="palette-open" type="button">Command Palette</button>
@@ -2048,72 +2114,78 @@ def render_console_html(title: str) -> str:
     <div class="context-view-dock" id="context-view-dock" hidden></div>
 
     <div class="workspace-mode-group" data-workspace-group="intake">
-    <section class="hero" id="section-intake">
+      <section class="hero" id="section-intake">
       <div class="hero-main" id="hero-main">
-        <div class="eyebrow" id="hero-eyebrow"><span class="dot"></span> Guided Analyst Workflow</div>
-        <h1 id="hero-title">Run Missions, Review Signal, Publish Stories</h1>
-        <p class="hero-copy" id="hero-copy">Start with one mission draft, run it from the board, triage the inbox, promote verified evidence into a story, then wire a route when delivery should turn on.</p>
-        <div class="toolbar">
-          <button class="btn-primary" id="refresh-all">Refresh Console</button>
-          <button class="btn-secondary" id="run-due">Run Due Missions</button>
-          <button class="btn-secondary" id="jump-watch-board" type="button" data-jump-target="section-board">Open Mission Board</button>
+        <div id="intake-hero-onboarding">
+          <div class="eyebrow" id="hero-eyebrow"><span class="dot"></span> Guided Analyst Workflow</div>
+          <h1 id="hero-title">Run Missions, Review Signal, Publish Stories</h1>
+          <p class="hero-copy" id="hero-copy">Start with one mission draft, run it from the board, triage the inbox, promote verified evidence into a story, then wire a route when delivery should turn on.</p>
+          <div class="toolbar">
+            <button class="btn-primary" id="refresh-all">Refresh Console</button>
+            <button class="btn-secondary" id="run-due">Run Due Missions</button>
+            <button class="btn-secondary" id="jump-watch-board" type="button" data-jump-target="section-board">Open Mission Board</button>
+          </div>
+          <div class="guide-grid">
+            <div class="guide-card">
+              <div class="guide-step">01</div>
+              <div class="mono" id="guide-step-1-title">Draft Mission</div>
+              <div class="panel-sub" id="guide-step-1-copy">Use a preset, clone an existing watch, or enter just Name + Query to create the first watch.</div>
+            </div>
+            <div class="guide-card">
+              <div class="guide-step">02</div>
+              <div class="mono" id="guide-step-2-title">Run And Inspect</div>
+              <div class="panel-sub" id="guide-step-2-copy">Mission Board and Cockpit run the watch, show results, and expose alert rules before review work starts.</div>
+            </div>
+            <div class="guide-card">
+              <div class="guide-step">03</div>
+              <div class="mono" id="guide-step-3-title">Triage And Promote</div>
+              <div class="panel-sub" id="guide-step-3-copy">Triage reviews inbox items, captures analyst notes, and promotes verified evidence into story drafts.</div>
+            </div>
+            <div class="guide-card">
+              <div class="guide-step">04</div>
+              <div class="mono" id="guide-step-4-title">Set Route And Watch Delivery</div>
+              <div class="panel-sub" id="guide-step-4-copy">Route Manager creates reusable sinks; mission alert rules attach them when stories are ready to notify downstream.</div>
+            </div>
+          </div>
+          <div class="hero-stage" aria-hidden="true">
+            <img class="hero-visual" src="/brand/hero" alt="DataPulse command chamber brand visual">
+            <div class="stage-ring stage-ring-left"></div>
+            <div class="stage-ring stage-ring-right"></div>
+            <div class="stage-globe"></div>
+            <div class="stage-console stage-console-left"></div>
+            <div class="stage-console stage-console-right"></div>
+            <div class="stage-hud" id="stage-hud"></div>
+          </div>
+          <div class="signal-strip" id="overview-metrics"></div>
         </div>
-        <div class="guide-grid">
-          <div class="guide-card">
-            <div class="guide-step">01</div>
-            <div class="mono" id="guide-step-1-title">Draft Mission</div>
-            <div class="panel-sub" id="guide-step-1-copy">Use a preset, clone an existing watch, or enter just Name + Query to create the first watch.</div>
-          </div>
-          <div class="guide-card">
-            <div class="guide-step">02</div>
-            <div class="mono" id="guide-step-2-title">Run And Inspect</div>
-            <div class="panel-sub" id="guide-step-2-copy">Mission Board and Cockpit run the watch, show results, and expose alert rules before review work starts.</div>
-          </div>
-          <div class="guide-card">
-            <div class="guide-step">03</div>
-            <div class="mono" id="guide-step-3-title">Triage And Promote</div>
-            <div class="panel-sub" id="guide-step-3-copy">Triage reviews inbox items, captures analyst notes, and promotes verified evidence into story drafts.</div>
-          </div>
-          <div class="guide-card">
-            <div class="guide-step">04</div>
-            <div class="mono" id="guide-step-4-title">Set Route And Watch Delivery</div>
-            <div class="panel-sub" id="guide-step-4-copy">Route Manager creates reusable sinks; mission alert rules attach them when stories are ready to notify downstream.</div>
-          </div>
-        </div>
-        <div class="hero-stage" aria-hidden="true">
-          <img class="hero-visual" src="/brand/hero" alt="DataPulse command chamber brand visual">
-          <div class="stage-ring stage-ring-left"></div>
-          <div class="stage-ring stage-ring-right"></div>
-          <div class="stage-globe"></div>
-          <div class="stage-console stage-console-left"></div>
-          <div class="stage-console stage-console-right"></div>
-          <div class="stage-hud" id="stage-hud"></div>
-        </div>
-        <div class="signal-strip" id="overview-metrics"></div>
+        <div class="intake-live-shell" id="intake-hero-live" hidden></div>
       </div>
       <aside class="hero-side">
-        <div class="guide-card">
-          <div class="card-top">
-            <div>
-              <div class="mono" id="guide-kicker">Operator Guidance</div>
-              <h2 class="panel-title" id="guide-panel-title">Browser Lifecycle</h2>
+        <div id="intake-side-onboarding">
+          <div class="guide-card">
+            <div class="card-top">
+              <div>
+                <div class="mono" id="guide-kicker">Operator Guidance</div>
+                <h2 class="panel-title" id="guide-panel-title">Browser Lifecycle</h2>
+              </div>
+              <span class="chip ok" id="guide-chip">Mission -> Triage -> Story -> Route</span>
             </div>
-            <span class="chip ok" id="guide-chip">Mission -> Triage -> Story -> Route</span>
+            <div class="panel-sub" id="guide-panel-copy">Create or clone a mission here. The board runs it, the triage queue reviews incoming evidence, stories promote verified signal, and routes turn delivery on.</div>
+            <div class="shortcut-strip">
+              <span class="chip" id="shortcut-focus">/ focus draft</span>
+              <span class="chip" id="shortcut-preset">1-4 load preset</span>
+              <span class="chip" id="shortcut-submit">Cmd/Ctrl+Enter deploy</span>
+            </div>
+            <div class="chip-row section-jumps">
+              <button class="chip-btn" id="jump-cockpit" type="button" data-jump-target="section-cockpit">Cockpit</button>
+              <button class="chip-btn" id="jump-triage" type="button" data-jump-target="section-triage">Triage</button>
+              <button class="chip-btn" id="jump-story" type="button" data-jump-target="section-story">Stories</button>
+              <button class="chip-btn" id="jump-ops" type="button" data-jump-target="section-ops">Ops</button>
+            </div>
+            <div class="chip-row section-jumps" id="story-view-jumps"></div>
           </div>
-          <div class="panel-sub" id="guide-panel-copy">Create or clone a mission here. The board runs it, the triage queue reviews incoming evidence, stories promote verified signal, and routes turn delivery on.</div>
-          <div class="shortcut-strip">
-            <span class="chip" id="shortcut-focus">/ focus draft</span>
-            <span class="chip" id="shortcut-preset">1-4 load preset</span>
-            <span class="chip" id="shortcut-submit">Cmd/Ctrl+Enter deploy</span>
-          </div>
-          <div class="chip-row section-jumps">
-            <button class="chip-btn" id="jump-cockpit" type="button" data-jump-target="section-cockpit">Cockpit</button>
-            <button class="chip-btn" id="jump-triage" type="button" data-jump-target="section-triage">Triage</button>
-            <button class="chip-btn" id="jump-story" type="button" data-jump-target="section-story">Stories</button>
-            <button class="chip-btn" id="jump-ops" type="button" data-jump-target="section-ops">Ops</button>
-          </div>
-          <div class="chip-row section-jumps" id="story-view-jumps"></div>
         </div>
+        <div class="intake-live-shell" id="intake-side-live" hidden></div>
         <div class="panel-head">
           <div>
             <div class="panel-title" id="deploy-title">Deploy Mission</div>
@@ -2392,6 +2464,8 @@ def render_console_html(title: str) -> str:
       routeEditingId: "",
       routeAdvancedOpen: null,
       routeHealth: [],
+      contextRouteName: "",
+      contextRouteSection: "",
       status: null,
       ops: null,
       overview: null,
@@ -3463,6 +3537,7 @@ def render_console_html(title: str) -> str:
       if (!route) {{
         throw new Error(copy("Alert route not found in current board state.", "当前看板中没有找到该告警路由。"));
       }}
+      setContextRouteName(normalized, "section-ops");
       state.routeAdvancedOpen = true;
       setRouteDraft(createRouteDraftFromRoute(route), normalized);
       focusRouteDeck(route.channel === "markdown" ? "description" : "name");
@@ -4420,6 +4495,7 @@ def render_console_html(title: str) -> str:
       state.watchSearch = "";
       state.selectedWatchId = state.watches[0] ? state.watches[0].id : "";
       state.watchResultFilters = {{}};
+      setContextRouteName("", "");
 
       state.triageFilter = "open";
       state.triageSearch = "";
@@ -5410,6 +5486,7 @@ def render_console_html(title: str) -> str:
       applyWatchUrlStateFromLocation();
       applyTriageUrlStateFromLocation();
       applyStoryUrlStateFromLocation();
+      setContextRouteFromWatch();
       persistStoryWorkspacePrefs();
       state.activeSectionId = normalizeSectionId(window.location.hash || "section-intake");
       renderWatches();
@@ -5565,13 +5642,356 @@ def render_console_html(title: str) -> str:
       }});
     }}
 
+    function hasIntakePopulation() {{
+      return (
+        (Array.isArray(state.watches) && state.watches.length > 0) ||
+        (Array.isArray(state.triage) && state.triage.length > 0) ||
+        (Array.isArray(state.stories) && state.stories.length > 0) ||
+        (Array.isArray(state.alerts) && state.alerts.length > 0) ||
+        (Array.isArray(state.routes) && state.routes.length > 0) ||
+        Boolean(
+          state.overview && [
+            "enabled_watches",
+            "due_watches",
+            "triage_open_count",
+            "story_ready_count",
+            "alerting_mission_count",
+            "story_count",
+            "alert_count",
+            "route_count"
+          ].some((key) => Number(state.overview?.[key] || 0) > 0)
+        )
+      );
+    }}
+
+    function renderIntakeLiveDesk() {{
+      const onboardingHero = $("intake-hero-onboarding");
+      const liveHero = $("intake-hero-live");
+      const onboardingSide = $("intake-side-onboarding");
+      const liveSide = $("intake-side-live");
+      if (!onboardingHero || !liveHero || !onboardingSide || !liveSide) {{
+        return;
+      }}
+
+      const hasPopulation = hasIntakePopulation();
+      onboardingHero.hidden = hasPopulation;
+      onboardingSide.hidden = hasPopulation;
+      liveHero.hidden = !hasPopulation;
+      liveSide.hidden = !hasPopulation;
+
+      if (!hasPopulation) {{
+        return;
+      }}
+
+      const overview = state.overview || {{}};
+      const selectedWatch = state.watches.find((watch) => watch.id === state.selectedWatchId) || null;
+      const selectedName = String((selectedWatch && (selectedWatch.name || selectedWatch.id)) || "").trim() || copy("No mission selected", "未选择任务");
+      const enabledCount = Number(overview.enabled_watches ?? 0);
+      const dueCount = Number(overview.due_watches ?? 0);
+      const openQueue = Number(overview.triage_open_count ?? 0);
+      const readyStories = Number(overview.story_ready_count ?? 0);
+      const alertingMissions = Number(overview.alerting_mission_count ?? 0);
+      const heroActions = selectedWatch ? [
+        {{ label: copy("Open Cockpit", "打开任务详情"), section: "section-cockpit" }},
+        {{ label: copy("Open Triage", "打开分诊"), section: "section-triage" }},
+        {{ label: copy("Run Mission", "立即执行任务"), runWatch: selectedWatch.id }},
+      ] : [
+        {{ label: copy("Create Mission", "新建任务"), focus: "mission", field: "name" }},
+        {{ label: copy("Open Mission Board", "打开任务列表"), section: "section-board" }},
+      ];
+      const heroActionsHtml = heroActions.length
+        ? heroActions.map((action) => `
+            <button
+              class="btn-primary"
+              type="button"
+              ${{action.runWatch ? `data-empty-run-watch="${{escapeHtml(action.runWatch)}}"` : ""}}
+              ${{action.section ? `data-empty-jump="${{escapeHtml(action.section)}}"` : ""}}
+              ${{action.focus ? `data-empty-focus="${{escapeHtml(action.focus)}}"` : ""}}
+              ${{action.field ? `data-empty-field="${{escapeHtml(action.field)}}"` : ""}}
+            >${{escapeHtml(action.label)}}</button>
+          `).join("")
+        : "";
+      const sideActions = [
+        {{ label: copy("Open Story Workspace", "打开故事工作台"), section: "section-story" }},
+        {{ label: copy("Open Delivery", "打开交付"), section: "section-ops" }},
+        {{ label: copy("Reset Draft", "清空草稿"), reset: "mission" }},
+      ];
+      const sideActionsHtml = sideActions.map((action) => `
+        <button
+          class="chip-btn"
+          type="button"
+          ${{action.section ? `data-empty-jump="${{escapeHtml(action.section)}}"` : ""}}
+          ${{action.focus ? `data-empty-focus="${{escapeHtml(action.focus)}}"` : ""}}
+          ${{action.field ? `data-empty-field="${{escapeHtml(action.field)}}"` : ""}}
+          ${{action.reset ? `data-empty-reset="${{escapeHtml(action.reset)}}"` : ""}}
+        >${{escapeHtml(action.label)}}</button>
+      `).join("");
+
+      liveHero.innerHTML = `
+        <div class="card">
+          <div class="card-top">
+            <div>
+              <div class="mono">${{copy("Live Intake Desk", "实时工作台")}}</div>
+              <h3 class="panel-title" style="margin-top:8px;">${{escapeHtml(selectedName)}}</h3>
+            </div>
+            <span class="chip ${{selectedWatch ? "ok" : "hot"}}">${{selectedWatch ? copy("Mission Focus", "任务聚焦") : copy("Population Present", "已有数据")}}</span>
+          </div>
+          <div class="panel-sub">${{copy("Current object facts and pressure signal", "先显示当前对象事实与压力信号，再展示下一步动作。")}}</div>
+          <div class="meta">
+            <span class="chip ok">${{copy("Enabled missions", "活跃任务")}}=${{enabledCount}}</span>
+            <span class="chip hot">${{copy("Due now", "当前待执行")}}=${{dueCount}}</span>
+            <span class="chip">${{copy("Open queue", "待分诊")}}=${{openQueue}}</span>
+            <span class="chip">${{copy("Ready stories", "待交付故事")}}=${{readyStories}}</span>
+            <span class="chip">${{copy("Alerting missions", "告警中任务")}}=${{alertingMissions}}</span>
+          </div>
+          <div class="meta">${{copy("Next actions", "下一步动作")}}</div>
+          <div class="actions">${{heroActionsHtml}}</div>
+        </div>
+      `;
+
+      liveSide.innerHTML = `
+        <div class="card">
+          <div class="card-top">
+            <div>
+              <div class="mono">${{copy("Current Object", "当前对象")}}</div>
+              <h3 class="panel-title" style="margin-top:8px;">${{copy("Mission and Route Handoff", "任务与交付交接")}}</h3>
+            </div>
+          </div>
+          <div class="panel-sub">${{copy("Mission continuity keeps review and routing actions close to live evidence so the shell opens on actionability before guidance text.", "任务连续性优先显示审阅与交付动作，避免先看到引导文案。")}}</div>
+          <div class="meta">
+            <span class="chip">${{copy("Object", "对象")}}=${{escapeHtml(selectedName)}}</span>
+            <span class="chip">${{copy("Status", "状态")}}=${{selectedWatch ? (selectedWatch.enabled ? copy("enabled", "已启用") : copy("paused", "已暂停")) : copy("idle", "空闲")}}</span>
+            <span class="chip">${{copy("Pressure", "压力")}}=${{openQueue + dueCount}}</span>
+          </div>
+          <div class="actions">${{sideActionsHtml}}</div>
+        </div>
+      `;
+
+      wireLifecycleGuideActions(liveHero);
+      wireLifecycleGuideActions(liveSide);
+    }}
+
     function renderTopbarContext() {{
       const descriptor = buildTopbarContextDescriptor();
       setText("context-summary", descriptor.summary);
       $("context-summary")?.setAttribute("title", descriptor.summary);
       setPlaceholder("context-save-name", descriptor.summary);
+      renderContextObjectRail();
       renderContextLens(descriptor);
       renderContextViewDock();
+      renderIntakeLiveDesk();
+    }}
+
+    function normalizeContextObjectId(value) {{
+      return String(value || "").trim();
+    }}
+
+    function setContextRouteName(value, section = "") {{
+      state.contextRouteName = normalizeContextObjectId(normalizeRouteName(value));
+      state.contextRouteSection = String(section || "").trim();
+    }}
+
+    function getRouteRecordByName(routeName) {{
+      const normalized = normalizeRouteName(routeName);
+      if (!normalized) {{
+        return null;
+      }}
+      return state.routes.find((route) => normalizeRouteName(route?.name) === normalized) || null;
+    }}
+
+    function getSelectedWatchForContext() {{
+      const selectedWatchId = normalizeContextObjectId(state.selectedWatchId);
+      if (!selectedWatchId) {{
+        return null;
+      }}
+      return (
+        state.watchDetails[selectedWatchId]
+        || state.watches.find((watch) => watch.id === selectedWatchId)
+        || null
+      );
+    }}
+
+    function collectWatchRouteCandidates(watch) {{
+      const watchRecord = watch || {{}};
+      const rules = Array.isArray(watchRecord.alert_rules) ? watchRecord.alert_rules : [];
+      const out = [];
+      rules.forEach((rule) => {{
+        const routeNames = normalizeRouteRuleNames(rule);
+        routeNames.forEach((routeName) => {{
+          if (routeName && !out.includes(routeName)) {{
+            out.push(routeName);
+          }}
+        }});
+      }});
+      return out;
+    }}
+
+    function setContextRouteFromWatch() {{
+      const selectedWatch = getSelectedWatchForContext();
+      const draftRouteName = normalizeRouteName(state.createWatchDraft?.route);
+      const routeCandidates = collectWatchRouteCandidates(selectedWatch);
+      const contextRouteName = normalizeContextObjectId(state.contextRouteName);
+      const activeSectionId = normalizeSectionId(state.activeSectionId);
+      const activeRouteRecord = getRouteRecordByName(contextRouteName);
+
+      if (draftRouteName) {{
+        setContextRouteName(draftRouteName, "section-ops");
+        return;
+      }}
+
+      if (contextRouteName && activeSectionId === "section-ops" && activeRouteRecord) {{
+        setContextRouteName(contextRouteName, "section-ops");
+        return;
+      }}
+
+      if (contextRouteName && routeCandidates.includes(contextRouteName)) {{
+        setContextRouteName(contextRouteName, state.contextRouteSection || "section-board");
+        return;
+      }}
+
+      if (routeCandidates.length) {{
+        setContextRouteName(routeCandidates[0], "section-board");
+        return;
+      }}
+      setContextRouteName("", "");
+    }}
+
+    function buildContextObjectRailDescriptor() {{
+      const mission = getSelectedWatchForContext();
+      const missionId = normalizeContextObjectId(mission?.id);
+      const missionLabel = mission ? clampLabel(String(mission.name || mission.id || ""), 22) : contextLensEmptyValue();
+      const missionRecentEvidence = Array.isArray(mission?.recent_results) && mission.recent_results.length
+        ? mission.recent_results[0]
+        : null;
+
+      const selectedTriage = state.triage.find((item) => item.id === state.selectedTriageId) || null;
+      const evidenceId = selectedTriage
+        ? normalizeContextObjectId(selectedTriage.id)
+        : normalizeContextObjectId(missionRecentEvidence?.id);
+      const evidenceLabel = selectedTriage
+        ? clampLabel(String(selectedTriage.title || selectedTriage.url || selectedTriage.id || ""), 24)
+        : (missionRecentEvidence
+          ? clampLabel(String(missionRecentEvidence.title || missionRecentEvidence.url || missionRecentEvidence.id || ""), 24)
+          : contextLensEmptyValue());
+
+      const selectedStory = getStoryRecord(state.selectedStoryId);
+      const storyId = normalizeContextObjectId(selectedStory?.id);
+      const storyLabel = selectedStory
+        ? clampLabel(String(selectedStory.title || selectedStory.id || ""), 24)
+        : contextLensEmptyValue();
+
+      const draftRouteName = normalizeRouteName(state.createWatchDraft?.route);
+      const routeName = normalizeRouteName(state.contextRouteName) || draftRouteName || collectWatchRouteCandidates(mission)[0] || "";
+      const routeRecord = getRouteRecordByName(routeName);
+
+      return {{
+        steps: [
+          {{
+            step: "mission",
+            sectionId: "section-board",
+            id: missionId,
+            title: copy("Mission", "任务"),
+            label: missionLabel,
+          }},
+          {{
+            step: "evidence",
+            sectionId: "section-triage",
+            id: evidenceId,
+            title: copy("Evidence", "证据"),
+            label: evidenceLabel,
+          }},
+          {{
+            step: "story",
+            sectionId: "section-story",
+            id: storyId,
+            title: copy("Story", "故事"),
+            label: storyLabel,
+          }},
+          {{
+            step: "route",
+            sectionId: "section-ops",
+            id: routeName,
+            title: copy("Route", "路由"),
+            label: routeRecord?.name || routeName || contextLensEmptyValue(),
+          }},
+        ],
+      }};
+    }}
+
+    function renderContextObjectRail(descriptor = buildContextObjectRailDescriptor()) {{
+      const root = $("context-object-rail");
+      if (!root) {{
+        return;
+      }}
+      const steps = Array.isArray(descriptor?.steps) ? descriptor.steps : [];
+      root.innerHTML = steps
+        .map((step) => `
+          <button
+            class="context-object-step"
+            type="button"
+            data-context-object-step="${{step.step}}"
+            data-context-object-id="${{escapeHtml(step.id || "")}}"
+            data-context-object-section="${{step.sectionId}}"
+            title="${{escapeHtml(`${{step.title}}: ${{step.label || contextLensEmptyValue()}}`)}}"
+          >
+            <span class="context-object-step-title">${{escapeHtml(step.title)}}</span>
+            <span class="context-object-step-value">${{escapeHtml(step.label || contextLensEmptyValue())}}</span>
+          </button>`)
+        .join("<span class=\"context-object-divider\">→</span>");
+    }}
+
+    async function activateContextObjectRailStep(stepName, objectId, sectionId) {{
+      const normalizedStep = String(stepName || "").trim().toLowerCase();
+      const normalizedObjectId = normalizeContextObjectId(objectId);
+      const normalizedSectionId = normalizeSectionId(sectionId);
+
+      if (normalizedStep === "mission" && normalizedObjectId) {{
+        try {{
+          await loadWatch(normalizedObjectId);
+        }} catch (error) {{
+          reportError(error, copy("Open mission", "打开任务"));
+        }}
+      }} else if (normalizedStep === "evidence" && normalizedObjectId) {{
+        const triageItem = state.triage.find((item) => item.id === normalizedObjectId) || null;
+        if (triageItem) {{
+          focusTriageEvidence([normalizedObjectId], {{ itemId: normalizedObjectId, jump: false, showToastMessage: false }});
+        }}
+      }} else if (normalizedStep === "story" && normalizedObjectId) {{
+        try {{
+          await loadStory(normalizedObjectId);
+        }} catch (error) {{
+          reportError(error, copy("Open story", "打开故事"));
+        }}
+      }} else if (normalizedStep === "route" && normalizedObjectId) {{
+        try {{
+          await editRouteInDeck(normalizedObjectId);
+          return;
+        }} catch (error) {{
+          reportError(error, copy("Open route", "打开路由"));
+        }}
+      }}
+
+      if (normalizedSectionId) {{
+        jumpToSection(normalizedSectionId);
+      }}
+    }}
+
+    function bindContextObjectRail() {{
+      const root = $("context-object-rail");
+      if (!root) {{
+        return;
+      }}
+      root.addEventListener("click", async (event) => {{
+        const step = event.target.closest("[data-context-object-step]");
+        if (!step) {{
+          return;
+        }}
+        await activateContextObjectRailStep(
+          String(step.dataset.contextObjectStep || ""),
+          String(step.dataset.contextObjectId || ""),
+          String(step.dataset.contextObjectSection || ""),
+        );
+      }});
     }}
 
     function applyLanguageChrome() {{
@@ -5841,6 +6261,7 @@ def render_console_html(title: str) -> str:
       persistCreateWatchDraft();
       renderCreateWatchDeck();
       queueCreateWatchSuggestions();
+      setContextRouteFromWatch();
     }}
 
     function updateCreateWatchDraft(patch = {{}}, presetId = "") {{
@@ -7161,6 +7582,34 @@ def render_console_html(title: str) -> str:
           }}
         }});
       }});
+      root.querySelectorAll("[data-empty-reset]").forEach((button) => {{
+        button.addEventListener("click", () => {{
+          const target = String(button.dataset.emptyReset || "").trim();
+          if (target === "mission") {{
+            const wasEditing = Boolean(String(state.createWatchEditingId || "").trim());
+            state.createWatchAdvancedOpen = null;
+            setCreateWatchDraft(defaultCreateWatchDraft(), "", "");
+            focusCreateWatchDeck("name");
+            showToast(
+              wasEditing
+                ? copy("Mission edit cancelled", "已取消任务编辑")
+                : copy("Mission deck draft cleared", "已清空任务草稿"),
+              "success",
+            );
+          }} else if (target === "route") {{
+            const wasEditing = Boolean(normalizeRouteName(state.routeEditingId));
+            state.routeAdvancedOpen = null;
+            setRouteDraft(defaultRouteDraft(), "");
+            focusRouteDeck("name");
+            showToast(
+              wasEditing
+                ? copy("Route edit cancelled", "已取消路由编辑")
+                : copy("Route deck draft cleared", "已清空路由草稿"),
+              "success",
+            );
+          }}
+        }});
+      }});
       root.querySelectorAll("[data-empty-watch]").forEach((button) => {{
         button.addEventListener("click", async () => {{
           const identifier = String(button.dataset.emptyWatch || "").trim();
@@ -7850,6 +8299,7 @@ def render_console_html(title: str) -> str:
       }} finally {{
         state.loading.watchDetail = false;
       }}
+      setContextRouteFromWatch();
       renderWatches();
       renderWatchDetail();
     }}
@@ -8499,6 +8949,7 @@ def render_console_html(title: str) -> str:
             headers: jsonHeaders,
             body: JSON.stringify(payload),
           }});
+          setContextRouteName(normalizeRouteName(updated.name), "section-ops");
           state.routeAdvancedOpen = null;
           setRouteDraft(defaultRouteDraft(), "");
           pushActionEntry({{
@@ -8520,6 +8971,7 @@ def render_console_html(title: str) -> str:
           headers: jsonHeaders,
           body: JSON.stringify({{ name: draft.name.trim(), ...payload }}),
         }});
+        setContextRouteName(normalizeRouteName(created.name), "section-ops");
         const nextChannel = draft.channel;
         state.routeAdvancedOpen = null;
         setRouteDraft({{ ...defaultRouteDraft(), channel: nextChannel }}, "");
@@ -8571,6 +9023,9 @@ def render_console_html(title: str) -> str:
       }}
       try {{
         const deleted = await api(`/api/alert-routes/${{normalized}}`, {{ method: "DELETE" }});
+        if (normalizeRouteName(state.contextRouteName) === normalized) {{
+          setContextRouteName("", "");
+        }}
         if (normalizeRouteName(state.routeEditingId) === normalized) {{
           state.routeAdvancedOpen = null;
           setRouteDraft(defaultRouteDraft(), "");
@@ -9447,10 +9902,12 @@ def render_console_html(title: str) -> str:
       showToast(copy("Returned to the full triage queue.", "已返回完整分诊队列。"), "success");
     }}
 
-    function focusTriageEvidence(itemIds, {{ itemId = "", jump = true }} = {{}}) {{
+    function focusTriageEvidence(itemIds, {{ itemId = "", jump = true, showToastMessage = true }} = {{}}) {{
       const normalizedIds = uniqueValues(itemIds).filter((candidate) => state.triage.some((item) => item.id === candidate));
       if (!normalizedIds.length) {{
-        showToast(copy("No matching triage evidence is available for this story.", "当前没有可回查的分诊证据。"), "error");
+        if (showToastMessage) {{
+          showToast(copy("No matching triage evidence is available for this story.", "当前没有可回查的分诊证据。"), "error");
+        }}
         return;
       }}
       state.triagePinnedIds = normalizedIds;
@@ -9462,12 +9919,14 @@ def render_console_html(title: str) -> str:
       if (jump) {{
         jumpToSection("section-triage");
       }}
-      showToast(
-        state.language === "zh"
-          ? `已聚焦 ${{normalizedIds.length}} 条相关分诊证据`
-          : `Focused ${{normalizedIds.length}} related triage item(s)`,
-        "success",
-      );
+      if (showToastMessage) {{
+        showToast(
+          state.language === "zh"
+            ? `已聚焦 ${{normalizedIds.length}} 条相关分诊证据`
+            : `Focused ${{normalizedIds.length}} related triage item(s)`,
+          "success",
+        );
+      }}
     }}
 
     async function postTriageState(itemId, nextState) {{
@@ -11216,7 +11675,9 @@ def render_console_html(title: str) -> str:
           state.watchDetails[selectedWatch] = await api(`/api/watches/${{selectedWatch}}`);
         }} else {{
           state.selectedWatchId = "";
+          setContextRouteName("", "");
         }}
+        setContextRouteFromWatch();
         if (state.stories.length) {{
           const selected = state.stories.some((story) => story.id === state.selectedStoryId)
             ? state.selectedStoryId
@@ -11253,6 +11714,7 @@ def render_console_html(title: str) -> str:
     bindCreateWatchDeck();
     bindRouteDeck();
     bindStoryDeck();
+    bindContextObjectRail();
     bindHeroStageMotion();
     bindSectionJumps();
     bindSectionTracking();

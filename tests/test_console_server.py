@@ -805,6 +805,20 @@ def test_console_index_serves_shell():
     assert "console-action-history" in response.text
     assert "command-palette" in response.text
     assert "context-summary" in response.text
+    assert "context-object-rail" in response.text
+    assert '<button class="context-object-step" type="button"' in response.text
+    assert "data-context-object-step=\"mission\"" in response.text
+    assert "data-context-object-step=\"evidence\"" in response.text
+    assert "data-context-object-step=\"story\"" in response.text
+    assert "data-context-object-step=\"route\"" in response.text
+    assert "data-context-object-id=\"\"" in response.text
+    assert "data-context-object-section=\"section-board\"" in response.text
+    assert "data-context-object-section=\"section-triage\"" in response.text
+    assert "data-context-object-section=\"section-story\"" in response.text
+    assert "data-context-object-section=\"section-ops\"" in response.text
+    assert "function activateContextObjectRailStep" in response.text
+    assert "data-empty-reset=" in response.text
+    assert "Boolean(state.ops)" not in response.text
     assert "context-lens-backdrop" in response.text
     assert 'aria-modal="true"' in response.text
     assert "context-lens-close" in response.text

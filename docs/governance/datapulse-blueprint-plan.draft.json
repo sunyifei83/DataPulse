@@ -3,7 +3,7 @@
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
   "generated_at_utc": "2026-03-08T00:00:00Z",
-  "status": "completed",
+  "status": "in_progress",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -75,7 +75,8 @@
     "L9": "completed",
     "L10": "completed",
     "L11": "completed",
-    "L12": "completed"
+    "L12": "completed",
+    "L13": "in_progress"
   },
   "phases": [
     {
@@ -1416,12 +1417,179 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L13",
+      "title": "Console Workbench Convergence And Live Desk Refactor",
+      "goal": "Turn the refactored operating surface into an object-first analyst desk where populated workspaces lead with current-object facts, desktop uses stable workbench panes, and lifecycle handoff remains visible across Mission -> Review -> Story -> Delivery.",
+      "status": "in_progress",
+      "slices": [
+        {
+          "id": "L13.1",
+          "title": "Promote the next workbench-convergence blueprint and manual ignition map into repository truth",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "artifacts": [
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "exit_condition": "The repository contains an explicit L13 workbench-convergence blueprint and the active blueprint path exposes a next manual ignition target again.",
+          "notes": [
+            "This slice promotes the latest UI/UXD workbench judgment into repo-truth artifacts instead of leaving it as chat-only critique.",
+            "The promoted follow-up map intentionally stays inside the Reader-backed browser shell rather than opening a premature frontend-stack rewrite track."
+          ]
+        },
+        {
+          "id": "L13.2",
+          "title": "Refactor intake into a live desk that leads with current-object facts, pressure signals, and next actions when data exists",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py",
+            "uv run pytest tests/test_console_server.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "tests/test_console_server.py",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "A populated browser shell opens on current-object facts and next-step actions before decorative hero treatment or copy-heavy guidance.",
+          "notes": [
+            "Mission drafting, presets, and clone support should remain accessible, but they should no longer dominate the first live operating view.",
+            "Empty or first-run states may keep richer onboarding treatment; populated states should not."
+          ]
+        },
+        {
+          "id": "L13.3",
+          "title": "Promote the topbar context into a persistent object rail that preserves mission, evidence, story, and route handoff across stages",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+            "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "datapulse/console_server.py",
+            "tests/test_console_server.py",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "Moving from mission to evidence to story to route no longer feels like opening disconnected desks; one visible handoff chain remains in view.",
+          "notes": [
+            "Saved views, deep links, and command palette remain accelerators rather than becoming the primary object-memory system.",
+            "Reversible mutations should return operators to the same object context unless the mutation explicitly promotes the work to a new stage."
+          ]
+        },
+        {
+          "id": "L13.4",
+          "title": "Normalize desktop workspaces into stable list-detail-support panes for mission, review, story, and delivery handling",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py",
+            "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "tests/test_console_server.py",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "Desktop work no longer depends on repeated full-page scroll traversal for mission, triage, story, and delivery handling.",
+          "notes": [
+            "Selection-heavy flows should prefer stable pane relationships over stacked report-style page sections.",
+            "Preserve list scroll position and detail focus after state mutations where possible."
+          ]
+        },
+        {
+          "id": "L13.5",
+          "title": "Tighten the review-story evidence lane and split story workspace into board and editor modes",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+            "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_story.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "datapulse/console_server.py",
+            "tests/test_console_server.py",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "Operators can promote evidence into narrative work without reselecting context or parsing one long story report surface.",
+          "notes": [
+            "Treat triage-to-story movement as one evidence lane rather than two loosely adjacent pages.",
+            "Story board and story editor modes should be explicit enough to reduce long-form detail sprawl."
+          ]
+        },
+        {
+          "id": "L13.6",
+          "title": "Compress populated-workspace control density so chips summarize state and one dominant action stays legible",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py",
+            "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "docs/brand_identity.md",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "Populated cards and workspaces scan faster, with less instructional reading and less control-priority flattening.",
+          "notes": [
+            "Chips should summarize state more often than they create peer-level button walls.",
+            "Instructional prose should collapse once the relevant workspace already contains real operational data."
+          ]
+        },
+        {
+          "id": "L13.7",
+          "title": "Harden verification for live-desk behavior, object-rail persistence, pane stability, and mobile one-task posture",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "bash scripts/datapulse_console_smoke.sh",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+            "uv run --with playwright python scripts/datapulse_console_browser_smoke.py",
+            "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+          ],
+          "artifacts": [
+            "scripts/datapulse_console_smoke.sh",
+            "scripts/datapulse_console_browser_smoke.py",
+            "tests/test_console_server.py",
+            "datapulse/console_markup.py"
+          ],
+          "exit_condition": "The next workbench refactor wave has regression coverage for the new object-first operating model before another round of shell expansion lands.",
+          "notes": [
+            "Add browser-level assertions for populated-intake behavior, current-object rail persistence, pane-mode stability, and story editor transitions.",
+            "Protect mobile one-dominant-pane behavior before further populated-state refactors land."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
+    "id": "L13.4",
+    "title": "Normalize desktop workspaces into stable list-detail-support panes for mission, review, story, and delivery handling",
+    "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
     {
@@ -1518,7 +1686,22 @@
       "at_utc": "2026-03-10T15:17:54Z",
       "slice_id": "L12.6",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-11T08:06:11Z",
+      "slice_id": "L13.1",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-11T08:06:11Z",
+      "slice_id": "L13.2",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-11T08:28:49Z",
+      "slice_id": "L13.3",
+      "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-10T15:17:54Z"
+  "last_updated_utc": "2026-03-11T08:28:49Z"
 }

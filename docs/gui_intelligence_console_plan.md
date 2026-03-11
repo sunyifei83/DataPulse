@@ -738,3 +738,224 @@ Recommended ignition order:
 - high-frequency cards expose state-driven primary actions and calmer secondary action density
 - desktop and mobile behavior follow one explicit interaction contract
 - verification coverage is strong enough to protect further console refactor work
+
+## Follow-up Promotion: L13 Console Workbench Convergence And Live Desk Refactor
+
+This follow-up map is promoted into the repository blueprint as phase `L13` on March 11, 2026.
+
+`L12` closed the first operating-surface refactor wave, but the browser shell still behaves more like a set of stage-specific pages than one continuous analyst desk:
+
+- populated workspaces still let hero treatment, guidance copy, and supporting chrome outrank current-object facts in key states
+- desktop selection-heavy flows still depend on long-page stacking more than stable list-detail-support panes
+- the selected mission, evidence item, story, and route are not carried strongly enough across lifecycle jumps
+- chips, helper copy, and secondary controls still create more visual competition than repeat operators should need to parse
+
+The next phase should therefore treat the console as an object-first workbench convergence problem:
+
+- the first populated screen should show the current object, the current pressure, and the likely next action
+- moving between `Intake`, `Missions`, `Review`, and `Delivery` should preserve one visible handoff chain
+- desktop should optimize for stable panes and low scroll churn
+- mobile should keep one dominant pane and one dominant action at a time
+
+This phase intentionally does not promote a frontend-stack rewrite slice yet. The repo-relevant next wave remains the Reader-backed browser shell itself, not a parallel React migration track.
+
+### North-Star Restatement
+
+The console should become:
+
+- a live analyst desk where populated states lead with current mission, evidence, story, or route facts instead of decorative onboarding
+- a workbench where the active object remains visible while moving across lifecycle stages
+- a pane-stable desktop surface that reduces scroll churn in mission, triage, story, and delivery work
+- a lower-noise UI where chips mostly summarize state and one dominant action remains obvious
+
+The console should not become:
+
+- a hero-first landing page once the repository already has live missions, triage items, stories, and routes
+- a set of disconnected stage pages that force users to rebuild context after every jump
+- a control wall where instructional prose, chips, and secondary actions flatten the actual operating priority
+- a premature framework-migration project that delays repo-local working-surface convergence
+
+### Repo-Relevant Follow-up Slice Map
+
+### L13.1 Workbench-Convergence Blueprint Promotion
+
+Goal:
+
+- convert the latest GUI/workbench refactor judgment into repo-truth documentation plus machine-readable ignition slices
+
+Repo anchors:
+
+- `docs/gui_intelligence_console_plan.md`
+- `docs/governance/datapulse-blueprint-plan.draft.json`
+- `docs/governance/datapulse-blueprint-plan.json`
+
+Exit condition:
+
+- the repository contains an explicit `L13` workbench-convergence blueprint and the active blueprint path points operators at the next manual ignition target
+
+Landing note on March 11, 2026:
+
+- translated the latest UI/UXD review into repo-relevant follow-up slices instead of leaving it as prose-only critique
+- promoted those slices into the machine-readable blueprint so the next manual ignition target is explicit again
+- refreshed the active overlay metadata so the repository-owned blueprint truth now advertises the new workbench-convergence phase
+
+### L13.2 Live Desk And Current-Object-First Intake Refactor
+
+Goal:
+
+- demote hero-first onboarding when real workspace facts exist and replace it with a live-desk posture
+
+Repo anchors:
+
+- `datapulse/console_markup.py`
+- `tests/test_console_server.py`
+- `docs/gui_intelligence_console_plan.md`
+
+Focus:
+
+- make the first populated intake screen lead with current mission, review pressure, delivery risk, and the likely next action
+- keep mission drafting, presets, and clone support accessible without letting them dominate the first live operating view
+- collapse long guidance blocks when the shell already has real missions, triage items, stories, or routes
+
+Exit condition:
+
+- a populated browser shell opens on current-object facts and next-step actions before decorative hero treatment or copy-heavy guidance
+
+Landing note on March 11, 2026:
+
+- implemented the live intake desk posture with current-object fact cards, pressure signal chips, and prioritized next actions when workspace data exists
+- kept mission drafting and mission/route deep-linking available while reducing hero-first dominance on populated states
+
+### L13.3 Persistent Object Rail And Cross-Stage Handoff Memory
+
+Goal:
+
+- keep the current mission, evidence item, story, and route visible while moving across lifecycle surfaces
+
+Repo anchors:
+
+- `datapulse/console_markup.py`
+- `datapulse/console_server.py`
+- `tests/test_console_server.py`
+- `docs/gui_intelligence_console_plan.md`
+
+Focus:
+
+- promote the current context bar into a persistent object rail rather than treating it only as a saved-view utility
+- preserve selected-object continuity across `Missions`, `Review`, `Story`, and `Delivery` jumps
+- ensure reversible mutations return operators to the same object context unless the mutation explicitly promotes the work to a new stage
+
+Exit condition:
+
+- moving from mission to evidence to story to route no longer feels like opening disconnected desks; one visible handoff chain remains in view
+
+### L13.4 Desktop Workbench Pane Normalization
+
+Goal:
+
+- replace long-page stacking in selection-heavy flows with stable desktop workbench panes
+
+Repo anchors:
+
+- `datapulse/console_markup.py`
+- `tests/test_console_server.py`
+- `docs/gui_intelligence_console_plan.md`
+
+Focus:
+
+- normalize mission handling into list-detail-support pane relationships
+- normalize review handling into queue-workbench-support pane relationships
+- normalize delivery handling into alert-route-health pane relationships
+- preserve list scroll position and detail focus after state mutations where possible
+
+Exit condition:
+
+- desktop work no longer depends on repeated full-page scroll traversal for mission, triage, story, and delivery handling
+
+### L13.5 Review-Story Evidence Lane And Story Editor Mode
+
+Goal:
+
+- tighten triage-to-story continuity into one evidence lane with clearer board-versus-editor boundaries
+
+Repo anchors:
+
+- `datapulse/console_markup.py`
+- `datapulse/console_server.py`
+- `tests/test_console_server.py`
+- `docs/gui_intelligence_console_plan.md`
+
+Focus:
+
+- keep selected evidence and linked story context synchronized instead of treating triage and story as loosely adjacent pages
+- split story workspace into a board mode and an editor mode with clearer transitions
+- reduce story-detail report sprawl by making editorial and analytical surfaces explicitly mode-driven
+
+Exit condition:
+
+- operators can promote evidence into narrative work without reselecting context or parsing one long story report surface
+
+### L13.6 Populated-Workspace Control Compression
+
+Goal:
+
+- reduce cognitive noise in populated workspaces by compressing chips, helper copy, and secondary controls
+
+Repo anchors:
+
+- `datapulse/console_markup.py`
+- `docs/brand_identity.md`
+- `docs/gui_intelligence_console_plan.md`
+
+Focus:
+
+- make chips summarize state more often than they expose peer-level button walls
+- keep one dominant action obvious while demoting secondary and danger actions into calmer treatments
+- collapse instructional prose once the relevant workspace already contains real operational data
+
+Exit condition:
+
+- populated cards and workspaces scan faster, with less instructional reading and less control-priority flattening
+
+### L13.7 Interaction Verification For Live Desk, Object Rail, And Pane Stability
+
+Goal:
+
+- protect the next workbench-convergence wave from silent regressions
+
+Repo anchors:
+
+- `scripts/datapulse_console_smoke.sh`
+- `scripts/datapulse_console_browser_smoke.py`
+- `tests/test_console_server.py`
+- `datapulse/console_markup.py`
+
+Focus:
+
+- extend browser checks for populated-intake behavior, current-object rail persistence, pane-mode stability, and story editor transitions
+- add assertions for mobile one-dominant-pane behavior and reduced chrome noise in populated states
+- keep verification repo-local and compatible with the current manual ignition model
+
+Exit condition:
+
+- the next workbench refactor wave has regression coverage for the new object-first operating model before another round of shell expansion lands
+
+## L13 Manual Ignition Order
+
+Recommended ignition order:
+
+1. `L13.2` because intake posture sets the first object-first mental model and removes the highest-leverage source of hero-first noise.
+2. `L13.3` because the current-object rail should be established before deeper pane and editor refactors depend on it.
+3. `L13.4` because pane normalization should follow the new current-object model rather than the old long-page shell.
+4. `L13.5` because evidence-lane and story-editor convergence is easier to judge once the pane model is stable.
+5. `L13.6` because control compression should be tuned against the converged workbench rather than the current transitional chrome.
+6. `L13.7` before closing the phase, or earlier if workbench churn accelerates and manual verification starts lagging.
+
+## L13 Definition of Done
+
+- populated intake behaves like a live desk instead of a hero-first landing page
+- one persistent object rail keeps mission, evidence, story, and route handoff visible across lifecycle movement
+- desktop selection-heavy flows use stable pane relationships instead of long-page stacking
+- story work separates board and editor intent clearly enough to reduce report-style sprawl
+- populated workspaces compress control and copy noise without hiding the dominant action
+- verification coverage is strong enough to protect the new object-first operating model
