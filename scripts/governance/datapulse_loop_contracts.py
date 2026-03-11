@@ -97,6 +97,22 @@ def git_output(*args: str) -> str:
     return completed.stdout.strip()
 
 
+IGNORED_WORKSPACE_GATE_PATHS = {
+    "out/governance/activation_intent.draft.json",
+    "out/governance/activation_plan.draft.json",
+    "out/governance/activation_preview.draft.json",
+    "out/governance/auto_continuation_runtime.draft.json",
+    "out/governance/code_landing_status.draft.json",
+    "out/governance/project_specific_loop_state.draft.json",
+    "out/governance/slice_execution_brief.draft.json",
+}
+
+IGNORED_WORKSPACE_GATE_PREFIXES = (
+    "out/ha_latest_release_bundle/",
+    "out/release_bundle/",
+)
+
+
 def gh_json(*args: str) -> Any | None:
     completed = subprocess.run(
         ["gh", *args],
@@ -120,7 +136,25 @@ def repo_workspace_clean() -> tuple[bool, list[str]]:
     status = git_output("status", "--short")
     if not status:
         return True, []
-    return False, [line for line in status.splitlines() if line.strip()]
+    effective_lines: list[str] = []
+    for line in status.splitlines():
+        if not line.strip():
+            continue
+        if len(line) < 3:
+            effective_lines.append(line)
+            continue
+        raw_path = line[2:].strip()
+        paths = [part.strip() for part in raw_path.split(" -> ") if part.strip()] if " -> " in raw_path else [raw_path]
+        if all(
+            path in IGNORED_WORKSPACE_GATE_PATHS or path.startswith(IGNORED_WORKSPACE_GATE_PREFIXES)
+            for path in paths
+            if path
+        ):
+            continue
+        effective_lines.append(line)
+    if not effective_lines:
+        return True, []
+    return False, effective_lines
 
 
 def changed_paths_from_status_lines(status_lines: list[str]) -> list[str]:
@@ -489,14 +523,14 @@ def verification_contracts(
         "compileall": {
             "gateable": True,
             "required_for_loop": True,
-            "truth_source": "python3 -m compileall datapulse",
+            "truth_source": "uv run python -m compileall datapulse",
         },
         "quick_test": {
             "gateable": False,
             "gateable_via_wrapper": True,
             "required_for_loop": False,
             "truth_source": "scripts/quick_test.sh",
-            "wrapper_command": "python3 scripts/governance/run_datapulse_quick_test_gate.py",
+            "wrapper_command": "uv run python scripts/governance/run_datapulse_quick_test_gate.py",
             "reason": "Current semantics are not declared as the canonical strict gate set.",
             "latest_observation": quick_test_report,
             "latest_observation_status": quick_test_summary.get("status", "unobserved"),
@@ -507,7 +541,7 @@ def verification_contracts(
             "gateable_via_wrapper": True,
             "required_for_loop": True,
             "truth_source": "artifacts/openclaw_datapulse_<RUN_ID>/local_report.md",
-            "wrapper_command": "python3 scripts/governance/run_datapulse_local_smoke_gate.py",
+            "wrapper_command": "uv run python scripts/governance/run_datapulse_local_smoke_gate.py",
             "latest_observation": local_report,
             "reason": "Current script writes PASS/FAIL summary but does not fail the process when fail_count is nonzero.",
         },
@@ -521,7 +555,7 @@ def verification_contracts(
             "gateable_via_wrapper": True,
             "required_for_loop": True,
             "truth_source": "artifacts/openclaw_datapulse_<RUN_ID>/remote_report.md",
-            "wrapper_command": "python3 scripts/governance/run_datapulse_remote_smoke_gate.py",
+            "wrapper_command": "uv run python scripts/governance/run_datapulse_remote_smoke_gate.py",
             "latest_observation": remote_report,
             "reason": "Current script records required-step failures in report output but does not expose them as a strict process gate contract.",
         },

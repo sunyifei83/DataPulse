@@ -4,12 +4,16 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 from datapulse_loop_contracts import DEFAULT_PLAN_PATH, REPO_ROOT, load_plan, utc_now, write_json
 
-
 DEFAULT_BUNDLE_DIR = REPO_ROOT / "out/release_bundle"
+
+
+def current_python_command() -> list[str]:
+    return [sys.executable]
 
 
 def parse_args() -> argparse.Namespace:
@@ -109,7 +113,7 @@ def main() -> int:
     write_json(bundle_dir / "structured_release_bundle_manifest.draft.json", manifest)
     subprocess.run(
         [
-            "python3",
+            *current_python_command(),
             "scripts/governance/export_datapulse_loop_adapter_bundle.py",
             "--plan",
             str(args.plan.resolve()),
@@ -121,7 +125,7 @@ def main() -> int:
     )
     subprocess.run(
         [
-            "python3",
+            *current_python_command(),
             "scripts/governance/export_datapulse_evidence_bundle.py",
             "--plan",
             str(args.plan.resolve()),

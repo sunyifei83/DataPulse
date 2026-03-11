@@ -4,16 +4,20 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 from datapulse_loop_adapter import DEFAULT_CATALOG_PATH, build_datapulse_loop_runtime
 from datapulse_loop_contracts import DEFAULT_PLAN_PATH, REPO_ROOT, display_path, read_json, write_json
 
-
 DEFAULT_POLICY_PATH = REPO_ROOT / "docs/governance/datapulse-auto-continuation-policy.json"
 DEFAULT_OUTPUT_PATH = REPO_ROOT / "out/governance/auto_continuation_runtime.draft.json"
 DEFAULT_BUNDLE_DIR = REPO_ROOT / "out/ha_latest_release_bundle"
+
+
+def current_python_command() -> list[str]:
+    return [sys.executable]
 
 
 def parse_args() -> argparse.Namespace:
@@ -93,7 +97,7 @@ def refresh_governance_snapshots_to_targets(
     return {
         "code_landing_status": run_capture(
             [
-                "python3",
+                *current_python_command(),
                 "scripts/governance/export_datapulse_code_landing_status.py",
                 "--output",
                 str(code_landing_status_output),
@@ -101,7 +105,7 @@ def refresh_governance_snapshots_to_targets(
         ),
         "project_loop_state": run_capture(
             [
-                "python3",
+                *current_python_command(),
                 "scripts/governance/export_datapulse_project_loop_state.py",
                 "--plan",
                 str(plan_path),
@@ -111,7 +115,7 @@ def refresh_governance_snapshots_to_targets(
         ),
         "structured_release_bundle": run_capture(
             [
-                "python3",
+                *current_python_command(),
                 "scripts/governance/export_datapulse_structured_release_bundle.py",
                 "--plan",
                 str(plan_path),

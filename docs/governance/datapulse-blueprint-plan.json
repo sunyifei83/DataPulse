@@ -1,8 +1,8 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-11T08:06:11Z",
-  "status": "in_progress",
+  "generated_at_utc": "2026-03-11T11:37:00Z",
+  "status": "completed",
   "activation": {
     "wired": true,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -12,12 +12,12 @@
     }
   },
   "governance_mode": {
-    "kind": "active_manual_waiting_ignition",
+    "kind": "active_manual_complete",
     "notes": [
-      "This overlay activates the repository blueprint truth while keeping loop progression in manual handoff mode.",
-      "The repository-governance auto-continuation policy file remains available but disabled until an operator explicitly re-enables it.",
-      "Phase L13 is now promoted for the console workbench-convergence wave; the next manual ignition target is L13.3.",
-      "Use scripts/governance/ignite_datapulse_codex_loop.sh when you want to start the local mutable companion loop."
+      "This overlay keeps the repository blueprint truth active while leaving continuation in explicit manual mode.",
+      "All currently declared slices are completed; the derived next slice is no-open-slice.",
+      "The repository is already at ci_proven for the current HEAD, so no additional ignition is required until a new slice is added or reopened.",
+      "Use scripts/governance/ignite_datapulse_codex_loop.sh only after a future slice is opened or a completed slice is intentionally reopened."
     ]
   }
 }

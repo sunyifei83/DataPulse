@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 from datapulse_loop_contracts import (
@@ -16,6 +17,10 @@ from datapulse_loop_contracts import (
     write_json,
 )
 from export_datapulse_release_sidecar import detect_tag, extract_notes_section, project_version
+
+
+def current_python_command() -> list[str]:
+    return [sys.executable]
 
 
 def parse_args() -> argparse.Namespace:
@@ -109,7 +114,7 @@ def main() -> int:
     if args.probe_ha_readiness:
         subprocess.run(
             [
-                "python3",
+                *current_python_command(),
                 "scripts/governance/export_datapulse_release_readiness_fact.py",
                 "--output",
                 str(out_dir / "release_readiness_fact.draft.json"),
@@ -122,7 +127,7 @@ def main() -> int:
         ]
     subprocess.run(
         [
-            "python3",
+            *current_python_command(),
             "scripts/governance/export_datapulse_ha_delivery_facts.py",
             "--output",
             str(out_dir / "ha_delivery_facts.draft.json"),
@@ -132,7 +137,7 @@ def main() -> int:
     )
     subprocess.run(
         [
-            "python3",
+            *current_python_command(),
             "scripts/governance/export_datapulse_ha_delivery_landing.py",
             "--ha-facts-json",
             str(out_dir / "ha_delivery_facts.draft.json"),
@@ -143,7 +148,7 @@ def main() -> int:
     )
     subprocess.run(
         [
-            "python3",
+            *current_python_command(),
             "scripts/governance/export_datapulse_ha_recovery_preset.py",
             "--ha-facts-json",
             str(out_dir / "ha_delivery_facts.draft.json"),
@@ -155,7 +160,7 @@ def main() -> int:
     write_json(out_dir / "project_specific_loop_state.draft.json", project_loop_state)
     subprocess.run(
         [
-            "python3",
+            *current_python_command(),
             "scripts/governance/export_datapulse_release_sidecar.py",
             "--tag",
             tag,
