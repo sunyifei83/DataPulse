@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
+source "$ROOT_DIR/scripts/lib/project_python.sh"
 
 CALLER_OUT_DIR="${OUT_DIR:-}"
 CALLER_RUN_ID="${RUN_ID:-}"
@@ -40,18 +41,18 @@ LOG_FILE="$RUN_LOG_DIR/local_test.log"
 if [[ -z "${PYTHON_BIN:-}" ]]; then
   if [[ -x "$ROOT_DIR/.venv/bin/python" ]]; then
     PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
-  elif command -v python3 >/dev/null 2>&1; then
-    PYTHON_BIN="python3"
-  elif command -v python >/dev/null 2>&1; then
-    PYTHON_BIN="python"
-  else
-    echo "Python executable not found." >&2
-    exit 1
   fi
 fi
 
-DATAPULSE_CLI=("$PYTHON_BIN" -m datapulse.cli)
-DATAPULSE_SMOKE=("$PYTHON_BIN" -m datapulse.tools.smoke)
+if ! datapulse_resolve_python_cmd; then
+  exit 1
+fi
+
+PYTHON_CMD=("${DATAPULSE_PYTHON_CMD[@]}")
+PYTHON_BIN="${DATAPULSE_PYTHON_DESC}"
+
+DATAPULSE_CLI=("${PYTHON_CMD[@]}" -m datapulse.cli)
+DATAPULSE_SMOKE=("${PYTHON_CMD[@]}" -m datapulse.tools.smoke)
 
 exec 1> >(tee -a "$LOG_FILE")
 exec 2> >(tee -a "$LOG_FILE" >&2)
@@ -90,9 +91,9 @@ run_cmd() {
 step "1) 环境与入口"
 run_cmd "datapulse CLI 可用（入口）" "${DATAPULSE_CLI[@]}" --help
 run_cmd "datapulse-smoke 可用（入口）" "${DATAPULSE_SMOKE[@]}" --list
-run_cmd "datapulse console 可用（模块）" "$PYTHON_BIN" -m datapulse.console_server --help
+run_cmd "datapulse console 可用（模块）" "${PYTHON_CMD[@]}" -m datapulse.console_server --help
 run_cmd "datapulse console 包装脚本" bash scripts/datapulse_console.sh --help
-run_cmd "Python 加载 datapulse" "$PYTHON_BIN" - <<'PY'
+run_cmd "Python 加载 datapulse" "${PYTHON_CMD[@]}" - <<'PY'
 import datapulse
 print(datapulse.__name__)
 PY
@@ -131,7 +132,7 @@ else
 fi
 
 step "7) Agent 快速路径"
-run_cmd "agent 快速调用" "$PYTHON_BIN" - <<'PY'
+run_cmd "agent 快速调用" "${PYTHON_CMD[@]}" - <<'PY'
 import asyncio
 import os
 from datapulse.agent import DataPulseAgent
@@ -148,7 +149,7 @@ else:
 PY
 
 step "8) 来源与订阅"
-run_cmd "source catalog 可访问" "$PYTHON_BIN" - <<'PY'
+run_cmd "source catalog 可访问" "${PYTHON_CMD[@]}" - <<'PY'
 from datapulse.reader import DataPulseReader
 reader = DataPulseReader()
 print(f"sources={len(reader.list_sources(public_only=True))}")
@@ -156,7 +157,7 @@ print(f"packs={len(reader.list_packs(public_only=True))}")
 PY
 
 step "9) Feed 输出"
-run_cmd "feed 生成" "$PYTHON_BIN" - <<'PY'
+run_cmd "feed 生成" "${PYTHON_CMD[@]}" - <<'PY'
 from datapulse.reader import DataPulseReader
 import os
 

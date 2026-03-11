@@ -3,26 +3,14 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
+source "$ROOT_DIR/scripts/lib/project_python.sh"
 
-# Use a robust Python launcher compatible with different local setups.
-if [[ -n "${PYTHON_BIN:-}" ]]; then
-  read -r -a PYTHON_CMD <<< "${PYTHON_BIN}"
-else
-  if command -v uv >/dev/null 2>&1; then
-    PYTHON_CMD=(uv run python3)
-  else
-    PYTHON_CMD=(python3)
-  fi
+if ! datapulse_resolve_python_cmd; then
+  echo "  ⚠️ Unable to resolve a supported Python runtime."
+  exit 1
 fi
 
-if ! command -v "${PYTHON_CMD[0]}" >/dev/null 2>&1; then
-  if command -v python >/dev/null 2>&1; then
-    PYTHON_CMD=(python)
-  else
-    echo "  ⚠️ Python executable not found. Set PYTHON_BIN to a valid interpreter."
-    exit 1
-  fi
-fi
+PYTHON_CMD=("${DATAPULSE_PYTHON_CMD[@]}")
 
 run_python() {
   "${PYTHON_CMD[@]}" "$@"

@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import contextlib
-from copy import deepcopy
 import socket
 import threading
 import time
+from copy import deepcopy
 
 import uvicorn
 

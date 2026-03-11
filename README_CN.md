@@ -259,6 +259,8 @@ datapulse --config-check
 datapulse --doctor
 ```
 
+说明：本机 `python3` 可能仍然指向 `3.9`。仓内包装脚本现在会优先选择 `uv run python` 或显式 `python3.10+`，直接用过低版本导入时也会快速报出清晰的版本错误，而不是出现隐晦异常。
+
 后续建议：
 
 - 若 `--config-check` 显示搜索密钥缺失，仅按需配置（至少一个即可）：

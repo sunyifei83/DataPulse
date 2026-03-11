@@ -6017,7 +6017,7 @@ def render_console_html(title: str) -> str:
             <span class="context-object-step-title">${{escapeHtml(step.title)}}</span>
             <span class="context-object-step-value">${{escapeHtml(step.label || contextLensEmptyValue())}}</span>
           </button>`)
-        .join("<span class=\"context-object-divider\">→</span>");
+        .join('<span class="context-object-divider">→</span>');
     }}
 
     async function activateContextObjectRailStep(stepName, objectId, sectionId) {{

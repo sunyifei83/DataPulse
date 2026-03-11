@@ -12,9 +12,14 @@ from pathlib import Path
 from typing import Any
 
 from datapulse_loop_adapter import DEFAULT_CATALOG_PATH, build_datapulse_loop_runtime
-from datapulse_loop_contracts import DEFAULT_PLAN_PATH, REPO_ROOT, build_code_landing_status, display_path, load_plan
+from datapulse_loop_contracts import (
+    DEFAULT_PLAN_PATH,
+    REPO_ROOT,
+    build_code_landing_status,
+    display_path,
+    load_plan,
+)
 from run_datapulse_auto_continuation import refresh_governance_snapshots, refresh_governance_snapshots_to_targets
-
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "out" / "codex_blueprint_loop"
 DEFAULT_BUNDLE_DIR = REPO_ROOT / "out" / "ha_latest_release_bundle"
@@ -23,7 +28,7 @@ DEFAULT_MODEL = "gpt-5.4"
 DEFAULT_MODEL_REASONING_EFFORT = "xhigh"
 DEFAULT_APPROVAL_POLICY = "never"
 DEFAULT_PROMOTION_MODE = "manual"
-DEFAULT_PRE_PROMOTION_GATE_COMMAND = "python3 scripts/governance/run_datapulse_quick_test_gate.py"
+DEFAULT_PRE_PROMOTION_GATE_COMMAND = "uv run python scripts/governance/run_datapulse_quick_test_gate.py"
 BLOCKED_EXIT_CODE = 2
 PROMOTION_REPO_LANDED = "repo_landed_false"
 PROMOTION_HEAD_NOT_PUSHED = "head_not_pushed"

@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
+source "$ROOT_DIR/scripts/lib/project_python.sh"
 
 if command -v datapulse-console >/dev/null 2>&1; then
   exec datapulse-console "$@"
@@ -10,14 +11,13 @@ fi
 
 if command -v uv >/dev/null 2>&1; then
   exec uv run datapulse-console "$@"
-elif command -v python3 >/dev/null 2>&1; then
-  PYTHON_CMD=(python3)
-elif command -v python >/dev/null 2>&1; then
-  PYTHON_CMD=(python)
-else
-  echo "Python executable not found." >&2
+fi
+
+if ! datapulse_resolve_python_cmd; then
   exit 1
 fi
+
+PYTHON_CMD=("${DATAPULSE_PYTHON_CMD[@]}")
 
 if ! "${PYTHON_CMD[@]}" - <<'PY' >/dev/null 2>&1
 import importlib

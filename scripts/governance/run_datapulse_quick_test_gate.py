@@ -17,17 +17,58 @@ def shell_words(value: str) -> list[str]:
     return [part for part in value.split() if part]
 
 
+def command_supports_project(command: list[str]) -> bool:
+    completed = subprocess.run(
+        command + ["-c", "import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return completed.returncode == 0
+
+
+def command_version_text(command: list[str]) -> str:
+    completed = subprocess.run(
+        command + ["-c", "import sys; print(sys.version.split()[0])"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        return "unknown"
+    return completed.stdout.strip() or "unknown"
+
+
 def detect_python_cmd() -> list[str]:
     env_python = os.environ.get("PYTHON_BIN", "").strip()
     if env_python:
-        return shell_words(env_python)
+        command = shell_words(env_python)
+        if not command:
+            raise RuntimeError("Configured PYTHON_BIN is empty.")
+        if not shutil.which(command[0]):
+            raise RuntimeError(f"Configured PYTHON_BIN not found: {env_python}")
+        if not command_supports_project(command):
+            raise RuntimeError(
+                f"DataPulse requires Python >= 3.10, but PYTHON_BIN resolves to {command_version_text(command)}. "
+                "Use `uv run ...` or set PYTHON_BIN to a python3.10+ interpreter."
+            )
+        return command
     if shutil.which("uv"):
-        return ["uv", "run", "python3"]
+        return ["uv", "run", "python"]
+    for candidate in ("python3.12", "python3.11", "python3.10", "python3", "python"):
+        if not shutil.which(candidate):
+            continue
+        command = [candidate]
+        if command_supports_project(command):
+            return command
     if shutil.which("python3"):
-        return ["python3"]
-    if shutil.which("python"):
-        return ["python"]
-    raise RuntimeError("Python executable not found.")
+        raise RuntimeError(
+            f"DataPulse requires Python >= 3.10, but python3 resolves to {command_version_text(['python3'])}. "
+            "Use `uv run ...` or install python3.10+."
+        )
+    raise RuntimeError("Python executable not found. Install uv or a python3.10+ interpreter.")
 
 
 def detect_command(preferred: str, fallback: list[str]) -> list[str]:

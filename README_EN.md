@@ -148,6 +148,8 @@ datapulse --config-check
 datapulse --doctor
 ```
 
+Note: local `python3` may still resolve to `3.9`. Repo wrappers now prefer `uv run python` or an explicit `python3.10+` interpreter, and direct imports fail fast with a clear version error instead of an opaque runtime exception.
+
 What to do next:
 
 - If `--config-check` marks search keys missing, set only what you need:

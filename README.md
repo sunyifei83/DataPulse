@@ -156,6 +156,8 @@ datapulse-console --port 8765
 bash scripts/datapulse_console_smoke.sh
 ```
 
+说明：本机 `python3` 可能仍指向 `3.9`。仓内脚本会优先选择 `uv run python` 或 `python3.10+`，并在直接使用过低版本时给出明确报错，而不是在导入阶段抛出隐晦异常。
+
 ![DataPulse Console Preview](docs/datapulse_console.png)
 
 参数填写说明见：[docs/datapulse_console_parameter_guide.md](docs/datapulse_console_parameter_guide.md)

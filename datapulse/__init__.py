@@ -1,8 +1,12 @@
 """DataPulse Intelligence Hub."""
 
-from .core import DataPulseItem, MediaType, SourceType
-from .core.logging_config import configure_logging
-from .reader import DataPulseReader
+from ._runtime import ensure_supported_python
+
+ensure_supported_python()
+
+from .core import DataPulseItem, MediaType, SourceType  # noqa: E402
+from .core.logging_config import configure_logging  # noqa: E402
+from .reader import DataPulseReader  # noqa: E402
 
 configure_logging()
 

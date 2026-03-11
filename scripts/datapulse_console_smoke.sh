@@ -3,17 +3,13 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
+source "$ROOT_DIR/scripts/lib/project_python.sh"
 
-if command -v uv >/dev/null 2>&1; then
-  PYTHON_CMD=(uv run python3)
-elif command -v python3 >/dev/null 2>&1; then
-  PYTHON_CMD=(python3)
-elif command -v python >/dev/null 2>&1; then
-  PYTHON_CMD=(python)
-else
-  echo "[console-smoke] Python executable not found" >&2
+if ! datapulse_resolve_python_cmd; then
   exit 1
 fi
+
+PYTHON_CMD=("${DATAPULSE_PYTHON_CMD[@]}")
 
 echo "[console-smoke] start"
 
