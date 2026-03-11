@@ -1,53 +1,39 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-10T15:19:09Z",
+  "generated_at_utc": "2026-03-11T06:05:02Z",
   "status_kind": "draft_export",
   "wired": false,
   "headline_summary": {
-    "current_level": "manual_only",
-    "workspace_clean": false,
+    "current_level": "ci_proven",
+    "workspace_clean": true,
     "head_published_to_upstream": true,
-    "repo_landed": false,
-    "ci_proven": false,
+    "repo_landed": true,
+    "ci_proven": true,
     "ci_proof_mode": "push_ci_workflow",
     "required_workflow": "CI",
     "quick_test_gate": {
-      "status": "passed",
+      "status": "stale_head",
       "observed": true,
-      "current_head_match": true,
+      "current_head_match": false,
       "ok": true,
-      "generated_at_utc": "2026-03-10T11:34:06Z",
+      "generated_at_utc": "2026-03-11T03:14:22Z",
       "head": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
   },
   "git": {
-    "head": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
+    "head": "a98626a5fbe1abf6186fcc0621bfffbd6a651c78",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
+    "upstream_head": "a98626a5fbe1abf6186fcc0621bfffbd6a651c78",
     "head_published_to_upstream": true
   },
   "workspace": {
-    "clean": false,
-    "dirty_entries": [
-      "M datapulse/console_markup.py",
-      " M datapulse/console_server.py",
-      " M datapulse/core/utils.py",
-      " M datapulse/reader.py",
-      " M docs/brand_identity.md",
-      " M docs/governance/datapulse-blueprint-plan.draft.json",
-      " M docs/gui_intelligence_console_plan.md",
-      " M out/governance/code_landing_status.draft.json",
-      " M out/governance/project_specific_loop_state.draft.json",
-      " M scripts/datapulse_console_browser_smoke.py",
-      " M tests/test_console_server.py",
-      " M tests/test_utils.py",
-      " M tests/test_watchlist.py"
-    ],
-    "reason": "git status reported local modifications."
+    "clean": true,
+    "dirty_entries": [],
+    "reason": ""
   },
   "verification": {
     "compileall": {
@@ -65,7 +51,7 @@
       "latest_observation": {
         "path": "artifacts/governance/quick_test_gate.draft.json",
         "schema_version": "quick_test_gate.v1",
-        "generated_at_utc": "2026-03-10T11:34:06Z",
+        "generated_at_utc": "2026-03-11T03:14:22Z",
         "ok": true,
         "read_only": true,
         "git": {
@@ -132,7 +118,7 @@
             "stdout_tail": [
               "[console-smoke] check: module help",
               "[console-smoke] check: wrapper help",
-              "[console-smoke] skip: datapulse-console not installed in PATH",
+              "[console-smoke] check: installed entrypoint help",
               "[console-smoke] skip: browser smoke (set DATAPULSE_CONSOLE_BROWSER_SMOKE=1 to enable)",
               "[console-smoke] pass"
             ],
@@ -141,11 +127,7 @@
           {
             "name": "smoke_list",
             "command": [
-              "uv",
-              "run",
-              "python3",
-              "-m",
-              "datapulse.tools.smoke",
+              "datapulse-smoke",
               "--list"
             ],
             "rc": 0,
@@ -162,11 +144,7 @@
           {
             "name": "cli_list",
             "command": [
-              "uv",
-              "run",
-              "python3",
-              "-m",
-              "datapulse.cli",
+              "datapulse",
               "--list",
               "--limit",
               "5",
@@ -176,18 +154,18 @@
             "rc": 0,
             "ok": true,
             "stdout_tail": [
-              "    https://www.reddit.com/r/dataengineering/comments/1qxxvxc/whats_your_biggest_data_warehouse_headache_right/",
-              " 4. [reddit] [r/dataengineering] Logging run results in dbt - 0.990",
-              "    https://www.reddit.com/r/dataengineering/comments/1rkic8b/logging_run_results_in_dbt/",
-              " 5. [reddit] [r/dataengineering] dbtective: Rust-based dbt metadata  - 0.990",
-              "    https://www.reddit.com/r/dataengineering/comments/1r14s59/dbtective_rustbased_dbt_metadata_detective_and/"
+              "    https://x.com/KUGQS172/status/2009205845897457873",
+              " 4. [twitter] Tweet by @AndrejPlenkovic (Wed Feb 18 16:31:50 +0000 20 - 0.990",
+              "    https://x.com/AndrejPlenkovic/status/2024159936549183670",
+              " 5. [twitter] Tweet by @ANANonprofit (Thu Feb 12 14:00:00 +0000 2026) - 0.990",
+              "    https://x.com/ANANonprofit/status/2021947397866398012"
             ],
             "stderr_tail": []
           }
         ]
       },
-      "latest_observation_status": "passed",
-      "latest_observation_current_head_match": true
+      "latest_observation_status": "stale_head",
+      "latest_observation_current_head_match": false
     },
     "local_smoke": {
       "gateable": false,
@@ -244,28 +222,28 @@
     "head_published_to_upstream": true,
     "required_workflow": "CI",
     "required_run": {
-      "database_id": 22897071252,
-      "head_sha": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
+      "database_id": 22934977198,
+      "head_sha": "a98626a5fbe1abf6186fcc0621bfffbd6a651c78",
       "head_branch": "main",
       "status": "completed",
       "conclusion": "success",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-10T10:01:10Z",
-      "updated_at": "2026-03-10T10:01:46Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22897071252"
+      "created_at": "2026-03-11T03:15:02Z",
+      "updated_at": "2026-03-11T03:15:38Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22934977198"
     },
     "latest_head_ci_run": {
-      "database_id": 22897071252,
-      "head_sha": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
+      "database_id": 22934977198,
+      "head_sha": "a98626a5fbe1abf6186fcc0621bfffbd6a651c78",
       "head_branch": "main",
       "status": "completed",
       "conclusion": "success",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-10T10:01:10Z",
-      "updated_at": "2026-03-10T10:01:46Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22897071252"
+      "created_at": "2026-03-11T03:15:02Z",
+      "updated_at": "2026-03-11T03:15:38Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22934977198"
     },
     "latest_head_governance_evidence_run": null,
     "change_scope": {
@@ -304,9 +282,7 @@
     ]
   },
   "gate_groups": {
-    "execution_safety": [
-      "workspace_dirty"
-    ],
+    "execution_safety": [],
     "local_verification": [],
     "runtime_governance": [],
     "ci_policy": [],
@@ -314,23 +290,19 @@
   },
   "promotion_levels": {
     "repo_landed": {
-      "satisfied": false,
-      "reasons": [
-        "workspace_dirty"
-      ]
+      "satisfied": true,
+      "reasons": []
     },
     "ci_proven": {
-      "satisfied": false,
-      "reasons": [
-        "repo_landed_false"
-      ]
+      "satisfied": true,
+      "reasons": []
     }
   },
   "observed_evidence": {
     "latest_quick_test_gate": {
       "path": "artifacts/governance/quick_test_gate.draft.json",
       "schema_version": "quick_test_gate.v1",
-      "generated_at_utc": "2026-03-10T11:34:06Z",
+      "generated_at_utc": "2026-03-11T03:14:22Z",
       "ok": true,
       "read_only": true,
       "git": {
@@ -397,7 +369,7 @@
           "stdout_tail": [
             "[console-smoke] check: module help",
             "[console-smoke] check: wrapper help",
-            "[console-smoke] skip: datapulse-console not installed in PATH",
+            "[console-smoke] check: installed entrypoint help",
             "[console-smoke] skip: browser smoke (set DATAPULSE_CONSOLE_BROWSER_SMOKE=1 to enable)",
             "[console-smoke] pass"
           ],
@@ -406,11 +378,7 @@
         {
           "name": "smoke_list",
           "command": [
-            "uv",
-            "run",
-            "python3",
-            "-m",
-            "datapulse.tools.smoke",
+            "datapulse-smoke",
             "--list"
           ],
           "rc": 0,
@@ -427,11 +395,7 @@
         {
           "name": "cli_list",
           "command": [
-            "uv",
-            "run",
-            "python3",
-            "-m",
-            "datapulse.cli",
+            "datapulse",
             "--list",
             "--limit",
             "5",
@@ -441,11 +405,11 @@
           "rc": 0,
           "ok": true,
           "stdout_tail": [
-            "    https://www.reddit.com/r/dataengineering/comments/1qxxvxc/whats_your_biggest_data_warehouse_headache_right/",
-            " 4. [reddit] [r/dataengineering] Logging run results in dbt - 0.990",
-            "    https://www.reddit.com/r/dataengineering/comments/1rkic8b/logging_run_results_in_dbt/",
-            " 5. [reddit] [r/dataengineering] dbtective: Rust-based dbt metadata  - 0.990",
-            "    https://www.reddit.com/r/dataengineering/comments/1r14s59/dbtective_rustbased_dbt_metadata_detective_and/"
+            "    https://x.com/KUGQS172/status/2009205845897457873",
+            " 4. [twitter] Tweet by @AndrejPlenkovic (Wed Feb 18 16:31:50 +0000 20 - 0.990",
+            "    https://x.com/AndrejPlenkovic/status/2024159936549183670",
+            " 5. [twitter] Tweet by @ANANonprofit (Thu Feb 12 14:00:00 +0000 2026) - 0.990",
+            "    https://x.com/ANANonprofit/status/2021947397866398012"
           ],
           "stderr_tail": []
         }
@@ -492,16 +456,16 @@
       }
     },
     "latest_head_ci_run": {
-      "database_id": 22897071252,
-      "head_sha": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
+      "database_id": 22934977198,
+      "head_sha": "a98626a5fbe1abf6186fcc0621bfffbd6a651c78",
       "head_branch": "main",
       "status": "completed",
       "conclusion": "success",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-10T10:01:10Z",
-      "updated_at": "2026-03-10T10:01:46Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22897071252"
+      "created_at": "2026-03-11T03:15:02Z",
+      "updated_at": "2026-03-11T03:15:38Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22934977198"
     },
     "latest_head_governance_evidence_run": null
   },
