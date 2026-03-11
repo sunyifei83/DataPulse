@@ -1,11 +1,11 @@
 {
   "valid": true,
   "schema_version": "governance_loop_activation_intent.v1",
-  "generated_at_utc": "2026-03-07T10:48:28Z",
+  "generated_at_utc": "2026-03-11T11:42:17Z",
   "project": "DataPulse",
   "source_activation_plan": {
-    "bundle_dir": "out/release_bundle",
-    "manifest_path": "out/release_bundle/adapter_bundle_manifest.draft.json"
+    "bundle_dir": "out/ha_latest_release_bundle",
+    "manifest_path": "out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json"
   },
   "intent_status": {
     "planning_ready": true,
@@ -14,20 +14,34 @@
     "reason": "runtime_cutover_window_open"
   },
   "project_adapter_prerequisites": [],
-  "repo_governance_targets": [],
+  "repo_governance_targets": [
+    {
+      "surface_id": "repo_auto_continuation_policy",
+      "binding_status": "pending_design",
+      "binding_kind": "auto_continuation_policy",
+      "suggested_binding": "scheduler_or_followup_dispatch",
+      "required_for": [
+        "continuous_when_healthy",
+        "trusted_delivery_pipeline"
+      ],
+      "from_signals": [
+        "auto_continuation_not_enabled",
+        "manual_handoff_still_required"
+      ],
+      "suggested_artifacts": [
+        "out/ha_latest_release_bundle/blueprint_plan.snapshot.json",
+        "scripts/governance/run_governance_loop_bundle_draft.py",
+        "repository workflow, scheduler, or explicit loop trigger entrypoint"
+      ],
+      "notes": [
+        "Auto-continuation should react only after machine blockers clear.",
+        "Manual relay should remain explicit until the repo-governance cutover is approved."
+      ]
+    }
+  ],
   "runtime_cutover_window": {
     "status": "open",
     "facts": [
-      {
-        "fact": "docs_only_changes_skip_ci",
-        "category": "policy_constraint",
-        "summary": "Current CI policy skips docs-only changes, so promotion truth must treat the absence of CI evidence explicitly."
-      },
-      {
-        "fact": "latest_local_smoke_failed",
-        "category": "local_verification",
-        "summary": "The latest local smoke evidence is failing and should remain a runtime blocker, not a core coupling point."
-      },
       {
         "fact": "repo_landed_false",
         "category": "derived_promotion_gate",
@@ -41,7 +55,14 @@
     ],
     "handling_rule": "Resolve these for cutover timing, but do not convert them into reusable-core or repo-governance design obligations."
   },
-  "activation_sequence": [],
+  "activation_sequence": [
+    {
+      "step": 1,
+      "surface_id": "repo_auto_continuation_policy",
+      "layer": "repo_governance",
+      "summary": "Replace manual relay with an explicit auto-continuation policy once machine blockers clear."
+    }
+  ],
   "guardrails": [
     "Keep adapter-owned truth exporters and execution hints outside repo-governance cutover bindings.",
     "Keep runtime blockers visible, but defer them to the cutover window instead of the reusable architecture layer.",

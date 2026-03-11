@@ -1,12 +1,12 @@
 {
   "schema_version": "project_specific_loop_state.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-11T11:09:26Z",
+  "generated_at_utc": "2026-03-11T11:47:49Z",
   "state_kind": "draft_export",
-  "source_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "wired": false,
-  "current_level": "manual_only",
-  "workspace_clean": false,
+  "source_plan": "docs/governance/datapulse-blueprint-plan.json",
+  "wired": true,
+  "current_level": "repo_landed",
+  "workspace_clean": true,
   "completed_slices": [
     "L0.1",
     "L0.2",
@@ -78,10 +78,8 @@
     "category": "complete"
   },
   "remaining_promotion_gates": [
-    "workspace_dirty",
-    "repo_landed_false",
-    "ci_run_not_proven",
-    "draft_not_wired"
+    "head_not_pushed",
+    "ci_run_not_proven"
   ],
   "blocking_facts": [],
   "pipeline_contract": {
@@ -140,7 +138,6 @@
     "machine_decidable_blockers": true,
     "auto_continuation_enabled": false,
     "readiness_gaps": [
-      "draft_not_wired",
       "manual_handoff_still_required"
     ]
   },
@@ -159,8 +156,8 @@
     }
   },
   "headline_summary": {
-    "current_level": "manual_only",
-    "workspace_clean": false,
+    "current_level": "repo_landed",
+    "workspace_clean": true,
     "next_slice_id": "no-open-slice",
     "next_slice_title": "No open slice",
     "status_if_run_now": "stopped",

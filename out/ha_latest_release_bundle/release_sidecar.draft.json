@@ -1,7 +1,7 @@
 {
   "schema_version": "release_sidecar.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-10T06:26:03Z",
+  "generated_at_utc": "2026-03-11T11:48:10Z",
   "sidecar_kind": "draft_export",
   "wired": false,
   "release": {
@@ -21,13 +21,14 @@
     ]
   },
   "git": {
-    "head": "cb0079db77683a3f37233750c5cec310a432c99b",
+    "head": "a68e87e4f559ff50e7605bb50ee7cc710990b47d",
     "branch": "main",
-    "workspace_clean": false
+    "workspace_clean": true
   },
   "build_artifacts": {
     "dist_exists": true,
     "files": [
+      "dist/.gitignore",
       "dist/datapulse-0.8.0-py3-none-any.whl",
       "dist/datapulse-0.8.0.tar.gz"
     ]
@@ -85,8 +86,6 @@
   },
   "promotion_readiness": {
     "structured_release_bundle_available": true,
-    "reasons": [
-      "workspace_dirty"
-    ]
+    "reasons": []
   }
 }

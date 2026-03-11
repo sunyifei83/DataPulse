@@ -53,26 +53,22 @@
     "path": "docs/governance/datapulse-auto-continuation-policy.json"
   },
   "runtime": {
-    "status": "ready",
-    "reason": "awaiting_manual_slice_execution",
+    "status": "stopped",
+    "reason": "promotion_gates_open",
     "plan_id": "datapulse-loop-bootstrap-2026-03-07",
     "project": "DataPulse",
-    "current_level": "manual_only",
+    "current_level": "repo_landed",
     "next_slice": {
-      "id": "L11.4",
-      "title": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
-      "category": "manual",
-      "phase_id": "L11",
-      "execution_profile": "local_wrapper",
-      "promotion_scope": "none",
-      "closes_gates": []
+      "id": "no-open-slice",
+      "title": "No open slice",
+      "category": "complete"
     },
     "blocking_facts": [],
     "effective_blocking_facts": [],
     "ignored_blocking_facts": [],
     "remaining_promotion_gates": [
-      "workspace_dirty",
-      "repo_landed_false"
+      "head_not_pushed",
+      "ci_run_not_proven"
     ],
     "pipeline_contract": {
       "objective": "trusted_delivery_pipeline",
@@ -84,12 +80,12 @@
     "control_contract": {
       "progress_truth": {
         "source": "blueprint_plan_next_open_slice",
-        "current_next_slice_id": "L11.4"
+        "current_next_slice_id": "no-open-slice"
       },
       "stop_truth": {
         "source": "blocking_facts_and_flow_control",
-        "status_if_run_now": "ready_waiting_manual_handoff",
-        "reason_if_run_now": "manual_promotion_mode",
+        "status_if_run_now": "stopped",
+        "reason_if_run_now": "promotion_gates_open",
         "machine_decidable": true,
         "expected_terminal_stop_on_complete": true
       },
@@ -125,8 +121,8 @@
       }
     },
     "flow_control": {
-      "status_if_run_now": "ready_waiting_manual_handoff",
-      "reason_if_run_now": "manual_promotion_mode",
+      "status_if_run_now": "stopped",
+      "reason_if_run_now": "promotion_gates_open",
       "machine_decidable_blockers": true,
       "auto_continuation_enabled": false,
       "readiness_gaps": [
@@ -155,76 +151,8 @@
         "auto_continuation_not_enabled"
       ]
     },
-    "adapter_entry": {
-      "slice_id": "L11.4",
-      "phase_id": "L11",
-      "title": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
-      "category": "manual",
-      "execution_profile": "local_wrapper",
-      "adapter_type": "local_wrapper",
-      "execute_mode": "manual_local_command",
-      "summary": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
-      "candidate_commands": [
-        "python3 -m py_compile datapulse/console_markup.py",
-        "python3 -m compileall datapulse",
-        "uv run pytest tests/test_console_server.py -q"
-      ],
-      "verification_commands": [
-        "python3 -m py_compile datapulse/console_markup.py",
-        "python3 -m compileall datapulse",
-        "uv run pytest tests/test_console_server.py -q"
-      ],
-      "target_artifacts": [
-        "datapulse/console_markup.py",
-        "docs/datapulse_console_parameter_guide.md",
-        "docs/gui_intelligence_console_plan.md"
-      ],
-      "exit_condition": "A first-time operator can understand the browser lifecycle path from mission creation to triage, story promotion, and route setup without needing to start in CLI documentation.",
-      "notes": [
-        "exit_condition: A first-time operator can understand the browser lifecycle path from mission creation to triage, story promotion, and route setup without needing to start in CLI documentation.",
-        "promotion_scope: none",
-        "No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice."
-      ],
-      "source": {
-        "catalog_entry": false,
-        "plan_slice": true
-      }
-    },
-    "slice_execution_brief": {
-      "slice_id": "L11.4",
-      "phase_id": "L11",
-      "title": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
-      "category": "manual",
-      "execution_profile": "local_wrapper",
-      "adapter_type": "local_wrapper",
-      "execute_mode": "manual_local_command",
-      "summary": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
-      "candidate_commands": [
-        "python3 -m py_compile datapulse/console_markup.py",
-        "python3 -m compileall datapulse",
-        "uv run pytest tests/test_console_server.py -q"
-      ],
-      "verification_commands": [
-        "python3 -m py_compile datapulse/console_markup.py",
-        "python3 -m compileall datapulse",
-        "uv run pytest tests/test_console_server.py -q"
-      ],
-      "target_artifacts": [
-        "datapulse/console_markup.py",
-        "docs/datapulse_console_parameter_guide.md",
-        "docs/gui_intelligence_console_plan.md"
-      ],
-      "exit_condition": "A first-time operator can understand the browser lifecycle path from mission creation to triage, story promotion, and route setup without needing to start in CLI documentation.",
-      "notes": [
-        "exit_condition: A first-time operator can understand the browser lifecycle path from mission creation to triage, story promotion, and route setup without needing to start in CLI documentation.",
-        "promotion_scope: none",
-        "No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice."
-      ],
-      "source": {
-        "catalog_entry": false,
-        "plan_slice": true
-      }
-    },
+    "adapter_entry": {},
+    "slice_execution_brief": {},
     "decoupling_summary": {
       "blocking_facts_scope": "current-next-slice-only",
       "remaining_gates_scope": "global-open-gates",
@@ -260,52 +188,14 @@
       "Let the Codex loop land only the current next_slice and then re-evaluate state.",
       "The ignition wrapper allows existing dirty worktree promotion takeover by default; set DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=0 to keep manual review before repo_landed."
     ],
-    "eligible_now": true,
-    "reason_if_not_eligible": "",
+    "eligible_now": false,
+    "reason_if_not_eligible": "stopped",
     "next_slice": {
-      "id": "L11.4",
-      "title": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
-      "category": "manual",
-      "phase_id": "L11",
-      "execution_profile": "local_wrapper",
-      "promotion_scope": "none",
-      "closes_gates": []
+      "id": "no-open-slice",
+      "title": "No open slice",
+      "category": "complete"
     },
-    "slice_execution_brief": {
-      "slice_id": "L11.4",
-      "phase_id": "L11",
-      "title": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
-      "category": "manual",
-      "execution_profile": "local_wrapper",
-      "adapter_type": "local_wrapper",
-      "execute_mode": "manual_local_command",
-      "summary": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
-      "candidate_commands": [
-        "python3 -m py_compile datapulse/console_markup.py",
-        "python3 -m compileall datapulse",
-        "uv run pytest tests/test_console_server.py -q"
-      ],
-      "verification_commands": [
-        "python3 -m py_compile datapulse/console_markup.py",
-        "python3 -m compileall datapulse",
-        "uv run pytest tests/test_console_server.py -q"
-      ],
-      "target_artifacts": [
-        "datapulse/console_markup.py",
-        "docs/datapulse_console_parameter_guide.md",
-        "docs/gui_intelligence_console_plan.md"
-      ],
-      "exit_condition": "A first-time operator can understand the browser lifecycle path from mission creation to triage, story promotion, and route setup without needing to start in CLI documentation.",
-      "notes": [
-        "exit_condition: A first-time operator can understand the browser lifecycle path from mission creation to triage, story promotion, and route setup without needing to start in CLI documentation.",
-        "promotion_scope: none",
-        "No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice."
-      ],
-      "source": {
-        "catalog_entry": false,
-        "plan_slice": true
-      }
-    }
+    "slice_execution_brief": {}
   },
   "control_plane_contract": {
     "healthy_environment_behavior": "continue_without_human_handoff",

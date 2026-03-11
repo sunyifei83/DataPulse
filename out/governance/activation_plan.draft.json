@@ -1,19 +1,19 @@
 {
   "valid": true,
   "schema_version": "governance_loop_activation_plan.v1",
-  "generated_at_utc": "2026-03-07T10:48:28Z",
-  "bundle_dir": "out/release_bundle",
-  "manifest_path": "out/release_bundle/adapter_bundle_manifest.draft.json",
+  "generated_at_utc": "2026-03-11T11:42:17Z",
+  "bundle_dir": "out/ha_latest_release_bundle",
+  "manifest_path": "out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json",
   "project": "DataPulse",
   "target_class": "trusted_delivery_pipeline",
-  "current_class": "trusted_delivery_pipeline",
+  "current_class": "bootstrap_loop",
   "activation_status": {
     "planning_ready": true,
     "ready_for_active_wiring": true,
     "cutover_now_recommended": false,
     "status_if_run_now": "stopped",
     "reason_if_run_now": "promotion_gates_open",
-    "promotion_mode": "auto_policy_gated"
+    "promotion_mode": "manual_only"
   },
   "activation_tracks": [
     {
@@ -27,8 +27,29 @@
       "track_id": "repo_governance_cutover",
       "layer": "repo_governance",
       "goal": "Wire explicit repository entrypoints only after adapter-side truth gaps are closed.",
-      "status": "complete",
-      "items": []
+      "status": "open",
+      "items": [
+        {
+          "surface_id": "repo_auto_continuation_policy",
+          "layer": "repo_governance",
+          "impact_scope": "activation_only",
+          "touches_active_workflows": true,
+          "required_for": [
+            "continuous_when_healthy",
+            "trusted_delivery_pipeline"
+          ],
+          "summary": "Replace manual relay with an explicit auto-continuation policy once machine blockers clear.",
+          "from_signals": [
+            "auto_continuation_not_enabled",
+            "manual_handoff_still_required"
+          ],
+          "suggested_artifacts": [
+            "out/ha_latest_release_bundle/blueprint_plan.snapshot.json",
+            "scripts/governance/run_governance_loop_bundle_draft.py",
+            "repository workflow, scheduler, or explicit loop trigger entrypoint"
+          ]
+        }
+      ]
     },
     {
       "track_id": "runtime_cutover_window",
@@ -36,16 +57,6 @@
       "goal": "Keep machine-decidable runtime blockers visible without baking them into reusable architecture coupling.",
       "status": "open",
       "items": [
-        {
-          "fact": "docs_only_changes_skip_ci",
-          "category": "policy_constraint",
-          "summary": "Current CI policy skips docs-only changes, so promotion truth must treat the absence of CI evidence explicitly."
-        },
-        {
-          "fact": "latest_local_smoke_failed",
-          "category": "local_verification",
-          "summary": "The latest local smoke evidence is failing and should remain a runtime blocker, not a core coupling point."
-        },
         {
           "fact": "repo_landed_false",
           "category": "derived_promotion_gate",
@@ -59,19 +70,18 @@
       ]
     }
   ],
-  "minimal_activation_sequence": [],
-  "open_activation_surface_ids": [],
+  "minimal_activation_sequence": [
+    {
+      "step": 1,
+      "surface_id": "repo_auto_continuation_policy",
+      "layer": "repo_governance",
+      "summary": "Replace manual relay with an explicit auto-continuation policy once machine blockers clear."
+    }
+  ],
+  "open_activation_surface_ids": [
+    "repo_auto_continuation_policy"
+  ],
   "deferred_operating_blockers": [
-    {
-      "fact": "docs_only_changes_skip_ci",
-      "category": "policy_constraint",
-      "summary": "Current CI policy skips docs-only changes, so promotion truth must treat the absence of CI evidence explicitly."
-    },
-    {
-      "fact": "latest_local_smoke_failed",
-      "category": "local_verification",
-      "summary": "The latest local smoke evidence is failing and should remain a runtime blocker, not a core coupling point."
-    },
     {
       "fact": "repo_landed_false",
       "category": "derived_promotion_gate",
@@ -87,25 +97,36 @@
     "current_state": {
       "wired": true,
       "bundle_wired_flag": true,
-      "promotion_mode": "auto_policy_gated",
+      "promotion_mode": "manual_only",
       "status_if_run_now": "stopped",
       "reason_if_run_now": "promotion_gates_open",
-      "current_class": "trusted_delivery_pipeline",
+      "current_class": "bootstrap_loop",
       "target_class": "trusted_delivery_pipeline",
-      "auto_continuation_enabled": true
+      "auto_continuation_enabled": false
     },
-    "activation_requirements": [],
+    "activation_requirements": [
+      {
+        "surface_id": "repo_auto_continuation_policy",
+        "layer": "repo_governance",
+        "impact_scope": "activation_only",
+        "touches_active_workflows": true,
+        "required_for": [
+          "continuous_when_healthy",
+          "trusted_delivery_pipeline"
+        ],
+        "summary": "Replace manual relay with an explicit auto-continuation policy once machine blockers clear.",
+        "from_signals": [
+          "auto_continuation_not_enabled",
+          "manual_handoff_still_required"
+        ],
+        "suggested_artifacts": [
+          "out/ha_latest_release_bundle/blueprint_plan.snapshot.json",
+          "scripts/governance/run_governance_loop_bundle_draft.py",
+          "repository workflow, scheduler, or explicit loop trigger entrypoint"
+        ]
+      }
+    ],
     "operating_blockers": [
-      {
-        "fact": "docs_only_changes_skip_ci",
-        "category": "policy_constraint",
-        "summary": "Current CI policy skips docs-only changes, so promotion truth must treat the absence of CI evidence explicitly."
-      },
-      {
-        "fact": "latest_local_smoke_failed",
-        "category": "local_verification",
-        "summary": "The latest local smoke evidence is failing and should remain a runtime blocker, not a core coupling point."
-      },
       {
         "fact": "repo_landed_false",
         "category": "derived_promotion_gate",
@@ -118,14 +139,23 @@
       }
     ],
     "ready_for_active_wiring": true,
-    "open_activation_surface_ids": [],
-    "minimal_activation_sequence": [],
+    "open_activation_surface_ids": [
+      "repo_auto_continuation_policy"
+    ],
+    "minimal_activation_sequence": [
+      {
+        "step": 1,
+        "surface_id": "repo_auto_continuation_policy",
+        "layer": "repo_governance",
+        "summary": "Replace manual relay with an explicit auto-continuation policy once machine blockers clear."
+      }
+    ],
     "decoupling_rule": "Keep missing truth exporters and workflow entrypoints in the adapter or repo-governance layer; keep dirty workspaces and failed evidence as runtime blockers."
   },
   "resolved_files": {
-    "plan": "out/release_bundle/blueprint_plan.snapshot.json",
-    "landing_status": "out/release_bundle/code_landing_status.snapshot.json",
-    "slice_catalog": "out/release_bundle/slice_adapter_catalog.snapshot.json"
+    "plan": "out/ha_latest_release_bundle/blueprint_plan.snapshot.json",
+    "landing_status": "out/ha_latest_release_bundle/code_landing_status.snapshot.json",
+    "slice_catalog": "out/ha_latest_release_bundle/slice_adapter_catalog.snapshot.json"
   },
   "decoupling_contract": {
     "rule": "Keep missing truth exporters and workflow entrypoints in the adapter or repo-governance layer; keep dirty workspaces and failed evidence as runtime blockers.",

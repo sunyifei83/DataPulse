@@ -1,15 +1,15 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-11T06:05:02Z",
+  "generated_at_utc": "2026-03-11T11:47:45Z",
   "status_kind": "draft_export",
   "wired": false,
   "headline_summary": {
-    "current_level": "ci_proven",
+    "current_level": "repo_landed",
     "workspace_clean": true,
-    "head_published_to_upstream": true,
+    "head_published_to_upstream": false,
     "repo_landed": true,
-    "ci_proven": true,
+    "ci_proven": false,
     "ci_proof_mode": "push_ci_workflow",
     "required_workflow": "CI",
     "quick_test_gate": {
@@ -24,11 +24,11 @@
     }
   },
   "git": {
-    "head": "a98626a5fbe1abf6186fcc0621bfffbd6a651c78",
+    "head": "a68e87e4f559ff50e7605bb50ee7cc710990b47d",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "a98626a5fbe1abf6186fcc0621bfffbd6a651c78",
-    "head_published_to_upstream": true
+    "upstream_head": "e25ee1853f3f0cd7c34e3e3860c906a6fa0d1093",
+    "head_published_to_upstream": false
   },
   "workspace": {
     "clean": true,
@@ -39,14 +39,14 @@
     "compileall": {
       "gateable": true,
       "required_for_loop": true,
-      "truth_source": "python3 -m compileall datapulse"
+      "truth_source": "uv run python -m compileall datapulse"
     },
     "quick_test": {
       "gateable": false,
       "gateable_via_wrapper": true,
       "required_for_loop": false,
       "truth_source": "scripts/quick_test.sh",
-      "wrapper_command": "python3 scripts/governance/run_datapulse_quick_test_gate.py",
+      "wrapper_command": "uv run python scripts/governance/run_datapulse_quick_test_gate.py",
       "reason": "Current semantics are not declared as the canonical strict gate set.",
       "latest_observation": {
         "path": "artifacts/governance/quick_test_gate.draft.json",
@@ -172,7 +172,7 @@
       "gateable_via_wrapper": true,
       "required_for_loop": true,
       "truth_source": "artifacts/openclaw_datapulse_<RUN_ID>/local_report.md",
-      "wrapper_command": "python3 scripts/governance/run_datapulse_local_smoke_gate.py",
+      "wrapper_command": "uv run python scripts/governance/run_datapulse_local_smoke_gate.py",
       "latest_observation": {
         "path": "artifacts/openclaw_datapulse_20260307_185520/local_report.md",
         "run_id": "20260307_185520",
@@ -192,7 +192,7 @@
       "gateable_via_wrapper": true,
       "required_for_loop": true,
       "truth_source": "artifacts/openclaw_datapulse_<RUN_ID>/remote_report.md",
-      "wrapper_command": "python3 scripts/governance/run_datapulse_remote_smoke_gate.py",
+      "wrapper_command": "uv run python scripts/governance/run_datapulse_remote_smoke_gate.py",
       "latest_observation": {
         "path": "artifacts/openclaw_datapulse_20260307_180508/remote_report.md",
         "run_id": "20260307_180508",
@@ -219,48 +219,18 @@
     "docs_only_changes_skip_ci": false,
     "docs_paths_ignore_configured": true,
     "proof_mode": "push_ci_workflow",
-    "head_published_to_upstream": true,
+    "head_published_to_upstream": false,
     "required_workflow": "CI",
-    "required_run": {
-      "database_id": 22934977198,
-      "head_sha": "a98626a5fbe1abf6186fcc0621bfffbd6a651c78",
-      "head_branch": "main",
-      "status": "completed",
-      "conclusion": "success",
-      "event": "push",
-      "workflow_name": "CI",
-      "created_at": "2026-03-11T03:15:02Z",
-      "updated_at": "2026-03-11T03:15:38Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22934977198"
-    },
-    "latest_head_ci_run": {
-      "database_id": 22934977198,
-      "head_sha": "a98626a5fbe1abf6186fcc0621bfffbd6a651c78",
-      "head_branch": "main",
-      "status": "completed",
-      "conclusion": "success",
-      "event": "push",
-      "workflow_name": "CI",
-      "created_at": "2026-03-11T03:15:02Z",
-      "updated_at": "2026-03-11T03:15:38Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22934977198"
-    },
+    "required_run": null,
+    "latest_head_ci_run": null,
     "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
-        "datapulse/console_markup.py",
-        "datapulse/console_server.py",
-        "datapulse/core/utils.py",
-        "datapulse/reader.py",
-        "docs/brand_identity.md",
-        "docs/governance/datapulse-blueprint-plan.draft.json",
-        "docs/gui_intelligence_console_plan.md",
-        "out/governance/code_landing_status.draft.json",
-        "out/governance/project_specific_loop_state.draft.json",
-        "scripts/datapulse_console_browser_smoke.py",
-        "tests/test_console_server.py",
-        "tests/test_utils.py",
-        "tests/test_watchlist.py"
+        "docs/governance/datapulse-blueprint-plan.json",
+        "scripts/governance/datapulse_loop_contracts.py",
+        "scripts/governance/export_datapulse_evidence_bundle.py",
+        "scripts/governance/export_datapulse_structured_release_bundle.py",
+        "scripts/governance/run_datapulse_auto_continuation.py"
       ],
       "docs_only": false
     }
@@ -285,7 +255,9 @@
     "execution_safety": [],
     "local_verification": [],
     "runtime_governance": [],
-    "ci_policy": [],
+    "ci_policy": [
+      "head_not_pushed"
+    ],
     "release_governance": []
   },
   "promotion_levels": {
@@ -294,8 +266,11 @@
       "reasons": []
     },
     "ci_proven": {
-      "satisfied": true,
-      "reasons": []
+      "satisfied": false,
+      "reasons": [
+        "head_not_pushed",
+        "ci_run_not_proven"
+      ]
     }
   },
   "observed_evidence": {
@@ -455,18 +430,7 @@
         "report_root": "/Users/sunyifei/DataPulse"
       }
     },
-    "latest_head_ci_run": {
-      "database_id": 22934977198,
-      "head_sha": "a98626a5fbe1abf6186fcc0621bfffbd6a651c78",
-      "head_branch": "main",
-      "status": "completed",
-      "conclusion": "success",
-      "event": "push",
-      "workflow_name": "CI",
-      "created_at": "2026-03-11T03:15:02Z",
-      "updated_at": "2026-03-11T03:15:38Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/22934977198"
-    },
+    "latest_head_ci_run": null,
     "latest_head_governance_evidence_run": null
   },
   "evidence_paths": {

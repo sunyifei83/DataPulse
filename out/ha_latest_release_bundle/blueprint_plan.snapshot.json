@@ -2,8 +2,8 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-10T03:12:38Z",
-  "status": "in_progress",
+  "generated_at_utc": "2026-03-11T11:37:00Z",
+  "status": "completed",
   "activation": {
     "wired": true,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -128,7 +128,9 @@
     "L8": "completed",
     "L9": "completed",
     "L10": "completed",
-    "L11": "in_progress"
+    "L11": "completed",
+    "L12": "completed",
+    "L13": "completed"
   },
   "phases": [
     {
@@ -1207,7 +1209,7 @@
       "id": "L11",
       "title": "Console Productization And UX Closure",
       "goal": "Turn the now lifecycle-complete browser shell into a lower-friction operating surface with stronger product fit, clearer information architecture, and safer regression coverage.",
-      "status": "in_progress",
+      "status": "completed",
       "slices": [
         {
           "id": "L11.1",
@@ -1283,7 +1285,7 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "python3 -m py_compile datapulse/console_markup.py",
             "python3 -m compileall datapulse",
@@ -1306,7 +1308,7 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "bash scripts/datapulse_console_smoke.sh",
             "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
@@ -1326,14 +1328,339 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L12",
+      "title": "Console Operating-Surface Refactor Blueprint",
+      "goal": "Turn the lifecycle-complete browser shell into a lower-noise, state-driven workbench with one coherent navigation model, clearer cross-stage continuity, explicit card-action hierarchy, and predictable desktop/mobile behavior.",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "L12.1",
+          "title": "Land a repo-scoped GUI refactor blueprint covering information architecture, navigation convergence, card action priority, and desktop/mobile interaction rules",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "artifacts": [
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "exit_condition": "The repository contains an explicit GUI refactor blueprint and a machine-readable slice map that can be used as the next manual ignition feedstock.",
+          "notes": [
+            "This slice promotes the UX judgment into repo-truth artifacts instead of keeping it as chat-only design context.",
+            "The blueprint must stay aligned to the Reader-backed lifecycle contract and must not introduce GUI-only nouns."
+          ]
+        },
+        {
+          "id": "L12.2",
+          "title": "Converge console navigation into one primary rail plus one secondary context layer without overlapping meta-navigation systems",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py",
+            "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "docs/gui_intelligence_console_plan.md",
+            "tests/test_console_server.py"
+          ],
+          "exit_condition": "Operators can move across intake, missions, review, and delivery through one primary navigation model while command palette, deep links, and saved views remain accelerators rather than competing top-level entry systems.",
+          "notes": [
+            "Collapse primary wayfinding before adding more card-level convenience affordances.",
+            "Preserve deep-link and saved-view semantics, but demote them from co-primary nav to contextual acceleration."
+          ]
+        },
+        {
+          "id": "L12.3",
+          "title": "Recompose mission, review, and delivery information architecture around lifecycle continuity instead of copy-only explanation",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+            "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "datapulse/console_server.py",
+            "docs/gui_intelligence_console_plan.md",
+            "tests/test_console_server.py"
+          ],
+          "exit_condition": "Mission, triage, story, and delivery workspaces expose visible cross-stage continuity facts and tighter list-detail-editor relationships, reducing context switching across the browser shell.",
+          "notes": [
+            "This slice should surface lifecycle continuity in the working surface rather than expanding onboarding prose.",
+            "Cross-stage counters and next-hop facts should be additive views over existing Reader-backed objects."
+          ]
+        },
+        {
+          "id": "L12.4",
+          "title": "Apply a state-driven card action hierarchy across mission, triage, story, and route surfaces",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+            "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "datapulse/console_server.py",
+            "tests/test_console_server.py",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "High-frequency cards expose one obvious primary CTA, calmer secondary action density, and clearer danger-action treatment that matches card state instead of static button rows.",
+          "notes": [
+            "Primary CTA selection should be state-driven rather than card-type-only.",
+            "Destructive actions should move behind clearer danger treatments or overflow rather than staying in every quick-action row."
+          ]
+        },
+        {
+          "id": "L12.5",
+          "title": "Normalize desktop and mobile interaction behavior around one responsive density and pane contract",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py",
+            "uv run pytest tests/test_console_server.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "docs/brand_identity.md",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "Desktop and mobile console behavior follows one explicit pane, density, modal, and action-sheet contract instead of ad hoc breakpoint-specific layout exceptions.",
+          "notes": [
+            "Small-screen behavior should favor one dominant pane and one dominant action at a time.",
+            "Brand language should survive breakpoint changes without letting decorative chrome outrank operational facts."
+          ]
+        },
+        {
+          "id": "L12.6",
+          "title": "Harden verification for navigation convergence, card-priority behavior, and responsive interaction regressions",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "bash scripts/datapulse_console_smoke.sh",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+            "uv run --with playwright python scripts/datapulse_console_browser_smoke.py",
+            "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+          ],
+          "artifacts": [
+            "scripts/datapulse_console_smoke.sh",
+            "scripts/datapulse_console_browser_smoke.py",
+            "tests/test_console_server.py",
+            "datapulse/console_markup.py"
+          ],
+          "exit_condition": "The console refactor wave has repeatable workflow-level regression coverage for primary navigation, context restore, state-driven CTA behavior, and responsive interaction safety.",
+          "notes": [
+            "Prefer high-signal operating-flow checks over brittle visual snapshots.",
+            "This slice should lock in the new operating model before another round of browser-surface expansion."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "L13",
+      "title": "Console Workbench Convergence And Live Desk Refactor",
+      "goal": "Turn the refactored operating surface into an object-first analyst desk where populated workspaces lead with current-object facts, desktop uses stable workbench panes, and lifecycle handoff remains visible across Mission -> Review -> Story -> Delivery.",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "L13.1",
+          "title": "Promote the next workbench-convergence blueprint and manual ignition map into repository truth",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "artifacts": [
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "exit_condition": "The repository contains an explicit L13 workbench-convergence blueprint and the active blueprint path exposes a next manual ignition target again.",
+          "notes": [
+            "This slice promotes the latest UI/UXD workbench judgment into repo-truth artifacts instead of leaving it as chat-only critique.",
+            "The promoted follow-up map intentionally stays inside the Reader-backed browser shell rather than opening a premature frontend-stack rewrite track."
+          ]
+        },
+        {
+          "id": "L13.2",
+          "title": "Refactor intake into a live desk that leads with current-object facts, pressure signals, and next actions when data exists",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py",
+            "uv run pytest tests/test_console_server.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "tests/test_console_server.py",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "A populated browser shell opens on current-object facts and next-step actions before decorative hero treatment or copy-heavy guidance.",
+          "notes": [
+            "Mission drafting, presets, and clone support should remain accessible, but they should no longer dominate the first live operating view.",
+            "Empty or first-run states may keep richer onboarding treatment; populated states should not."
+          ]
+        },
+        {
+          "id": "L13.3",
+          "title": "Promote the topbar context into a persistent object rail that preserves mission, evidence, story, and route handoff across stages",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+            "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "datapulse/console_server.py",
+            "tests/test_console_server.py",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "Moving from mission to evidence to story to route no longer feels like opening disconnected desks; one visible handoff chain remains in view.",
+          "notes": [
+            "Saved views, deep links, and command palette remain accelerators rather than becoming the primary object-memory system.",
+            "Reversible mutations should return operators to the same object context unless the mutation explicitly promotes the work to a new stage."
+          ]
+        },
+        {
+          "id": "L13.4",
+          "title": "Normalize desktop workspaces into stable list-detail-support panes for mission, review, story, and delivery handling",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py",
+            "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "tests/test_console_server.py",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "Desktop work no longer depends on repeated full-page scroll traversal for mission, triage, story, and delivery handling.",
+          "notes": [
+            "Selection-heavy flows should prefer stable pane relationships over stacked report-style page sections.",
+            "Preserve list scroll position and detail focus after state mutations where possible."
+          ]
+        },
+        {
+          "id": "L13.5",
+          "title": "Tighten the review-story evidence lane and split story workspace into board and editor modes",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+            "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_story.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "datapulse/console_server.py",
+            "tests/test_console_server.py",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "Operators can promote evidence into narrative work without reselecting context or parsing one long story report surface.",
+          "notes": [
+            "Treat triage-to-story movement as one evidence lane rather than two loosely adjacent pages.",
+            "Story board and story editor modes should be explicit enough to reduce long-form detail sprawl."
+          ]
+        },
+        {
+          "id": "L13.6",
+          "title": "Compress populated-workspace control density so chips summarize state and one dominant action stays legible",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py",
+            "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "docs/brand_identity.md",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "Populated cards and workspaces scan faster, with less instructional reading and less control-priority flattening.",
+          "notes": [
+            "Chips should summarize state more often than they create peer-level button walls.",
+            "Instructional prose should collapse once the relevant workspace already contains real operational data."
+          ]
+        },
+        {
+          "id": "L13.7",
+          "title": "Harden verification for live-desk behavior, object-rail persistence, pane stability, and mobile one-task posture",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "bash scripts/datapulse_console_smoke.sh",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+            "uv run --with playwright python scripts/datapulse_console_browser_smoke.py",
+            "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+          ],
+          "artifacts": [
+            "scripts/datapulse_console_smoke.sh",
+            "scripts/datapulse_console_browser_smoke.py",
+            "tests/test_console_server.py",
+            "datapulse/console_markup.py"
+          ],
+          "exit_condition": "The next workbench refactor wave has regression coverage for the new object-first operating model before another round of shell expansion lands.",
+          "notes": [
+            "Add browser-level assertions for populated-intake behavior, current-object rail persistence, pane-mode stability, and story editor transitions.",
+            "Protect mobile one-dominant-pane behavior before further populated-state refactors land."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "L11.4",
-    "title": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
-    "reason": "Derived from the next open slice in the working copy."
+    "id": "no-open-slice",
+    "title": "No open slice",
+    "reason": "All current slices are completed in this working copy."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-11T11:08:59Z",
+      "slice_id": "L13.7",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-11T09:11:07Z",
+      "slice_id": "L13.4",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-11T09:27:23Z",
+      "slice_id": "L13.5",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-08T18:44:24Z",
       "slice_id": "L9.6",
@@ -1388,15 +1715,71 @@
       "at_utc": "2026-03-10T06:23:45Z",
       "slice_id": "L11.3",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-10T06:39:52Z",
+      "slice_id": "L11.4",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-10T07:08:42Z",
+      "slice_id": "L11.5",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-10T13:43:23Z",
+      "slice_id": "L12.1",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-10T14:03:55Z",
+      "slice_id": "L12.2",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-10T14:23:23Z",
+      "slice_id": "L12.3",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-10T14:41:56Z",
+      "slice_id": "L12.4",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-10T14:50:33Z",
+      "slice_id": "L12.5",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-10T15:17:54Z",
+      "slice_id": "L12.6",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-11T08:06:11Z",
+      "slice_id": "L13.1",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-11T08:06:11Z",
+      "slice_id": "L13.2",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-11T08:28:49Z",
+      "slice_id": "L13.3",
+      "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-10T06:23:45Z",
+  "last_updated_utc": "2026-03-11T11:08:59Z",
   "governance_mode": {
-    "kind": "active_manual_waiting_ignition",
+    "kind": "active_manual_complete",
     "notes": [
-      "This overlay activates the repository blueprint truth while keeping loop progression in manual handoff mode.",
-      "The repository-governance auto-continuation policy file remains available but disabled until an operator explicitly re-enables it.",
-      "Use scripts/governance/ignite_datapulse_codex_loop.sh when you want to start the local mutable companion loop."
+      "This overlay keeps the repository blueprint truth active while leaving continuation in explicit manual mode.",
+      "All currently declared slices are completed; the derived next slice is no-open-slice.",
+      "The repository is already at ci_proven for the current HEAD, so no additional ignition is required until a new slice is added or reopened.",
+      "Use scripts/governance/ignite_datapulse_codex_loop.sh only after a future slice is opened or a completed slice is intentionally reopened."
     ]
   },
   "_overlay_path": "/Users/sunyifei/DataPulse/docs/governance/datapulse-blueprint-plan.json",

@@ -1,7 +1,7 @@
 {
   "schema_version": "release_readiness_fact.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-10T06:25:59Z",
+  "generated_at_utc": "2026-03-11T11:48:05Z",
   "fact_kind": "draft_export",
   "wired": false,
   "source_emergency_state": {

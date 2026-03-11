@@ -1,19 +1,19 @@
 {
   "valid": true,
   "schema_version": "governance_loop_activation_preview.v1",
-  "generated_at_utc": "2026-03-07T10:48:28Z",
+  "generated_at_utc": "2026-03-11T11:42:17Z",
   "project": "DataPulse",
   "source_activation_plan": {
-    "bundle_dir": "out/release_bundle",
-    "manifest_path": "out/release_bundle/adapter_bundle_manifest.draft.json"
+    "bundle_dir": "out/ha_latest_release_bundle",
+    "manifest_path": "out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json"
   },
   "source_activation_intent": {
-    "bundle_dir": "out/release_bundle",
-    "manifest_path": "out/release_bundle/adapter_bundle_manifest.draft.json"
+    "bundle_dir": "out/ha_latest_release_bundle",
+    "manifest_path": "out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json"
   },
   "preview_status": {
-    "status": "no_repo_governance_cutover_required",
-    "reason": "no_open_repo_targets",
+    "status": "repo_cutover_defined_waiting_runtime_window",
+    "reason": "runtime_cutover_window_open",
     "ready_for_repo_cutover": true,
     "cutover_now_recommended": false
   },
@@ -26,28 +26,40 @@
     "remaining_project_adapter_gaps": [],
     "remaining_repo_governance_gaps": [],
     "remaining_runtime_blockers": [
-      "docs_only_changes_skip_ci",
-      "latest_local_smoke_failed",
       "repo_landed_false",
       "workspace_dirty"
     ],
     "trusted_pipeline_bar_after_cutover": false
   },
-  "repo_governance_bindings": [],
+  "repo_governance_bindings": [
+    {
+      "surface_id": "repo_auto_continuation_policy",
+      "binding_status": "pending_design",
+      "binding_kind": "auto_continuation_policy",
+      "suggested_binding": "scheduler_or_followup_dispatch",
+      "required_for": [
+        "continuous_when_healthy",
+        "trusted_delivery_pipeline"
+      ],
+      "from_signals": [
+        "auto_continuation_not_enabled",
+        "manual_handoff_still_required"
+      ],
+      "suggested_artifacts": [
+        "out/ha_latest_release_bundle/blueprint_plan.snapshot.json",
+        "scripts/governance/run_governance_loop_bundle_draft.py",
+        "repository workflow, scheduler, or explicit loop trigger entrypoint"
+      ],
+      "notes": [
+        "Auto-continuation should react only after machine blockers clear.",
+        "Manual relay should remain explicit until the repo-governance cutover is approved."
+      ]
+    }
+  ],
   "project_adapter_prerequisites": [],
   "runtime_cutover_window": {
     "status": "open",
     "facts": [
-      {
-        "fact": "docs_only_changes_skip_ci",
-        "category": "policy_constraint",
-        "summary": "Current CI policy skips docs-only changes, so promotion truth must treat the absence of CI evidence explicitly."
-      },
-      {
-        "fact": "latest_local_smoke_failed",
-        "category": "local_verification",
-        "summary": "The latest local smoke evidence is failing and should remain a runtime blocker, not a core coupling point."
-      },
       {
         "fact": "repo_landed_false",
         "category": "derived_promotion_gate",
