@@ -3748,7 +3748,11 @@ def render_console_html(title: str) -> str:
     }}
 
     function parseDelimitedInput(value) {{
-      return uniqueValues(String(value || "").split(/[,\n]/g));
+      return uniqueValues(
+        String(value || "")
+          .split(",")
+          .flatMap((value) => value.split(String.fromCharCode(10)).map((value) => value.replace(String.fromCharCode(13), "")))
+      );
     }}
 
     function getClaimCardLabel(claim) {{

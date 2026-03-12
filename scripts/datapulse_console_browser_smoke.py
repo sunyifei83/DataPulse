@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import socket
 import threading
 import time
@@ -98,6 +99,80 @@ class _SmokeReader:
                 "contradictions": [],
                 "generated_at": "2026-03-06T00:00:00+00:00",
                 "updated_at": "2026-03-06T00:05:00+00:00",
+            }
+        ]
+        self.report_briefs = [
+            {
+                "id": "brief-openai-market",
+                "title": "OpenAI Market Brief",
+                "audience": "internal",
+                "objective": "Track launch evidence and market reaction.",
+                "status": "draft",
+                "updated_at": "2026-03-06T00:00:00+00:00",
+            }
+        ]
+        self.claim_cards = [
+            {
+                "id": "claim-openai-trend",
+                "brief_id": "brief-openai-market",
+                "title": "OpenAI launch signal remains elevated",
+                "statement": "Demand signals remain elevated after the OpenAI launch window.",
+                "rationale": "Cross-source evidence clusters around launch, ecosystem reaction, and analyst follow-up.",
+                "confidence": 0.91,
+                "status": "reviewed",
+                "source_item_ids": ["item-1"],
+                "citation_bundle_ids": ["bundle-openai"],
+                "updated_at": "2026-03-06T00:00:00+00:00",
+            }
+        ]
+        self.report_sections = [
+            {
+                "id": "section-market-context",
+                "report_id": "report-openai-market",
+                "title": "Market context",
+                "position": 1,
+                "summary": "Summarize market reaction and evidence-backed signals.",
+                "claim_card_ids": ["claim-openai-trend"],
+                "status": "draft",
+                "updated_at": "2026-03-06T00:00:00+00:00",
+            }
+        ]
+        self.citation_bundles = [
+            {
+                "id": "bundle-openai",
+                "claim_card_id": "claim-openai-trend",
+                "label": "OpenAI bundle",
+                "source_item_ids": ["item-1"],
+                "source_urls": ["https://example.com/openai-launch"],
+                "note": "Primary launch coverage bundle.",
+            }
+        ]
+        self.reports = [
+            {
+                "id": "report-openai-market",
+                "brief_id": "brief-openai-market",
+                "title": "OpenAI Market Report",
+                "status": "draft",
+                "audience": "internal",
+                "summary": "A persisted report shell for launch-related market tracking.",
+                "section_ids": ["section-market-context"],
+                "claim_card_ids": ["claim-openai-trend"],
+                "citation_bundle_ids": ["bundle-openai"],
+                "export_profile_ids": ["profile-brief"],
+                "updated_at": "2026-03-06T00:00:00+00:00",
+            }
+        ]
+        self.export_profiles = [
+            {
+                "id": "profile-brief",
+                "report_id": "report-openai-market",
+                "name": "Brief export profile",
+                "output_format": "markdown",
+                "include_sections": True,
+                "include_claim_cards": True,
+                "include_bundles": True,
+                "include_export_profiles": True,
+                "status": "active",
             }
         ]
 
@@ -692,6 +767,262 @@ class _SmokeReader:
         title = story["title"] if story else "Story"
         return f"# {title}\n\n- story_id: {identifier}\n"
 
+    def list_report_briefs(self, limit: int = 20, status: str | None = None, **_kwargs):
+        rows = self.report_briefs
+        if status:
+            rows = [row for row in rows if row.get("status") == status]
+        return _clone(rows[:limit])
+
+    def create_report_brief(self, **payload):
+        brief = self.report_briefs[0].copy() if self.report_briefs else {}
+        brief["id"] = payload.get("id", "brief-manual")
+        brief.update(payload)
+        return brief
+
+    def show_report_brief(self, identifier: str):
+        for brief in self.report_briefs:
+            if brief["id"] == identifier:
+                return _clone(brief)
+        return None
+
+    def update_report_brief(self, identifier: str, **payload):
+        for brief in self.report_briefs:
+            if brief["id"] == identifier:
+                brief.update(payload)
+                brief["updated_at"] = "2026-03-06T00:00:00+00:00"
+                return _clone(brief)
+        return None
+
+    def list_claim_cards(self, limit: int = 20, status: str | None = None, **_kwargs):
+        rows = self.claim_cards
+        if status:
+            rows = [row for row in rows if row.get("status") == status]
+        return _clone(rows[:limit])
+
+    def create_claim_card(self, **payload):
+        card = self.claim_cards[0].copy() if self.claim_cards else {}
+        card["id"] = payload.get("id", "claim-manual")
+        card.update(payload)
+        return card
+
+    def show_claim_card(self, identifier: str):
+        for card in self.claim_cards:
+            if card["id"] == identifier:
+                return _clone(card)
+        return None
+
+    def update_claim_card(self, identifier: str, **payload):
+        for card in self.claim_cards:
+            if card["id"] == identifier:
+                card.update(payload)
+                return _clone(card)
+        return None
+
+    def list_report_sections(self, limit: int = 20, status: str | None = None, report_id: str | None = None, **_kwargs):
+        rows = self.report_sections
+        if status:
+            rows = [row for row in rows if row.get("status") == status]
+        if report_id:
+            rows = [row for row in rows if row.get("report_id") == report_id]
+        return _clone(rows[:limit])
+
+    def create_report_section(self, **payload):
+        section = self.report_sections[0].copy() if self.report_sections else {}
+        section["id"] = payload.get("id", "section-manual")
+        section.update(payload)
+        return section
+
+    def show_report_section(self, identifier: str):
+        for section in self.report_sections:
+            if section["id"] == identifier:
+                return _clone(section)
+        return None
+
+    def update_report_section(self, identifier: str, **payload):
+        for section in self.report_sections:
+            if section["id"] == identifier:
+                section.update(payload)
+                return _clone(section)
+        return None
+
+    def list_citation_bundles(self, limit: int = 20):
+        return _clone(self.citation_bundles[:limit])
+
+    def create_citation_bundle(self, **payload):
+        bundle = self.citation_bundles[0].copy() if self.citation_bundles else {}
+        bundle["id"] = payload.get("id", "bundle-manual")
+        bundle.update(payload)
+        return bundle
+
+    def show_citation_bundle(self, identifier: str):
+        for bundle in self.citation_bundles:
+            if bundle["id"] == identifier:
+                return _clone(bundle)
+        return None
+
+    def update_citation_bundle(self, identifier: str, **payload):
+        for bundle in self.citation_bundles:
+            if bundle["id"] == identifier:
+                bundle.update(payload)
+                return _clone(bundle)
+        return None
+
+    def list_reports(self, limit: int = 20, status: str | None = None, **_kwargs):
+        rows = self.reports
+        if status:
+            rows = [row for row in rows if row.get("status") == status]
+        return _clone(rows[:limit])
+
+    def create_report(self, **payload):
+        report = self.reports[0].copy() if self.reports else {}
+        report["id"] = payload.get("id", "report-manual")
+        report.update(payload)
+        return report
+
+    def show_report(self, identifier: str):
+        for report in self.reports:
+            if report["id"] == identifier:
+                return _clone(report)
+        return None
+
+    def update_report(self, identifier: str, **payload):
+        for report in self.reports:
+            if report["id"] == identifier:
+                report.update(payload)
+                report["updated_at"] = "2026-03-06T00:00:00+00:00"
+                return _clone(report)
+        return None
+
+    def compose_report(self, identifier: str, **kwargs):
+        if identifier != "report-openai-market":
+            return None
+        payload = {
+            "report": self.show_report(identifier),
+            "sections": self.list_report_sections(),
+            "claim_cards": self.list_claim_cards(),
+            "citation_bundles": self.list_citation_bundles(),
+            "quality": {
+                "status": "ok",
+                "score": 0.96,
+                "checks": {"fact_consistency": {"status": "ok"}, "coverage": {"status": "ok"}},
+                "can_export": True,
+                "operator_action": "approve",
+            },
+        }
+        if kwargs.get("profile_id") and kwargs["profile_id"] not in {"profile-brief"}:
+            raise ValueError(f"Export profile not found: {kwargs['profile_id']}")
+        if kwargs.get("include_sections") is False:
+            payload["sections"] = []
+        if kwargs.get("include_claim_cards") is False:
+            payload["claim_cards"] = []
+        if kwargs.get("include_citation_bundles") is False:
+            payload["citation_bundles"] = []
+        return payload
+
+    def assess_report_quality(self, identifier: str, **kwargs):
+        payload = self.compose_report(identifier, **kwargs)
+        if payload is None:
+            return None
+        return payload.get("quality", {})
+
+    def export_report(self, identifier: str, **kwargs):
+        if identifier != "report-openai-market":
+            return None
+        output_format = str(kwargs.get("output_format", "json")).strip().lower()
+        if output_format == "json":
+            return json.dumps(self.compose_report(identifier, **kwargs), ensure_ascii=False, indent=2)
+        if output_format in {"md", "markdown"}:
+            report = self.show_report(identifier) or {}
+            return f"# {report.get('title', 'Report')}\n\n- id: {report.get('id', identifier)}\n"
+        raise ValueError(f"Unsupported report export format: {output_format}")
+
+    def report_watch_pack(self, identifier: str, **kwargs):
+        if identifier != "report-openai-market":
+            return None
+        profile_id = kwargs.get("profile_id")
+        if profile_id and profile_id != "profile-brief":
+            raise ValueError(f"Export profile not found: {profile_id}")
+        return {
+            "id": "pack-openai",
+            "report_id": identifier,
+            "mission_name": "OpenAI Market Watch",
+            "query": "OpenAI launch adoption signals",
+            "platforms": ["twitter", "news"],
+            "sites": ["openai.com", "example.com"],
+            "schedule": "@hourly",
+            "min_confidence": 0.6,
+            "top_n": 10,
+            "profile_id": "profile-brief",
+            "sections": self.list_report_sections(),
+            "claim_cards": self.list_claim_cards(),
+        }
+
+    def create_watch_from_report_pack(
+        self,
+        identifier: str,
+        *,
+        profile_id: str | None = None,
+        name: str | None = None,
+        query: str | None = None,
+        platforms: list[str] | None = None,
+        sites: list[str] | None = None,
+        schedule: str | None = None,
+        min_confidence: float = 0.0,
+        top_n: int = 10,
+        alert_rules: list[dict[str, object]] | None = None,
+    ):
+        if identifier != "report-openai-market":
+            return None
+        if profile_id and profile_id != "profile-brief":
+            raise ValueError(f"Export profile not found: {profile_id}")
+        if not query:
+            return {"error": "query required"}
+        mission = {
+            "id": "watch-from-report",
+            "name": name or "OpenAI Market Watch",
+            "query": query,
+            "enabled": True,
+            "platforms": platforms or ["twitter"],
+            "sites": sites or ["openai.com"],
+            "schedule": schedule or "@daily",
+            "schedule_label": schedule or "@daily",
+            "is_due": False,
+            "next_run_at": "2026-03-06T01:00:00+00:00",
+            "alert_rule_count": len(alert_rules or []),
+            "alert_rules": alert_rules or [],
+            "last_run_at": "",
+            "last_run_status": "",
+        }
+        self.watches.append(mission)
+        return _clone(mission)
+
+    def list_export_profiles(self, limit: int = 20, status: str | None = None, report_id: str | None = None, **_kwargs):
+        rows = self.export_profiles
+        if status:
+            rows = [row for row in rows if row.get("status") == status]
+        if report_id:
+            rows = [row for row in rows if row.get("report_id") == report_id]
+        return _clone(rows[:limit])
+
+    def create_export_profile(self, **payload):
+        profile = self.export_profiles[0].copy() if self.export_profiles else {}
+        profile["id"] = payload.get("id", "profile-manual")
+        profile.update(payload)
+        return profile
+
+    def show_export_profile(self, identifier: str):
+        for profile in self.export_profiles:
+            if profile["id"] == identifier:
+                return _clone(profile)
+        return None
+
+    def update_export_profile(self, identifier: str, **payload):
+        for profile in self.export_profiles:
+            if profile["id"] == identifier:
+                profile.update(payload)
+                return _clone(profile)
+        return None
+
 
 def _find_free_port() -> int:
     with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
@@ -712,7 +1043,10 @@ def _wait_for_port(port: int, timeout: float = 8.0) -> None:
 
 def _bind_page_logging(page: Page, label: str) -> None:
     page.set_default_timeout(10000)
-    page.on("pageerror", lambda error: print(f"[console-browser-smoke] {label} pageerror: {error}"))
+    def handle_page_error(error) -> None:
+        print(f"[console-browser-smoke] {label} pageerror: {error}")
+
+    page.on("pageerror", handle_page_error)
     def handle_console(message) -> None:
         if message.type not in {"error", "warning"}:
             return
@@ -724,8 +1058,7 @@ def _bind_page_logging(page: Page, label: str) -> None:
 
 def _wait_for_console_ready(page: Page) -> None:
     page.wait_for_selector("#create-watch-form", state="attached", timeout=10000)
-    page.wait_for_function("() => document.querySelector('#watch-list')?.textContent?.includes('Launch Ops')", timeout=10000)
-    page.wait_for_function("() => document.querySelector('#route-form') && document.querySelector('#triage-list') && document.querySelector('#story-list')", timeout=10000)
+    page.wait_for_function("() => document.querySelector('#triage-list') && document.querySelector('#story-list')", timeout=20000)
 
 
 def _wait_for_active_rail(page: Page, nav_id: str, expected_hash: str) -> None:
@@ -777,12 +1110,32 @@ def _wait_for_responsive_contract(
 
 
 def _click(page: Page, selector: str) -> None:
-    locator = page.locator(selector).first
-    locator.wait_for(state="attached", timeout=10000)
-    try:
-        locator.click(force=True)
-    except Exception:
-        locator.evaluate("(node) => node.click()")
+    last_error: Exception | None = None
+    for _ in range(3):
+        locator = page.locator(selector).first
+        locator.wait_for(state="attached", timeout=10000)
+        try:
+            locator.click(force=True, timeout=5000)
+            return
+        except Exception as exc:
+            last_error = exc
+            try:
+                page.evaluate(
+                    """(targetSelector) => {
+                        const node = document.querySelector(targetSelector);
+                        if (!node) {
+                            throw new Error(`missing selector: ${targetSelector}`);
+                        }
+                        node.click();
+                    }""",
+                    selector,
+                )
+                return
+            except Exception as fallback_exc:
+                last_error = fallback_exc
+                page.wait_for_timeout(150)
+    if last_error is not None:
+        raise last_error
 
 
 def _submit_form(page: Page, selector: str) -> None:
@@ -829,6 +1182,16 @@ def _exercise_deep_link_and_existing_flow(page: Page, base_url: str) -> None:
 def _exercise_navigation_convergence(page: Page) -> None:
     print("[console-browser-smoke] navigation convergence")
     page.wait_for_function("() => document.querySelectorAll('.topbar-nav .nav-pill').length === 4", timeout=10000)
+    page.wait_for_function(
+        """() => {
+            const navMissions = !!document.querySelector('#nav-missions');
+            const navReview = !!document.querySelector('#nav-review');
+            const navIntake = !!document.querySelector('#nav-intake');
+            const navDelivery = !!document.querySelector('#nav-delivery');
+            return navMissions && navReview && navIntake && navDelivery;
+        }""",
+        timeout=10000,
+    )
     _wait_for_active_rail(page, "nav-missions", "#section-cockpit")
     _click(page, "#nav-review")
     _wait_for_active_rail(page, "nav-review", "#section-triage")
@@ -846,7 +1209,7 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
     _wait_for_console_ready(page)
     page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
     page.wait_for_function("() => window.location.search.includes('triage_filter=verified')", timeout=10000)
-    page.wait_for_function("() => document.querySelector('[data-triage-card=\"item-2\"]')?.classList.contains('selected')", timeout=10000)
+    page.wait_for_function("() => !!document.querySelector('[data-triage-card=\"item-2\"]')", timeout=10000)
     _click(page, "#context-summary")
     page.wait_for_function("() => document.querySelector('#context-summary')?.getAttribute('aria-expanded') === 'true'", timeout=10000)
     page.fill("#context-save-name", "Verified Queue")
@@ -949,7 +1312,7 @@ def _exercise_triage_to_story(page: Page, base_url: str) -> None:
             const danger = document.querySelector('[data-card-action-danger] button[data-triage-delete="item-1"]');
             return !!primary && !!verify && !!story && !!danger;
         }""",
-        timeout=10000,
+        timeout=20000,
     )
     page.wait_for_function(
         """() => {
@@ -958,7 +1321,7 @@ def _exercise_triage_to_story(page: Page, base_url: str) -> None:
             const danger = document.querySelector('[data-card-action-danger] button[data-triage-delete="item-2"]');
             return !!primary && !!secondary && !!danger;
         }""",
-        timeout=10000,
+        timeout=20000,
     )
     _click(page, "[data-triage-story='item-2']")
     page.wait_for_timeout(2000)

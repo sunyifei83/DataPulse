@@ -1526,6 +1526,7 @@ def test_console_report_routes():
     show_report = client.get("/api/reports/report-openai-market")
     update_report = client.put("/api/reports/report-openai-market", json={"status": "ready"})
     compose = client.post("/api/reports/report-openai-market/compose", json={"profile_id": "profile-brief"})
+    compose_view = client.get("/api/reports/report-openai-market/compose?profile_id=profile-brief")
     quality = client.get("/api/reports/report-openai-market/quality?profile_id=profile-brief")
     export_json = client.get("/api/reports/report-openai-market/export?output_format=json&profile_id=profile-brief")
     export_markdown = client.get("/api/reports/report-openai-market/export?output_format=markdown&profile_id=profile-brief")
@@ -1581,6 +1582,8 @@ def test_console_report_routes():
     assert update_report.json()["status"] == "ready"
     assert compose.status_code == 200
     assert compose.json()["report"]["id"] == "report-openai-market"
+    assert compose_view.status_code == 200
+    assert compose_view.json()["report"]["id"] == "report-openai-market"
     assert quality.status_code == 200
     assert quality.json()["status"] == "ok"
     assert export_json.status_code == 200

@@ -570,6 +570,25 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
             raise HTTPException(status_code=404, detail=f"Report not found: {identifier}")
         return report
 
+    @app.get("/api/reports/{identifier}/compose")
+    def compose_report_view(
+        identifier: str,
+        profile_id: str | None = None,
+        include_sections: bool | None = None,
+        include_claim_cards: bool | None = None,
+        include_citation_bundles: bool | None = None,
+    ) -> dict[str, Any]:
+        quality_payload = reader_factory().compose_report(
+            identifier,
+            profile_id=profile_id,
+            include_sections=include_sections,
+            include_claim_cards=include_claim_cards,
+            include_citation_bundles=include_citation_bundles,
+        )
+        if quality_payload is None:
+            raise HTTPException(status_code=404, detail=f"Report not found: {identifier}")
+        return quality_payload
+
     @app.get("/api/reports/{identifier}/quality")
     def report_quality(
         identifier: str,
