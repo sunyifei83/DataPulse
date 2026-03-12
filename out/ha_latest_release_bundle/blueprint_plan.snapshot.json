@@ -2,8 +2,8 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-11T11:37:00Z",
-  "status": "completed",
+  "generated_at_utc": "2026-03-12T23:50:00Z",
+  "status": "in_progress",
   "activation": {
     "wired": true,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -130,7 +130,8 @@
     "L10": "completed",
     "L11": "completed",
     "L12": "completed",
-    "L13": "completed"
+    "L13": "completed",
+    "L14": "completed"
   },
   "phases": [
     {
@@ -1638,14 +1639,247 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L14",
+      "title": "Research OS Report Production Blueprint And Follow-up",
+      "goal": "Extend the lifecycle-complete intelligence console with a structured report-production layer above Story so DataPulse can assemble, gate, and export reusable research assets instead of stopping at story export.",
+      "status": "in_progress",
+      "slices": [
+        {
+          "id": "L14.1",
+          "title": "Promote the repo-scoped Research OS report-production blueprint and manual ignition map into repository truth",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-research-os-report-production-blueprint.md",
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "exit_condition": "The repository contains a repo-scoped report-production blueprint and the active blueprint path exposes a new next manual ignition target beyond the completed console workbench wave.",
+          "notes": [
+            "This slice promotes the latest Research OS judgment into repo truth instead of leaving it as chat-only or Obsidian-only context.",
+            "The promoted map must stay additive to the Reader-backed lifecycle rather than reopening the console as a second product."
+          ]
+        },
+        {
+          "id": "L14.2",
+          "title": "Extend the lifecycle contract and roadmap with report-layer nouns, stage mapping, and invariants",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+            "grep -En 'ReportBrief|ClaimCard|ReportSection|CitationBundle|ExportProfile' docs/intelligence_lifecycle_contract.md docs/gui_intelligence_console_plan.md docs/governance/datapulse-research-os-report-production-blueprint.md"
+          ],
+          "artifacts": [
+            "docs/intelligence_lifecycle_contract.md",
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-research-os-report-production-blueprint.md"
+          ],
+          "exit_condition": "The repo has one explicit contract of record for how Story, report-layer objects, and report export relate, without treating report work as ad hoc story export.",
+          "notes": [
+            "Preserve Story as the evidence package layer and extend the lifecycle above it rather than redefining existing nouns.",
+            "This slice should define invariants and stage mapping before core models or browser work lands."
+          ]
+        },
+        {
+          "id": "L14.3",
+          "title": "Add report-layer core objects and persistence without introducing GUI-only state",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/core/report.py datapulse/reader.py",
+            "uv run pytest tests/test_report.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/report.py",
+            "datapulse/reader.py",
+            "tests/test_report.py"
+          ],
+          "exit_condition": "Report objects can be created, loaded, updated, and listed through repo-core persistence without being hidden inside Story strings or browser-local state.",
+          "notes": [
+            "Start with ReportBrief, ClaimCard, ReportSection, CitationBundle, Report, and ExportProfile as first-class repo objects.",
+            "Keep persistence additive to current story storage instead of coupling reports into UI drafts."
+          ]
+        },
+        {
+          "id": "L14.4",
+          "title": "Add claim composition, citation bundles, and report quality guardrails in core",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/core/report.py datapulse/reader.py",
+            "uv run pytest tests/test_report.py tests/test_story.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/report.py",
+            "datapulse/reader.py",
+            "tests/test_report.py"
+          ],
+          "exit_condition": "Report assembly can evaluate claim-source binding, section coverage, contradictions, and export gates in core logic before any browser composition surface depends on it.",
+          "notes": [
+            "Treat uncited claims, single-source sections, freshness gaps, and unresolved contradictions as operator-visible guardrail outputs.",
+            "Do not hide quality or provenance checks inside one opaque export renderer."
+          ]
+        },
+        {
+          "id": "L14.5",
+          "title": "Expose report CRUD, compose, quality, and export through Reader, CLI, MCP, and HTTP API surfaces",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/reader.py datapulse/cli.py datapulse/mcp_server.py datapulse/console_server.py",
+            "uv run pytest tests/test_console_server.py tests/test_report.py -q"
+          ],
+          "artifacts": [
+            "datapulse/reader.py",
+            "datapulse/cli.py",
+            "datapulse/mcp_server.py",
+            "datapulse/console_server.py",
+            "tests/test_console_server.py",
+            "tests/test_report.py"
+          ],
+          "exit_condition": "Report-layer nouns are available through the same Reader-backed surfaces used by CLI, MCP, and browser flows rather than being trapped behind one UI path.",
+          "notes": [
+            "Add report CRUD plus compose, quality-preview, and export endpoints without forking naming or status semantics by surface.",
+            "Keep browser work dependent on the same Reader-backed report APIs."
+          ]
+        },
+        {
+          "id": "L14.6",
+          "title": "Add browser Claim Composer and Report Studio workspaces inside the current console shell",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+            "uv run pytest tests/test_console_server.py tests/test_report.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "datapulse/console_server.py",
+            "docs/gui_intelligence_console_plan.md",
+            "tests/test_console_server.py",
+            "tests/test_report.py"
+          ],
+          "exit_condition": "Operators can compose claims into report sections and inspect quality guardrails in the browser without introducing a second frontend product or browser-only report state.",
+          "notes": [
+            "Stay inside the current console shell and current Reader-backed contract.",
+            "The browser should project persisted claim and report objects rather than simulating them locally."
+          ]
+        },
+        {
+          "id": "L14.7",
+          "title": "Add brief, full, sources, and watch-pack export profiles plus report-to-watch feedback hooks",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/core/report.py datapulse/reader.py datapulse/console_server.py",
+            "uv run pytest tests/test_report.py tests/test_watchlist.py tests/test_console_server.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/report.py",
+            "datapulse/reader.py",
+            "datapulse/console_server.py",
+            "tests/test_report.py",
+            "tests/test_watchlist.py"
+          ],
+          "exit_condition": "One report object can emit reusable brief, full, source-pack, and watch-pack outputs, and the watch-pack path can feed follow-up mission refinement without manual copy-paste.",
+          "notes": [
+            "Treat export profiles as reusable report assets rather than alternate skins over one Markdown blob.",
+            "The watch-pack path should stay additive to current mission creation semantics."
+          ]
+        },
+        {
+          "id": "L14.8",
+          "title": "Harden verification for report persistence, claim traceability, quality gates, and end-to-end export flows",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "bash scripts/datapulse_console_smoke.sh",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+            "uv run --with playwright python scripts/datapulse_console_browser_smoke.py",
+            "uv run pytest tests/test_console_server.py tests/test_report.py tests/test_story.py tests/test_watchlist.py -q"
+          ],
+          "artifacts": [
+            "scripts/datapulse_console_smoke.sh",
+            "scripts/datapulse_console_browser_smoke.py",
+            "tests/test_console_server.py",
+            "tests/test_report.py",
+            "datapulse/console_markup.py",
+            "datapulse/console_server.py"
+          ],
+          "exit_condition": "The new report layer has regression coverage for persistence, claim-source traceability, guardrail blocking, export profiles, and browser composition flow before another expansion wave lands.",
+          "notes": [
+            "Prefer high-signal end-to-end assertions over brittle snapshots.",
+            "Protect claim traceability and export safety before tuning richer editorial affordances."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
     "id": "no-open-slice",
     "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
+    "category": "complete",
+    "reason": "All current blueprint slices are completed."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-12T23:50:00Z",
+      "slice_id": "L14.8",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-12T23:45:00Z",
+      "slice_id": "L14.7",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-12T22:00:00Z",
+      "slice_id": "L14.5",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-12T08:47:32Z",
+      "slice_id": "L14.6",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-12T14:05:00Z",
+      "slice_id": "L14.4",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-12T05:49:47Z",
+      "slice_id": "L14.2",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-12T11:20:31Z",
+      "slice_id": "L14.3",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-11T11:08:59Z",
       "slice_id": "L13.7",
@@ -1770,16 +2004,22 @@
       "at_utc": "2026-03-11T08:28:49Z",
       "slice_id": "L13.3",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-12T04:17:51Z",
+      "slice_id": "L14.1",
+      "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-11T11:08:59Z",
+  "last_updated_utc": "2026-03-12T23:50:00Z",
   "governance_mode": {
-    "kind": "active_manual_complete",
+    "kind": "active_manual_no_open_slice",
     "notes": [
       "This overlay keeps the repository blueprint truth active while leaving continuation in explicit manual mode.",
-      "All currently declared slices are completed; the derived next slice is no-open-slice.",
-      "The repository is already at ci_proven for the current HEAD, so no additional ignition is required until a new slice is added or reopened.",
-      "Use scripts/governance/ignite_datapulse_codex_loop.sh only after a future slice is opened or a completed slice is intentionally reopened."
+      "A new report-production follow-up wave is now promoted into the active blueprint truth.",
+      "L14.8 has landed; browser smoke now covers persisted report briefs, claim cards, report sections, citation bundles, compose flow, and export/watch feedback paths.",
+      "The derived next slice now resolves to no-open-slice because every currently declared L14 report-production slice is completed.",
+      "Further work requires explicitly promoting a new blueprint slice before another ignition run."
     ]
   },
   "_overlay_path": "/Users/sunyifei/DataPulse/docs/governance/datapulse-blueprint-plan.json",
