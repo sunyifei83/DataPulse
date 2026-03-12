@@ -184,3 +184,73 @@ def test_report_aux_objects_support_updates_and_reloads(tmp_path):
     assert reloaded_profile["output_format"] == "md"
     assert reloaded_report is not None
     assert reloaded_report["status"] == "draft"
+
+
+def test_report_assembly_surfaces_source_binding_and_section_coverage_gates(tmp_path):
+    reader = _reader(tmp_path)
+    report = reader.create_report(title="Assembly Gate Report", summary="Quality gate coverage.")
+    claim_with_source = reader.create_claim_card(
+        statement="Source-backed claim.",
+        brief_id="",
+        source_item_ids=["item-source-a"],
+    )
+    claim_unbound = reader.create_claim_card(
+        statement="Unbound claim.",
+        brief_id="",
+        citation_bundle_ids=["missing-bundle"],
+    )
+    section = reader.create_report_section(
+        report_id=report["id"],
+        title="Findings",
+        claim_card_ids=[claim_with_source["id"], claim_unbound["id"]],
+        position=1,
+    )
+    reader.update_report(
+        report["id"],
+        section_ids=[section["id"]],
+        claim_card_ids=[claim_with_source["id"], claim_unbound["id"]],
+    )
+
+    assembled = reader.assemble_report(report["id"])
+    assert assembled is not None
+    assert assembled["quality"]["status"] == "review_required"
+    assert assembled["quality"]["can_export"] is False
+    source_binding = assembled["quality"]["checks"]["claim_source"]
+    section_coverage = assembled["quality"]["checks"]["section_coverage"]
+    assert any(
+        item["kind"] == "uncited_claim"
+        for item in source_binding["issues"]
+    )
+    assert section_coverage["status"] == "pass"
+
+
+def test_report_assembly_blocks_export_on_contradiction_signals(tmp_path):
+    reader = _reader(tmp_path)
+    report = reader.create_report(title="Contradiction Report")
+    contradictory_claim = reader.create_claim_card(
+        statement="Conflicting claim has unresolved contradictions.",
+        brief_id="",
+        status="conflicted",
+        governance={
+            "contradictions": [
+                {"detail": "Conflicting source line observed in the same period.", "severity": "error"}
+            ],
+        },
+    )
+    section = reader.create_report_section(
+        report_id=report["id"],
+        title="Contradictions",
+        claim_card_ids=[contradictory_claim["id"]],
+        position=1,
+    )
+    reader.update_report(
+        report["id"],
+        section_ids=[section["id"]],
+        claim_card_ids=[contradictory_claim["id"]],
+    )
+
+    assembled = reader.assemble_report(report["id"])
+    assert assembled is not None
+    assert assembled["quality"]["status"] == "blocked"
+    assert assembled["quality"]["checks"]["contradictions"]["status"] == "blocked"
+    assert assembled["quality"]["checks"]["contradictions"]["entries"]

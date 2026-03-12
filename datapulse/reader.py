@@ -2283,6 +2283,23 @@ class DataPulseReader:
     def create_report(self, **payload: Any) -> dict[str, Any]:
         return self.report_store.create_report(payload).to_dict()
 
+    def assemble_report(
+        self,
+        identifier: str,
+        *,
+        include_sections: bool = True,
+        include_claim_cards: bool = True,
+        include_citation_bundles: bool = True,
+        include_export_profiles: bool = True,
+    ) -> dict[str, Any] | None:
+        return self.report_store.assemble_report(
+            identifier,
+            include_sections=include_sections,
+            include_claim_cards=include_claim_cards,
+            include_citation_bundles=include_citation_bundles,
+            include_export_profiles=include_export_profiles,
+        )
+
     def show_report(self, identifier: str) -> dict[str, Any] | None:
         report = self.report_store.get_report(identifier)
         return report.to_dict() if report is not None else None

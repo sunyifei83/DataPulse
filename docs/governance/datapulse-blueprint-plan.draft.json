@@ -1665,7 +1665,7 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "python3 -m py_compile datapulse/core/report.py datapulse/reader.py",
             "uv run pytest tests/test_report.py tests/test_story.py -q"
@@ -1785,11 +1785,16 @@
     }
   ],
     "recommended_next_slice": {
-        "id": "L14.4",
-        "title": "Add claim composition, citation bundles, and report quality guardrails in core",
-        "reason": "L14.3 has landed and introduced report-layer persistence."
+        "id": "L14.5",
+        "title": "Expose report CRUD, compose, quality, and export through Reader, CLI, MCP, and HTTP API surfaces",
+        "reason": "L14.4 landed with report composition and guardrails in core."
     },
     "progress_log": [
+        {
+            "at_utc": "2026-03-12T14:05:00Z",
+            "slice_id": "L14.4",
+            "status": "completed"
+        },
         {
             "at_utc": "2026-03-12T05:49:47Z",
             "slice_id": "L14.2",

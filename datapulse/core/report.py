@@ -595,3 +595,375 @@ class ReportStore:
             self._touch(current)
             self.save()
         return current
+
+    @staticmethod
+    def _normalize_dict_list(values: Any) -> list[dict[str, Any]]:
+        if not isinstance(values, list):
+            return []
+        normalized: list[dict[str, Any]] = []
+        for raw in values:
+            if not isinstance(raw, dict):
+                continue
+            normalized.append(raw)
+        return normalized
+
+    @staticmethod
+    def _extract_contradictions(raw: Any) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for row in ReportStore._normalize_dict_list(raw):
+            detail = str(row.get("detail", row.get("text", "") or "")).strip()
+            if not detail:
+                continue
+            severity = str(row.get("severity", "warning")).strip().lower() or "warning"
+            normalized.append(
+                {
+                    "detail": detail,
+                    "source": str(row.get("source", "governance")).strip() or "governance",
+                    "severity": severity if severity in {"info", "warning", "error"} else "warning",
+                },
+            )
+        if isinstance(raw, str):
+            detail = raw.strip()
+            if detail:
+                normalized.append({
+                    "detail": detail,
+                    "source": "governance",
+                    "severity": "warning",
+                })
+        return normalized
+
+    def assemble_report(
+        self,
+        identifier: str,
+        *,
+        include_sections: bool = True,
+        include_claim_cards: bool = True,
+        include_citation_bundles: bool = True,
+        include_export_profiles: bool = True,
+    ) -> dict[str, Any] | None:
+        report = self.get_report(identifier)
+        if report is None:
+            return None
+
+        section_map = {row.id: row for row in self.report_sections.values() if row.report_id == report.id}
+        claim_map = {row.id: row for row in self.claim_cards.values()}
+        bundle_map = {row.id: row for row in self.citation_bundles.values()}
+        profile_map = {row.id: row for row in self.export_profiles.values()}
+
+        ordered_sections = [section_map[section_id] for section_id in report.section_ids if section_id in section_map]
+        section_lookup = {row.id: row for row in ordered_sections}
+
+        section_ids_set = {row.id for row in ordered_sections}
+        section_claim_ids: set[str] = set()
+        for section in ordered_sections:
+            section_claim_ids.update(section.claim_card_ids)
+
+        missing_section_ids: list[str] = [
+            section_id for section_id in report.section_ids
+            if section_id not in section_ids_set
+        ]
+
+        ordered_claims = []
+        claim_ids = list(report.claim_card_ids)
+        if include_sections:
+            claim_ids = sorted(set(claim_ids) | section_claim_ids, key=lambda item: item)
+        claim_ids_seen: set[str] = set()
+        ordered_claims = []
+        for claim_id in claim_ids:
+            claim = claim_map.get(claim_id)
+            if claim is None:
+                continue
+            if claim.id in claim_ids_seen:
+                continue
+            claim_ids_seen.add(claim.id)
+            ordered_claims.append(claim)
+        claim_ids_seen_set = {row.id for row in ordered_claims}
+
+        used_bundle_ids: set[str] = set()
+        ordered_bundles: list[CitationBundle] = []
+        if include_citation_bundles:
+            bundle_ids: list[str] = []
+            for claim in ordered_claims:
+                for bundle_id in claim.citation_bundle_ids:
+                    if bundle_id in bundle_ids:
+                        continue
+                    bundle_ids.append(bundle_id)
+            for bundle_id in bundle_ids:
+                bundle = bundle_map.get(bundle_id)
+                if bundle is None:
+                    continue
+                used_bundle_ids.add(bundle.id)
+                ordered_bundles.append(bundle)
+
+        ordered_profiles: list[ExportProfile] = []
+        if include_export_profiles:
+            for profile_id in report.export_profile_ids:
+                profile = profile_map.get(profile_id)
+                if profile is not None:
+                    ordered_profiles.append(profile)
+
+        used_claim_ids = {claim.id for claim in ordered_claims}
+        section_claims_missing = sorted(
+            claim_id
+            for section in ordered_sections
+            for claim_id in section.claim_card_ids
+            if claim_id and claim_id not in used_claim_ids
+        )
+        section_without_claims = [
+            section.id for section in ordered_sections
+            if not [claim_id for claim_id in section.claim_card_ids if claim_id]
+        ]
+
+        report_claim_ids = [claim_id for claim_id in report.claim_card_ids if claim_id]
+        uncovered_report_claims = [
+            claim_id
+            for claim_id in report_claim_ids
+            if claim_id not in section_claim_ids
+        ]
+
+        claims_without_binding: list[str] = []
+        claim_bundle_issues: list[str] = []
+        for claim in ordered_claims:
+            has_direct_sources = bool(claim.source_item_ids)
+            referenced_bundles = [bundle_id for bundle_id in claim.citation_bundle_ids if bundle_id in bundle_map]
+            has_bundle_sources = any(
+                bool(bundle_map[bundle_id].source_item_ids or bundle_map[bundle_id].source_urls)
+                for bundle_id in referenced_bundles
+            ) if referenced_bundles else False
+            has_any_sources = has_direct_sources or has_bundle_sources
+            missing_bundles = [
+                bundle_id
+                for bundle_id in claim.citation_bundle_ids
+                if bundle_id not in bundle_map
+            ]
+            if not has_any_sources:
+                claims_without_binding.append(claim.id)
+            if missing_bundles:
+                claim_bundle_issues.append(f"{claim.id}:{','.join(missing_bundles)}")
+
+        claim_binding_issues = []
+        if claims_without_binding:
+            claim_binding_issues.append(
+                {
+                    "kind": "uncited_claim",
+                    "ids": claims_without_binding,
+                    "detail": "Claims are missing source_item_ids and valid citation bundle sources.",
+                },
+            )
+        if claim_bundle_issues:
+            claim_binding_issues.append(
+                {
+                    "kind": "missing_citation_bundle",
+                    "ids": claim_bundle_issues,
+                    "detail": "Claim references unknown citation bundles.",
+                },
+            )
+
+        section_coverage_issues = []
+        if missing_section_ids:
+            section_coverage_issues.append(
+                {
+                    "kind": "missing_sections",
+                    "ids": missing_section_ids,
+                    "detail": "Report references section IDs that do not exist.",
+                },
+            )
+        if section_without_claims:
+            section_coverage_issues.append(
+                {
+                    "kind": "empty_sections",
+                    "ids": section_without_claims,
+                    "detail": "Sections have no claim references.",
+                },
+            )
+        if section_claims_missing:
+            section_coverage_issues.append(
+                {
+                    "kind": "missing_section_claims",
+                    "ids": section_claims_missing,
+                    "detail": "Sections reference claims that cannot be found.",
+                },
+            )
+        if uncovered_report_claims:
+            section_coverage_issues.append(
+                {
+                    "kind": "uncovered_report_claims",
+                    "ids": uncovered_report_claims,
+                    "detail": "Report-level claims are not referenced by any section.",
+                },
+            )
+
+        contradiction_entries: list[dict[str, Any]] = []
+        contradiction_entries.extend(self._extract_contradictions(report.governance.get("contradictions")))
+        if report.status and str(report.status).strip().lower() in {"conflicted", "blocked"}:
+            contradiction_entries.append(
+                {
+                    "detail": "Report status is conflicted and blocks export.",
+                    "source": "report_status",
+                    "severity": "error",
+                },
+            )
+        for claim in ordered_claims:
+            contradiction_entries.extend(self._extract_contradictions(claim.governance.get("contradictions")))
+            if claim.status in {"conflicted", "blocked", "disputed"}:
+                contradiction_entries.append(
+                    {
+                        "detail": f"Claim is marked as {claim.status}.",
+                        "source": claim.id,
+                        "severity": "error",
+                    },
+                )
+
+        for section in ordered_sections:
+            contradiction_entries.extend(self._extract_contradictions(section.governance.get("contradictions")))
+
+        unresolved_contradictions = [
+            row for row in contradiction_entries
+            if str(row.get("severity", "")).strip().lower() in {"error", "warning"}
+        ]
+
+        export_gate_issues = []
+        for profile in ordered_profiles:
+            if include_sections and profile.include_sections and not ordered_sections:
+                export_gate_issues.append(
+                    {
+                        "kind": "profile_sections_missing",
+                        "profile_id": profile.id,
+                        "detail": "Export profile expects sections but report has none.",
+                    },
+                )
+            if include_claim_cards and profile.include_claim_cards and not ordered_claims:
+                export_gate_issues.append(
+                    {
+                        "kind": "profile_claims_missing",
+                        "profile_id": profile.id,
+                        "detail": "Export profile expects claim cards but none are available.",
+                    },
+                )
+            if profile.include_bundles and report.citation_bundle_ids and not used_bundle_ids:
+                export_gate_issues.append(
+                    {
+                        "kind": "profile_bundles_missing",
+                        "profile_id": profile.id,
+                        "detail": "Export profile expects citation bundles but references have no valid bundle.",
+                    },
+                )
+
+        missing_profile_ids = [
+            profile_id
+            for profile_id in report.export_profile_ids
+            if profile_id and profile_id not in {row.id for row in ordered_profiles}
+        ]
+        if missing_profile_ids:
+            export_gate_issues.append(
+                {
+                    "kind": "missing_export_profiles",
+                    "ids": missing_profile_ids,
+                    "detail": "Report references export profiles that do not exist.",
+                },
+            )
+
+        checks: dict[str, Any] = {
+            "claim_source": {
+                "status": "pass",
+                "issues": claim_binding_issues,
+                "summary": {
+                    "total_claims": len(ordered_claims),
+                    "claims_without_binding": len(claims_without_binding),
+                    "missing_citation_bundles": len(claim_bundle_issues),
+                },
+            },
+            "section_coverage": {
+                "status": "pass",
+                "issues": section_coverage_issues,
+                "summary": {
+                    "total_sections": len(ordered_sections),
+                    "missing_sections": len(missing_section_ids),
+                    "sections_without_claims": len(section_without_claims),
+                    "uncovered_report_claims": len(uncovered_report_claims),
+                    "missing_section_claims": len(section_claims_missing),
+                },
+            },
+            "contradictions": {
+                "status": "clear",
+                "entries": contradiction_entries,
+                "summary": {
+                    "unresolved_count": len(unresolved_contradictions),
+                },
+            },
+            "export_gates": {
+                "status": "pass",
+                "issues": export_gate_issues,
+                "summary": {
+                    "profile_count": len(report.export_profile_ids),
+                    "resolved_profiles": len(ordered_profiles),
+                },
+            },
+        }
+
+        if claim_binding_issues:
+            checks["claim_source"]["status"] = "review_required"
+        if section_coverage_issues:
+            checks["section_coverage"]["status"] = "review_required"
+        if export_gate_issues:
+            checks["export_gates"]["status"] = "review_required"
+
+        contradiction_blocks = [
+            row for row in contradiction_entries if str(row.get("severity", "")).strip().lower() == "error"
+        ]
+        if contradiction_blocks:
+            checks["contradictions"]["status"] = "blocked"
+        elif contradiction_entries:
+            checks["contradictions"]["status"] = "warning"
+
+        if not contradiction_entries:
+            checks["contradictions"]["status"] = "clear"
+
+        blocked = checks["contradictions"]["status"] == "blocked"
+        needs_review = (
+            checks["claim_source"]["status"] == "review_required"
+            or checks["section_coverage"]["status"] == "review_required"
+            or checks["export_gates"]["status"] == "review_required"
+            or checks["contradictions"]["status"] == "warning"
+        ) and not blocked
+
+        if blocked:
+            status = "blocked"
+            operator_action = "hold_export"
+        elif needs_review:
+            status = "review_required"
+            operator_action = "review_before_export"
+        else:
+            status = "ready"
+            operator_action = "allow_export"
+
+        quality = {
+            "status": status,
+            "operator_action": operator_action,
+            "score": round(
+                max(
+                    0.0,
+                    min(
+                        1.0,
+                        1.0
+                        - (0.18 * (len(claims_without_binding) > 0))
+                        - (0.12 * (1 if section_without_claims else 0))
+                        - (0.1 * (len(section_coverage_issues)))
+                        - (0.16 * (len(unresolved_contradictions)))
+                    ),
+                ),
+                4,
+            ),
+            "contradictions": contradiction_entries,
+            "can_export": status == "ready",
+            "checks": checks,
+        }
+
+        return {
+            "report": report.to_dict(),
+            "sections": [section.to_dict() for section in ordered_sections] if include_sections else [],
+            "claim_cards": [claim.to_dict() for claim in ordered_claims] if include_claim_cards else [],
+            "citation_bundles": [bundle.to_dict() for bundle in ordered_bundles] if include_citation_bundles else [],
+            "export_profiles": [profile.to_dict() for profile in ordered_profiles] if include_export_profiles else [],
+            "quality": quality,
+        }
