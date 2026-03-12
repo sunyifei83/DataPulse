@@ -1712,7 +1712,7 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
             "uv run pytest tests/test_console_server.py tests/test_report.py -q"
@@ -1785,11 +1785,16 @@
     }
   ],
     "recommended_next_slice": {
-        "id": "L14.6",
-        "title": "Add browser Claim Composer and Report Studio workspaces inside the current console shell",
-        "reason": "L14.5 landed with report composition, quality, and export APIs at CLI, MCP, and HTTP surfaces."
+        "id": "L14.7",
+        "title": "Add brief, full, sources, and watch-pack export profiles plus report-to-watch feedback hooks",
+        "reason": "L14.6 landed with browser Claim Composer and Report Studio over the existing Reader-backed console shell."
     },
     "progress_log": [
+        {
+            "at_utc": "2026-03-12T08:47:32Z",
+            "slice_id": "L14.6",
+            "status": "completed"
+        },
         {
             "at_utc": "2026-03-12T22:00:00Z",
             "slice_id": "L14.5",
