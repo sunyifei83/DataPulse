@@ -1643,7 +1643,7 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "python3 -m py_compile datapulse/core/report.py datapulse/reader.py",
             "uv run pytest tests/test_report.py -q"
@@ -1785,14 +1785,19 @@
     }
   ],
     "recommended_next_slice": {
-        "id": "L14.3",
-        "title": "Add report-layer core objects and persistence without introducing GUI-only state",
-        "reason": "L14.2 has landed; next open slice is now the additive persistence layer."
+        "id": "L14.4",
+        "title": "Add claim composition, citation bundles, and report quality guardrails in core",
+        "reason": "L14.3 has landed and introduced report-layer persistence."
     },
     "progress_log": [
         {
             "at_utc": "2026-03-12T05:49:47Z",
             "slice_id": "L14.2",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-12T11:20:31Z",
+            "slice_id": "L14.3",
             "status": "completed"
         },
         {
@@ -1926,5 +1931,5 @@
       "status": "completed"
     }
     ],
-    "last_updated_utc": "2026-03-12T05:49:47Z"
+    "last_updated_utc": "2026-03-12T11:20:31Z"
 }

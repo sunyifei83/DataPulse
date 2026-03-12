@@ -1,0 +1,597 @@
+"""Structured report-production objects and repository-backed persistence."""
+
+from __future__ import annotations
+
+import json
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from .utils import generate_slug, reports_path_from_env
+
+
+def _utcnow() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _normalize_optional_string(value: Any) -> str:
+    text = str(value or "").strip()
+    return text
+
+
+def _normalize_status(value: Any, default: str = "draft") -> str:
+    normalized = str(value or default).strip().lower()
+    return normalized or default
+
+
+def _normalize_string_list(values: Any) -> list[str]:
+    if values is None:
+        return []
+    if isinstance(values, str):
+        values = [values]
+    if not isinstance(values, list):
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        value = str(raw or "").strip()
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        normalized.append(value)
+    return normalized
+
+
+def _normalize_id_sequence(values: Any) -> list[str]:
+    normalized = _normalize_string_list(values)
+    return [value for value in normalized if value]
+
+
+def _unique_id(base_id: str, existing: set[str], *, prefix: str) -> str:
+    candidate = (base_id or prefix).strip() or prefix
+    if candidate not in existing:
+        return candidate
+    suffix = 2
+    while f"{candidate}-{suffix}" in existing:
+        suffix += 1
+    return f"{candidate}-{suffix}"
+
+
+def _coerce_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _coerce_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+
+@dataclass
+class ReportBrief:
+    title: str
+    audience: str = ""
+    objective: str = ""
+    intent: str = ""
+    tags: list[str] = field(default_factory=list)
+    status: str = "draft"
+    id: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+    governance: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.title = _normalize_optional_string(self.title)
+        if not self.title:
+            raise ValueError("ReportBrief title is required")
+        self.audience = _normalize_optional_string(self.audience)
+        self.objective = _normalize_optional_string(self.objective)
+        self.intent = _normalize_optional_string(self.intent)
+        self.tags = _normalize_string_list(self.tags)
+        self.status = _normalize_status(self.status, default="draft")
+        self.id = _normalize_optional_string(self.id) or generate_slug(self.title, max_length=48)
+        now = _utcnow()
+        if not self.created_at:
+            self.created_at = now
+        self.updated_at = _normalize_optional_string(self.updated_at) or self.created_at
+        self.governance = dict(self.governance or {})
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ReportBrief":
+        valid = {f.name for f in cls.__dataclass_fields__.values()}
+        return cls(**{k: v for k, v in data.items() if k in valid})
+
+
+@dataclass
+class ClaimCard:
+    statement: str
+    brief_id: str = ""
+    rationale: str = ""
+    confidence: float = 0.0
+    status: str = "draft"
+    citation_bundle_ids: list[str] = field(default_factory=list)
+    source_item_ids: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    id: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+    governance: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.statement = _normalize_optional_string(self.statement)
+        if not self.statement:
+            raise ValueError("ClaimCard statement is required")
+        self.brief_id = _normalize_optional_string(self.brief_id)
+        self.rationale = _normalize_optional_string(self.rationale)
+        self.confidence = round(max(0.0, min(1.0, _coerce_float(self.confidence, default=0.0))), 4)
+        self.status = _normalize_status(self.status, default="draft")
+        self.citation_bundle_ids = _normalize_id_sequence(self.citation_bundle_ids)
+        self.source_item_ids = _normalize_id_sequence(self.source_item_ids)
+        self.tags = _normalize_string_list(self.tags)
+        self.id = _normalize_optional_string(self.id) or generate_slug(self.statement, max_length=48)
+        now = _utcnow()
+        if not self.created_at:
+            self.created_at = now
+        self.updated_at = _normalize_optional_string(self.updated_at) or self.created_at
+        self.governance = dict(self.governance or {})
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ClaimCard":
+        valid = {f.name for f in cls.__dataclass_fields__.values()}
+        return cls(**{k: v for k, v in data.items() if k in valid})
+
+
+@dataclass
+class ReportSection:
+    title: str
+    report_id: str
+    position: int = 0
+    claim_card_ids: list[str] = field(default_factory=list)
+    summary: str = ""
+    status: str = "draft"
+    id: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+    governance: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.title = _normalize_optional_string(self.title)
+        if not self.title:
+            raise ValueError("ReportSection title is required")
+        self.report_id = _normalize_optional_string(self.report_id)
+        self.position = _coerce_int(self.position, default=0)
+        self.claim_card_ids = _normalize_id_sequence(self.claim_card_ids)
+        self.summary = _normalize_optional_string(self.summary)
+        self.status = _normalize_status(self.status, default="draft")
+        self.id = _normalize_optional_string(self.id) or generate_slug(f"{self.report_id}-{self.title}", max_length=48) if self.report_id else generate_slug(self.title, max_length=48)
+        now = _utcnow()
+        if not self.created_at:
+            self.created_at = now
+        self.updated_at = _normalize_optional_string(self.updated_at) or self.created_at
+        self.governance = dict(self.governance or {})
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ReportSection":
+        valid = {f.name for f in cls.__dataclass_fields__.values()}
+        return cls(**{k: v for k, v in data.items() if k in valid})
+
+
+@dataclass
+class CitationBundle:
+    label: str = ""
+    claim_card_id: str = ""
+    source_item_ids: list[str] = field(default_factory=list)
+    source_urls: list[str] = field(default_factory=list)
+    note: str = ""
+    id: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+    governance: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.label = _normalize_optional_string(self.label)
+        self.claim_card_id = _normalize_optional_string(self.claim_card_id)
+        self.source_item_ids = _normalize_id_sequence(self.source_item_ids)
+        self.source_urls = _normalize_string_list(self.source_urls)
+        self.note = _normalize_optional_string(self.note)
+        self.id = _normalize_optional_string(self.id) or generate_slug(self.label or ("bundle-" + "-".join(self.source_item_ids[:3])) if self.source_item_ids else "citation-bundle", max_length=48)
+        now = _utcnow()
+        if not self.created_at:
+            self.created_at = now
+        self.updated_at = _normalize_optional_string(self.updated_at) or self.created_at
+        self.governance = dict(self.governance or {})
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "CitationBundle":
+        valid = {f.name for f in cls.__dataclass_fields__.values()}
+        return cls(**{k: v for k, v in data.items() if k in valid})
+
+
+@dataclass
+class Report:
+    title: str
+    brief_id: str = ""
+    audience: str = ""
+    section_ids: list[str] = field(default_factory=list)
+    claim_card_ids: list[str] = field(default_factory=list)
+    citation_bundle_ids: list[str] = field(default_factory=list)
+    export_profile_ids: list[str] = field(default_factory=list)
+    status: str = "draft"
+    summary: str = ""
+    tags: list[str] = field(default_factory=list)
+    id: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+    governance: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.title = _normalize_optional_string(self.title)
+        if not self.title:
+            raise ValueError("Report title is required")
+        self.brief_id = _normalize_optional_string(self.brief_id)
+        self.audience = _normalize_optional_string(self.audience)
+        self.section_ids = _normalize_id_sequence(self.section_ids)
+        self.claim_card_ids = _normalize_id_sequence(self.claim_card_ids)
+        self.citation_bundle_ids = _normalize_id_sequence(self.citation_bundle_ids)
+        self.export_profile_ids = _normalize_id_sequence(self.export_profile_ids)
+        self.status = _normalize_status(self.status, default="draft")
+        self.summary = _normalize_optional_string(self.summary)
+        self.tags = _normalize_string_list(self.tags)
+        self.id = _normalize_optional_string(self.id) or generate_slug(self.title, max_length=48)
+        now = _utcnow()
+        if not self.created_at:
+            self.created_at = now
+        self.updated_at = _normalize_optional_string(self.updated_at) or self.created_at
+        self.governance = dict(self.governance or {})
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Report":
+        valid = {f.name for f in cls.__dataclass_fields__.values()}
+        return cls(**{k: v for k, v in data.items() if k in valid})
+
+
+@dataclass
+class ExportProfile:
+    name: str
+    report_id: str
+    output_format: str = "json"
+    include_sections: bool = True
+    include_claim_cards: bool = True
+    include_bundles: bool = True
+    include_metadata: bool = True
+    profile_version: str = "1.0"
+    id: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+    governance: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.name = _normalize_optional_string(self.name)
+        if not self.name:
+            raise ValueError("ExportProfile name is required")
+        self.report_id = _normalize_optional_string(self.report_id)
+        self.output_format = _normalize_status(self.output_format, default="json")
+        self.include_sections = bool(self.include_sections)
+        self.include_claim_cards = bool(self.include_claim_cards)
+        self.include_bundles = bool(self.include_bundles)
+        self.include_metadata = bool(self.include_metadata)
+        self.profile_version = _normalize_optional_string(self.profile_version) or "1.0"
+        self.id = _normalize_optional_string(self.id) or generate_slug(f"{self.report_id}-{self.name}", max_length=48) if self.report_id else generate_slug(self.name, max_length=48)
+        now = _utcnow()
+        if not self.created_at:
+            self.created_at = now
+        self.updated_at = _normalize_optional_string(self.updated_at) or self.created_at
+        self.governance = dict(self.governance or {})
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ExportProfile":
+        valid = {f.name for f in cls.__dataclass_fields__.values()}
+        return cls(**{k: v for k, v in data.items() if k in valid})
+
+
+class ReportStore:
+    """File-backed storage for report-production objects."""
+
+    def __init__(self, path: str | None = None):
+        self.path = Path(path or reports_path_from_env()).expanduser()
+        self.version = 1
+        self.report_briefs: dict[str, ReportBrief] = {}
+        self.claim_cards: dict[str, ClaimCard] = {}
+        self.report_sections: dict[str, ReportSection] = {}
+        self.citation_bundles: dict[str, CitationBundle] = {}
+        self.reports: dict[str, Report] = {}
+        self.export_profiles: dict[str, ExportProfile] = {}
+        self._load()
+
+    def _load(self) -> None:
+        if not self.path.exists():
+            return
+        try:
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return
+
+        if isinstance(raw, dict):
+            self.version = int(raw.get("version", self.version) or self.version)
+            self._load_collection(raw.get("report_briefs"), ReportBrief, self.report_briefs)
+            self._load_collection(raw.get("claim_cards"), ClaimCard, self.claim_cards)
+            self._load_collection(raw.get("report_sections"), ReportSection, self.report_sections)
+            self._load_collection(raw.get("citation_bundles"), CitationBundle, self.citation_bundles)
+            self._load_collection(raw.get("reports"), Report, self.reports)
+            self._load_collection(raw.get("export_profiles"), ExportProfile, self.export_profiles)
+        elif isinstance(raw, list):
+            self._load_collection(raw, Report, self.reports)
+
+    def _load_collection(self, payload: Any, model: type, target: dict[str, Any]) -> None:
+        rows = payload if isinstance(payload, list) else []
+        for item in rows:
+            if not isinstance(item, dict):
+                continue
+            try:
+                model_obj = model.from_dict(item)
+            except (TypeError, ValueError):
+                continue
+            target[model_obj.id] = model_obj
+
+    def _persistable_payload(self) -> dict[str, Any]:
+        return {
+            "version": self.version,
+            "report_briefs": [brief.to_dict() for brief in self._list_records(self.report_briefs)],
+            "claim_cards": [claim.to_dict() for claim in self._list_records(self.claim_cards)],
+            "report_sections": [section.to_dict() for section in self._list_records(self.report_sections)],
+            "citation_bundles": [bundle.to_dict() for bundle in self._list_records(self.citation_bundles)],
+            "reports": [report.to_dict() for report in self._list_records(self.reports)],
+            "export_profiles": [profile.to_dict() for profile in self._list_records(self.export_profiles)],
+        }
+
+    def save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps(self._persistable_payload(), ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _touch(self, obj: ReportBrief | ClaimCard | ReportSection | CitationBundle | Report | ExportProfile) -> None:
+        obj.updated_at = _utcnow()
+
+    @staticmethod
+    def _filter_status(values: list[Any], status: str | None) -> list[Any]:
+        if not status:
+            return values
+        normalized = {s.strip().lower() for s in _normalize_string_list([status])}
+        return [item for item in values if getattr(item, "status", "").strip().lower() in normalized]
+
+    @staticmethod
+    def _list_records(records: dict[str, Any], *, limit: int = 20, status: str | None = None) -> list[Any]:
+        rows = list(records.values())
+        if status is not None:
+            allowed = {s.strip().lower() for s in _normalize_string_list([status])}
+            rows = [row for row in rows if str(getattr(row, "status", "")).strip().lower() in allowed]
+        rows.sort(key=lambda item: (str(item.updated_at), str(item.id)), reverse=True)
+        return rows[: max(0, int(limit))]
+
+    @staticmethod
+    def _lookup(records: dict[str, Any], identifier: str) -> Any | None:
+        key = _normalize_optional_string(identifier)
+        if not key:
+            return None
+        if key in records:
+            return records[key]
+        lowered = key.casefold()
+        for row in records.values():
+            if str(getattr(row, "title", "")).strip().casefold() == lowered:
+                return row
+        return None
+
+    @staticmethod
+    def _to_status(value: str | None, default: str = "") -> str:
+        return _normalize_status(value, default=default) if value is not None else default
+
+    @staticmethod
+    def _normalize_ids(values: list[str] | None) -> list[str]:
+        return _normalize_id_sequence(values)
+
+    def _create(self, payload: Any, model: type, container: dict[str, Any], *, id_prefix: str) -> Any:
+        candidate = payload if isinstance(payload, model) else model.from_dict(payload)
+        candidate.id = _unique_id(candidate.id, set(container), prefix=id_prefix)
+        if not candidate.created_at:
+            candidate.created_at = _utcnow()
+        candidate.updated_at = candidate.created_at
+        container[candidate.id] = candidate
+        self.save()
+        return candidate
+
+    def _update_timestamp(self) -> None:
+        self.version += 1
+
+    def _update_generic(self, identifier: str, container: dict[str, Any], *, updates: dict[str, Any]) -> Any | None:
+        current = self._lookup(container, identifier)
+        if current is None:
+            return None
+        for field_name, field_value in updates.items():
+            if field_value is None:
+                continue
+            if isinstance(field_value, list):
+                setattr(current, field_name, self._normalize_ids(field_value))
+            elif isinstance(field_value, bool):
+                setattr(current, field_name, bool(field_value))
+            elif hasattr(current, field_name) and isinstance(getattr(current, field_name), float):
+                setattr(current, field_name, _coerce_float(field_value, default=getattr(current, field_name)))
+            elif isinstance(field_value, int) and hasattr(current, field_name) and isinstance(getattr(current, field_name), int):
+                setattr(current, field_name, _coerce_int(field_value, default=getattr(current, field_name)))
+            else:
+                setattr(current, field_name, _normalize_optional_string(field_value))
+        self._touch(current)
+        self.save()
+        return current
+
+    # ReportBrief CRUD
+    def create_report_brief(self, payload: ReportBrief | dict[str, Any]) -> ReportBrief:
+        return self._create(payload, ReportBrief, self.report_briefs, id_prefix="report-brief")
+
+    def list_report_briefs(self, *, limit: int = 20, status: str | None = None) -> list[ReportBrief]:
+        return self._list_records(self.report_briefs, limit=limit, status=status)
+
+    def get_report_brief(self, identifier: str) -> ReportBrief | None:
+        return self._lookup(self.report_briefs, identifier)
+
+    def update_report_brief(self, identifier: str, **payload: Any) -> ReportBrief | None:
+        updates = {
+            "title": payload.get("title"),
+            "audience": payload.get("audience"),
+            "objective": payload.get("objective"),
+            "intent": payload.get("intent"),
+            "status": payload.get("status"),
+            "tags": payload.get("tags"),
+        }
+        return self._update_generic(identifier, self.report_briefs, updates=updates)
+
+    # ClaimCard CRUD
+    def create_claim_card(self, payload: ClaimCard | dict[str, Any]) -> ClaimCard:
+        return self._create(payload, ClaimCard, self.claim_cards, id_prefix="claim-card")
+
+    def list_claim_cards(self, *, limit: int = 20, status: str | None = None) -> list[ClaimCard]:
+        return self._list_records(self.claim_cards, limit=limit, status=status)
+
+    def get_claim_card(self, identifier: str) -> ClaimCard | None:
+        return self._lookup(self.claim_cards, identifier)
+
+    def update_claim_card(self, identifier: str, **payload: Any) -> ClaimCard | None:
+        updates = {
+            "statement": payload.get("statement"),
+            "rationale": payload.get("rationale"),
+            "status": payload.get("status"),
+            "citation_bundle_ids": payload.get("citation_bundle_ids"),
+            "source_item_ids": payload.get("source_item_ids"),
+            "tags": payload.get("tags"),
+            "brief_id": payload.get("brief_id"),
+        }
+        claim = self._update_generic(identifier, self.claim_cards, updates=updates)
+        if claim is None:
+            return None
+        if "confidence" in payload:
+            claim.confidence = round(max(0.0, min(1.0, _coerce_float(payload.get("confidence"), default=claim.confidence))), 4)
+            self._touch(claim)
+            self.save()
+        return claim
+
+    # ReportSection CRUD
+    def create_report_section(self, payload: ReportSection | dict[str, Any]) -> ReportSection:
+        return self._create(payload, ReportSection, self.report_sections, id_prefix="report-section")
+
+    def list_report_sections(self, *, limit: int = 20, status: str | None = None) -> list[ReportSection]:
+        return self._list_records(self.report_sections, limit=limit, status=status)
+
+    def get_report_section(self, identifier: str) -> ReportSection | None:
+        return self._lookup(self.report_sections, identifier)
+
+    def update_report_section(self, identifier: str, **payload: Any) -> ReportSection | None:
+        updates = {
+            "title": payload.get("title"),
+            "summary": payload.get("summary"),
+            "status": payload.get("status"),
+            "claim_card_ids": payload.get("claim_card_ids"),
+            "report_id": payload.get("report_id"),
+        }
+        current = self._update_generic(identifier, self.report_sections, updates=updates)
+        if current is not None and "position" in payload:
+            current.position = _coerce_int(payload.get("position"), default=current.position)
+            self._touch(current)
+            self.save()
+        return current
+
+    # CitationBundle CRUD
+    def create_citation_bundle(self, payload: CitationBundle | dict[str, Any]) -> CitationBundle:
+        return self._create(payload, CitationBundle, self.citation_bundles, id_prefix="citation-bundle")
+
+    def list_citation_bundles(self, *, limit: int = 20) -> list[CitationBundle]:
+        return self._list_records(self.citation_bundles, limit=limit, status=None)
+
+    def get_citation_bundle(self, identifier: str) -> CitationBundle | None:
+        return self._lookup(self.citation_bundles, identifier)
+
+    def update_citation_bundle(self, identifier: str, **payload: Any) -> CitationBundle | None:
+        updates = {
+            "label": payload.get("label"),
+            "claim_card_id": payload.get("claim_card_id"),
+            "note": payload.get("note"),
+            "source_item_ids": payload.get("source_item_ids"),
+            "source_urls": payload.get("source_urls"),
+        }
+        return self._update_generic(identifier, self.citation_bundles, updates=updates)
+
+    # Report CRUD
+    def create_report(self, payload: Report | dict[str, Any]) -> Report:
+        return self._create(payload, Report, self.reports, id_prefix="report")
+
+    def list_reports(self, *, limit: int = 20, status: str | None = None) -> list[Report]:
+        return self._list_records(self.reports, limit=limit, status=status)
+
+    def get_report(self, identifier: str) -> Report | None:
+        return self._lookup(self.reports, identifier)
+
+    def update_report(self, identifier: str, **payload: Any) -> Report | None:
+        updates = {
+            "title": payload.get("title"),
+            "brief_id": payload.get("brief_id"),
+            "audience": payload.get("audience"),
+            "status": payload.get("status"),
+            "summary": payload.get("summary"),
+            "tags": payload.get("tags"),
+            "section_ids": payload.get("section_ids"),
+            "claim_card_ids": payload.get("claim_card_ids"),
+            "citation_bundle_ids": payload.get("citation_bundle_ids"),
+            "export_profile_ids": payload.get("export_profile_ids"),
+        }
+        return self._update_generic(identifier, self.reports, updates=updates)
+
+    # ExportProfile CRUD
+    def create_export_profile(self, payload: ExportProfile | dict[str, Any]) -> ExportProfile:
+        return self._create(payload, ExportProfile, self.export_profiles, id_prefix="export-profile")
+
+    def list_export_profiles(self, *, limit: int = 20, status: str | None = None) -> list[ExportProfile]:
+        return self._list_records(self.export_profiles, limit=limit, status=status)
+
+    def get_export_profile(self, identifier: str) -> ExportProfile | None:
+        return self._lookup(self.export_profiles, identifier)
+
+    def update_export_profile(self, identifier: str, **payload: Any) -> ExportProfile | None:
+        updates = {
+            "name": payload.get("name"),
+            "report_id": payload.get("report_id"),
+            "output_format": payload.get("output_format"),
+            "profile_version": payload.get("profile_version"),
+        }
+        current = self._update_generic(identifier, self.export_profiles, updates=updates)
+        if current is not None and ("include_sections" in payload or "include_claim_cards" in payload or "include_bundles" in payload or "include_metadata" in payload):
+            if "include_sections" in payload:
+                current.include_sections = bool(payload.get("include_sections", current.include_sections))
+            if "include_claim_cards" in payload:
+                current.include_claim_cards = bool(payload.get("include_claim_cards", current.include_claim_cards))
+            if "include_bundles" in payload:
+                current.include_bundles = bool(payload.get("include_bundles", current.include_bundles))
+            if "include_metadata" in payload:
+                current.include_metadata = bool(payload.get("include_metadata", current.include_metadata))
+            self._touch(current)
+            self.save()
+        return current

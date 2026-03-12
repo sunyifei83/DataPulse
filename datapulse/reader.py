@@ -26,6 +26,7 @@ from datapulse.core.scoring import rank_items
 from datapulse.core.search_gateway import SearchGateway, SearchHit
 from datapulse.core.source_catalog import SourceCatalog
 from datapulse.core.storage import UnifiedInbox, output_record_md, project_markdown
+from datapulse.core.report import ReportStore
 from datapulse.core.story import (
     StoryStore,
     build_factuality_gate,
@@ -133,6 +134,7 @@ class DataPulseReader:
         self.watch_scheduler = WatchScheduler(self.watchlist)
         self.triage = TriageQueue(self.inbox)
         self.story_store = StoryStore()
+        self.report_store = ReportStore()
         self.alert_store = AlertStore()
         self.alert_routes = AlertRouteStore()
         self.watch_status = WatchStatusStore()
@@ -2218,6 +2220,90 @@ class DataPulseReader:
             entity_limit=entity_limit,
             relation_limit=relation_limit,
         )
+
+    def list_report_briefs(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
+        return [brief.to_dict() for brief in self.report_store.list_report_briefs(limit=limit, status=status)]
+
+    def create_report_brief(self, **payload: Any) -> dict[str, Any]:
+        return self.report_store.create_report_brief(payload).to_dict()
+
+    def show_report_brief(self, identifier: str) -> dict[str, Any] | None:
+        brief = self.report_store.get_report_brief(identifier)
+        return brief.to_dict() if brief is not None else None
+
+    def update_report_brief(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
+        brief = self.report_store.update_report_brief(identifier, **payload)
+        return brief.to_dict() if brief is not None else None
+
+    def list_claim_cards(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
+        return [claim.to_dict() for claim in self.report_store.list_claim_cards(limit=limit, status=status)]
+
+    def create_claim_card(self, **payload: Any) -> dict[str, Any]:
+        return self.report_store.create_claim_card(payload).to_dict()
+
+    def show_claim_card(self, identifier: str) -> dict[str, Any] | None:
+        claim = self.report_store.get_claim_card(identifier)
+        return claim.to_dict() if claim is not None else None
+
+    def update_claim_card(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
+        claim = self.report_store.update_claim_card(identifier, **payload)
+        return claim.to_dict() if claim is not None else None
+
+    def list_report_sections(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
+        return [section.to_dict() for section in self.report_store.list_report_sections(limit=limit, status=status)]
+
+    def create_report_section(self, **payload: Any) -> dict[str, Any]:
+        return self.report_store.create_report_section(payload).to_dict()
+
+    def show_report_section(self, identifier: str) -> dict[str, Any] | None:
+        section = self.report_store.get_report_section(identifier)
+        return section.to_dict() if section is not None else None
+
+    def update_report_section(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
+        section = self.report_store.update_report_section(identifier, **payload)
+        return section.to_dict() if section is not None else None
+
+    def list_citation_bundles(self, *, limit: int = 20) -> list[dict[str, Any]]:
+        return [bundle.to_dict() for bundle in self.report_store.list_citation_bundles(limit=limit)]
+
+    def create_citation_bundle(self, **payload: Any) -> dict[str, Any]:
+        return self.report_store.create_citation_bundle(payload).to_dict()
+
+    def show_citation_bundle(self, identifier: str) -> dict[str, Any] | None:
+        bundle = self.report_store.get_citation_bundle(identifier)
+        return bundle.to_dict() if bundle is not None else None
+
+    def update_citation_bundle(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
+        bundle = self.report_store.update_citation_bundle(identifier, **payload)
+        return bundle.to_dict() if bundle is not None else None
+
+    def list_reports(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
+        return [report.to_dict() for report in self.report_store.list_reports(limit=limit, status=status)]
+
+    def create_report(self, **payload: Any) -> dict[str, Any]:
+        return self.report_store.create_report(payload).to_dict()
+
+    def show_report(self, identifier: str) -> dict[str, Any] | None:
+        report = self.report_store.get_report(identifier)
+        return report.to_dict() if report is not None else None
+
+    def update_report(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
+        report = self.report_store.update_report(identifier, **payload)
+        return report.to_dict() if report is not None else None
+
+    def list_export_profiles(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
+        return [profile.to_dict() for profile in self.report_store.list_export_profiles(limit=limit, status=status)]
+
+    def create_export_profile(self, **payload: Any) -> dict[str, Any]:
+        return self.report_store.create_export_profile(payload).to_dict()
+
+    def show_export_profile(self, identifier: str) -> dict[str, Any] | None:
+        profile = self.report_store.get_export_profile(identifier)
+        return profile.to_dict() if profile is not None else None
+
+    def update_export_profile(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
+        profile = self.report_store.update_export_profile(identifier, **payload)
+        return profile.to_dict() if profile is not None else None
 
     def _to_item(self, parse_result, parser_name: str) -> DataPulseItem:
         source_type = parse_result.source_type or SourceType.GENERIC

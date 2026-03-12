@@ -24,6 +24,15 @@ from .story import (
     build_story_graph,
     render_story_markdown,
 )
+from .report import (
+    CitationBundle,
+    ClaimCard,
+    ExportProfile,
+    Report,
+    ReportBrief,
+    ReportSection,
+    ReportStore,
+)
 from .triage import (
     OPEN_REVIEW_STATES,
     REVIEW_STATES,
@@ -65,6 +74,13 @@ __all__ = [
     "build_story_clusters",
     "build_story_graph",
     "render_story_markdown",
+    "ReportBrief",
+    "ClaimCard",
+    "ReportSection",
+    "CitationBundle",
+    "Report",
+    "ExportProfile",
+    "ReportStore",
     "WatchStatusStore",
     "REVIEW_STATES",
     "OPEN_REVIEW_STATES",

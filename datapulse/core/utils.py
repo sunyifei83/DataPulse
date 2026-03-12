@@ -431,6 +431,21 @@ def stories_path_from_env() -> str:
     return _default_datapulse_storage_path("datapulse_stories.json")
 
 
+def reports_path_from_env() -> str:
+    explicit_file = os.getenv("DATAPULSE_REPORTS_PATH", "").strip()
+    if explicit_file:
+        return explicit_file
+
+    memory_path = os.getenv("DATAPULSE_MEMORY_DIR", "").strip()
+    if memory_path:
+        candidate = Path(memory_path)
+        if candidate.suffix == ".json":
+            return str(candidate.with_name("datapulse_reports.json"))
+        return str(candidate / "datapulse_reports.json")
+
+    return _default_datapulse_storage_path("datapulse_reports.json")
+
+
 def output_path_from_env():
     vault = os.getenv("OBSIDIAN_VAULT", "").strip()
     if vault:
