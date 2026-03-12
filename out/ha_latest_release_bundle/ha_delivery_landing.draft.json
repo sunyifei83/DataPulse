@@ -2,12 +2,12 @@
   "valid": true,
   "schema_version": "datapulse_ha_delivery_landing.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-12T10:56:05Z",
+  "generated_at_utc": "2026-03-12T11:46:59Z",
   "wired": false,
   "source_adapter_bundle": {
     "source_kind": "derived_temp_bundle",
-    "bundle_dir": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpxem5d2jy/adapter_bundle",
-    "manifest_path": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpxem5d2jy/adapter_bundle/adapter_bundle_manifest.draft.json",
+    "bundle_dir": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmp7fhnq6lw/adapter_bundle",
+    "manifest_path": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmp7fhnq6lw/adapter_bundle/adapter_bundle_manifest.draft.json",
     "ephemeral": true
   },
   "source_ha_delivery_facts": {
@@ -25,8 +25,8 @@
     "head_published_to_upstream": true,
     "repo_landed": true,
     "ci_proven": true,
-    "ci_proof_mode": "push_ci_workflow",
-    "required_workflow": "CI",
+    "ci_proof_mode": "governance_evidence_dispatch",
+    "required_workflow": "governance-evidence.yml",
     "quick_test_gate": {
       "status": "stale_head",
       "observed": true,
@@ -92,7 +92,7 @@
             "manual_handoff_still_required"
           ],
           "suggested_artifacts": [
-            "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpxem5d2jy/adapter_bundle/blueprint_plan.snapshot.json",
+            "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmp7fhnq6lw/adapter_bundle/blueprint_plan.snapshot.json",
             "scripts/governance/run_governance_loop_bundle_draft.py",
             "repository workflow, scheduler, or explicit loop trigger entrypoint"
           ],
