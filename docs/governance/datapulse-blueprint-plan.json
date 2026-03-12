@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-12T08:47:32Z",
+  "generated_at_utc": "2026-03-12T23:45:00Z",
   "status": "in_progress",
   "activation": {
     "wired": true,
@@ -16,8 +16,8 @@
     "notes": [
       "This overlay keeps the repository blueprint truth active while leaving continuation in explicit manual mode.",
       "A new report-production follow-up wave is now promoted into the active blueprint truth.",
-      "L14.6 has landed; the review rail now includes Claim Composer and Report Studio as Reader-backed browser workspaces.",
-      "The derived next slice should now resolve to L14.7 as the export-profile and report-to-watch feedback wave.",
+      "L14.7 has landed; reports now seed brief/full/sources/watch-pack export profiles and can project follow-up watch missions from report packs.",
+      "The derived next slice should now resolve to L14.8 as the verification hardening wave for report persistence, traceability, guardrails, and export flows.",
       "The repository may already be at ci_proven for the current HEAD, but manual ignition is still required to land the next declared slice and workspace state can still block auto-advance.",
       "Use scripts/governance/ignite_datapulse_codex_loop.sh when you are ready to execute the current next_slice."
     ]

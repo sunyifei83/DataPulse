@@ -138,6 +138,18 @@ class ReportExportRequest(ReportComposeRequest):
     include_metadata: bool | None = None
 
 
+class ReportWatchPackRequest(BaseModel):
+    profile_id: str | None = None
+    name: str | None = None
+    query: str | None = None
+    platforms: list[str] | None = None
+    sites: list[str] | None = None
+    schedule: str = "manual"
+    min_confidence: float = 0.0
+    top_n: int = 5
+    alert_rules: list[dict[str, Any]] | None = None
+
+
 def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) -> FastAPI:
     app = FastAPI(title=CONSOLE_TITLE, version="0.8.0")
 
@@ -608,6 +620,37 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
             raise HTTPException(status_code=404, detail=f"Report not found: {identifier}")
         media_type = "application/json" if output_format == "json" else "text/markdown"
         return Response(content=payload, media_type=media_type)
+
+    @app.get("/api/reports/{identifier}/watch-pack")
+    def report_watch_pack(identifier: str, profile_id: str | None = None) -> dict[str, Any]:
+        payload = reader_factory().report_watch_pack(identifier, profile_id=profile_id)
+        if payload is None:
+            raise HTTPException(status_code=404, detail=f"Report not found: {identifier}")
+        return payload
+
+    @app.post("/api/reports/{identifier}/watch-from-pack")
+    def create_watch_from_report_pack(
+        identifier: str,
+        payload: ReportWatchPackRequest,
+    ) -> dict[str, Any]:
+        try:
+            mission = reader_factory().create_watch_from_report_pack(
+                identifier,
+                profile_id=payload.profile_id,
+                name=payload.name,
+                query=payload.query,
+                platforms=payload.platforms,
+                sites=payload.sites,
+                schedule=payload.schedule,
+                min_confidence=payload.min_confidence,
+                top_n=payload.top_n,
+                alert_rules=payload.alert_rules,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if mission is None:
+            raise HTTPException(status_code=404, detail=f"Report not found: {identifier}")
+        return mission
 
     @app.get("/api/export-profiles")
     def list_export_profiles(limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:

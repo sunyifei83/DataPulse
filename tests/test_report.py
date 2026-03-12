@@ -115,6 +115,60 @@ def test_report_objects_can_be_created_loaded_updated_and_listed(tmp_path):
     assert "export_profiles" in payload
 
 
+def test_report_creation_seeds_default_export_profiles_and_watch_pack(tmp_path):
+    reader = _reader(tmp_path)
+    report = reader.create_report(
+        title="Watch Pack Readiness Report",
+        summary="A synthetic report designed to validate report export defaults.",
+    )
+    claim = reader.create_claim_card(
+        statement="Demand for compact edge inference spikes during launch windows.",
+        source_item_ids=["item-edge-001"],
+        brief_id="",
+    )
+    section = reader.create_report_section(
+        report_id=report["id"],
+        title="Signal Signals",
+        claim_card_ids=[claim["id"]],
+        position=1,
+    )
+    bundle = reader.create_citation_bundle(
+        claim_card_id=claim["id"],
+        label="Edge demand evidence",
+        source_urls=["https://example.com/edge-sensor"],
+    )
+    claim = reader.update_claim_card(claim["id"], citation_bundle_ids=[bundle["id"]])
+    reader.update_report(
+        report["id"],
+        section_ids=[section["id"]],
+        claim_card_ids=[claim["id"]],
+        citation_bundle_ids=[bundle["id"]],
+    )
+    profile_rows = reader.list_export_profiles(report_id=report["id"])
+    profile_map = {row["name"]: row for row in profile_rows}
+
+    assert set(profile_map.keys()) >= {"brief", "full", "sources", "watch-pack"}
+    assert profile_map["brief"]["include_sections"] is True
+    assert profile_map["brief"]["include_claim_cards"] is False
+    assert profile_map["full"]["include_sections"] is True
+    assert profile_map["full"]["include_claim_cards"] is True
+    assert profile_map["full"]["include_bundles"] is True
+
+    brief_payload = reader.compose_report(report["id"], profile_id=profile_map["brief"]["id"])
+    sources_payload = reader.compose_report(report["id"], profile_id=profile_map["sources"]["id"])
+    full_payload = reader.compose_report(report["id"], profile_id=profile_map["full"]["id"])
+    watch_pack_payload = reader.compose_report(report["id"], profile_id=profile_map["watch-pack"]["id"])
+
+    assert brief_payload is not None
+    assert brief_payload["claim_cards"] == []
+    assert full_payload["claim_cards"] == [claim]
+    assert full_payload["citation_bundles"] == [bundle]
+    assert sources_payload["citation_bundles"] == [bundle]
+    assert "watch_pack" in watch_pack_payload
+    assert watch_pack_payload["watch_pack"]["report_id"] == report["id"]
+    assert watch_pack_payload["watch_pack"]["mission_name"].startswith("Watch Pack Readiness Report")
+
+
 def test_report_aux_objects_support_updates_and_reloads(tmp_path):
     reader = _reader(tmp_path)
     claim = reader.create_claim_card(

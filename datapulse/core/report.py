@@ -72,6 +72,46 @@ def _coerce_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
+_DEFAULT_EXPORT_PROFILES: tuple[dict[str, Any], ...] = (
+    {
+        "name": "brief",
+        "output_format": "json",
+        "include_sections": True,
+        "include_claim_cards": False,
+        "include_bundles": False,
+        "include_metadata": True,
+        "profile_version": "1.0",
+    },
+    {
+        "name": "full",
+        "output_format": "json",
+        "include_sections": True,
+        "include_claim_cards": True,
+        "include_bundles": True,
+        "include_metadata": True,
+        "profile_version": "1.0",
+    },
+    {
+        "name": "sources",
+        "output_format": "json",
+        "include_sections": False,
+        "include_claim_cards": True,
+        "include_bundles": True,
+        "include_metadata": True,
+        "profile_version": "1.0",
+    },
+    {
+        "name": "watch-pack",
+        "output_format": "json",
+        "include_sections": False,
+        "include_claim_cards": False,
+        "include_bundles": False,
+        "include_metadata": False,
+        "profile_version": "1.0",
+    },
+)
+
+
 @dataclass
 class ReportBrief:
     title: str
@@ -589,8 +629,71 @@ class ReportStore:
         return self._update_generic(identifier, self.citation_bundles, updates=updates)
 
     # Report CRUD
+    def _normalize_report_identifier(self, identifier: str) -> str:
+        return _normalize_optional_string(identifier)
+
+    @staticmethod
+    def _normalize_profile_name(name: Any) -> str:
+        return _normalize_optional_string(name).strip().lower()
+
+    def _default_export_profile_payload(self, report_id: str, template: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(template)
+        payload["report_id"] = report_id
+        payload["name"] = _normalize_optional_string(payload.get("name"))
+        if not payload["name"]:
+            raise ValueError("Export profile name is required")
+        return payload
+
+    def ensure_default_export_profiles(self, report: Report) -> list[str]:
+        existing_profiles = {
+            self._normalize_profile_name(profile.name): profile
+            for profile in self.export_profiles.values()
+            if profile.report_id == report.id
+        }
+        ordered_profile_ids: list[str] = []
+        for template in _DEFAULT_EXPORT_PROFILES:
+            normalized_name = self._normalize_profile_name(template.get("name"))
+            profile = existing_profiles.get(normalized_name)
+            if profile is None:
+                profile = self._create(
+                    self._default_export_profile_payload(report.id, template),
+                    ExportProfile.from_dict,
+                    ExportProfile,
+                    self.export_profiles,
+                    id_prefix="export-profile",
+                )
+            if profile.id:
+                ordered_profile_ids.append(profile.id)
+        existing_profile_ids = list(_normalize_id_sequence(report.export_profile_ids))
+        merged_profile_ids = _normalize_id_sequence([*ordered_profile_ids, *existing_profile_ids])
+        if merged_profile_ids != existing_profile_ids:
+            report.export_profile_ids = merged_profile_ids
+            self._touch(report)
+            self.save()
+        return merged_profile_ids
+
+    def _resolve_default_profile(self, report: Report, *, profile_id: str | None = None, default_name: str | None = None) -> str | None:
+        if profile_id:
+            return profile_id
+        normalized_default = self._normalize_profile_name(default_name)
+        for profile in self._lookup_reports_with_name(report.id):
+            if normalized_default and profile.name.strip().lower() == normalized_default:
+                return profile.id
+            if not normalized_default and profile.name:
+                return profile.id
+        return None
+
+    def _lookup_reports_with_name(self, report_id: str) -> list[ExportProfile]:
+        return [
+            profile
+            for profile in self._list_records(self.export_profiles, limit=max(0, len(self.export_profiles)))
+            if profile.report_id == report_id
+        ]
+
     def create_report(self, payload: Report | dict[str, Any]) -> Report:
-        return self._create(payload, Report.from_dict, Report, self.reports, id_prefix="report")
+        report = self._create(payload, Report.from_dict, Report, self.reports, id_prefix="report")
+        report.export_profile_ids = self.ensure_default_export_profiles(report)
+        return report
 
     def list_reports(self, *, limit: int = 20, status: str | None = None) -> list[Report]:
         return self._list_records(self.reports, limit=limit, status=status)
@@ -623,8 +726,22 @@ class ReportStore:
             id_prefix="export-profile",
         )
 
-    def list_export_profiles(self, *, limit: int = 20, status: str | None = None) -> list[ExportProfile]:
-        return self._list_records(self.export_profiles, limit=limit, status=status)
+    def list_export_profiles(
+        self,
+        *,
+        limit: int = 20,
+        status: str | None = None,
+        report_id: str | None = None,
+    ) -> list[ExportProfile]:
+        rows = list(self.export_profiles.values())
+        if report_id:
+            normalized_report_id = self._normalize_report_identifier(report_id)
+            rows = [row for row in rows if row.report_id == normalized_report_id]
+        if status is not None:
+            normalized = {s.strip().lower() for s in _normalize_string_list([status])}
+            rows = [row for row in rows if str(getattr(row, "status", "")).strip().lower() in normalized]
+        rows.sort(key=lambda item: (str(item.updated_at), str(item.id)), reverse=True)
+        return rows[: max(0, int(limit))]
 
     def get_export_profile(self, identifier: str) -> ExportProfile | None:
         return self._lookup(self.export_profiles, identifier)

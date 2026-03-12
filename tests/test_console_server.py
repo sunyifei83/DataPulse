@@ -1599,6 +1599,67 @@ def test_console_report_routes():
     assert update_profile.json()["name"] == "Updated Profile"
 
 
+def test_console_report_watch_pack_routes(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
+    monkeypatch.setenv("DATAPULSE_REPORTS_PATH", str(tmp_path / "reports.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    report = reader.create_report(
+        title="Console Watch Pack Report",
+        summary="A synthetic report used for console watch-pack API checks.",
+    )
+    claim = reader.create_claim_card(
+        statement="Console watch-pack synthesis keeps watch missions reproducible.",
+        source_item_ids=["item-console"],
+        brief_id="",
+    )
+    section = reader.create_report_section(
+        report_id=report["id"],
+        title="Console Section",
+        claim_card_ids=[claim["id"]],
+        position=1,
+    )
+    bundle = reader.create_citation_bundle(
+        claim_card_id=claim["id"],
+        label="Console evidence",
+        source_urls=["https://example.com/console-watch"],
+    )
+    claim = reader.update_claim_card(claim["id"], citation_bundle_ids=[bundle["id"]])
+    reader.update_report(
+        report["id"],
+        section_ids=[section["id"]],
+        claim_card_ids=[claim["id"]],
+        citation_bundle_ids=[bundle["id"]],
+    )
+
+    profile_map = {
+        row["name"]: row["id"] for row in reader.list_export_profiles(report_id=report["id"])
+    }
+
+    client = TestClient(create_app(reader_factory=lambda: reader))
+    watch_pack_response = client.get(f"/api/reports/{report['id']}/watch-pack")
+    watch_pack = watch_pack_response.json()
+
+    assert watch_pack_response.status_code == 200
+    assert watch_pack["report_id"] == report["id"]
+    assert watch_pack["query"] == report["title"]
+    create_watch_response = client.post(
+        f"/api/reports/{report['id']}/watch-from-pack",
+        json={
+            "profile_id": profile_map["watch-pack"],
+            "name": "Console Follow-up Watch",
+            "query": "Console follow-up launch query",
+            "platforms": ["twitter"],
+        },
+    )
+    mission = create_watch_response.json()
+
+    assert create_watch_response.status_code == 200
+    assert mission["name"] == "Console Follow-up Watch"
+    assert mission["query"] == "Console follow-up launch query"
+    assert mission["platforms"] == ["twitter"]
+
+
 def test_console_ops_scorecard_with_real_reader(tmp_path, monkeypatch):
     monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
     monkeypatch.setenv("DATAPULSE_STORIES_PATH", str(tmp_path / "stories.json"))

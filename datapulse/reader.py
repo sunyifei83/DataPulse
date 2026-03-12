@@ -2348,12 +2348,163 @@ class DataPulseReader:
             (profile_payload or {}).get("include_export_profiles"),
             True,
         )
-        return self.report_store.assemble_report(
+        payload = self.report_store.assemble_report(
             identifier,
             include_sections=include_sections,
             include_claim_cards=include_claim_cards,
             include_citation_bundles=include_citation_bundles,
             include_export_profiles=include_export_profiles,
+        )
+        if payload is None:
+            return None
+
+        if profile_payload and str(profile_payload.get("name", "")).strip().lower() == "watch-pack":
+            payload["watch_pack"] = self._build_report_watch_pack_payload(identifier, payload)
+        return payload
+
+    def _normalize_report_id(self, identifier: str) -> str:
+        return str(identifier or "").strip()
+
+    @staticmethod
+    def _normalize_profile_name(name: str | None) -> str:
+        return str(name or "").strip().lower()
+
+    def _find_report_profile(self, identifier: str, *, name: str) -> dict[str, Any] | None:
+        normalized_name = self._normalize_profile_name(name)
+        if not normalized_name:
+            return None
+        for row in self.list_export_profiles(report_id=identifier, limit=100):
+            if self._normalize_profile_name(row.get("name")) == normalized_name:
+                return row
+        return None
+
+    def _build_report_watch_pack_payload(
+        self,
+        identifier: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        report_payload = payload.get("report", {}) if isinstance(payload.get("report"), dict) else {}
+        sections = payload.get("sections", [])
+        claim_cards = payload.get("claim_cards", [])
+        bundles = payload.get("citation_bundles", [])
+        section_titles = [str(row.get("title", "")).strip() for row in sections if str(row.get("title", "")).strip()]
+        claim_stmts = [str(row.get("statement", "")).strip() for row in claim_cards if str(row.get("statement", "")).strip()]
+        bundle_entries = [row for row in bundles if isinstance(row, dict)]
+        source_urls: list[str] = []
+        for row in bundle_entries:
+            source_urls.extend([str(url).strip() for url in row.get("source_urls", []) if str(url).strip()])
+        source_urls = [url for i, url in enumerate(source_urls) if url and url not in source_urls[:i]]
+
+        demand_intent = str(report_payload.get("summary", "") or "").strip()
+        if not demand_intent:
+            demand_intent = section_titles[0] if section_titles else (claim_stmts[0] if claim_stmts else "")
+        if not demand_intent:
+            demand_intent = f"Track follow-up evidence for {report_payload.get('title', '')}".strip() or "Track follow-up evidence."
+
+        key_questions = [
+            f"What changed in the {topic.lower()} area?"
+            for topic in section_titles[:3]
+        ]
+        if not key_questions and claim_stmts:
+            key_questions = [
+                f"What evidence supports: {statement[:100]}"
+                for statement in claim_stmts[:3]
+            ]
+        if not key_questions:
+            key_questions = [
+                "What changed since this report?",
+                "What new evidence should trigger follow-up actions?",
+            ]
+
+        return {
+            "report_id": self._normalize_report_id(identifier),
+            "report_title": str(report_payload.get("title", "")).strip(),
+            "query": str(report_payload.get("title", "")).strip() or f"watch-report-{identifier}",
+            "mission_name": f"{report_payload.get('title', 'Report').strip()} Follow-up Watch".strip(),
+            "mission_intent": {
+                "demand_intent": demand_intent,
+                "key_questions": key_questions[:3],
+                "scope_topics": section_titles[:8],
+                "scope_window": "watching",
+                "freshness_expectation": "same day review",
+                "freshness_max_age_hours": 24,
+                "coverage_targets": ["official updates", "source-level evidence"],
+            },
+            "source_pack": {
+                "source_pack_version": "1.0",
+                "section_count": len(section_titles),
+                "claim_count": len(claim_stmts),
+                "bundle_count": len(bundle_entries),
+                "key_sections": section_titles[:8],
+                "source_urls": source_urls[:12],
+                "report_summary": str(report_payload.get("summary", "")).strip() or None,
+            },
+            "suggested_followup": {
+                "output_profile": "watch-pack",
+                "source_profile_hint": "full",
+                "default_query_prefix": str(report_payload.get("title", "")).strip() or "report follow-up",
+            },
+        }
+
+    def report_watch_pack(
+        self,
+        identifier: str,
+        *,
+        profile_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        report_payload = self.show_report(identifier)
+        if report_payload is None:
+            return None
+        report_id = self._normalize_report_id(report_payload["id"])
+        target_profile_id = profile_id
+        if target_profile_id is None:
+            target_profile = self._find_report_profile(report_id, name="watch-pack")
+            if target_profile is not None:
+                target_profile_id = target_profile.get("id")
+        payload = self.compose_report(report_id, profile_id=target_profile_id)
+        if payload is None:
+            return None
+        watch_pack = payload.get("watch_pack")
+        if isinstance(watch_pack, dict):
+            return watch_pack
+        return self._build_report_watch_pack_payload(report_id, payload)
+
+    def create_watch_from_report_pack(
+        self,
+        identifier: str,
+        *,
+        profile_id: str | None = None,
+        name: str | None = None,
+        query: str | None = None,
+        platforms: list[str] | None = None,
+        sites: list[str] | None = None,
+        schedule: str = "manual",
+        min_confidence: float = 0.0,
+        top_n: int = 5,
+        alert_rules: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | None:
+        watch_pack = self.report_watch_pack(identifier, profile_id=profile_id)
+        if watch_pack is None:
+            return None
+        mission_name = str(name).strip() if name else str(watch_pack.get("mission_name", "")).strip()
+        mission_query = str(query).strip() if query else str(watch_pack.get("query", "")).strip()
+        if not mission_name:
+            mission_name = f"{self._normalize_report_id(identifier)} Watch"
+        if not mission_query:
+            mission_query = f"Watch {self._normalize_report_id(identifier)}"
+        mission_intent = watch_pack.get("mission_intent")
+        if not isinstance(mission_intent, dict):
+            mission_intent = {}
+        return self.create_watch(
+            name=mission_name,
+            query=mission_query,
+            mission_intent=mission_intent,
+            platforms=platforms,
+            sites=sites,
+            schedule=schedule,
+            min_confidence=min_confidence,
+            top_n=top_n,
+            alert_rules=alert_rules,
         )
 
     def assess_report_quality(
@@ -2383,8 +2534,21 @@ class DataPulseReader:
         report = self.report_store.update_report(identifier, **payload)
         return report.to_dict() if report is not None else None
 
-    def list_export_profiles(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
-        return [profile.to_dict() for profile in self.report_store.list_export_profiles(limit=limit, status=status)]
+    def list_export_profiles(
+        self,
+        *,
+        limit: int = 20,
+        status: str | None = None,
+        report_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return [
+            profile.to_dict()
+            for profile in self.report_store.list_export_profiles(
+                limit=limit,
+                status=status,
+                report_id=report_id,
+            )
+        ]
 
     def create_export_profile(self, **payload: Any) -> dict[str, Any]:
         return self.report_store.create_export_profile(payload).to_dict()

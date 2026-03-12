@@ -291,6 +291,54 @@ async def test_reader_create_watch_from_trends_seeds_watch_inputs(tmp_path, monk
     assert payload["trend_inputs"][0]["feed_url"] == "https://trends24.in/united-states/"
 
 
+def test_reader_create_watch_from_report_pack(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
+    monkeypatch.setenv("DATAPULSE_REPORTS_PATH", str(tmp_path / "reports.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    report = reader.create_report(
+        title="Edge Inference Watch Report",
+        summary="A synthetic report for watch-pack feedback validation.",
+    )
+    claim = reader.create_claim_card(
+        statement="Edge inference claims are increasing during launch activity.",
+        source_item_ids=["edge-source-item"],
+        brief_id="",
+    )
+    section = reader.create_report_section(
+        report_id=report["id"],
+        title="Signal Summary",
+        claim_card_ids=[claim["id"]],
+        position=1,
+    )
+    bundle = reader.create_citation_bundle(
+        claim_card_id=claim["id"],
+        label="Primary edge evidence",
+        source_urls=["https://example.com/edge-update"],
+    )
+    claim = reader.update_claim_card(claim["id"], citation_bundle_ids=[bundle["id"]])
+    reader.update_report(
+        report["id"],
+        section_ids=[section["id"]],
+        claim_card_ids=[claim["id"]],
+        citation_bundle_ids=[bundle["id"]],
+    )
+
+    mission = reader.create_watch_from_report_pack(
+        report["id"],
+        name="Edge Inference Watch",
+        query="Edge inference launch watch",
+    )
+    assert mission is not None
+    assert mission["name"] == "Edge Inference Watch"
+    assert mission["query"] == "Edge inference launch watch"
+    assert mission["mission_intent"]["demand_intent"]
+
+    pack = reader.report_watch_pack(report["id"])
+    assert pack["report_id"] == report["id"]
+    assert pack["mission_name"].startswith("Edge Inference Watch Report")
+
+
 @pytest.mark.asyncio
 async def test_reader_show_watch_returns_cockpit_detail(tmp_path, monkeypatch):
     monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(tmp_path / "watchlist.json"))
