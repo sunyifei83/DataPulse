@@ -1590,7 +1590,7 @@
       "id": "L14",
       "title": "Research OS Report Production Blueprint And Follow-up",
       "goal": "Extend the lifecycle-complete intelligence console with a structured report-production layer above Story so DataPulse can assemble, gate, and export reusable research assets instead of stopping at story export.",
-      "status": "in_progress",
+      "status": "completed",
       "slices": [
         {
           "id": "L14.1",
