@@ -14,7 +14,16 @@ def render_console_html(title: str) -> str:
     initial_state = _json_blob(
         {
             "title": title,
-            "sections": ["overview", "missions", "cockpit", "alerts", "routes", "status", "triage", "stories"],
+            "sections": [
+                "section-intake",
+                "section-board",
+                "section-cockpit",
+                "section-triage",
+                "section-story",
+                "section-claims",
+                "section-report-studio",
+                "section-ops",
+            ],
         }
     )
     return f"""<!doctype html>
@@ -2112,6 +2121,11 @@ def render_console_html(title: str) -> str:
               <span class="context-object-step-value">Not set</span>
             </button>
             <span class="context-object-divider">→</span>
+            <button class="context-object-step" type="button" data-context-object-step="report" data-context-object-id="" data-context-object-section="section-report-studio">
+              <span class="context-object-step-title">Report</span>
+              <span class="context-object-step-value">Not set</span>
+            </button>
+            <span class="context-object-divider">→</span>
             <button class="context-object-step" type="button" data-context-object-step="route" data-context-object-id="" data-context-object-section="section-ops">
               <span class="context-object-step-title">Route</span>
               <span class="context-object-step-value">Not set</span>
@@ -2380,6 +2394,26 @@ def render_console_html(title: str) -> str:
         <div class="story-detail" id="story-detail"></div>
       </div>
     </section>
+
+    <section class="panel" id="section-claims">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title" id="claims-title">Claim Composer</h2>
+          <div class="panel-sub" id="claims-copy">Compose source-bound claims and attach them to report sections without leaving the review lane.</div>
+        </div>
+      </div>
+      <div class="stack" id="claim-composer-shell"></div>
+    </section>
+
+    <section class="panel" id="section-report-studio">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title" id="report-studio-title">Report Studio</h2>
+          <div class="panel-sub" id="report-studio-copy">Inspect report sections, quality guardrails, and export previews over persisted report objects.</div>
+        </div>
+      </div>
+      <div class="stack" id="report-studio-shell"></div>
+    </section>
     </div>
 
     <div class="workspace-mode-group" data-workspace-group="delivery" hidden>
@@ -2517,6 +2551,17 @@ def render_console_html(title: str) -> str:
       storyGraph: {{}},
       storyMarkdown: {{}},
       selectedStoryId: "",
+      reportBriefs: [],
+      claimCards: [],
+      citationBundles: [],
+      reportSections: [],
+      reports: [],
+      exportProfiles: [],
+      reportCompositions: {{}},
+      reportMarkdown: {{}},
+      selectedClaimId: "",
+      selectedReportId: "",
+      selectedReportSectionId: "",
       createWatchDraft: null,
       createWatchEditingId: "",
       createWatchAdvancedOpen: null,
@@ -2752,7 +2797,7 @@ def render_console_html(title: str) -> str:
     const workspaceModeSectionMap = {{
       intake: ["section-intake"],
       missions: ["section-board", "section-cockpit"],
-      review: ["section-triage", "section-story"],
+      review: ["section-triage", "section-story", "section-claims", "section-report-studio"],
       delivery: ["section-ops"],
     }};
 
@@ -2772,7 +2817,13 @@ def render_console_html(title: str) -> str:
         active: ["active", "活跃"],
         aligned: ["aligned", "一致"],
         all: ["all", "全部"],
+        approve: ["approve", "批准"],
+        approved: ["approved", "已批准"],
+        blocked: ["blocked", "已阻断"],
+        brief: ["brief", "摘要"],
         closed: ["closed", "关闭"],
+        clear: ["clear", "清晰"],
+        conflicted: ["conflicted", "冲突"],
         degraded: ["degraded", "降级"],
         disabled: ["disabled", "已停用"],
         done: ["done", "完成"],
@@ -2784,10 +2835,13 @@ def render_console_html(title: str) -> str:
         error: ["error", "错误"],
         events: ["events", "事件"],
         feishu: ["feishu", "飞书"],
+        full: ["full", "完整版"],
         healthy: ["healthy", "健康"],
+        hold_export: ["hold export", "暂停导出"],
         idle: ["idle", "空闲"],
         ignored: ["ignored", "已忽略"],
         keep: ["keep", "保留"],
+        pass: ["pass", "通过"],
         manual: ["manual", "手动"],
         merge: ["merge", "合并"],
         missing: ["missing", "缺失"],
@@ -2799,8 +2853,12 @@ def render_console_html(title: str) -> str:
         pending: ["pending", "处理中"],
         ready: ["ready", "就绪"],
         resolved: ["resolved", "已解决"],
+        review_before_export: ["review before export", "导出前复核"],
+        reviewed: ["reviewed", "已复核"],
+        review_required: ["review required", "需要复核"],
         running: ["running", "运行中"],
         same: ["same", "相同"],
+        sources: ["sources", "来源清单"],
         success: ["success", "成功"],
         synced: ["synced", "已同步"],
         telegram: ["telegram", "telegram"],
@@ -2809,6 +2867,7 @@ def render_console_html(title: str) -> str:
         verified: ["verified", "已核验"],
         waiting: ["waiting", "等待"],
         warn: ["warn", "警告"],
+        warning: ["warning", "警告"],
         webhook: ["webhook", "webhook"],
         markdown: ["markdown", "markdown"],
       }};
@@ -2911,6 +2970,8 @@ def render_console_html(title: str) -> str:
       {{ label: "Feishu", zhLabel: "飞书", value: "feishu" }},
       {{ label: "Markdown", zhLabel: "Markdown", value: "markdown" }},
     ];
+    const claimStatusOptions = ["draft", "reviewed", "ready", "conflicted", "blocked"];
+    const reportStatusOptions = ["draft", "review_required", "ready", "blocked"];
     const storyStatusOptions = ["active", "monitoring", "resolved", "archived"];
     const storySortOptions = ["attention", "recent", "evidence", "conflict", "score"];
     const storyWorkspaceModeOptions = ["board", "editor"];
@@ -3683,6 +3744,220 @@ def render_console_html(title: str) -> str:
       delete state.storyMarkdown[normalized];
       if (state.selectedStoryId === normalized) {{
         state.selectedStoryId = state.stories[0] ? state.stories[0].id : "";
+      }}
+    }}
+
+    function parseDelimitedInput(value) {{
+      return uniqueValues(String(value || "").split(/[,\n]/g));
+    }}
+
+    function getClaimCardLabel(claim) {{
+      if (!claim || typeof claim !== "object") {{
+        return "";
+      }}
+      return String(claim.statement || claim.title || claim.id || "").trim();
+    }}
+
+    function getClaimCardRecord(identifier) {{
+      const normalized = String(identifier || "").trim();
+      if (!normalized) {{
+        return null;
+      }}
+      return state.claimCards.find((claim) => String(claim.id || "").trim() === normalized) || null;
+    }}
+
+    function getReportRecord(identifier) {{
+      const normalized = String(identifier || "").trim();
+      if (!normalized) {{
+        return null;
+      }}
+      const compositionReport = state.reportCompositions[normalized]?.report;
+      if (compositionReport && typeof compositionReport === "object") {{
+        return compositionReport;
+      }}
+      return state.reports.find((report) => String(report.id || "").trim() === normalized) || null;
+    }}
+
+    function getReportSectionsForReport(reportId) {{
+      const normalized = String(reportId || "").trim();
+      if (!normalized) {{
+        return [];
+      }}
+      return state.reportSections
+        .filter((section) => String(section.report_id || "").trim() === normalized)
+        .sort((left, right) => {{
+          const leftPosition = Number(left.position || 0);
+          const rightPosition = Number(right.position || 0);
+          if (leftPosition !== rightPosition) {{
+            return leftPosition - rightPosition;
+          }}
+          return String(left.title || left.id || "").localeCompare(String(right.title || right.id || ""));
+        }});
+    }}
+
+    function getReportComposition(identifier) {{
+      const normalized = String(identifier || "").trim();
+      if (!normalized) {{
+        return null;
+      }}
+      const payload = state.reportCompositions[normalized];
+      return payload && typeof payload === "object" ? payload : null;
+    }}
+
+    function getSelectedClaimCard() {{
+      return getClaimCardRecord(state.selectedClaimId);
+    }}
+
+    function getSelectedReportRecord() {{
+      return getReportRecord(state.selectedReportId);
+    }}
+
+    function getSelectedReportSectionRecord() {{
+      const selectedReport = getSelectedReportRecord();
+      if (!selectedReport) {{
+        return null;
+      }}
+      const sections = getReportSectionsForReport(selectedReport.id);
+      return sections.find((section) => String(section.id || "").trim() === String(state.selectedReportSectionId || "").trim()) || null;
+    }}
+
+    function getReportClaimIds(reportId) {{
+      const composition = getReportComposition(reportId);
+      if (composition && Array.isArray(composition.claim_cards)) {{
+        return uniqueValues(composition.claim_cards.map((claim) => String(claim.id || "").trim()));
+      }}
+      const report = getReportRecord(reportId);
+      return uniqueValues(Array.isArray(report?.claim_card_ids) ? report.claim_card_ids : []);
+    }}
+
+    function getCitationBundleRecord(identifier) {{
+      const normalized = String(identifier || "").trim();
+      if (!normalized) {{
+        return null;
+      }}
+      return state.citationBundles.find((bundle) => String(bundle.id || "").trim() === normalized) || null;
+    }}
+
+    function reportStatusTone(status) {{
+      const normalized = String(status || "").trim().toLowerCase();
+      if (["ready", "ok", "pass", "clear", "success", "approved"].includes(normalized)) {{
+        return "ok";
+      }}
+      if (["blocked", "error", "fail", "failed", "review_required", "warning", "warn", "conflicted"].includes(normalized)) {{
+        return "hot";
+      }}
+      return "";
+    }}
+
+    function formatReportCheckLabel(key) {{
+      const normalized = String(key || "").trim().toLowerCase();
+      const labels = {{
+        claim_source: copy("Claim source binding", "主张来源绑定"),
+        section_coverage: copy("Section coverage", "章节覆盖"),
+        contradictions: copy("Contradictions", "冲突"),
+        export_gates: copy("Export gates", "导出门禁"),
+        fact_consistency: copy("Fact consistency", "事实一致性"),
+        coverage: copy("Coverage", "覆盖度"),
+      }};
+      return labels[normalized] || String(key || "").replace(/_/g, " ").trim();
+    }}
+
+    function formatReportOperatorAction(action) {{
+      const normalized = String(action || "").trim().toLowerCase();
+      const labels = {{
+        allow_export: copy("Allow export", "允许导出"),
+        review_before_export: copy("Review before export", "导出前复核"),
+        hold_export: copy("Hold export", "暂停导出"),
+        approve: copy("Approve", "批准"),
+      }};
+      return labels[normalized] || String(action || "").replace(/_/g, " ").trim();
+    }}
+
+    function syncReportSelectionState() {{
+      const availableReports = Array.isArray(state.reports) ? state.reports : [];
+      if (!availableReports.some((report) => String(report.id || "").trim() === String(state.selectedReportId || "").trim())) {{
+        state.selectedReportId = availableReports[0] ? String(availableReports[0].id || "") : "";
+      }}
+      const sections = getReportSectionsForReport(state.selectedReportId);
+      if (!sections.some((section) => String(section.id || "").trim() === String(state.selectedReportSectionId || "").trim())) {{
+        state.selectedReportSectionId = sections[0] ? String(sections[0].id || "") : "";
+      }}
+      const availableClaims = Array.isArray(state.claimCards) ? state.claimCards : [];
+      if (!availableClaims.some((claim) => String(claim.id || "").trim() === String(state.selectedClaimId || "").trim())) {{
+        const reportClaimIds = getReportClaimIds(state.selectedReportId);
+        const matchingClaim = availableClaims.find((claim) => reportClaimIds.includes(String(claim.id || "").trim()));
+        state.selectedClaimId = matchingClaim
+          ? String(matchingClaim.id || "")
+          : (availableClaims[0] ? String(availableClaims[0].id || "") : "");
+      }}
+    }}
+
+    async function loadReportComposition(identifier, {{ includeMarkdown = false, render = true }} = {{}}) {{
+      const normalized = String(identifier || "").trim();
+      if (!normalized) {{
+        return;
+      }}
+      state.reportCompositions[normalized] = await api(`/api/reports/${{normalized}}/compose`);
+      if (includeMarkdown) {{
+        state.reportMarkdown[normalized] = await apiText(`/api/reports/${{normalized}}/export?output_format=markdown`);
+      }}
+      if (render) {{
+        renderClaimsWorkspace();
+        renderReportStudio();
+        renderTopbarContext();
+      }}
+    }}
+
+    async function selectReport(identifier, {{ sectionId = "" }} = {{}}) {{
+      state.selectedReportId = String(identifier || "").trim();
+      if (sectionId) {{
+        state.selectedReportSectionId = String(sectionId || "").trim();
+      }}
+      syncReportSelectionState();
+      renderClaimsWorkspace();
+      renderReportStudio();
+      renderTopbarContext();
+      if (state.selectedReportId) {{
+        await loadReportComposition(state.selectedReportId);
+      }}
+    }}
+
+    async function previewReportMarkdown(identifier) {{
+      const normalized = String(identifier || "").trim();
+      if (!normalized) {{
+        return;
+      }}
+      state.reportMarkdown[normalized] = await apiText(`/api/reports/${{normalized}}/export?output_format=markdown`);
+      renderReportStudio();
+    }}
+
+    async function attachClaimToReport(claimId, reportId, sectionId = "", bundleId = "") {{
+      const normalizedClaimId = String(claimId || "").trim();
+      const normalizedReportId = String(reportId || "").trim();
+      const normalizedSectionId = String(sectionId || "").trim();
+      const normalizedBundleId = String(bundleId || "").trim();
+      if (!normalizedClaimId || !normalizedReportId) {{
+        return;
+      }}
+      const report = getReportRecord(normalizedReportId) || await api(`/api/reports/${{normalizedReportId}}`);
+      const nextReportClaimIds = uniqueValues([...(Array.isArray(report?.claim_card_ids) ? report.claim_card_ids : []), normalizedClaimId]);
+      const nextReportBundleIds = normalizedBundleId
+        ? uniqueValues([...(Array.isArray(report?.citation_bundle_ids) ? report.citation_bundle_ids : []), normalizedBundleId])
+        : (Array.isArray(report?.citation_bundle_ids) ? report.citation_bundle_ids : []);
+      await api(`/api/reports/${{normalizedReportId}}`, {{
+        method: "PUT",
+        headers: jsonHeaders,
+        body: JSON.stringify({{ claim_card_ids: nextReportClaimIds, citation_bundle_ids: nextReportBundleIds }}),
+      }});
+      if (normalizedSectionId) {{
+        const section = getReportSectionsForReport(normalizedReportId).find((entry) => String(entry.id || "").trim() === normalizedSectionId)
+          || await api(`/api/report-sections/${{normalizedSectionId}}`);
+        const nextSectionClaimIds = uniqueValues([...(Array.isArray(section?.claim_card_ids) ? section.claim_card_ids : []), normalizedClaimId]);
+        await api(`/api/report-sections/${{normalizedSectionId}}`, {{
+          method: "PUT",
+          headers: jsonHeaders,
+          body: JSON.stringify({{ claim_card_ids: nextSectionClaimIds }}),
+        }});
       }}
     }}
 
@@ -4552,6 +4827,11 @@ def render_console_html(title: str) -> str:
       state.storyUrlFocusPending = false;
       persistStoryWorkspacePrefs();
 
+      state.selectedClaimId = state.claimCards[0] ? state.claimCards[0].id : "";
+      state.selectedReportId = state.reports[0] ? state.reports[0].id : "";
+      const defaultSections = getReportSectionsForReport(state.selectedReportId);
+      state.selectedReportSectionId = defaultSections[0] ? defaultSections[0].id : "";
+
       state.commandPalette.query = "";
       persistCommandPaletteQuery();
       closeCommandPalette();
@@ -4561,6 +4841,8 @@ def render_console_html(title: str) -> str:
       renderWatchDetail();
       renderTriage();
       renderStories();
+      renderClaimsWorkspace();
+      renderReportStudio();
       renderCommandPalette();
       if (jump) {{
         jumpToSection("section-intake");
@@ -4916,6 +5198,8 @@ def render_console_html(title: str) -> str:
         "section-cockpit",
         "section-triage",
         "section-story",
+        "section-claims",
+        "section-report-studio",
         "section-ops",
       ].includes(normalized)
         ? normalized
@@ -4952,6 +5236,8 @@ def render_console_html(title: str) -> str:
         "section-cockpit": copy("Cockpit", "任务详情"),
         "section-triage": copy("Triage", "分诊"),
         "section-story": copy("Stories", "故事"),
+        "section-claims": copy("Claim Composer", "主张装配"),
+        "section-report-studio": copy("Report Studio", "报告工作台"),
         "section-ops": copy("Ops Snapshot", "运行状态"),
       }};
       return labels[normalizeSectionId(sectionId)] || labels["section-intake"];
@@ -5015,16 +5301,18 @@ def render_console_html(title: str) -> str:
           label: copy("Review", "审阅"),
           kicker: copy("Review", "审阅"),
           summary: copy(
-            "Keep triage and stories in one evidence lane so reviewed items can move into narrative work without losing context.",
-            "把分诊与故事收进同一条证据工作线，让已审阅条目推进成叙事时不再丢失上下文。"
+            "Keep triage, stories, claims, and report composition in one evidence lane so review can move into exportable judgment without losing context.",
+            "把分诊、故事、主张装配和报告编排收进同一条证据工作线，让审阅可以在不丢上下文的前提下推进成可导出的判断。"
           ),
           modules: [
             copy("Triage", "分诊"),
             copy("Stories", "故事"),
+            copy("Claim Composer", "主张装配"),
+            copy("Report Studio", "报告工作台"),
           ],
           landingSection: "section-triage",
-          footnote: copy("Best for evidence review, clustering, and story promotion.", "适合证据审阅、聚类与故事沉淀。"),
-          topbarSubtitle: copy("Review | Triage -> Stories", "审阅 | 分诊 -> 故事"),
+          footnote: copy("Best for evidence review, claim composition, and report assembly.", "适合证据审阅、主张装配与报告编排。"),
+          topbarSubtitle: copy("Review | Triage -> Stories -> Claims -> Report Studio", "审阅 | 分诊 -> 故事 -> 主张 -> 报告"),
         }},
         delivery: {{
           id: "delivery",
@@ -5177,6 +5465,34 @@ def render_console_html(title: str) -> str:
         pushRow(copy("Search", "搜索"), clampLabel(storySearch, 52), {{ mono: true }});
         pushRow(copy("Selected", "当前故事"), selectedStory ? clampLabel(selectedStory.title || selectedStory.id, 52) : "");
         pushRow(copy("Batch", "批量"), state.selectedStoryIds.length ? phrase("{{count}} selected", "{{count}} 个已选", {{ count: state.selectedStoryIds.length }}) : "");
+      }} else if (activeSectionId === "section-claims") {{
+        const selectedReport = getSelectedReportRecord();
+        const selectedSection = getSelectedReportSectionRecord();
+        const selectedClaim = getSelectedClaimCard();
+        const selectedQuality = getReportComposition(selectedReport?.id || "")?.quality || null;
+        descriptor.detail = selectedClaim
+          ? clampLabel(getClaimCardLabel(selectedClaim), 28)
+          : (selectedReport
+              ? phrase("report={{title}}", "报告={{title}}", {{ title: clampLabel(selectedReport.title || selectedReport.id, 18) }})
+              : copy("claim composition", "主张装配"));
+        pushRow(copy("Report", "报告"), selectedReport ? clampLabel(selectedReport.title || selectedReport.id, 52) : "");
+        pushRow(copy("Section", "章节"), selectedSection ? clampLabel(selectedSection.title || selectedSection.id, 52) : "");
+        pushRow(copy("Claim", "主张"), selectedClaim ? clampLabel(getClaimCardLabel(selectedClaim), 72) : "");
+        pushRow(copy("Quality", "质量"), selectedQuality ? `${{localizeWord(selectedQuality.status || "draft")}} / ${{Number(selectedQuality.score || 0).toFixed(2)}}` : "");
+      }} else if (activeSectionId === "section-report-studio") {{
+        const selectedReport = getSelectedReportRecord();
+        const selectedComposition = getReportComposition(selectedReport?.id || "");
+        const selectedQuality = selectedComposition?.quality || null;
+        const reportSections = getReportSectionsForReport(selectedReport?.id || "");
+        const reportClaimIds = getReportClaimIds(selectedReport?.id || "");
+        descriptor.detail = selectedReport
+          ? clampLabel(selectedReport.title || selectedReport.id, 28)
+          : copy("report studio", "报告工作台");
+        pushRow(copy("Report", "报告"), selectedReport ? clampLabel(selectedReport.title || selectedReport.id, 52) : "");
+        pushRow(copy("Audience", "受众"), selectedReport ? clampLabel(selectedReport.audience || "", 52) : "");
+        pushRow(copy("Sections", "章节"), selectedReport ? String(reportSections.length) : "", {{ mono: true }});
+        pushRow(copy("Claims", "主张"), selectedReport ? String(reportClaimIds.length) : "", {{ mono: true }});
+        pushRow(copy("Quality", "质量"), selectedQuality ? `${{localizeWord(selectedQuality.status || "draft")}} / ${{Number(selectedQuality.score || 0).toFixed(2)}}` : "");
       }} else if (activeSectionId === "section-ops") {{
         const daemonState = String(state.status?.state || "").trim();
         const routeSummary = state.ops?.route_summary || {{}};
@@ -5573,6 +5889,8 @@ def render_console_html(title: str) -> str:
       renderWatchDetail();
       renderTriage();
       renderStories();
+      renderClaimsWorkspace();
+      renderReportStudio();
       renderWorkspaceModeChrome();
       renderTopbarContext();
       const hasFocusedSection = state.watchUrlFocusPending || state.triageUrlFocusPending || state.storyUrlFocusPending;
@@ -5960,6 +6278,12 @@ def render_console_html(title: str) -> str:
         ? clampLabel(String(selectedStory.title || selectedStory.id || ""), 24)
         : contextLensEmptyValue();
 
+      const selectedReport = getSelectedReportRecord();
+      const reportId = normalizeContextObjectId(selectedReport?.id);
+      const reportLabel = selectedReport
+        ? clampLabel(String(selectedReport.title || selectedReport.id || ""), 24)
+        : contextLensEmptyValue();
+
       const draftRouteName = normalizeRouteName(state.createWatchDraft?.route);
       const routeName = normalizeRouteName(state.contextRouteName) || draftRouteName || collectWatchRouteCandidates(mission)[0] || "";
       const routeRecord = getRouteRecordByName(routeName);
@@ -5986,6 +6310,13 @@ def render_console_html(title: str) -> str:
             id: storyId,
             title: copy("Story", "故事"),
             label: storyLabel,
+          }},
+          {{
+            step: "report",
+            sectionId: "section-report-studio",
+            id: reportId,
+            title: copy("Report", "报告"),
+            label: reportLabel,
           }},
           {{
             step: "route",
@@ -6041,6 +6372,12 @@ def render_console_html(title: str) -> str:
           await loadStory(normalizedObjectId);
         }} catch (error) {{
           reportError(error, copy("Open story", "打开故事"));
+        }}
+      }} else if (normalizedStep === "report" && normalizedObjectId) {{
+        try {{
+          await selectReport(normalizedObjectId);
+        }} catch (error) {{
+          reportError(error, copy("Open report", "打开报告"));
         }}
       }} else if (normalizedStep === "route" && normalizedObjectId) {{
         try {{
@@ -6112,8 +6449,8 @@ def render_console_html(title: str) -> str:
       setText("guide-step-4-copy", copy("Route Manager creates reusable sinks; mission alert rules attach them when stories are ready to notify downstream.", "路由管理先创建可复用的交付目标；当故事准备好触发下游通知时，再从任务告警规则里把它接上。"));
       setText("guide-kicker", copy("Operator Guidance", "操作提示"));
       setText("guide-panel-title", copy("Browser Lifecycle", "浏览器生命周期"));
-      setText("guide-chip", copy("Mission -> Triage -> Story -> Route", "任务 -> 分诊 -> 故事 -> 路由"));
-      setText("guide-panel-copy", copy("Create or clone a mission here. The board runs it, the triage queue reviews incoming evidence, stories promote verified signal, and routes turn delivery on.", "先在这里创建或复制任务；任务列表负责执行，分诊队列负责审阅证据，故事工作台负责沉淀信号，路由则在需要时开启交付。"));
+      setText("guide-chip", copy("Mission -> Triage -> Story -> Claim -> Report -> Route", "任务 -> 分诊 -> 故事 -> 主张 -> 报告 -> 路由"));
+      setText("guide-panel-copy", copy("Create or clone a mission here. The board runs it, triage reviews incoming evidence, stories promote verified signal, Claim Composer binds judgments, Report Studio checks guardrails, and routes turn delivery on.", "先在这里创建或复制任务；任务列表负责执行，分诊队列负责审阅证据，故事工作台负责沉淀信号，主张装配负责绑定判断，报告工作台负责检查门禁，路由则在需要时开启交付。"));
       setText("shortcut-focus", copy("/ focus draft", "/ 聚焦任务草稿"));
       setText("shortcut-preset", copy("1-4 load preset", "1-4 套用预设"));
       setText("shortcut-submit", copy("Cmd/Ctrl+Enter deploy", "Cmd/Ctrl+Enter 提交"));
@@ -6177,6 +6514,10 @@ def render_console_html(title: str) -> str:
       setText("triage-copy", copy("Review open items with one selected evidence workbench, keep analyst reasoning visible, and hand verified signal into stories without leaving the queue.", "通过一个选中证据工作台完成审阅，持续看到分析师推理，并在不离开队列的前提下把已核验信号交接给故事。"));
       setText("story-title", copy("Story Workspace", "故事工作台"));
       setText("story-copy", copy("Inspect promoted stories, evidence stacks, contradictions, and delivery readiness before the narrative leaves the browser.", "查看已提升的故事、证据堆栈、冲突点和交付就绪度，并在叙事离开浏览器前完成整理。"));
+      setText("claims-title", copy("Claim Composer", "主张装配"));
+      setText("claims-copy", copy("Compose source-bound claims and attach them to report sections without leaving the review lane.", "在不离开审阅主轨的前提下，编排带来源绑定的主张并把它挂进报告章节。"));
+      setText("report-studio-title", copy("Report Studio", "报告工作台"));
+      setText("report-studio-copy", copy("Inspect report sections, quality guardrails, and export previews over persisted report objects.", "围绕持久化报告对象查看章节结构、质量门禁和导出预览。"));
       setText("story-mode-switch-label", copy("Workspace mode", "工作区模式"));
       setText("story-mode-board-button", copy("Board", "看板"));
       setText("story-mode-editor-button", copy("Editor", "编辑"));
@@ -6969,6 +7310,8 @@ def render_console_html(title: str) -> str:
         "section-cockpit",
         "section-triage",
         "section-story",
+        "section-claims",
+        "section-report-studio",
         "section-ops",
       ];
       const sections = sectionIds
@@ -11750,6 +12093,710 @@ def render_console_html(title: str) -> str:
       renderStoryDetail();
     }}
 
+    function renderReportQualityBlock(quality) {{
+      if (!quality || typeof quality !== "object") {{
+        return `<div class="empty">${{copy("No quality snapshot yet. Refresh the report composition to inspect guardrails.", "还没有质量快照。刷新一次报告编排后再查看门禁。")}}</div>`;
+      }}
+      const checks = quality.checks && typeof quality.checks === "object" ? quality.checks : {{}};
+      const renderedChecks = Object.entries(checks).length
+        ? Object.entries(checks).map(([key, check]) => {{
+            const status = String(check?.status || "draft").trim().toLowerCase();
+            const issues = Array.isArray(check?.issues)
+              ? check.issues
+              : (Array.isArray(check?.entries) ? check.entries : []);
+            const summaryPairs = check?.summary && typeof check.summary === "object"
+              ? Object.entries(check.summary)
+              : [];
+            return `
+              <div class="card">
+                <div class="card-top">
+                  <div>
+                    <h3 class="card-title">${{escapeHtml(formatReportCheckLabel(key))}}</h3>
+                    <div class="meta">
+                      <span>${{copy("status", "状态")}}=${{escapeHtml(localizeWord(status || "draft"))}}</span>
+                      ${{summaryPairs.map(([summaryKey, summaryValue]) => `<span>${{escapeHtml(String(summaryKey).replace(/_/g, " "))}}=${{escapeHtml(String(summaryValue))}}</span>`).join("")}}
+                    </div>
+                  </div>
+                  <span class="chip ${{reportStatusTone(status)}}">${{escapeHtml(localizeWord(status || "draft"))}}</span>
+                </div>
+                <div class="stack">
+                  ${{issues.length
+                    ? issues.slice(0, 4).map((issue) => `
+                        <div class="card">
+                          <div class="panel-sub">${{escapeHtml(issue.detail || issue.kind || JSON.stringify(issue))}}</div>
+                        </div>
+                      `).join("")
+                    : `<div class="empty">${{copy("No blocking issue recorded for this gate.", "这个门禁当前没有阻断问题。")}}</div>`}}
+                </div>
+              </div>
+            `;
+          }}).join("")
+        : `<div class="empty">${{copy("No guardrail checks were returned.", "当前没有返回质量门禁检查。")}}</div>`;
+
+      return `
+        <div class="card">
+          <div class="card-top">
+            <div>
+              <h3 class="card-title">${{copy("Quality Guardrails", "质量门禁")}}</h3>
+              <div class="meta">
+                <span>${{copy("status", "状态")}}=${{escapeHtml(localizeWord(quality.status || "draft"))}}</span>
+                <span>${{copy("score", "分数")}}=${{escapeHtml(Number(quality.score || 0).toFixed(2))}}</span>
+                <span>${{copy("action", "动作")}}=${{escapeHtml(formatReportOperatorAction(quality.operator_action || ""))}}</span>
+              </div>
+            </div>
+            <span class="chip ${{reportStatusTone(quality.status)}}">${{quality.can_export ? copy("export ready", "可导出") : copy("hold", "暂停")}}</span>
+          </div>
+          <div class="panel-sub">${{quality.can_export
+            ? copy("The current report composition satisfies the visible guardrails.", "当前报告编排满足可见质量门禁。")
+            : copy("Resolve the highlighted guardrails before treating this report as ready.", "先解决下面标出的质量门禁，再把这份报告视为就绪。")}}</div>
+        </div>
+        <div class="stack">${{renderedChecks}}</div>
+      `;
+    }}
+
+    function renderClaimsWorkspace() {{
+      const root = $("claim-composer-shell");
+      if (!root) {{
+        return;
+      }}
+      if (state.loading.board && !state.claimCards.length && !state.reports.length) {{
+        root.innerHTML = [skeletonCard(4), skeletonCard(4)].join("");
+        return;
+      }}
+      syncReportSelectionState();
+      const selectedReport = getSelectedReportRecord();
+      const selectedSection = getSelectedReportSectionRecord();
+      const selectedClaim = getSelectedClaimCard();
+      const selectedQuality = getReportComposition(selectedReport?.id || "")?.quality || null;
+      const sections = getReportSectionsForReport(selectedReport?.id || "");
+      const reportClaimIds = new Set(getReportClaimIds(selectedReport?.id || ""));
+      const selectedSectionClaimIds = new Set(Array.isArray(selectedSection?.claim_card_ids) ? selectedSection.claim_card_ids : []);
+      const selectedClaimBundles = Array.isArray(selectedClaim?.citation_bundle_ids)
+        ? selectedClaim.citation_bundle_ids.map((bundleId) => getCitationBundleRecord(bundleId)).filter(Boolean)
+        : [];
+      const selectedClaimSources = uniqueValues([
+        ...(Array.isArray(selectedClaim?.source_item_ids) ? selectedClaim.source_item_ids : []),
+        ...selectedClaimBundles.flatMap((bundle) => Array.isArray(bundle.source_item_ids) ? bundle.source_item_ids : []),
+      ]);
+      const selectedClaimUrls = uniqueValues(selectedClaimBundles.flatMap((bundle) => Array.isArray(bundle.source_urls) ? bundle.source_urls : []));
+      const claimRows = state.claimCards.length
+        ? state.claimCards.map((claim) => {{
+            const claimId = String(claim.id || "").trim();
+            const claimLabel = getClaimCardLabel(claim) || claimId;
+            const isSelected = claimId === String(state.selectedClaimId || "").trim();
+            const inReport = reportClaimIds.has(claimId);
+            const inSection = selectedSectionClaimIds.has(claimId);
+            return `
+              <div class="card">
+                <div class="card-top">
+                  <div>
+                    <h3 class="card-title">${{escapeHtml(claimLabel)}}</h3>
+                    <div class="meta">
+                      <span>${{claimId}}</span>
+                      <span>${{copy("status", "状态")}}=${{escapeHtml(localizeWord(claim.status || "draft"))}}</span>
+                      <span>${{copy("confidence", "置信度")}}=${{escapeHtml(Number(claim.confidence || 0).toFixed(2))}}</span>
+                    </div>
+                  </div>
+                  <span class="chip ${{isSelected ? "ok" : reportStatusTone(claim.status)}}">${{escapeHtml(localizeWord(claim.status || "draft"))}}</span>
+                </div>
+                <div class="panel-sub">${{escapeHtml(claim.rationale || copy("No rationale captured yet.", "当前还没有记录理由。"))}}</div>
+                <div class="meta">
+                  <span class="chip ${{inReport ? "ok" : ""}}">${{inReport ? copy("in report", "已挂入报告") : copy("unassigned", "未挂接")}}</span>
+                  <span class="chip ${{inSection ? "ok" : ""}}">${{selectedSection ? (inSection ? copy("in section", "已挂入章节") : copy("outside section", "未挂入章节")) : copy("report only", "仅报告级")}}</span>
+                </div>
+                <div class="actions">
+                  <button class="btn-secondary" type="button" data-claim-select="${{claimId}}">${{copy("Inspect", "查看")}}</button>
+                  <button class="btn-secondary" type="button" data-claim-attach="${{claimId}}" ${{selectedReport ? "" : "disabled"}}>${{selectedSection ? copy("Attach To Section", "挂到章节") : copy("Attach To Report", "挂到报告")}}</button>
+                </div>
+              </div>
+            `;
+          }}).join("")
+        : `<div class="empty">${{copy("No claim cards yet. Create the first source-bound claim on the left.", "当前还没有主张卡。先在左侧创建第一条带来源的主张。")}}</div>`;
+
+      root.innerHTML = `
+        <div class="story-columns">
+          <div class="stack">
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{copy("Current Composition Target", "当前编排目标")}}</h3>
+                  <div class="meta">
+                    <span>${{copy("report", "报告")}}=${{escapeHtml(selectedReport ? (selectedReport.title || selectedReport.id) : copy("not set", "未设置"))}}</span>
+                    <span>${{copy("section", "章节")}}=${{escapeHtml(selectedSection ? (selectedSection.title || selectedSection.id) : copy("report level", "报告级"))}}</span>
+                    <span>${{copy("quality", "质量")}}=${{escapeHtml(selectedQuality ? localizeWord(selectedQuality.status || "draft") : copy("not loaded", "未加载"))}}</span>
+                  </div>
+                </div>
+                <span class="chip ${{reportStatusTone(selectedQuality?.status || selectedReport?.status || "")}}">${{escapeHtml(localizeWord(selectedQuality?.status || selectedReport?.status || "draft"))}}</span>
+              </div>
+              <div class="panel-sub">${{selectedReport
+                ? copy("Claims stay report-backed. Pick a section when the judgment should appear inside a specific narrative block.", "主张始终绑定到持久化报告。只有在需要进入具体叙事块时，再选择某个章节。")
+                : copy("Choose or create a report in Report Studio, then come back to bind claims into sections.", "先去报告工作台选择或创建一份报告，再回来把主张挂进章节。")}}</div>
+              <div class="field-grid" style="margin-top:12px;">
+                <label>${{copy("Report", "报告")}}
+                  <select id="claim-report-select">
+                    <option value="">${{copy("No report selected", "未选择报告")}}</option>
+                    ${{state.reports.map((report) => `<option value="${{escapeHtml(report.id)}}" ${{String(report.id || "") === String(state.selectedReportId || "") ? "selected" : ""}}>${{escapeHtml(report.title || report.id)}}</option>`).join("")}}
+                  </select>
+                </label>
+                <label>${{copy("Section", "章节")}}
+                  <select id="claim-section-select" ${{selectedReport ? "" : "disabled"}}>
+                    <option value="">${{copy("Attach at report level", "挂到报告级")}}</option>
+                    ${{sections.map((section) => `<option value="${{escapeHtml(section.id)}}" ${{String(section.id || "") === String(state.selectedReportSectionId || "") ? "selected" : ""}}>${{escapeHtml(section.title || section.id)}}</option>`).join("")}}
+                  </select>
+                </label>
+              </div>
+              <div class="actions">
+                <button class="btn-secondary" type="button" data-claims-open-report-studio>${{copy("Open Report Studio", "打开报告工作台")}}</button>
+                ${{selectedReport ? `<a href="/api/reports/${{selectedReport.id}}" target="_blank" rel="noreferrer">${{copy("Open Report JSON", "打开报告 JSON")}}</a>` : ""}}
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{copy("Create Claim", "创建主张")}}</h3>
+                  <div class="panel-sub">${{copy("Capture the bounded judgment here, then persist its source binding immediately.", "先记录边界明确的判断，再立即把来源绑定写进去。")}}</div>
+                </div>
+                <span class="chip ok">${{copy("persisted", "持久化")}}</span>
+              </div>
+              <form id="claim-composer-form" style="margin-top:12px;">
+                <label>${{copy("Statement", "主张语句")}}<textarea name="statement" rows="3" placeholder="${{copy("AI adoption is landing first in quantity takeoff and schedule control.", "AI 最先在算量和计划控制环节跑通。")}}"></textarea></label>
+                <label>${{copy("Rationale", "理由")}}<textarea name="rationale" rows="3" placeholder="${{copy("State the boundary, evidence pattern, or operational reason behind the claim.", "记录这个主张背后的边界、证据模式或业务理由。")}}"></textarea></label>
+                <div class="field-grid">
+                  <label>${{copy("Confidence", "置信度")}}<input name="confidence" type="number" min="0" max="1" step="0.01" value="0.8"></label>
+                  <label>${{copy("Status", "状态")}}
+                    <select name="status">
+                      ${{claimStatusOptions.map((status) => `<option value="${{status}}">${{localizeWord(status)}}</option>`).join("")}}
+                    </select>
+                  </label>
+                </div>
+                <label>${{copy("Source Item IDs", "来源条目 ID")}}<input name="source_item_ids" placeholder="${{copy("item-123, item-456", "item-123, item-456")}}"><span class="field-hint">${{copy("Use commas or new lines when the claim already points to stored inbox items.", "如果主张已经对应到已存储条目，可以用逗号或换行补充 item ID。")}}</span></label>
+                <label>${{copy("Source URLs", "来源 URL")}}<textarea name="source_urls" rows="3" placeholder="${{copy("https://example.com/source-a", "https://example.com/source-a")}}"></textarea><span class="field-hint">${{copy("URLs create a citation bundle so the claim stays source-bound even before every item is normalized into inbox IDs.", "URL 会生成 citation bundle，这样即使条目还没完全落进 inbox ID，主张也能保持来源绑定。")}}</span></label>
+                <label>${{copy("Citation Note", "引用备注")}}<input name="bundle_note" placeholder="${{copy("Why these sources support the claim", "说明这些来源为什么支撑该主张")}}"></label>
+                <div class="toolbar">
+                  <button class="btn-primary" type="submit">${{copy("Create Claim", "创建主张")}}</button>
+                  <button class="btn-secondary" type="button" data-claim-form-focus-report-studio>${{copy("Need A Report First", "先去创建报告")}}</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{copy("Selected Claim", "当前主张")}}</h3>
+                  <div class="meta">
+                    <span>${{escapeHtml(selectedClaim ? (selectedClaim.id || "-") : "-")}}</span>
+                  <span>${{copy("bundles", "引用包")}}=${{selectedClaimBundles.length}}</span>
+                  <span>${{copy("sources", "来源")}}=${{selectedClaimSources.length + selectedClaimUrls.length}}</span>
+                </div>
+              </div>
+                <span class="chip ${{reportStatusTone(selectedClaim?.status || "")}}">${{escapeHtml(localizeWord(selectedClaim?.status || "draft"))}}</span>
+              </div>
+              ${{selectedClaim
+                ? `
+                  <div class="panel-sub">${{escapeHtml(selectedClaim.rationale || copy("No rationale captured yet.", "当前还没有记录理由。"))}}</div>
+                  <div class="meta">
+                    ${{selectedClaimSources.map((value) => `<span class="chip ok">${{escapeHtml(value)}}</span>`).join("") || `<span class="chip">${{copy("no direct item id", "没有直接 item id")}}</span>`}}
+                    ${{selectedClaimUrls.map((value) => `<span class="chip">${{escapeHtml(clampLabel(value, 42))}}</span>`).join("")}}
+                  </div>
+                `
+                : `<div class="empty">${{copy("Pick one claim from the right rail to inspect its binding and reuse it in the current section.", "先从右侧选中一条主张，再查看它的来源绑定并复用到当前章节。")}}</div>`}}
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="meta">
+              <span class="mono">${{copy("claim inventory", "主张库存")}}</span>
+              <span class="chip">${{copy("selected", "已选")}}=${{selectedClaim ? 1 : 0}}</span>
+              <span class="chip ok">${{copy("report claims", "报告内主张")}}=${{reportClaimIds.size}}</span>
+            </div>
+            ${{claimRows}}
+          </div>
+        </div>
+      `;
+
+      root.querySelector("#claim-report-select")?.addEventListener("change", async (event) => {{
+        state.selectedReportSectionId = "";
+        await selectReport(String(event.target.value || "").trim());
+      }});
+      root.querySelector("#claim-section-select")?.addEventListener("change", (event) => {{
+        state.selectedReportSectionId = String(event.target.value || "").trim();
+        renderClaimsWorkspace();
+        renderReportStudio();
+        renderTopbarContext();
+      }});
+      root.querySelector("[data-claims-open-report-studio]")?.addEventListener("click", () => {{
+        jumpToSection("section-report-studio");
+      }});
+      root.querySelector("[data-claim-form-focus-report-studio]")?.addEventListener("click", () => {{
+        jumpToSection("section-report-studio");
+      }});
+      root.querySelector("#claim-composer-form")?.addEventListener("submit", async (event) => {{
+        event.preventDefault();
+        const form = new FormData(event.target);
+        const statement = String(form.get("statement") || "").trim();
+        if (!statement) {{
+          showToast(copy("Provide a claim statement before saving.", "保存前请先填写主张语句。"), "error");
+          return;
+        }}
+        const reportId = String(state.selectedReportId || form.get("report_id") || "").trim();
+        const sectionId = String(state.selectedReportSectionId || "").trim();
+        const sourceItemIds = parseDelimitedInput(form.get("source_item_ids"));
+        const sourceUrls = parseDelimitedInput(form.get("source_urls"));
+        const rationale = String(form.get("rationale") || "").trim();
+        const status = String(form.get("status") || "draft").trim().toLowerCase() || "draft";
+        const confidence = Number(form.get("confidence") || 0);
+        const selectedReportRecord = getReportRecord(reportId);
+        const submitButton = event.target.querySelector("button[type='submit']");
+        if (submitButton) {{
+          submitButton.disabled = true;
+        }}
+        try {{
+          let createdClaim = await api("/api/claim-cards", {{
+            method: "POST",
+            headers: jsonHeaders,
+            body: JSON.stringify({{
+              statement,
+              rationale,
+              confidence,
+              status,
+              brief_id: String(selectedReportRecord?.brief_id || "").trim(),
+              source_item_ids: sourceItemIds,
+            }}),
+          }});
+          let createdBundleId = "";
+          const bundleNote = String(form.get("bundle_note") || "").trim();
+          if (sourceUrls.length || sourceItemIds.length) {{
+            const bundle = await api("/api/citation-bundles", {{
+              method: "POST",
+              headers: jsonHeaders,
+              body: JSON.stringify({{
+                claim_card_id: createdClaim.id,
+                label: `${{statement.slice(0, 42)}} ${{copy("sources", "来源")}}`,
+                source_item_ids: sourceItemIds,
+                source_urls: sourceUrls,
+                note: bundleNote,
+              }}),
+            }});
+            createdBundleId = String(bundle.id || "").trim();
+            createdClaim = await api(`/api/claim-cards/${{createdClaim.id}}`, {{
+              method: "PUT",
+              headers: jsonHeaders,
+              body: JSON.stringify({{
+                source_item_ids: sourceItemIds,
+                citation_bundle_ids: uniqueValues([...(Array.isArray(createdClaim.citation_bundle_ids) ? createdClaim.citation_bundle_ids : []), createdBundleId]),
+              }}),
+            }});
+          }}
+          if (reportId) {{
+            await attachClaimToReport(createdClaim.id, reportId, sectionId, createdBundleId);
+          }}
+          state.selectedClaimId = String(createdClaim.id || "").trim();
+          if (reportId) {{
+            state.selectedReportId = reportId;
+          }}
+          if (sectionId) {{
+            state.selectedReportSectionId = sectionId;
+          }}
+          await refreshBoard();
+          showToast(
+            state.language === "zh"
+              ? `主张已创建：${{statement}}`
+              : `Claim created: ${{statement}}`,
+            "success",
+          );
+        }} catch (error) {{
+          reportError(error, copy("Create claim", "创建主张"));
+        }} finally {{
+          if (submitButton) {{
+            submitButton.disabled = false;
+          }}
+        }}
+      }});
+      root.querySelectorAll("[data-claim-select]").forEach((button) => {{
+        button.addEventListener("click", () => {{
+          state.selectedClaimId = String(button.dataset.claimSelect || "").trim();
+          renderClaimsWorkspace();
+          renderReportStudio();
+          renderTopbarContext();
+        }});
+      }});
+      root.querySelectorAll("[data-claim-attach]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          const claimId = String(button.dataset.claimAttach || "").trim();
+          const reportId = String(state.selectedReportId || "").trim();
+          const sectionId = String(state.selectedReportSectionId || "").trim();
+          if (!claimId || !reportId) {{
+            return;
+          }}
+          button.disabled = true;
+          try {{
+            await attachClaimToReport(claimId, reportId, sectionId);
+            state.selectedClaimId = claimId;
+            await refreshBoard();
+            showToast(copy("Claim attached to the current report target.", "主张已挂接到当前报告目标。"), "success");
+          }} catch (error) {{
+            reportError(error, copy("Attach claim", "挂接主张"));
+          }} finally {{
+            button.disabled = false;
+          }}
+        }});
+      }});
+    }}
+
+    function renderReportStudio() {{
+      const root = $("report-studio-shell");
+      if (!root) {{
+        return;
+      }}
+      if (state.loading.board && !state.reports.length) {{
+        root.innerHTML = [skeletonCard(4), skeletonCard(4)].join("");
+        return;
+      }}
+      syncReportSelectionState();
+      const selectedReport = getSelectedReportRecord();
+      const composition = getReportComposition(selectedReport?.id || "");
+      const quality = composition?.quality || null;
+      const sections = composition?.sections && Array.isArray(composition.sections)
+        ? composition.sections
+        : getReportSectionsForReport(selectedReport?.id || "");
+      const claims = composition?.claim_cards && Array.isArray(composition.claim_cards)
+        ? composition.claim_cards
+        : state.claimCards.filter((claim) => getReportClaimIds(selectedReport?.id || "").includes(String(claim.id || "").trim()));
+      const exportProfiles = state.exportProfiles.filter((profile) => String(profile.report_id || "").trim() === String(selectedReport?.id || "").trim());
+      const markdownPreview = String(state.reportMarkdown[selectedReport?.id || ""] || "").trim();
+      const sectionRows = sections.length
+        ? sections.map((section) => {{
+            const sectionClaimIds = Array.isArray(section.claim_card_ids) ? section.claim_card_ids : [];
+            const sectionClaims = sectionClaimIds
+              .map((claimId) => claims.find((claim) => String(claim.id || "").trim() === String(claimId || "").trim()) || getClaimCardRecord(claimId))
+              .filter(Boolean);
+            return `
+              <div class="card">
+                <div class="card-top">
+                  <div>
+                    <h3 class="card-title">${{escapeHtml(section.title || section.id)}}</h3>
+                    <div class="meta">
+                      <span>${{copy("position", "位置")}}=${{escapeHtml(String(section.position || 0))}}</span>
+                      <span>${{copy("status", "状态")}}=${{escapeHtml(localizeWord(section.status || "draft"))}}</span>
+                      <span>${{copy("claims", "主张")}}=${{sectionClaimIds.length}}</span>
+                    </div>
+                  </div>
+                  <span class="chip ${{reportStatusTone(section.status)}}">${{escapeHtml(localizeWord(section.status || "draft"))}}</span>
+                </div>
+                <div class="panel-sub">${{escapeHtml(section.summary || copy("No section summary yet.", "当前还没有章节摘要。"))}}</div>
+                <div class="meta">
+                  ${{sectionClaims.length
+                    ? sectionClaims.map((claim) => `<span class="chip ok">${{escapeHtml(clampLabel(getClaimCardLabel(claim), 32))}}</span>`).join("")
+                    : `<span class="chip hot">${{copy("no claims attached", "当前没有挂接主张")}}</span>`}}
+                </div>
+                <div class="actions">
+                  <button class="btn-secondary" type="button" data-report-section-focus="${{escapeHtml(section.id)}}">${{copy("Focus In Claim Composer", "去主张装配")}}</button>
+                </div>
+              </div>
+            `;
+          }}).join("")
+        : `<div class="empty">${{copy("No report section yet. Create one on the left, then bind claims into it.", "当前还没有章节。先在左侧创建一个章节，再把主张挂进去。")}}</div>`;
+
+      root.innerHTML = `
+        <div class="story-columns">
+          <div class="stack">
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{copy("Report Workspace", "报告工作区")}}</h3>
+                  <div class="panel-sub">${{copy("The browser stays a projection over persisted report objects. No report-only browser state is hidden here.", "浏览器仍然只是持久化报告对象的投射，这里不会偷偷生成浏览器专属状态。")}}</div>
+                </div>
+                <span class="chip ${{reportStatusTone(quality?.status || selectedReport?.status || "")}}">${{escapeHtml(localizeWord(quality?.status || selectedReport?.status || "draft"))}}</span>
+              </div>
+              <div class="field-grid" style="margin-top:12px;">
+                <label>${{copy("Current Report", "当前报告")}}
+                  <select id="report-studio-select">
+                    <option value="">${{copy("No report selected", "未选择报告")}}</option>
+                    ${{state.reports.map((report) => `<option value="${{escapeHtml(report.id)}}" ${{String(report.id || "") === String(state.selectedReportId || "") ? "selected" : ""}}>${{escapeHtml(report.title || report.id)}}</option>`).join("")}}
+                  </select>
+                </label>
+                <label>${{copy("Export Profiles", "导出配置")}}
+                  <div class="meta">
+                    ${{exportProfiles.length
+                      ? exportProfiles.map((profile) => `<span class="chip ok">${{escapeHtml(profile.name || profile.id)}}</span>`).join("")
+                      : `<span class="chip">${{copy("none yet", "暂无")}}</span>`}}
+                  </div>
+                </label>
+              </div>
+              <div class="actions">
+                <button class="btn-secondary" type="button" data-report-compose-refresh ${{selectedReport ? "" : "disabled"}}>${{copy("Refresh Composition", "刷新编排")}}</button>
+                <button class="btn-secondary" type="button" data-report-preview-markdown ${{selectedReport ? "" : "disabled"}}>${{copy("Preview Markdown", "预览 Markdown")}}</button>
+                ${{selectedReport ? `<a href="/api/reports/${{selectedReport.id}}" target="_blank" rel="noreferrer">${{copy("Open JSON", "打开 JSON")}}</a>` : ""}}
+                ${{selectedReport ? `<a href="/api/reports/${{selectedReport.id}}/export?output_format=markdown" target="_blank" rel="noreferrer">${{copy("Export MD", "导出 MD")}}</a>` : ""}}
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{copy("Create Report", "创建报告")}}</h3>
+                  <div class="panel-sub">${{copy("Start a persisted report shell first. Claim Composer can bind judgments into it immediately after.", "先创建一个持久化报告壳，再回到主张装配里把判断挂进去。")}}</div>
+                </div>
+              </div>
+              <form id="report-create-form" style="margin-top:12px;">
+                <div class="field-grid">
+                  <label>${{copy("Title", "标题")}}<input name="title" placeholder="${{copy("AI Infrastructure Brief", "AI 基建调研报告")}}"></label>
+                  <label>${{copy("Audience", "受众")}}<input name="audience" placeholder="${{copy("leadership", "管理层")}}"></label>
+                </div>
+                <label>${{copy("Summary", "摘要")}}<textarea name="summary" rows="3" placeholder="${{copy("Describe what this report is trying to help decide.", "描述这份报告希望帮助回答什么决策问题。")}}"></textarea></label>
+                <div class="toolbar">
+                  <button class="btn-primary" type="submit">${{copy("Create Report", "创建报告")}}</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{copy("Report Editor", "报告编辑")}}</h3>
+                  <div class="panel-sub">${{copy("Tune report metadata and keep the assembled surface aligned with the persisted object graph.", "调整报告元数据，并让浏览器展示继续和持久化对象图保持一致。")}}</div>
+                </div>
+              </div>
+              ${{selectedReport
+                ? `
+                  <form id="report-editor-form" data-report-id="${{selectedReport.id}}" style="margin-top:12px;">
+                    <div class="field-grid">
+                      <label>${{copy("Title", "标题")}}<input name="title" value="${{escapeHtml(selectedReport.title || "")}}"></label>
+                      <label>${{copy("Audience", "受众")}}<input name="audience" value="${{escapeHtml(selectedReport.audience || "")}}"></label>
+                    </div>
+                    <label>${{copy("Status", "状态")}}
+                      <select name="status">
+                        ${{reportStatusOptions.map((status) => `<option value="${{status}}" ${{String(selectedReport.status || "draft") === status ? "selected" : ""}}>${{localizeWord(status)}}</option>`).join("")}}
+                      </select>
+                    </label>
+                    <label>${{copy("Summary", "摘要")}}<textarea name="summary" rows="4">${{escapeHtml(selectedReport.summary || "")}}</textarea></label>
+                    <div class="toolbar">
+                      <button class="btn-primary" type="submit">${{copy("Save Report", "保存报告")}}</button>
+                      <button class="btn-secondary" type="button" data-report-jump-claims>${{copy("Open Claim Composer", "打开主张装配")}}</button>
+                    </div>
+                  </form>
+                `
+                : `<div class="empty">${{copy("Create or select a report to edit it here.", "先创建或选中一份报告，再在这里编辑。")}}</div>`}}
+            </div>
+
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{copy("Section Builder", "章节构建")}}</h3>
+                  <div class="panel-sub">${{copy("Create one deterministic section, then bind claims into it from Claim Composer.", "先创建一个确定性的章节，再回到主张装配里把主张挂进去。")}}</div>
+                </div>
+              </div>
+              ${{selectedReport
+                ? `
+                  <form id="report-section-form" data-report-id="${{selectedReport.id}}" style="margin-top:12px;">
+                    <div class="field-grid">
+                      <label>${{copy("Title", "标题")}}<input name="title" placeholder="${{copy("Executive Summary", "执行摘要")}}"></label>
+                      <label>${{copy("Position", "位置")}}<input name="position" type="number" min="0" step="1" value="${{escapeHtml(String(sections.length + 1))}}"></label>
+                    </div>
+                    <label>${{copy("Section Summary", "章节摘要")}}<textarea name="summary" rows="3" placeholder="${{copy("What should this section conclude or frame?", "这个章节主要要承接什么判断或框架？")}}"></textarea></label>
+                    <div class="toolbar">
+                      <button class="btn-primary" type="submit">${{copy("Create Section", "创建章节")}}</button>
+                    </div>
+                  </form>
+                `
+                : `<div class="empty">${{copy("No report selected, so there is nowhere to attach a section yet.", "当前没有选中报告，因此还没有章节可挂接。")}}</div>`}}
+            </div>
+          </div>
+
+          <div class="stack">
+            ${{selectedReport ? renderReportQualityBlock(quality) : `<div class="empty">${{copy("Select one report to inspect guardrails, sections, and export preview.", "选中一份报告后，这里会显示质量门禁、章节结构和导出预览。")}}</div>`}}
+            <div class="stack">
+              <div class="meta">
+                <span class="mono">${{copy("report sections", "报告章节")}}</span>
+                <span class="chip ok">${{copy("count", "数量")}}=${{sections.length}}</span>
+                <span class="chip">${{copy("claims", "主张")}}=${{claims.length}}</span>
+              </div>
+              ${{sectionRows}}
+            </div>
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{copy("Markdown Preview", "Markdown 预览")}}</h3>
+                  <div class="panel-sub">${{copy("Use the same Reader-backed export surface the CLI and API already share.", "直接复用 CLI 和 API 已共享的 Reader-backed 导出面。")}}</div>
+                </div>
+              </div>
+              ${{markdownPreview
+                ? `<pre class="text-block">${{escapeHtml(markdownPreview)}}</pre>`
+                : `<div class="empty">${{copy("No Markdown preview cached yet. Click Preview Markdown above.", "当前还没有缓存的 Markdown 预览。点击上方“预览 Markdown”即可。")}}</div>`}}
+            </div>
+          </div>
+        </div>
+      `;
+
+      root.querySelector("#report-studio-select")?.addEventListener("change", async (event) => {{
+        await selectReport(String(event.target.value || "").trim());
+      }});
+      root.querySelector("[data-report-compose-refresh]")?.addEventListener("click", async (event) => {{
+        if (!selectedReport) {{
+          return;
+        }}
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {{
+          await loadReportComposition(selectedReport.id);
+          showToast(copy("Report composition refreshed.", "报告编排已刷新。"), "success");
+        }} catch (error) {{
+          reportError(error, copy("Refresh report composition", "刷新报告编排"));
+        }} finally {{
+          button.disabled = false;
+        }}
+      }});
+      root.querySelector("[data-report-preview-markdown]")?.addEventListener("click", async (event) => {{
+        if (!selectedReport) {{
+          return;
+        }}
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {{
+          await previewReportMarkdown(selectedReport.id);
+          showToast(copy("Markdown preview refreshed.", "Markdown 预览已刷新。"), "success");
+        }} catch (error) {{
+          reportError(error, copy("Preview report markdown", "预览报告 Markdown"));
+        }} finally {{
+          button.disabled = false;
+        }}
+      }});
+      root.querySelector("#report-create-form")?.addEventListener("submit", async (event) => {{
+        event.preventDefault();
+        const form = new FormData(event.target);
+        const title = String(form.get("title") || "").trim();
+        if (!title) {{
+          showToast(copy("Provide a report title before saving.", "保存前请先填写报告标题。"), "error");
+          return;
+        }}
+        const payload = {{
+          title,
+          audience: String(form.get("audience") || "").trim(),
+          summary: String(form.get("summary") || "").trim(),
+        }};
+        const submitButton = event.target.querySelector("button[type='submit']");
+        if (submitButton) {{
+          submitButton.disabled = true;
+        }}
+        try {{
+          const created = await api("/api/reports", {{
+            method: "POST",
+            headers: jsonHeaders,
+            body: JSON.stringify(payload),
+          }});
+          state.selectedReportId = String(created.id || "").trim();
+          state.selectedReportSectionId = "";
+          await refreshBoard();
+          showToast(
+            state.language === "zh"
+              ? `报告已创建：${{title}}`
+              : `Report created: ${{title}}`,
+            "success",
+          );
+        }} catch (error) {{
+          reportError(error, copy("Create report", "创建报告"));
+        }} finally {{
+          if (submitButton) {{
+            submitButton.disabled = false;
+          }}
+        }}
+      }});
+      root.querySelector("#report-editor-form")?.addEventListener("submit", async (event) => {{
+        event.preventDefault();
+        if (!selectedReport) {{
+          return;
+        }}
+        const form = new FormData(event.target);
+        const payload = {{
+          title: String(form.get("title") || "").trim(),
+          audience: String(form.get("audience") || "").trim(),
+          status: String(form.get("status") || "draft").trim().toLowerCase() || "draft",
+          summary: String(form.get("summary") || "").trim(),
+        }};
+        if (!payload.title) {{
+          showToast(copy("Provide a report title before saving.", "保存前请先填写报告标题。"), "error");
+          return;
+        }}
+        const submitButton = event.target.querySelector("button[type='submit']");
+        if (submitButton) {{
+          submitButton.disabled = true;
+        }}
+        try {{
+          await api(`/api/reports/${{selectedReport.id}}`, {{
+            method: "PUT",
+            headers: jsonHeaders,
+            body: JSON.stringify(payload),
+          }});
+          await refreshBoard();
+          showToast(copy("Report saved.", "报告已保存。"), "success");
+        }} catch (error) {{
+          reportError(error, copy("Save report", "保存报告"));
+        }} finally {{
+          if (submitButton) {{
+            submitButton.disabled = false;
+          }}
+        }}
+      }});
+      root.querySelector("[data-report-jump-claims]")?.addEventListener("click", () => {{
+        jumpToSection("section-claims");
+      }});
+      root.querySelector("#report-section-form")?.addEventListener("submit", async (event) => {{
+        event.preventDefault();
+        if (!selectedReport) {{
+          return;
+        }}
+        const form = new FormData(event.target);
+        const title = String(form.get("title") || "").trim();
+        if (!title) {{
+          showToast(copy("Provide a section title before saving.", "保存前请先填写章节标题。"), "error");
+          return;
+        }}
+        const payload = {{
+          report_id: selectedReport.id,
+          title,
+          position: Number(form.get("position") || sections.length + 1),
+          summary: String(form.get("summary") || "").trim(),
+        }};
+        const submitButton = event.target.querySelector("button[type='submit']");
+        if (submitButton) {{
+          submitButton.disabled = true;
+        }}
+        try {{
+          const created = await api("/api/report-sections", {{
+            method: "POST",
+            headers: jsonHeaders,
+            body: JSON.stringify(payload),
+          }});
+          await api(`/api/reports/${{selectedReport.id}}`, {{
+            method: "PUT",
+            headers: jsonHeaders,
+            body: JSON.stringify({{
+              section_ids: uniqueValues([...(Array.isArray(selectedReport.section_ids) ? selectedReport.section_ids : []), created.id]),
+            }}),
+          }});
+          state.selectedReportSectionId = String(created.id || "").trim();
+          await refreshBoard();
+          showToast(copy("Report section created.", "报告章节已创建。"), "success");
+        }} catch (error) {{
+          reportError(error, copy("Create report section", "创建报告章节"));
+        }} finally {{
+          if (submitButton) {{
+            submitButton.disabled = false;
+          }}
+        }}
+      }});
+      root.querySelectorAll("[data-report-section-focus]").forEach((button) => {{
+        button.addEventListener("click", () => {{
+          state.selectedReportSectionId = String(button.dataset.reportSectionFocus || "").trim();
+          renderClaimsWorkspace();
+          renderReportStudio();
+          renderTopbarContext();
+          jumpToSection("section-claims");
+        }});
+      }});
+    }}
+
     async function refreshBoard() {{
       state.loading.board = true;
       renderOverview();
@@ -11761,8 +12808,10 @@ def render_console_html(title: str) -> str:
       renderStatus();
       renderTriage();
       renderStories();
+      renderClaimsWorkspace();
+      renderReportStudio();
       try {{
-        const [overview, watches, alerts, routes, routeHealth, status, ops, triage, triageStats, stories] = await Promise.all([
+        const [overview, watches, alerts, routes, routeHealth, status, ops, triage, triageStats, stories, reportBriefs, claimCards, citationBundles, reportSections, reports, exportProfiles] = await Promise.all([
           api("/api/overview"),
           api("/api/watches?include_disabled=true"),
           api("/api/alerts?limit=8"),
@@ -11773,6 +12822,12 @@ def render_console_html(title: str) -> str:
           api("/api/triage?limit=12&include_closed=true"),
           api("/api/triage/stats"),
           api("/api/stories?limit=6&min_items=0"),
+          api("/api/report-briefs?limit=20"),
+          api("/api/claim-cards?limit=40"),
+          api("/api/citation-bundles?limit=40"),
+          api("/api/report-sections?limit=40"),
+          api("/api/reports?limit=20"),
+          api("/api/export-profiles?limit=40"),
         ]);
         state.overview = overview;
         state.watches = watches;
@@ -11784,6 +12839,12 @@ def render_console_html(title: str) -> str:
         state.triage = triage;
         state.triageStats = triageStats;
         state.stories = stories;
+        state.reportBriefs = reportBriefs;
+        state.claimCards = claimCards;
+        state.citationBundles = citationBundles;
+        state.reportSections = reportSections;
+        state.reports = reports;
+        state.exportProfiles = exportProfiles;
         if (state.watches.length) {{
           const selectedWatch = state.watches.some((watch) => watch.id === state.selectedWatchId)
             ? state.selectedWatchId
@@ -11812,6 +12873,10 @@ def render_console_html(title: str) -> str:
         }} else {{
           state.selectedStoryId = "";
         }}
+        syncReportSelectionState();
+        if (state.selectedReportId) {{
+          state.reportCompositions[state.selectedReportId] = await api(`/api/reports/${{state.selectedReportId}}/compose`);
+        }}
       }} finally {{
         state.loading.board = false;
       }}
@@ -11824,6 +12889,8 @@ def render_console_html(title: str) -> str:
       renderStatus();
       renderTriage();
       renderStories();
+      renderClaimsWorkspace();
+      renderReportStudio();
       renderCreateWatchDeck();
       applyDefaultSavedViewOnBoot();
     }}

@@ -1009,4 +1009,9 @@ Recommended stage preview:
 
 Current blueprint reopening target:
 
-- `L14.3` `Add report-layer core objects and persistence without introducing GUI-only state`
+- `L14.7` `Add brief / full / sources / watch-pack export profiles and report-to-watch feedback hooks`
+
+Current browser landing for `R5`:
+
+- the review rail now projects persisted report objects into `Claim Composer` and `Report Studio` inside the existing console shell
+- operators can create claim cards, bind them to reports and sections, inspect quality guardrails, and preview Markdown without introducing browser-only report state

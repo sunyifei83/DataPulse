@@ -772,6 +772,8 @@ class _ConsoleReader:
             {
                 "id": "brief-openai",
                 "title": "OpenAI Report Brief",
+                "audience": "internal",
+                "objective": "Track launch evidence and market reaction",
                 "status": "draft",
             }
         ]
@@ -801,8 +803,14 @@ class _ConsoleReader:
         rows = [
             {
                 "id": "claim-openai-trend",
+                "brief_id": "brief-openai",
                 "title": "OpenAI launch claim",
-                "status": "draft",
+                "statement": "Demand signals remain elevated after the OpenAI launch window.",
+                "rationale": "Cross-source evidence continues to cluster around launch, ecosystem response, and analyst follow-up.",
+                "confidence": 0.91,
+                "status": "reviewed",
+                "source_item_ids": ["item-1"],
+                "citation_bundle_ids": ["bundle-openai"],
             }
         ]
         if status:
@@ -832,6 +840,10 @@ class _ConsoleReader:
             {
                 "id": "section-market-context",
                 "title": "Market context",
+                "report_id": "report-openai-market",
+                "position": 1,
+                "summary": "Summarize market reaction and evidence-backed adoption signal.",
+                "claim_card_ids": ["claim-openai-trend"],
                 "status": "draft",
             }
         ]
@@ -861,8 +873,11 @@ class _ConsoleReader:
         rows = [
             {
                 "id": "bundle-openai",
+                "claim_card_id": "claim-openai-trend",
                 "label": "OpenAI bundle",
+                "source_item_ids": ["item-1"],
                 "source_urls": ["https://example.com/openai-launch"],
+                "note": "Primary launch coverage bundle.",
             }
         ]
         return rows[:limit]
@@ -893,6 +908,11 @@ class _ConsoleReader:
                 "title": "OpenAI Market Report",
                 "status": "draft",
                 "audience": "internal",
+                "summary": "A persisted report shell for launch-related market tracking.",
+                "section_ids": ["section-market-context"],
+                "claim_card_ids": ["claim-openai-trend"],
+                "citation_bundle_ids": ["bundle-openai"],
+                "export_profile_ids": ["profile-brief"],
             }
         ]
         if status:
@@ -969,10 +989,12 @@ class _ConsoleReader:
         rows = [
             {
                 "id": "profile-brief",
+                "report_id": "report-openai-market",
                 "name": "Brief export profile",
+                "output_format": "markdown",
                 "include_sections": True,
                 "include_claim_cards": True,
-                "include_citation_bundles": True,
+                "include_bundles": True,
                 "include_export_profiles": True,
                 "status": "active",
             }
@@ -1021,7 +1043,12 @@ def test_console_index_serves_shell():
     assert "language-switch" in response.text
     assert "palette-open" in response.text
     assert "section-intake" in response.text
+    assert "section-claims" in response.text
+    assert "section-report-studio" in response.text
     assert "Primary Lifecycle Rail" in response.text
+    assert 'data-context-object-step="report"' in response.text
+    assert "Claim Composer" in response.text
+    assert "Report Studio" in response.text
     assert 'data-workspace-mode="intake"' in response.text
     assert 'data-workspace-mode="missions"' in response.text
     assert 'data-workspace-mode="review"' in response.text
