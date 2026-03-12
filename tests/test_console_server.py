@@ -767,6 +767,238 @@ class _ConsoleReader:
             return "# OpenAI Launch\n\n- story_id: story-openai-launch"
         return json.dumps(self.list_stories()[0], ensure_ascii=False, indent=2)
 
+    def list_report_briefs(self, limit=20, status=None):
+        rows = [
+            {
+                "id": "brief-openai",
+                "title": "OpenAI Report Brief",
+                "status": "draft",
+            }
+        ]
+        if status:
+            rows = [row for row in rows if row.get("status") == status]
+        return rows[:limit]
+
+    def create_report_brief(self, **payload):
+        row = self.list_report_briefs(limit=1)[0].copy()
+        row["id"] = payload.get("id", "brief-manual")
+        row.update(payload)
+        return row
+
+    def show_report_brief(self, identifier):
+        if identifier != "brief-openai":
+            return None
+        return self.list_report_briefs(limit=1)[0].copy()
+
+    def update_report_brief(self, identifier, **payload):
+        if identifier != "brief-openai":
+            return None
+        row = self.show_report_brief(identifier)
+        row.update(payload)
+        return row
+
+    def list_claim_cards(self, limit=20, status=None):
+        rows = [
+            {
+                "id": "claim-openai-trend",
+                "title": "OpenAI launch claim",
+                "status": "draft",
+            }
+        ]
+        if status:
+            rows = [row for row in rows if row.get("status") == status]
+        return rows[:limit]
+
+    def create_claim_card(self, **payload):
+        row = self.list_claim_cards(limit=1)[0].copy()
+        row["id"] = payload.get("id", "claim-manual")
+        row.update(payload)
+        return row
+
+    def show_claim_card(self, identifier):
+        if identifier != "claim-openai-trend":
+            return None
+        return self.list_claim_cards(limit=1)[0].copy()
+
+    def update_claim_card(self, identifier, **payload):
+        if identifier != "claim-openai-trend":
+            return None
+        row = self.show_claim_card(identifier)
+        row.update(payload)
+        return row
+
+    def list_report_sections(self, limit=20, status=None):
+        rows = [
+            {
+                "id": "section-market-context",
+                "title": "Market context",
+                "status": "draft",
+            }
+        ]
+        if status:
+            rows = [row for row in rows if row.get("status") == status]
+        return rows[:limit]
+
+    def create_report_section(self, **payload):
+        row = self.list_report_sections(limit=1)[0].copy()
+        row["id"] = payload.get("id", "section-manual")
+        row.update(payload)
+        return row
+
+    def show_report_section(self, identifier):
+        if identifier != "section-market-context":
+            return None
+        return self.list_report_sections(limit=1)[0].copy()
+
+    def update_report_section(self, identifier, **payload):
+        if identifier != "section-market-context":
+            return None
+        row = self.show_report_section(identifier)
+        row.update(payload)
+        return row
+
+    def list_citation_bundles(self, limit=20):
+        rows = [
+            {
+                "id": "bundle-openai",
+                "label": "OpenAI bundle",
+                "source_urls": ["https://example.com/openai-launch"],
+            }
+        ]
+        return rows[:limit]
+
+    def create_citation_bundle(self, **payload):
+        row = self.list_citation_bundles(limit=1)[0].copy()
+        row["id"] = payload.get("id", "bundle-manual")
+        row.update(payload)
+        return row
+
+    def show_citation_bundle(self, identifier):
+        if identifier != "bundle-openai":
+            return None
+        return self.list_citation_bundles(limit=1)[0].copy()
+
+    def update_citation_bundle(self, identifier, **payload):
+        if identifier != "bundle-openai":
+            return None
+        row = self.show_citation_bundle(identifier)
+        row.update(payload)
+        return row
+
+    def list_reports(self, limit=20, status=None):
+        rows = [
+            {
+                "id": "report-openai-market",
+                "brief_id": "brief-openai",
+                "title": "OpenAI Market Report",
+                "status": "draft",
+                "audience": "internal",
+            }
+        ]
+        if status:
+            rows = [row for row in rows if row.get("status") == status]
+        return rows[:limit]
+
+    def create_report(self, **payload):
+        row = self.list_reports(limit=1)[0].copy()
+        row["id"] = payload.get("id", "report-manual")
+        row.update(payload)
+        return row
+
+    def show_report(self, identifier):
+        if identifier != "report-openai-market":
+            return None
+        return self.list_reports(limit=1)[0].copy()
+
+    def update_report(self, identifier, **payload):
+        if identifier != "report-openai-market":
+            return None
+        row = self.show_report(identifier)
+        row.update(payload)
+        return row
+
+    def compose_report(self, identifier, **kwargs):
+        if identifier != "report-openai-market":
+            return None
+        payload = {
+            "report": self.show_report(identifier),
+            "sections": self.list_report_sections(),
+            "claim_cards": self.list_claim_cards(),
+            "citation_bundles": self.list_citation_bundles(),
+            "quality": {
+                "status": "ok",
+                "score": 0.96,
+                "checks": {
+                    "fact_consistency": {"status": "ok"},
+                    "coverage": {"status": "ok"},
+                },
+                "can_export": True,
+                "operator_action": "approve",
+            },
+        }
+        if kwargs.get("profile_id"):
+            profile = self.show_export_profile(kwargs["profile_id"])
+            if profile is None:
+                raise ValueError(f"Export profile not found: {kwargs['profile_id']}")
+        if kwargs.get("include_sections") is False:
+            payload["sections"] = []
+        if kwargs.get("include_claim_cards") is False:
+            payload["claim_cards"] = []
+        if kwargs.get("include_citation_bundles") is False:
+            payload["citation_bundles"] = []
+        return payload
+
+    def assess_report_quality(self, identifier, **kwargs):
+        payload = self.compose_report(identifier, **kwargs)
+        if payload is None:
+            return None
+        return payload.get("quality", {})
+
+    def export_report(self, identifier, **kwargs):
+        if identifier != "report-openai-market":
+            return None
+        output_format = str(kwargs.get("output_format", "json")).strip().lower()
+        if output_format == "json":
+            return json.dumps(self.compose_report(identifier, **kwargs), ensure_ascii=False, indent=2)
+        if output_format in {"md", "markdown"}:
+            report = self.show_report(identifier)
+            return f"# {report['title']}\\n\\n- id: {report['id']}"
+        raise ValueError(f"Unsupported report export format: {output_format}")
+
+    def list_export_profiles(self, limit=20, status=None):
+        rows = [
+            {
+                "id": "profile-brief",
+                "name": "Brief export profile",
+                "include_sections": True,
+                "include_claim_cards": True,
+                "include_citation_bundles": True,
+                "include_export_profiles": True,
+                "status": "active",
+            }
+        ]
+        if status:
+            rows = [row for row in rows if row.get("status") == status]
+        return rows[:limit]
+
+    def create_export_profile(self, **payload):
+        row = self.list_export_profiles(limit=1)[0].copy()
+        row["id"] = payload.get("id", "profile-manual")
+        row.update(payload)
+        return row
+
+    def show_export_profile(self, identifier):
+        if identifier != "profile-brief":
+            return None
+        return self.list_export_profiles(limit=1)[0].copy()
+
+    def update_export_profile(self, identifier, **payload):
+        if identifier != "profile-brief":
+            return None
+        row = self.show_export_profile(identifier)
+        row.update(payload)
+        return row
+
 
 def _client() -> TestClient:
     app = create_app(reader_factory=lambda: _ConsoleReader())
@@ -1237,6 +1469,107 @@ def test_console_story_routes():
     assert export.text.startswith("# OpenAI Launch")
     assert delete.status_code == 200
     assert delete.json()["id"] == "story-openai-launch"
+
+
+def test_console_report_routes():
+    client = _client()
+
+    report_briefs = client.get("/api/report-briefs")
+    create_brief = client.post("/api/report-briefs", json={"id": "brief-manual", "title": "Manual Brief", "status": "draft"})
+    show_brief = client.get("/api/report-briefs/brief-openai")
+    update_brief = client.put("/api/report-briefs/brief-openai", json={"title": "Brief Updated"})
+
+    claim_cards = client.get("/api/claim-cards")
+    create_claim = client.post("/api/claim-cards", json={"id": "claim-manual", "title": "Manual Claim", "status": "draft"})
+    show_claim = client.get("/api/claim-cards/claim-openai-trend")
+    update_claim = client.put("/api/claim-cards/claim-openai-trend", json={"status": "ready"})
+
+    report_sections = client.get("/api/report-sections")
+    create_section = client.post("/api/report-sections", json={"id": "section-manual", "title": "Manual Section", "status": "draft"})
+    show_section = client.get("/api/report-sections/section-market-context")
+    update_section = client.put("/api/report-sections/section-market-context", json={"status": "ready"})
+
+    citation_bundles = client.get("/api/citation-bundles")
+    create_bundle = client.post("/api/citation-bundles", json={"id": "bundle-manual", "label": "Manual Bundle"})
+    show_bundle = client.get("/api/citation-bundles/bundle-openai")
+    update_bundle = client.put("/api/citation-bundles/bundle-openai", json={"label": "Updated bundle"})
+
+    reports = client.get("/api/reports")
+    create_report = client.post("/api/reports", json={"id": "report-manual", "title": "Manual Report", "status": "draft"})
+    show_report = client.get("/api/reports/report-openai-market")
+    update_report = client.put("/api/reports/report-openai-market", json={"status": "ready"})
+    compose = client.post("/api/reports/report-openai-market/compose", json={"profile_id": "profile-brief"})
+    quality = client.get("/api/reports/report-openai-market/quality?profile_id=profile-brief")
+    export_json = client.get("/api/reports/report-openai-market/export?output_format=json&profile_id=profile-brief")
+    export_markdown = client.get("/api/reports/report-openai-market/export?output_format=markdown&profile_id=profile-brief")
+
+    export_profiles = client.get("/api/export-profiles")
+    create_profile = client.post("/api/export-profiles", json={"id": "profile-manual", "name": "Manual Profile"})
+    show_profile = client.get("/api/export-profiles/profile-brief")
+    update_profile = client.put("/api/export-profiles/profile-brief", json={"name": "Updated Profile"})
+
+    assert report_briefs.status_code == 200
+    assert report_briefs.json()[0]["id"] == "brief-openai"
+    assert create_brief.status_code == 200
+    assert create_brief.json()["id"] == "brief-manual"
+    assert show_brief.status_code == 200
+    assert show_brief.json()["title"] == "OpenAI Report Brief"
+    assert update_brief.status_code == 200
+    assert update_brief.json()["title"] == "Brief Updated"
+
+    assert claim_cards.status_code == 200
+    assert claim_cards.json()[0]["id"] == "claim-openai-trend"
+    assert create_claim.status_code == 200
+    assert create_claim.json()["id"] == "claim-manual"
+    assert show_claim.status_code == 200
+    assert show_claim.json()["title"] == "OpenAI launch claim"
+    assert update_claim.status_code == 200
+    assert update_claim.json()["status"] == "ready"
+
+    assert report_sections.status_code == 200
+    assert report_sections.json()[0]["id"] == "section-market-context"
+    assert create_section.status_code == 200
+    assert create_section.json()["id"] == "section-manual"
+    assert show_section.status_code == 200
+    assert show_section.json()["title"] == "Market context"
+    assert update_section.status_code == 200
+    assert update_section.json()["status"] == "ready"
+
+    assert citation_bundles.status_code == 200
+    assert citation_bundles.json()[0]["id"] == "bundle-openai"
+    assert create_bundle.status_code == 200
+    assert create_bundle.json()["id"] == "bundle-manual"
+    assert show_bundle.status_code == 200
+    assert show_bundle.json()["label"] == "OpenAI bundle"
+    assert update_bundle.status_code == 200
+    assert update_bundle.json()["label"] == "Updated bundle"
+
+    assert reports.status_code == 200
+    assert reports.json()[0]["id"] == "report-openai-market"
+    assert create_report.status_code == 200
+    assert create_report.json()["id"] == "report-manual"
+    assert show_report.status_code == 200
+    assert show_report.json()["title"] == "OpenAI Market Report"
+    assert update_report.status_code == 200
+    assert update_report.json()["status"] == "ready"
+    assert compose.status_code == 200
+    assert compose.json()["report"]["id"] == "report-openai-market"
+    assert quality.status_code == 200
+    assert quality.json()["status"] == "ok"
+    assert export_json.status_code == 200
+    assert export_json.json()["report"]["id"] == "report-openai-market"
+    assert export_markdown.status_code == 200
+    assert export_markdown.headers["content-type"].startswith("text/markdown")
+    assert export_markdown.text.startswith("# OpenAI Market Report")
+
+    assert export_profiles.status_code == 200
+    assert export_profiles.json()[0]["id"] == "profile-brief"
+    assert create_profile.status_code == 200
+    assert create_profile.json()["id"] == "profile-manual"
+    assert show_profile.status_code == 200
+    assert show_profile.json()["name"] == "Brief export profile"
+    assert update_profile.status_code == 200
+    assert update_profile.json()["name"] == "Updated Profile"
 
 
 def test_console_ops_scorecard_with_real_reader(tmp_path, monkeypatch):

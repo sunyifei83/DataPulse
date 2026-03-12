@@ -20,13 +20,13 @@ from datapulse.core.entity_store import EntityStore
 from datapulse.core.jina_client import JinaSearchOptions
 from datapulse.core.models import DataPulseItem, SourceType
 from datapulse.core.ops import WatchStatusStore
+from datapulse.core.report import ReportStore
 from datapulse.core.router import ParsePipeline
 from datapulse.core.scheduler import WatchDaemon, WatchScheduler, describe_schedule, is_watch_due, next_run_at
 from datapulse.core.scoring import rank_items
 from datapulse.core.search_gateway import SearchGateway, SearchHit
 from datapulse.core.source_catalog import SourceCatalog
 from datapulse.core.storage import UnifiedInbox, output_record_md, project_markdown
-from datapulse.core.report import ReportStore
 from datapulse.core.story import (
     StoryStore,
     build_factuality_gate,
@@ -2283,6 +2283,14 @@ class DataPulseReader:
     def create_report(self, **payload: Any) -> dict[str, Any]:
         return self.report_store.create_report(payload).to_dict()
 
+    @staticmethod
+    def _resolve_report_compose_setting(value: bool | None, profile_value: bool | None, default: bool) -> bool:
+        if value is not None:
+            return bool(value)
+        if profile_value is not None:
+            return bool(profile_value)
+        return default
+
     def assemble_report(
         self,
         identifier: str,
@@ -2304,6 +2312,73 @@ class DataPulseReader:
         report = self.report_store.get_report(identifier)
         return report.to_dict() if report is not None else None
 
+    def compose_report(
+        self,
+        identifier: str,
+        *,
+        profile_id: str | None = None,
+        include_sections: bool | None = None,
+        include_claim_cards: bool | None = None,
+        include_citation_bundles: bool | None = None,
+        include_export_profiles: bool | None = None,
+    ) -> dict[str, Any] | None:
+        profile_payload: dict[str, Any] | None = None
+        if profile_id:
+            profile_payload = self.show_export_profile(profile_id)
+            if profile_payload is None:
+                raise ValueError(f"Export profile not found: {profile_id}")
+
+        include_sections = self._resolve_report_compose_setting(
+            include_sections,
+            profile_payload.get("include_sections") if profile_payload else None,
+            True,
+        )
+        include_claim_cards = self._resolve_report_compose_setting(
+            include_claim_cards,
+            profile_payload.get("include_claim_cards") if profile_payload else None,
+            True,
+        )
+        include_citation_bundles = self._resolve_report_compose_setting(
+            include_citation_bundles,
+            profile_payload.get("include_bundles") if profile_payload else None,
+            True,
+        )
+        include_export_profiles = self._resolve_report_compose_setting(
+            include_export_profiles,
+            (profile_payload or {}).get("include_export_profiles"),
+            True,
+        )
+        return self.report_store.assemble_report(
+            identifier,
+            include_sections=include_sections,
+            include_claim_cards=include_claim_cards,
+            include_citation_bundles=include_citation_bundles,
+            include_export_profiles=include_export_profiles,
+        )
+
+    def assess_report_quality(
+        self,
+        identifier: str,
+        *,
+        profile_id: str | None = None,
+        include_sections: bool | None = None,
+        include_claim_cards: bool | None = None,
+        include_citation_bundles: bool | None = None,
+        include_export_profiles: bool | None = None,
+    ) -> dict[str, Any] | None:
+        payload = self.compose_report(
+            identifier,
+            profile_id=profile_id,
+            include_sections=include_sections,
+            include_claim_cards=include_claim_cards,
+            include_citation_bundles=include_citation_bundles,
+            include_export_profiles=include_export_profiles,
+        )
+        if payload is None:
+            return None
+        quality = payload.get("quality")
+        return quality if isinstance(quality, dict) else {}
+
     def update_report(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
         report = self.report_store.update_report(identifier, **payload)
         return report.to_dict() if report is not None else None
@@ -2321,6 +2396,154 @@ class DataPulseReader:
     def update_export_profile(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
         profile = self.report_store.update_export_profile(identifier, **payload)
         return profile.to_dict() if profile is not None else None
+
+    @staticmethod
+    def _normalize_report_export_format(output_format: str) -> str:
+        normalized = str(output_format or "json").strip().lower()
+        if normalized in {"", "json", "md", "markdown"}:
+            return normalized or "json"
+        raise ValueError(f"Unsupported report export format: {output_format}")
+
+    def _render_report_markdown(self, payload: dict[str, Any], *, include_metadata: bool = True) -> str:
+        report = payload.get("report", {}) if isinstance(payload.get("report"), dict) else {}
+        sections_raw = payload.get("sections", [])
+        claims_raw = payload.get("claim_cards", [])
+        bundles_raw = payload.get("citation_bundles", [])
+        quality = payload.get("quality", {}) if isinstance(payload.get("quality"), dict) else {}
+        sections = [section for section in sections_raw if isinstance(section, dict)] if isinstance(sections_raw, list) else []
+        claims = [claim for claim in claims_raw if isinstance(claim, dict)] if isinstance(claims_raw, list) else []
+        bundles = [bundle for bundle in bundles_raw if isinstance(bundle, dict)] if isinstance(bundles_raw, list) else []
+        section_claim_ids: list[str] = []
+        for section in sections:
+            section_claim_ids.extend(
+                [claim_id for claim_id in section.get("claim_card_ids", []) if isinstance(claim_id, str) and claim_id]
+            )
+        claim_map: dict[str, dict[str, Any]] = {
+            str(claim["id"]): claim
+            for claim in claims
+            if claim.get("id")
+        }
+        lines = [
+            f"# {report.get('title', 'Unnamed Report')}",
+            "",
+            f"- id: {report.get('id', '-')}",
+            f"- status: {report.get('status', 'draft')}",
+            f"- brief_id: {report.get('brief_id', '-')}",
+            f"- audience: {report.get('audience', '-') or '-'}",
+            f"- section_count: {len(sections) if isinstance(sections, list) else 0}",
+            f"- claim_count: {len(claims) if isinstance(claims, list) else 0}",
+            f"- bundle_count: {len(bundles) if isinstance(bundles, list) else 0}",
+            f"- updated_at: {report.get('updated_at', '-')}",
+            "",
+        ]
+        if include_metadata and isinstance(report, dict):
+            lines.extend(
+                [
+                    "## Summary",
+                    report.get("summary", "").strip() or "-",
+                    "",
+                    "## Governance Summary",
+                    f"- quality_status: {quality.get('status', 'unknown')}",
+                    f"- operator_action: {quality.get('operator_action', '-')}",
+                    f"- can_export: {quality.get('can_export', False)}",
+                    f"- score: {quality.get('score', 0.0):.3f}",
+                    "",
+                ]
+            )
+            if quality.get("contradictions"):
+                lines.append(f"- contradiction_count: {len(quality['contradictions'])}")
+            if quality.get("checks"):
+                for check_name, check_payload in quality["checks"].items():
+                    if not isinstance(check_payload, dict):
+                        continue
+                    lines.append(f"- {check_name}: {check_payload.get('status', 'unknown')}")
+                lines.append("")
+
+        if sections:
+            lines.append("## Sections")
+            for section in sections:
+                lines.append(f"### {section.get('title', 'Untitled section')}")
+                lines.append(f"- id: {section.get('id', '-')}")
+                lines.append(f"- position: {section.get('position', 0)}")
+                if section.get("summary"):
+                    lines.append(f"- summary: {section.get('summary')}")
+                section_claims: list[dict[str, Any]] = []
+                for claim_id in section.get("claim_card_ids", []):
+                    if not isinstance(claim_id, str):
+                        continue
+                    claim = claim_map.get(claim_id)
+                    if claim is not None:
+                        section_claims.append(claim)
+                if section_claims:
+                    lines.append("#### Claims")
+                    for claim in section_claims:
+                        lines.append(f"- {claim.get('id', '-')}: {claim.get('statement', '').strip()}")
+                lines.append("")
+
+        if claims:
+            lines.append("## Claim Cards")
+            for claim in claims:
+                lines.append(f"- {claim.get('id', '-')}: {claim.get('statement', '').strip()}")
+                if claim.get("rationale"):
+                    lines.append(f"  - rationale: {claim['rationale']}")
+                if claim.get("governance"):
+                    contradictions = claim.get("governance", {}).get("contradictions")
+                    if contradictions:
+                        lines.append("  - contradictions:")
+                        for row in contradictions:
+                            lines.append(f"    - {row}")
+            lines.append("")
+
+        if section_claim_ids:
+            lines.append("## Section Claims")
+            for claim_id in section_claim_ids:
+                lines.append(f"- {claim_id}")
+
+        if include_metadata and bundles:
+            lines.append("")
+            lines.append("## Citation Bundles")
+            for bundle in bundles:
+                lines.append(f"- {bundle.get('id', '-')}: {bundle.get('label', 'bundle')}")
+                sources = bundle.get("source_urls", [])
+                if sources:
+                    lines.append("  - source_urls: " + ", ".join(sources))
+                items = bundle.get("source_item_ids", [])
+                if items:
+                    lines.append("  - source_item_ids: " + ", ".join(items))
+        return "\n".join(lines)
+
+    def export_report(
+        self,
+        identifier: str,
+        *,
+        profile_id: str | None = None,
+        output_format: str = "json",
+        include_sections: bool | None = None,
+        include_claim_cards: bool | None = None,
+        include_citation_bundles: bool | None = None,
+        include_metadata: bool | None = None,
+    ) -> str | None:
+        payload = self.compose_report(
+            identifier,
+            profile_id=profile_id,
+            include_sections=include_sections,
+            include_claim_cards=include_claim_cards,
+            include_citation_bundles=include_citation_bundles,
+        )
+        if payload is None:
+            return None
+
+        profile_payload: dict[str, Any] | None = self.show_export_profile(profile_id) if profile_id else None
+        resolved_format = self._normalize_report_export_format(output_format)
+        if resolved_format == "json":
+            return json.dumps(payload, ensure_ascii=False, indent=2)
+
+        include_metadata = bool(
+            include_metadata
+            if include_metadata is not None
+            else (profile_payload.get("include_metadata", True) if profile_payload else True)
+        )
+        return self._render_report_markdown(payload, include_metadata=include_metadata)
 
     def _to_item(self, parse_result, parser_name: str) -> DataPulseItem:
         source_type = parse_result.source_type or SourceType.GENERIC

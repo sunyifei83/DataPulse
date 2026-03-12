@@ -6,7 +6,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TypeAlias, TypeVar
 
 from .utils import generate_slug, reports_path_from_env
 
@@ -312,6 +312,25 @@ class ExportProfile:
         return cls(**{k: v for k, v in data.items() if k in valid})
 
 
+ReportRecord: TypeAlias = (
+    ReportBrief
+    | ClaimCard
+    | ReportSection
+    | CitationBundle
+    | Report
+    | ExportProfile
+)
+ReportRecordT = TypeVar(
+    "ReportRecordT",
+    ReportBrief,
+    ClaimCard,
+    ReportSection,
+    CitationBundle,
+    Report,
+    ExportProfile,
+)
+
+
 class ReportStore:
     """File-backed storage for report-production objects."""
 
@@ -336,22 +355,27 @@ class ReportStore:
 
         if isinstance(raw, dict):
             self.version = int(raw.get("version", self.version) or self.version)
-            self._load_collection(raw.get("report_briefs"), ReportBrief, self.report_briefs)
-            self._load_collection(raw.get("claim_cards"), ClaimCard, self.claim_cards)
-            self._load_collection(raw.get("report_sections"), ReportSection, self.report_sections)
-            self._load_collection(raw.get("citation_bundles"), CitationBundle, self.citation_bundles)
-            self._load_collection(raw.get("reports"), Report, self.reports)
-            self._load_collection(raw.get("export_profiles"), ExportProfile, self.export_profiles)
+            self._load_collection(raw.get("report_briefs"), ReportBrief.from_dict, self.report_briefs)
+            self._load_collection(raw.get("claim_cards"), ClaimCard.from_dict, self.claim_cards)
+            self._load_collection(raw.get("report_sections"), ReportSection.from_dict, self.report_sections)
+            self._load_collection(raw.get("citation_bundles"), CitationBundle.from_dict, self.citation_bundles)
+            self._load_collection(raw.get("reports"), Report.from_dict, self.reports)
+            self._load_collection(raw.get("export_profiles"), ExportProfile.from_dict, self.export_profiles)
         elif isinstance(raw, list):
-            self._load_collection(raw, Report, self.reports)
+            self._load_collection(raw, Report.from_dict, self.reports)
 
-    def _load_collection(self, payload: Any, model: type, target: dict[str, Any]) -> None:
+    def _load_collection(
+        self,
+        payload: Any,
+        factory: Callable[[dict[str, Any]], ReportRecordT],
+        target: dict[str, ReportRecordT],
+    ) -> None:
         rows = payload if isinstance(payload, list) else []
         for item in rows:
             if not isinstance(item, dict):
                 continue
             try:
-                model_obj = model.from_dict(item)
+                model_obj = factory(item)
             except (TypeError, ValueError):
                 continue
             target[model_obj.id] = model_obj
@@ -371,18 +395,23 @@ class ReportStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(self._persistable_payload(), ensure_ascii=False, indent=2), encoding="utf-8")
 
-    def _touch(self, obj: ReportBrief | ClaimCard | ReportSection | CitationBundle | Report | ExportProfile) -> None:
+    def _touch(self, obj: ReportRecord) -> None:
         obj.updated_at = _utcnow()
 
     @staticmethod
-    def _filter_status(values: list[Any], status: str | None) -> list[Any]:
+    def _filter_status(values: list[ReportRecordT], status: str | None) -> list[ReportRecordT]:
         if not status:
             return values
         normalized = {s.strip().lower() for s in _normalize_string_list([status])}
         return [item for item in values if getattr(item, "status", "").strip().lower() in normalized]
 
     @staticmethod
-    def _list_records(records: dict[str, Any], *, limit: int = 20, status: str | None = None) -> list[Any]:
+    def _list_records(
+        records: dict[str, ReportRecordT],
+        *,
+        limit: int = 20,
+        status: str | None = None,
+    ) -> list[ReportRecordT]:
         rows = list(records.values())
         if status is not None:
             allowed = {s.strip().lower() for s in _normalize_string_list([status])}
@@ -391,7 +420,7 @@ class ReportStore:
         return rows[: max(0, int(limit))]
 
     @staticmethod
-    def _lookup(records: dict[str, Any], identifier: str) -> Any | None:
+    def _lookup(records: dict[str, ReportRecordT], identifier: str) -> ReportRecordT | None:
         key = _normalize_optional_string(identifier)
         if not key:
             return None
@@ -411,8 +440,21 @@ class ReportStore:
     def _normalize_ids(values: list[str] | None) -> list[str]:
         return _normalize_id_sequence(values)
 
-    def _create(self, payload: Any, model: type, container: dict[str, Any], *, id_prefix: str) -> Any:
-        candidate = payload if isinstance(payload, model) else model.from_dict(payload)
+    def _create(
+        self,
+        payload: ReportRecordT | dict[str, Any],
+        factory: Callable[[dict[str, Any]], ReportRecordT],
+        model_type: type[ReportRecordT],
+        container: dict[str, ReportRecordT],
+        *,
+        id_prefix: str,
+    ) -> ReportRecordT:
+        if isinstance(payload, model_type):
+            candidate = payload
+        else:
+            if not isinstance(payload, dict):
+                raise TypeError(f"Unsupported payload type for {model_type.__name__}: {type(payload)!r}")
+            candidate = factory(payload)
         candidate.id = _unique_id(candidate.id, set(container), prefix=id_prefix)
         if not candidate.created_at:
             candidate.created_at = _utcnow()
@@ -424,7 +466,13 @@ class ReportStore:
     def _update_timestamp(self) -> None:
         self.version += 1
 
-    def _update_generic(self, identifier: str, container: dict[str, Any], *, updates: dict[str, Any]) -> Any | None:
+    def _update_generic(
+        self,
+        identifier: str,
+        container: dict[str, ReportRecordT],
+        *,
+        updates: dict[str, Any],
+    ) -> ReportRecordT | None:
         current = self._lookup(container, identifier)
         if current is None:
             return None
@@ -447,7 +495,7 @@ class ReportStore:
 
     # ReportBrief CRUD
     def create_report_brief(self, payload: ReportBrief | dict[str, Any]) -> ReportBrief:
-        return self._create(payload, ReportBrief, self.report_briefs, id_prefix="report-brief")
+        return self._create(payload, ReportBrief.from_dict, ReportBrief, self.report_briefs, id_prefix="report-brief")
 
     def list_report_briefs(self, *, limit: int = 20, status: str | None = None) -> list[ReportBrief]:
         return self._list_records(self.report_briefs, limit=limit, status=status)
@@ -468,7 +516,7 @@ class ReportStore:
 
     # ClaimCard CRUD
     def create_claim_card(self, payload: ClaimCard | dict[str, Any]) -> ClaimCard:
-        return self._create(payload, ClaimCard, self.claim_cards, id_prefix="claim-card")
+        return self._create(payload, ClaimCard.from_dict, ClaimCard, self.claim_cards, id_prefix="claim-card")
 
     def list_claim_cards(self, *, limit: int = 20, status: str | None = None) -> list[ClaimCard]:
         return self._list_records(self.claim_cards, limit=limit, status=status)
@@ -497,7 +545,7 @@ class ReportStore:
 
     # ReportSection CRUD
     def create_report_section(self, payload: ReportSection | dict[str, Any]) -> ReportSection:
-        return self._create(payload, ReportSection, self.report_sections, id_prefix="report-section")
+        return self._create(payload, ReportSection.from_dict, ReportSection, self.report_sections, id_prefix="report-section")
 
     def list_report_sections(self, *, limit: int = 20, status: str | None = None) -> list[ReportSection]:
         return self._list_records(self.report_sections, limit=limit, status=status)
@@ -522,7 +570,7 @@ class ReportStore:
 
     # CitationBundle CRUD
     def create_citation_bundle(self, payload: CitationBundle | dict[str, Any]) -> CitationBundle:
-        return self._create(payload, CitationBundle, self.citation_bundles, id_prefix="citation-bundle")
+        return self._create(payload, CitationBundle.from_dict, CitationBundle, self.citation_bundles, id_prefix="citation-bundle")
 
     def list_citation_bundles(self, *, limit: int = 20) -> list[CitationBundle]:
         return self._list_records(self.citation_bundles, limit=limit, status=None)
@@ -542,7 +590,7 @@ class ReportStore:
 
     # Report CRUD
     def create_report(self, payload: Report | dict[str, Any]) -> Report:
-        return self._create(payload, Report, self.reports, id_prefix="report")
+        return self._create(payload, Report.from_dict, Report, self.reports, id_prefix="report")
 
     def list_reports(self, *, limit: int = 20, status: str | None = None) -> list[Report]:
         return self._list_records(self.reports, limit=limit, status=status)
@@ -567,7 +615,13 @@ class ReportStore:
 
     # ExportProfile CRUD
     def create_export_profile(self, payload: ExportProfile | dict[str, Any]) -> ExportProfile:
-        return self._create(payload, ExportProfile, self.export_profiles, id_prefix="export-profile")
+        return self._create(
+            payload,
+            ExportProfile.from_dict,
+            ExportProfile,
+            self.export_profiles,
+            id_prefix="export-profile",
+        )
 
     def list_export_profiles(self, *, limit: int = 20, status: str | None = None) -> list[ExportProfile]:
         return self._list_records(self.export_profiles, limit=limit, status=status)
@@ -651,7 +705,6 @@ class ReportStore:
         profile_map = {row.id: row for row in self.export_profiles.values()}
 
         ordered_sections = [section_map[section_id] for section_id in report.section_ids if section_id in section_map]
-        section_lookup = {row.id: row for row in ordered_sections}
 
         section_ids_set = {row.id for row in ordered_sections}
         section_claim_ids: set[str] = set()
@@ -663,12 +716,11 @@ class ReportStore:
             if section_id not in section_ids_set
         ]
 
-        ordered_claims = []
         claim_ids = list(report.claim_card_ids)
         if include_sections:
             claim_ids = sorted(set(claim_ids) | section_claim_ids, key=lambda item: item)
         claim_ids_seen: set[str] = set()
-        ordered_claims = []
+        ordered_claims: list[ClaimCard] = []
         for claim_id in claim_ids:
             claim = claim_map.get(claim_id)
             if claim is None:
@@ -677,7 +729,6 @@ class ReportStore:
                 continue
             claim_ids_seen.add(claim.id)
             ordered_claims.append(claim)
-        claim_ids_seen_set = {row.id for row in ordered_claims}
 
         used_bundle_ids: set[str] = set()
         ordered_bundles: list[CitationBundle] = []
@@ -741,7 +792,7 @@ class ReportStore:
             if missing_bundles:
                 claim_bundle_issues.append(f"{claim.id}:{','.join(missing_bundles)}")
 
-        claim_binding_issues = []
+        claim_binding_issues: list[dict[str, Any]] = []
         if claims_without_binding:
             claim_binding_issues.append(
                 {
@@ -759,7 +810,7 @@ class ReportStore:
                 },
             )
 
-        section_coverage_issues = []
+        section_coverage_issues: list[dict[str, Any]] = []
         if missing_section_ids:
             section_coverage_issues.append(
                 {
@@ -822,7 +873,7 @@ class ReportStore:
             if str(row.get("severity", "")).strip().lower() in {"error", "warning"}
         ]
 
-        export_gate_issues = []
+        export_gate_issues: list[dict[str, Any]] = []
         for profile in ordered_profiles:
             if include_sections and profile.include_sections and not ordered_sections:
                 export_gate_issues.append(

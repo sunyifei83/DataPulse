@@ -121,6 +121,23 @@ class AlertRouteUpdateRequest(BaseModel):
     timeout_seconds: float | None = Field(default=None, gt=0)
 
 
+class ReportObjectPayload(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+
+class ReportComposeRequest(BaseModel):
+    profile_id: str | None = None
+    include_sections: bool | None = None
+    include_claim_cards: bool | None = None
+    include_citation_bundles: bool | None = None
+    include_export_profiles: bool | None = None
+
+
+class ReportExportRequest(ReportComposeRequest):
+    output_format: str = "json"
+    include_metadata: bool | None = None
+
+
 def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) -> FastAPI:
     app = FastAPI(title=CONSOLE_TITLE, version="0.8.0")
 
@@ -382,6 +399,244 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
             raise HTTPException(status_code=404, detail=f"Story not found: {identifier}")
         media_type = "application/json" if output_format == "json" else "text/markdown"
         return Response(content=payload, media_type=media_type)
+
+    @app.get("/api/report-briefs")
+    def list_report_briefs(limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
+        return reader_factory().list_report_briefs(limit=limit, status=status)
+
+    @app.post("/api/report-briefs")
+    def create_report_brief(payload: ReportObjectPayload) -> dict[str, Any]:
+        try:
+            return reader_factory().create_report_brief(**payload.model_dump(exclude_none=True))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/report-briefs/{identifier}")
+    def show_report_brief(identifier: str) -> dict[str, Any]:
+        brief = reader_factory().show_report_brief(identifier)
+        if brief is None:
+            raise HTTPException(status_code=404, detail=f"Report brief not found: {identifier}")
+        return brief
+
+    @app.put("/api/report-briefs/{identifier}")
+    def update_report_brief(identifier: str, payload: ReportObjectPayload) -> dict[str, Any]:
+        try:
+            payload_data = payload.model_dump(exclude_none=True)
+            brief = reader_factory().update_report_brief(identifier, **payload_data)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if brief is None:
+            raise HTTPException(status_code=404, detail=f"Report brief not found: {identifier}")
+        return brief
+
+    @app.get("/api/claim-cards")
+    def list_claim_cards(limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
+        return reader_factory().list_claim_cards(limit=limit, status=status)
+
+    @app.post("/api/claim-cards")
+    def create_claim_card(payload: ReportObjectPayload) -> dict[str, Any]:
+        try:
+            return reader_factory().create_claim_card(**payload.model_dump(exclude_none=True))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/claim-cards/{identifier}")
+    def show_claim_card(identifier: str) -> dict[str, Any]:
+        claim = reader_factory().show_claim_card(identifier)
+        if claim is None:
+            raise HTTPException(status_code=404, detail=f"Claim card not found: {identifier}")
+        return claim
+
+    @app.put("/api/claim-cards/{identifier}")
+    def update_claim_card(identifier: str, payload: ReportObjectPayload) -> dict[str, Any]:
+        try:
+            payload_data = payload.model_dump(exclude_none=True)
+            claim = reader_factory().update_claim_card(identifier, **payload_data)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if claim is None:
+            raise HTTPException(status_code=404, detail=f"Claim card not found: {identifier}")
+        return claim
+
+    @app.get("/api/report-sections")
+    def list_report_sections(limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
+        return reader_factory().list_report_sections(limit=limit, status=status)
+
+    @app.post("/api/report-sections")
+    def create_report_section(payload: ReportObjectPayload) -> dict[str, Any]:
+        try:
+            return reader_factory().create_report_section(**payload.model_dump(exclude_none=True))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/report-sections/{identifier}")
+    def show_report_section(identifier: str) -> dict[str, Any]:
+        section = reader_factory().show_report_section(identifier)
+        if section is None:
+            raise HTTPException(status_code=404, detail=f"Report section not found: {identifier}")
+        return section
+
+    @app.put("/api/report-sections/{identifier}")
+    def update_report_section(identifier: str, payload: ReportObjectPayload) -> dict[str, Any]:
+        try:
+            payload_data = payload.model_dump(exclude_none=True)
+            section = reader_factory().update_report_section(identifier, **payload_data)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if section is None:
+            raise HTTPException(status_code=404, detail=f"Report section not found: {identifier}")
+        return section
+
+    @app.get("/api/citation-bundles")
+    def list_citation_bundles(limit: int = 20) -> list[dict[str, Any]]:
+        return reader_factory().list_citation_bundles(limit=limit)
+
+    @app.post("/api/citation-bundles")
+    def create_citation_bundle(payload: ReportObjectPayload) -> dict[str, Any]:
+        try:
+            return reader_factory().create_citation_bundle(**payload.model_dump(exclude_none=True))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/citation-bundles/{identifier}")
+    def show_citation_bundle(identifier: str) -> dict[str, Any]:
+        bundle = reader_factory().show_citation_bundle(identifier)
+        if bundle is None:
+            raise HTTPException(status_code=404, detail=f"Citation bundle not found: {identifier}")
+        return bundle
+
+    @app.put("/api/citation-bundles/{identifier}")
+    def update_citation_bundle(identifier: str, payload: ReportObjectPayload) -> dict[str, Any]:
+        try:
+            payload_data = payload.model_dump(exclude_none=True)
+            bundle = reader_factory().update_citation_bundle(identifier, **payload_data)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if bundle is None:
+            raise HTTPException(status_code=404, detail=f"Citation bundle not found: {identifier}")
+        return bundle
+
+    @app.get("/api/reports")
+    def list_reports(limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
+        return reader_factory().list_reports(limit=limit, status=status)
+
+    @app.post("/api/reports")
+    def create_report(payload: ReportObjectPayload) -> dict[str, Any]:
+        try:
+            return reader_factory().create_report(**payload.model_dump(exclude_none=True))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/reports/{identifier}")
+    def show_report(identifier: str) -> dict[str, Any]:
+        report = reader_factory().show_report(identifier)
+        if report is None:
+            raise HTTPException(status_code=404, detail=f"Report not found: {identifier}")
+        return report
+
+    @app.put("/api/reports/{identifier}")
+    def update_report(identifier: str, payload: ReportObjectPayload) -> dict[str, Any]:
+        try:
+            payload_data = payload.model_dump(exclude_none=True)
+            report = reader_factory().update_report(identifier, **payload_data)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if report is None:
+            raise HTTPException(status_code=404, detail=f"Report not found: {identifier}")
+        return report
+
+    @app.post("/api/reports/{identifier}/compose")
+    def compose_report(identifier: str, payload: ReportComposeRequest) -> dict[str, Any]:
+        try:
+            report = reader_factory().compose_report(
+                identifier,
+                **payload.model_dump(exclude_none=True),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if report is None:
+            raise HTTPException(status_code=404, detail=f"Report not found: {identifier}")
+        return report
+
+    @app.get("/api/reports/{identifier}/quality")
+    def report_quality(
+        identifier: str,
+        profile_id: str | None = None,
+        include_sections: bool | None = None,
+        include_claim_cards: bool | None = None,
+        include_citation_bundles: bool | None = None,
+        include_export_profiles: bool | None = None,
+    ) -> dict[str, Any]:
+        quality = reader_factory().assess_report_quality(
+            identifier,
+            profile_id=profile_id,
+            include_sections=include_sections,
+            include_claim_cards=include_claim_cards,
+            include_citation_bundles=include_citation_bundles,
+            include_export_profiles=include_export_profiles,
+        )
+        if quality is None:
+            raise HTTPException(status_code=404, detail=f"Report not found: {identifier}")
+        return quality
+
+    @app.get("/api/reports/{identifier}/export")
+    def export_report(
+        identifier: str,
+        profile_id: str | None = None,
+        output_format: str = "json",
+        include_sections: bool | None = None,
+        include_claim_cards: bool | None = None,
+        include_citation_bundles: bool | None = None,
+        include_metadata: bool | None = None,
+    ) -> Response:
+        output_format = str(output_format).strip().lower() or "json"
+        if output_format not in {"json", "md", "markdown"}:
+            raise HTTPException(status_code=400, detail=f"Unsupported report export format: {output_format}")
+        try:
+            payload = reader_factory().export_report(
+                identifier,
+                profile_id=profile_id,
+                output_format=output_format,
+                include_sections=include_sections,
+                include_claim_cards=include_claim_cards,
+                include_citation_bundles=include_citation_bundles,
+                include_metadata=include_metadata,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if payload is None:
+            raise HTTPException(status_code=404, detail=f"Report not found: {identifier}")
+        media_type = "application/json" if output_format == "json" else "text/markdown"
+        return Response(content=payload, media_type=media_type)
+
+    @app.get("/api/export-profiles")
+    def list_export_profiles(limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
+        return reader_factory().list_export_profiles(limit=limit, status=status)
+
+    @app.post("/api/export-profiles")
+    def create_export_profile(payload: ReportObjectPayload) -> dict[str, Any]:
+        try:
+            return reader_factory().create_export_profile(**payload.model_dump(exclude_none=True))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/export-profiles/{identifier}")
+    def show_export_profile(identifier: str) -> dict[str, Any]:
+        profile = reader_factory().show_export_profile(identifier)
+        if profile is None:
+            raise HTTPException(status_code=404, detail=f"Export profile not found: {identifier}")
+        return profile
+
+    @app.put("/api/export-profiles/{identifier}")
+    def update_export_profile(identifier: str, payload: ReportObjectPayload) -> dict[str, Any]:
+        try:
+            payload_data = payload.model_dump(exclude_none=True)
+            profile = reader_factory().update_export_profile(identifier, **payload_data)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if profile is None:
+            raise HTTPException(status_code=404, detail=f"Export profile not found: {identifier}")
+        return profile
 
     @app.get("/api/triage")
     def triage_list(limit: int = 20, state: list[str] | None = None, include_closed: bool = False) -> list[dict[str, Any]]:

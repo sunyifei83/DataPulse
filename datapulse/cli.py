@@ -519,6 +519,42 @@ def _print_story_graph(payload):
             )
 
 
+def _print_reports(items, title: str = "reports"):
+    if not items:
+        print(f"No {title} found.")
+        return
+    print(f"{title}: {len(items)}")
+    for item in items:
+        print(
+            f"{item.get('id', '-')}: {item.get('title', item.get('name', '-'))} "
+            f"({item.get('status', '-')})"
+        )
+
+
+def _print_report(payload):
+    if not isinstance(payload, dict):
+        print(payload)
+        return
+    if payload.get("id"):
+        print(f"id: {payload.get('id')}")
+    for key in ("title", "brief_id", "status", "audience", "summary"):
+        if key in payload:
+            print(f"{key}: {payload.get(key)}")
+
+
+def _print_report_quality(payload):
+    if payload is None:
+        print("Report quality unavailable.")
+        return
+    print("Report quality:")
+    print(f"status: {payload.get('status', '-')}")
+    print(f"score: {payload.get('score', 0.0)}")
+    print(f"can_export: {payload.get('can_export', False)}")
+    checks = payload.get("checks")
+    if isinstance(checks, dict) and checks:
+        print(f"checks: {', '.join(checks)}")
+
+
 def _build_watch_alert_rules_from_args(args) -> list[dict[str, Any]] | None:
     if not any(
         value is not None and value != []
@@ -781,6 +817,18 @@ def _normalize_csv_ids(value: str | None) -> list[str] | None:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def _load_json_payload(raw: str | None, field_name: str, *, parser_obj: argparse.ArgumentParser) -> dict[str, Any]:
+    if raw is None:
+        return {}
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        parser_obj.error(f"{field_name} must be valid JSON: {exc}")
+    if not isinstance(payload, dict):
+        parser_obj.error(f"{field_name} must be a JSON object")
+    return payload
+
+
 def _version_tuple(version: str) -> tuple[int, ...]:
     cleaned = (version or "").lstrip("vV").strip()
     parts = [int(part) for part in re.findall(r"\d+", cleaned)]
@@ -959,6 +1007,17 @@ def _print_skill_contract() -> None:
                 "--story-update",
                 "--story-graph",
                 "--story-export",
+                "--report-list",
+                "--report-show",
+                "--report-create",
+                "--report-update",
+                "--report-compose",
+                "--report-quality",
+                "--report-export",
+                "--report-object",
+                "--report-status",
+                "--report-limit",
+                "--report-payload",
                 "--doctor",
                 "--config-check",
                 "--troubleshoot",
@@ -983,6 +1042,7 @@ def _print_skill_contract() -> None:
                 "DATAPULSE_WATCH_STATUS_PATH": "Daemon JSON heartbeat file",
                 "DATAPULSE_WATCH_STATUS_HTML": "Daemon HTML status page",
                 "DATAPULSE_STORIES_PATH": "Story workspace storage file",
+                "DATAPULSE_REPORTS_PATH": "Report workspace storage file",
             },
         },
         "mcp_tools": mcp_tools,
@@ -997,7 +1057,7 @@ def _print_skill_contract() -> None:
             "for route audit: --alert-route-list",
             "for daemon status: --watch-status",
             "for analyst queue operations: --triage-list/--triage-explain/--triage-update/--triage-note/--triage-stats",
-            "for story workspace: --story-build/--story-list/--story-show/--story-update/--story-graph/--story-export",
+            "for report workspace: --report-object=brief/claim/section/citation-bundle/report/export-profile + --report-list/show/create/update/compose/quality/export",
             "for source governance: --list-sources/--list-packs/--query-feed",
             "for health checks: --doctor / --troubleshoot",
         ],
@@ -1287,6 +1347,53 @@ def main() -> None:
     management_group.add_argument("--story-graph-entity-limit", type=int, default=12, help="Max entity nodes for --story-graph")
     management_group.add_argument("--story-graph-relation-limit", type=int, default=24, help="Max relation edges for --story-graph")
     management_group.add_argument("--story-format", default="json", choices=["json", "markdown", "md"], help="Output format for --story-export")
+    management_group.add_argument(
+        "--report-object",
+        choices=["brief", "claim", "section", "citation-bundle", "citation_bundle", "report", "export-profile", "export_profile"],
+        help="Report domain to target for --report-* operations",
+    )
+    management_group.add_argument("--report-list", action="store_true", help="List report objects of selected --report-object")
+    management_group.add_argument("--report-show", metavar="REPORT_ID", help="Show one report object by id")
+    management_group.add_argument("--report-create", action="store_true", help="Create one report object under selected --report-object")
+    management_group.add_argument("--report-update", metavar="REPORT_ID", help="Update one report object by id")
+    management_group.add_argument("--report-compose", metavar="REPORT_ID", help="Compose one report by id (report object only)")
+    management_group.add_argument("--report-quality", metavar="REPORT_ID", help="Assess report quality by id (report object only)")
+    management_group.add_argument("--report-export", metavar="REPORT_ID", help="Export one report by id (report object only)")
+    management_group.add_argument("--report-status", help="Report status filter for list/update payload")
+    management_group.add_argument("--report-limit", type=int, default=20, help="Max report objects to list")
+    management_group.add_argument("--report-payload", metavar="JSON", help="JSON payload for --report-create/--report-update")
+    management_group.add_argument("--report-profile-id", help="Optional profile id for compose/quality/export")
+    management_group.add_argument("--report-export-format", default="json", choices=["json", "markdown", "md"], help="Output format for --report-export")
+    management_group.add_argument(
+        "--report-include-sections",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Toggle report section inclusion in compose/quality/export",
+    )
+    management_group.add_argument(
+        "--report-include-claim-cards",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Toggle claim-card inclusion in compose/quality/export",
+    )
+    management_group.add_argument(
+        "--report-include-citation-bundles",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Toggle citation-bundle inclusion in compose/quality/export",
+    )
+    management_group.add_argument(
+        "--report-include-export-profiles",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Toggle export-profile inclusion in compose/quality",
+    )
+    management_group.add_argument(
+        "--report-include-metadata",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Toggle metadata section in markdown report export",
+    )
     management_group.add_argument(
         "-i",
         "--login",
@@ -1681,6 +1788,176 @@ def main() -> None:
         else:
             print(story_export_payload)
         return
+
+    if args.report_object:
+        if args.report_object == "citation-bundle":
+            report_object = "citation_bundle"
+        elif args.report_object == "export-profile":
+            report_object = "export_profile"
+        else:
+            report_object = args.report_object
+
+        report_actions = [
+            ("list", args.report_list),
+            ("show", args.report_show is not None),
+            ("create", args.report_create),
+            ("update", args.report_update is not None),
+            ("compose", args.report_compose is not None),
+            ("quality", args.report_quality is not None),
+            ("export", args.report_export is not None),
+        ]
+        if sum(1 for _, enabled in report_actions if enabled) != 1:
+            parser.error("Use exactly one report action: --report-list / --report-show / --report-create / --report-update / --report-compose / --report-quality / --report-export")
+
+        if report_object in {"brief", "claim", "section", "citation_bundle", "report", "export_profile"}:
+            pass
+        else:
+            parser.error(f"Unsupported --report-object: {args.report_object}")
+
+        report_payload = _load_json_payload(args.report_payload, "--report-payload", parser_obj=parser) if args.report_payload else {}
+        report_compose_kwargs = {
+            "profile_id": args.report_profile_id,
+            "include_sections": args.report_include_sections,
+            "include_claim_cards": args.report_include_claim_cards,
+            "include_citation_bundles": args.report_include_citation_bundles,
+            "include_export_profiles": args.report_include_export_profiles,
+        }
+
+        if args.report_list:
+            if report_object == "brief":
+                rows = reader.list_report_briefs(limit=args.report_limit, status=args.report_status)
+                _print_reports(rows, "report_briefs")
+            elif report_object == "claim":
+                rows = reader.list_claim_cards(limit=args.report_limit, status=args.report_status)
+                _print_reports(rows, "claim_cards")
+            elif report_object == "section":
+                rows = reader.list_report_sections(limit=args.report_limit, status=args.report_status)
+                _print_reports(rows, "report_sections")
+            elif report_object == "citation_bundle":
+                rows = reader.list_citation_bundles(limit=args.report_limit)
+                _print_reports(rows, "citation_bundles")
+            elif report_object == "report":
+                rows = reader.list_reports(limit=args.report_limit, status=args.report_status)
+                _print_reports(rows, "reports")
+            else:
+                rows = reader.list_export_profiles(limit=args.report_limit, status=args.report_status)
+                _print_reports(rows, "export_profiles")
+            return
+
+        if args.report_show is not None:
+            if report_object == "brief":
+                payload = reader.show_report_brief(args.report_show)
+            elif report_object == "claim":
+                payload = reader.show_claim_card(args.report_show)
+            elif report_object == "section":
+                payload = reader.show_report_section(args.report_show)
+            elif report_object == "citation_bundle":
+                payload = reader.show_citation_bundle(args.report_show)
+            elif report_object == "report":
+                payload = reader.show_report(args.report_show)
+            else:
+                payload = reader.show_export_profile(args.report_show)
+
+            if payload is None:
+                print(f"⚠️ report object not found: {args.report_show}")
+            else:
+                print(json.dumps(payload, ensure_ascii=False, indent=2))
+            return
+
+        if args.report_create:
+            if not report_payload:
+                parser.error("--report-create requires --report-payload")
+            try:
+                if report_object == "brief":
+                    created = reader.create_report_brief(**report_payload)
+                elif report_object == "claim":
+                    created = reader.create_claim_card(**report_payload)
+                elif report_object == "section":
+                    created = reader.create_report_section(**report_payload)
+                elif report_object == "citation_bundle":
+                    created = reader.create_citation_bundle(**report_payload)
+                elif report_object == "report":
+                    created = reader.create_report(**report_payload)
+                else:
+                    created = reader.create_export_profile(**report_payload)
+            except (TypeError, ValueError) as exc:
+                print(f"❌ {exc}")
+                return
+            print(json.dumps(created, ensure_ascii=False, indent=2))
+            return
+
+        if args.report_update is not None:
+            if not report_payload and args.report_status is None:
+                parser.error("--report-update requires --report-payload or --report-status")
+            if args.report_status is not None:
+                report_payload["status"] = args.report_status
+            if report_object == "brief":
+                updated = reader.update_report_brief(args.report_update, **report_payload)
+            elif report_object == "claim":
+                updated = reader.update_claim_card(args.report_update, **report_payload)
+            elif report_object == "section":
+                updated = reader.update_report_section(args.report_update, **report_payload)
+            elif report_object == "citation_bundle":
+                updated = reader.update_citation_bundle(args.report_update, **report_payload)
+            elif report_object == "report":
+                updated = reader.update_report(args.report_update, **report_payload)
+            else:
+                updated = reader.update_export_profile(args.report_update, **report_payload)
+            if updated is None:
+                print(f"⚠️ report object not found: {args.report_update}")
+            else:
+                print(json.dumps(updated, ensure_ascii=False, indent=2))
+            return
+
+        if args.report_compose is not None:
+            if report_object != "report":
+                parser.error("--report-compose applies only when --report-object=report")
+            try:
+                payload = reader.compose_report(args.report_compose, **report_compose_kwargs)
+            except ValueError as exc:
+                print(f"❌ {exc}")
+                return
+            if payload is None:
+                print(f"⚠️ report not found: {args.report_compose}")
+            else:
+                print(json.dumps(payload, ensure_ascii=False, indent=2))
+            return
+
+        if args.report_quality is not None:
+            if report_object != "report":
+                parser.error("--report-quality applies only when --report-object=report")
+            try:
+                quality = reader.assess_report_quality(args.report_quality, **report_compose_kwargs)
+            except ValueError as exc:
+                print(f"❌ {exc}")
+                return
+            if quality is None:
+                print(f"⚠️ report not found: {args.report_quality}")
+            else:
+                _print_report_quality(quality)
+            return
+
+        if args.report_export is not None:
+            if report_object != "report":
+                parser.error("--report-export applies only when --report-object=report")
+            try:
+                export_payload = reader.export_report(
+                    args.report_export,
+                    profile_id=args.report_profile_id,
+                    output_format=args.report_export_format,
+                    include_sections=args.report_include_sections,
+                    include_claim_cards=args.report_include_claim_cards,
+                    include_citation_bundles=args.report_include_citation_bundles,
+                    include_metadata=args.report_include_metadata,
+                )
+            except ValueError as exc:
+                print(f"❌ {exc}")
+                return
+            if export_payload is None:
+                print(f"⚠️ report not found: {args.report_export}")
+            else:
+                print(export_payload)
+            return
 
     if args.watch_run_due:
         async def run_due() -> None:

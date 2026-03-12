@@ -220,6 +220,246 @@ async def _run_query_unprocessed(limit: int = 20, min_confidence: float = 0.0) -
     return json.dumps([item.to_dict() for item in items], ensure_ascii=False, indent=2)
 
 
+async def _run_list_report_briefs(limit: int = 20, status: str | None = None) -> str:
+    reader = DataPulseReader()
+    payload = reader.list_report_briefs(limit=limit, status=status)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_create_report_brief(payload: dict[str, Any] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = payload or {}
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be an object")
+    return json.dumps(reader.create_report_brief(**payload), ensure_ascii=False, indent=2)
+
+
+async def _run_show_report_brief(identifier: str) -> str:
+    reader = DataPulseReader()
+    payload = reader.show_report_brief(identifier)
+    return json.dumps({"ok": payload is not None, "report_brief": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_update_report_brief(identifier: str, payload: dict[str, Any] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = payload or {}
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be an object")
+    updated = reader.update_report_brief(identifier, **payload)
+    return json.dumps({"ok": updated is not None, "report_brief": updated}, ensure_ascii=False, indent=2)
+
+
+async def _run_list_claim_cards(limit: int = 20, status: str | None = None) -> str:
+    reader = DataPulseReader()
+    payload = reader.list_claim_cards(limit=limit, status=status)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_create_claim_card(payload: dict[str, Any] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = payload or {}
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be an object")
+    return json.dumps(reader.create_claim_card(**payload), ensure_ascii=False, indent=2)
+
+
+async def _run_show_claim_card(identifier: str) -> str:
+    reader = DataPulseReader()
+    payload = reader.show_claim_card(identifier)
+    return json.dumps({"ok": payload is not None, "claim_card": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_update_claim_card(identifier: str, payload: dict[str, Any] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = payload or {}
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be an object")
+    updated = reader.update_claim_card(identifier, **payload)
+    return json.dumps({"ok": updated is not None, "claim_card": updated}, ensure_ascii=False, indent=2)
+
+
+async def _run_list_report_sections(limit: int = 20, status: str | None = None) -> str:
+    reader = DataPulseReader()
+    payload = reader.list_report_sections(limit=limit, status=status)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_create_report_section(payload: dict[str, Any] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = payload or {}
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be an object")
+    return json.dumps(reader.create_report_section(**payload), ensure_ascii=False, indent=2)
+
+
+async def _run_show_report_section(identifier: str) -> str:
+    reader = DataPulseReader()
+    payload = reader.show_report_section(identifier)
+    return json.dumps({"ok": payload is not None, "report_section": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_update_report_section(identifier: str, payload: dict[str, Any] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = payload or {}
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be an object")
+    updated = reader.update_report_section(identifier, **payload)
+    return json.dumps({"ok": updated is not None, "report_section": updated}, ensure_ascii=False, indent=2)
+
+
+async def _run_list_citation_bundles(limit: int = 20) -> str:
+    reader = DataPulseReader()
+    payload = reader.list_citation_bundles(limit=limit)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_create_citation_bundle(payload: dict[str, Any] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = payload or {}
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be an object")
+    return json.dumps(reader.create_citation_bundle(**payload), ensure_ascii=False, indent=2)
+
+
+async def _run_show_citation_bundle(identifier: str) -> str:
+    reader = DataPulseReader()
+    payload = reader.show_citation_bundle(identifier)
+    return json.dumps({"ok": payload is not None, "citation_bundle": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_update_citation_bundle(identifier: str, payload: dict[str, Any] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = payload or {}
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be an object")
+    updated = reader.update_citation_bundle(identifier, **payload)
+    return json.dumps({"ok": updated is not None, "citation_bundle": updated}, ensure_ascii=False, indent=2)
+
+
+async def _run_list_reports(limit: int = 20, status: str | None = None) -> str:
+    reader = DataPulseReader()
+    payload = reader.list_reports(limit=limit, status=status)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_create_report(payload: dict[str, Any] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = payload or {}
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be an object")
+    return json.dumps(reader.create_report(**payload), ensure_ascii=False, indent=2)
+
+
+async def _run_show_report(identifier: str) -> str:
+    reader = DataPulseReader()
+    payload = reader.show_report(identifier)
+    return json.dumps({"ok": payload is not None, "report": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_update_report(identifier: str, payload: dict[str, Any] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = payload or {}
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be an object")
+    updated = reader.update_report(identifier, **payload)
+    return json.dumps({"ok": updated is not None, "report": updated}, ensure_ascii=False, indent=2)
+
+
+async def _run_compose_report(
+    identifier: str,
+    profile_id: str | None = None,
+    include_sections: bool | None = None,
+    include_claim_cards: bool | None = None,
+    include_citation_bundles: bool | None = None,
+    include_export_profiles: bool | None = None,
+) -> str:
+    reader = DataPulseReader()
+    payload = reader.compose_report(
+        identifier,
+        profile_id=profile_id,
+        include_sections=include_sections,
+        include_claim_cards=include_claim_cards,
+        include_citation_bundles=include_citation_bundles,
+        include_export_profiles=include_export_profiles,
+    )
+    return json.dumps({"ok": payload is not None, "report": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_report_quality(
+    identifier: str,
+    profile_id: str | None = None,
+    include_sections: bool | None = None,
+    include_claim_cards: bool | None = None,
+    include_citation_bundles: bool | None = None,
+    include_export_profiles: bool | None = None,
+) -> str:
+    reader = DataPulseReader()
+    quality = reader.assess_report_quality(
+        identifier,
+        profile_id=profile_id,
+        include_sections=include_sections,
+        include_claim_cards=include_claim_cards,
+        include_citation_bundles=include_citation_bundles,
+        include_export_profiles=include_export_profiles,
+    )
+    return json.dumps({"ok": quality is not None, "quality": quality}, ensure_ascii=False, indent=2)
+
+
+async def _run_export_report(
+    identifier: str,
+    profile_id: str | None = None,
+    output_format: str = "json",
+    include_sections: bool | None = None,
+    include_claim_cards: bool | None = None,
+    include_citation_bundles: bool | None = None,
+    include_metadata: bool | None = None,
+) -> str:
+    reader = DataPulseReader()
+    payload = reader.export_report(
+        identifier,
+        profile_id=profile_id,
+        output_format=output_format,
+        include_sections=include_sections,
+        include_claim_cards=include_claim_cards,
+        include_citation_bundles=include_citation_bundles,
+        include_metadata=include_metadata,
+    )
+    if payload is None:
+        return json.dumps({"ok": False, "report": None}, ensure_ascii=False, indent=2)
+    if payload and output_format in {"json", "markdown", "md"}:
+        return payload
+    return json.dumps({"ok": False, "report": None, "error": "unsupported output format"}, ensure_ascii=False, indent=2)
+
+
+async def _run_list_export_profiles(limit: int = 20, status: str | None = None) -> str:
+    reader = DataPulseReader()
+    payload = reader.list_export_profiles(limit=limit, status=status)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_create_export_profile(payload: dict[str, Any] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = payload or {}
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be an object")
+    return json.dumps(reader.create_export_profile(**payload), ensure_ascii=False, indent=2)
+
+
+async def _run_show_export_profile(identifier: str) -> str:
+    reader = DataPulseReader()
+    payload = reader.show_export_profile(identifier)
+    return json.dumps({"ok": payload is not None, "export_profile": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_update_export_profile(identifier: str, payload: dict[str, Any] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = payload or {}
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be an object")
+    updated = reader.update_export_profile(identifier, **payload)
+    return json.dumps({"ok": updated is not None, "export_profile": updated}, ensure_ascii=False, indent=2)
+
+
 async def _run_triage_list(
     limit: int = 20,
     min_confidence: float = 0.0,
@@ -1023,6 +1263,185 @@ def _register_tools(app: Any) -> None:
     async def story_export(identifier: str, output_format: str = "json") -> str:  # noqa: ANN001
         """Export one story as JSON or Markdown."""
         return await _run_story_export(identifier=identifier, output_format=output_format)
+
+    @app.tool()
+    async def list_report_briefs(limit: int = 20, status: str | None = None) -> str:
+        """List persisted report briefs."""
+        return await _run_list_report_briefs(limit=limit, status=status)
+
+    @app.tool()
+    async def create_report_brief(payload: dict[str, Any] | None = None) -> str:
+        """Create one report brief."""
+        return await _run_create_report_brief(payload=payload)
+
+    @app.tool()
+    async def show_report_brief(identifier: str) -> str:
+        """Show one report brief."""
+        return await _run_show_report_brief(identifier=identifier)
+
+    @app.tool()
+    async def update_report_brief(identifier: str, payload: dict[str, Any] | None = None) -> str:
+        """Update one report brief."""
+        return await _run_update_report_brief(identifier=identifier, payload=payload)
+
+    @app.tool()
+    async def list_claim_cards(limit: int = 20, status: str | None = None) -> str:
+        """List persisted claim cards."""
+        return await _run_list_claim_cards(limit=limit, status=status)
+
+    @app.tool()
+    async def create_claim_card(payload: dict[str, Any] | None = None) -> str:
+        """Create one claim card."""
+        return await _run_create_claim_card(payload=payload)
+
+    @app.tool()
+    async def show_claim_card(identifier: str) -> str:
+        """Show one claim card."""
+        return await _run_show_claim_card(identifier=identifier)
+
+    @app.tool()
+    async def update_claim_card(identifier: str, payload: dict[str, Any] | None = None) -> str:
+        """Update one claim card."""
+        return await _run_update_claim_card(identifier=identifier, payload=payload)
+
+    @app.tool()
+    async def list_report_sections(limit: int = 20, status: str | None = None) -> str:
+        """List persisted report sections."""
+        return await _run_list_report_sections(limit=limit, status=status)
+
+    @app.tool()
+    async def create_report_section(payload: dict[str, Any] | None = None) -> str:
+        """Create one report section."""
+        return await _run_create_report_section(payload=payload)
+
+    @app.tool()
+    async def show_report_section(identifier: str) -> str:
+        """Show one report section."""
+        return await _run_show_report_section(identifier=identifier)
+
+    @app.tool()
+    async def update_report_section(identifier: str, payload: dict[str, Any] | None = None) -> str:
+        """Update one report section."""
+        return await _run_update_report_section(identifier=identifier, payload=payload)
+
+    @app.tool()
+    async def list_citation_bundles(limit: int = 20) -> str:
+        """List persisted citation bundles."""
+        return await _run_list_citation_bundles(limit=limit)
+
+    @app.tool()
+    async def create_citation_bundle(payload: dict[str, Any] | None = None) -> str:
+        """Create one citation bundle."""
+        return await _run_create_citation_bundle(payload=payload)
+
+    @app.tool()
+    async def show_citation_bundle(identifier: str) -> str:
+        """Show one citation bundle."""
+        return await _run_show_citation_bundle(identifier=identifier)
+
+    @app.tool()
+    async def update_citation_bundle(identifier: str, payload: dict[str, Any] | None = None) -> str:
+        """Update one citation bundle."""
+        return await _run_update_citation_bundle(identifier=identifier, payload=payload)
+
+    @app.tool()
+    async def list_reports(limit: int = 20, status: str | None = None) -> str:
+        """List persisted reports."""
+        return await _run_list_reports(limit=limit, status=status)
+
+    @app.tool()
+    async def create_report(payload: dict[str, Any] | None = None) -> str:
+        """Create one report object."""
+        return await _run_create_report(payload=payload)
+
+    @app.tool()
+    async def show_report(identifier: str) -> str:
+        """Show one report by identifier."""
+        return await _run_show_report(identifier=identifier)
+
+    @app.tool()
+    async def update_report(identifier: str, payload: dict[str, Any] | None = None) -> str:
+        """Update one report."""
+        return await _run_update_report(identifier=identifier, payload=payload)
+
+    @app.tool()
+    async def compose_report(
+        identifier: str,
+        profile_id: str | None = None,
+        include_sections: bool | None = None,
+        include_claim_cards: bool | None = None,
+        include_citation_bundles: bool | None = None,
+        include_export_profiles: bool | None = None,
+    ) -> str:
+        """Assemble a report including optional guards and components."""
+        return await _run_compose_report(
+            identifier=identifier,
+            profile_id=profile_id,
+            include_sections=include_sections,
+            include_claim_cards=include_claim_cards,
+            include_citation_bundles=include_citation_bundles,
+            include_export_profiles=include_export_profiles,
+        )
+
+    @app.tool()
+    async def assess_report_quality(
+        identifier: str,
+        profile_id: str | None = None,
+        include_sections: bool | None = None,
+        include_claim_cards: bool | None = None,
+        include_citation_bundles: bool | None = None,
+        include_export_profiles: bool | None = None,
+    ) -> str:
+        """Assess report quality for one assembled report."""
+        return await _run_report_quality(
+            identifier=identifier,
+            profile_id=profile_id,
+            include_sections=include_sections,
+            include_claim_cards=include_claim_cards,
+            include_citation_bundles=include_citation_bundles,
+            include_export_profiles=include_export_profiles,
+        )
+
+    @app.tool()
+    async def export_report(
+        identifier: str,
+        profile_id: str | None = None,
+        output_format: str = "json",
+        include_sections: bool | None = None,
+        include_claim_cards: bool | None = None,
+        include_citation_bundles: bool | None = None,
+        include_metadata: bool | None = None,
+    ) -> str:  # noqa: ANN001
+        """Export one report."""
+        return await _run_export_report(
+            identifier=identifier,
+            profile_id=profile_id,
+            output_format=output_format,
+            include_sections=include_sections,
+            include_claim_cards=include_claim_cards,
+            include_citation_bundles=include_citation_bundles,
+            include_metadata=include_metadata,
+        )
+
+    @app.tool()
+    async def list_export_profiles(limit: int = 20, status: str | None = None) -> str:
+        """List persisted export profiles."""
+        return await _run_list_export_profiles(limit=limit, status=status)
+
+    @app.tool()
+    async def create_export_profile(payload: dict[str, Any] | None = None) -> str:
+        """Create one export profile."""
+        return await _run_create_export_profile(payload=payload)
+
+    @app.tool()
+    async def show_export_profile(identifier: str) -> str:
+        """Show one export profile."""
+        return await _run_show_export_profile(identifier=identifier)
+
+    @app.tool()
+    async def update_export_profile(identifier: str, payload: dict[str, Any] | None = None) -> str:
+        """Update one export profile."""
+        return await _run_update_export_profile(identifier=identifier, payload=payload)
 
     @app.tool()
     async def mark_processed(item_id: str, processed: bool = True) -> str:  # noqa: ANN001

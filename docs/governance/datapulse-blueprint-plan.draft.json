@@ -1687,7 +1687,7 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "python3 -m py_compile datapulse/reader.py datapulse/cli.py datapulse/mcp_server.py datapulse/console_server.py",
             "uv run pytest tests/test_console_server.py tests/test_report.py -q"
@@ -1705,9 +1705,9 @@
             "Add report CRUD plus compose, quality-preview, and export endpoints without forking naming or status semantics by surface.",
             "Keep browser work dependent on the same Reader-backed report APIs."
           ]
-        },
-        {
-          "id": "L14.6",
+    },
+    {
+      "id": "L14.6",
           "title": "Add browser Claim Composer and Report Studio workspaces inside the current console shell",
           "category": "manual",
           "execution_profile": "workflow_change",
@@ -1785,11 +1785,16 @@
     }
   ],
     "recommended_next_slice": {
-        "id": "L14.5",
-        "title": "Expose report CRUD, compose, quality, and export through Reader, CLI, MCP, and HTTP API surfaces",
-        "reason": "L14.4 landed with report composition and guardrails in core."
+        "id": "L14.6",
+        "title": "Add browser Claim Composer and Report Studio workspaces inside the current console shell",
+        "reason": "L14.5 landed with report composition, quality, and export APIs at CLI, MCP, and HTTP surfaces."
     },
     "progress_log": [
+        {
+            "at_utc": "2026-03-12T22:00:00Z",
+            "slice_id": "L14.5",
+            "status": "completed"
+        },
         {
             "at_utc": "2026-03-12T14:05:00Z",
             "slice_id": "L14.4",
