@@ -1,8 +1,8 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-11T11:37:00Z",
-  "status": "completed",
+  "generated_at_utc": "2026-03-12T04:17:51Z",
+  "status": "in_progress",
   "activation": {
     "wired": true,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -12,12 +12,13 @@
     }
   },
   "governance_mode": {
-    "kind": "active_manual_complete",
+    "kind": "active_manual_open_slice",
     "notes": [
       "This overlay keeps the repository blueprint truth active while leaving continuation in explicit manual mode.",
-      "All currently declared slices are completed; the derived next slice is no-open-slice.",
-      "The repository is already at ci_proven for the current HEAD, so no additional ignition is required until a new slice is added or reopened.",
-      "Use scripts/governance/ignite_datapulse_codex_loop.sh only after a future slice is opened or a completed slice is intentionally reopened."
+      "A new report-production follow-up wave is now promoted into the active blueprint truth.",
+      "L14.2 has landed; the derived next slice should now resolve to L14.3 as the additive report persistence layer.",
+      "The repository may already be at ci_proven for the current HEAD, but manual ignition is still required to land the next declared slice and workspace state can still block auto-advance.",
+      "Use scripts/governance/ignite_datapulse_codex_loop.sh when you are ready to execute the current next_slice."
     ]
   }
 }

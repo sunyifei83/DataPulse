@@ -24,7 +24,7 @@ This roadmap now projects the repo-level contract in [intelligence_lifecycle_con
 
 Canonical lifecycle:
 
-- `WatchMission -> MissionRun -> DataPulseItem review/triage -> Story/evidence package -> AlertEvent / route delivery / story export`
+- `WatchMission -> MissionRun -> DataPulseItem review/triage -> Story/evidence package -> ReportBrief -> ClaimCard -> ReportSection -> Report -> ExportProfile -> brief/full/sources/watch-pack outputs -> AlertEvent / route delivery`
 
 Stage mapping:
 
@@ -33,11 +33,18 @@ Stage mapping:
 - `G2` is the triage surface for shared `DataPulseItem` review state, notes, and duplicate explanations.
 - `G3` is the evidence surface for persisted `Story` objects, timelines, contradictions, graphs, and story export previews.
 - `G4` is the delivery/ops surface for `AlertEvent`, named routes, route health, and distribution quality observations.
+- `R1` extends stage mapping with report-layer nouns (`ReportBrief`, `ClaimCard`, `ReportSection`, `CitationBundle`, `Report`, `ExportProfile`) before any report browser-heavy editor work.
+- `R2` aligns report-layer core work to Reader-backed store updates and persistence semantics.
+- `R3` maps deterministic claim composition, citation binding, and quality evaluation into shared reader/CLI/MCP/console surfaces.
+- `R4` projects report CRUD, compose, quality preview, and exports through Reader/CLI/MCP/HTTP.
+- `R5` adds browser `Claim Composer` and `Report Studio` as thin projections over persisted report objects.
+- `R6` lands export profiles (`brief/full/sources/watch-pack`) and watch-feedback hooks without new UI-only state.
 
 Roadmap rules:
 
 - the browser must stay a Reader-backed projection of the same lifecycle contract used by CLI and MCP
 - later delivery/subscription expansion belongs to the delivery contract follow-up, not to ad hoc GUI-only state
+- story export is currently the existing handoff format and should be treated as provisional until the report layer is persisted
 
 ## Recommended Delivery Shape
 
@@ -959,3 +966,47 @@ Recommended ignition order:
 - story work separates board and editor intent clearly enough to reduce report-style sprawl
 - populated workspaces compress control and copy noise without hiding the dominant action
 - verification coverage is strong enough to protect the new object-first operating model
+
+## Post-L13 Follow-up: Research OS Report Production
+
+The current console roadmap intentionally closes at a lifecycle-complete operating surface around:
+
+- `WatchMission`
+- `MissionRun`
+- `DataPulseItem` triage
+- `Story` assembly
+- `AlertEvent` plus story export and route health
+
+That is no longer the main missing layer.
+
+The next repo-relevant wave is an additive report-production layer above `Story`, not another browser-only shell rewrite. The browser should keep acting as a projection over Reader-backed objects while the repo grows:
+
+- `ReportBrief`
+- `ClaimCard`
+- `ReportSection`
+- `CitationBundle`
+- `Report`
+- `ExportProfile`
+
+Key judgment:
+
+- keep `Story` as the evidence package rather than bloating it into a report
+- land report nouns in core plus Reader before relying on a GUI writing surface
+- treat report quality gates as domain logic first and browser affordances second
+- keep CLI, MCP, API, and browser parity instead of introducing GUI-only report state
+
+The promoted repo-scoped blueprint for this follow-up wave now lives in `docs/governance/datapulse-research-os-report-production-blueprint.md`.
+
+Recommended stage preview:
+
+- `R0`: current repo baseline `Watch -> Triage -> Story -> story export`
+- `R1`: report-layer contract extension
+- `R2`: report-layer core objects and persistence
+- `R3`: claim composition, citation bundles, and quality guardrails
+- `R4`: Reader, CLI, MCP, and HTTP API projection
+- `R5`: browser `Claim Composer` and `Report Studio`
+- `R6`: export profiles, watch-pack feedback, and regression hardening
+
+Current blueprint reopening target:
+
+- `L14.3` `Add report-layer core objects and persistence without introducing GUI-only state`
