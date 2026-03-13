@@ -1010,7 +1010,7 @@ Recommended stage preview:
 
 Current blueprint reopening target:
 
-- `L15.3` `Add normalized delivery-subscription core objects and persistence without forking route truth`
+- `L15.4` `Add report-backed package assembly and attributable dispatch records above current alert events`
 
 The repository is now positioned on a manual ignition target beyond the completed report-production wave, with delivery/subscription follow-up documentation landing in `docs/governance/datapulse-report-delivery-subscription-blueprint.md`.
 

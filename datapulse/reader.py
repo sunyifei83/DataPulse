@@ -2561,6 +2561,45 @@ class DataPulseReader:
         profile = self.report_store.update_export_profile(identifier, **payload)
         return profile.to_dict() if profile is not None else None
 
+    def list_delivery_subscriptions(
+        self,
+        *,
+        limit: int = 20,
+        status: str | None = None,
+        subject_kind: str | None = None,
+        subject_ref: str | None = None,
+        output_kind: str | None = None,
+        delivery_mode: str | None = None,
+        route_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return [
+            row.to_dict()
+            for row in self.report_store.list_delivery_subscriptions(
+                limit=limit,
+                status=status,
+                subject_kind=subject_kind,
+                subject_ref=subject_ref,
+                output_kind=output_kind,
+                delivery_mode=delivery_mode,
+                route_name=route_name,
+            )
+        ]
+
+    def create_delivery_subscription(self, **payload: Any) -> dict[str, Any]:
+        return self.report_store.create_delivery_subscription(payload).to_dict()
+
+    def show_delivery_subscription(self, identifier: str) -> dict[str, Any] | None:
+        subscription = self.report_store.get_delivery_subscription(identifier)
+        return subscription.to_dict() if subscription is not None else None
+
+    def update_delivery_subscription(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
+        subscription = self.report_store.update_delivery_subscription(identifier, **payload)
+        return subscription.to_dict() if subscription is not None else None
+
+    def delete_delivery_subscription(self, identifier: str) -> dict[str, Any] | None:
+        subscription = self.report_store.delete_delivery_subscription(identifier)
+        return subscription.to_dict() if subscription is not None else None
+
     @staticmethod
     def _normalize_report_export_format(output_format: str) -> str:
         normalized = str(output_format or "json").strip().lower()

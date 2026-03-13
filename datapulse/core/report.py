@@ -72,6 +72,23 @@ def _coerce_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
+_DELIVERY_SUBJECT_KINDS = ("profile", "watch_mission", "story", "report")
+_DELIVERY_OUTPUT_KINDS = (
+    "alert_event",
+    "feed_json",
+    "feed_rss",
+    "feed_atom",
+    "story_json",
+    "story_markdown",
+    "report_brief",
+    "report_full",
+    "report_sources",
+    "report_watch_pack",
+)
+_DELIVERY_MODES = ("pull", "push")
+_DELIVERY_SUBSCRIPTION_STATUSES = ("active", "paused", "disabled")
+
+
 _DEFAULT_EXPORT_PROFILES: tuple[dict[str, Any], ...] = (
     {
         "name": "brief",
@@ -352,6 +369,64 @@ class ExportProfile:
         return cls(**{k: v for k, v in data.items() if k in valid})
 
 
+@dataclass
+class DeliverySubscription:
+    subject_kind: str
+    subject_ref: str
+    output_kind: str
+    delivery_mode: str = "pull"
+    route_names: list[str] = field(default_factory=list)
+    cursor_or_since: str = ""
+    status: str = "active"
+    id: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+    governance: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.subject_kind = _normalize_optional_string(self.subject_kind).strip().lower()
+        if self.subject_kind not in _DELIVERY_SUBJECT_KINDS:
+            raise ValueError(f"Unsupported subject_kind: {self.subject_kind}")
+        self.subject_ref = _normalize_optional_string(self.subject_ref)
+        if not self.subject_ref:
+            raise ValueError("subject_ref is required")
+        self.output_kind = _normalize_optional_string(self.output_kind).strip().lower()
+        if not self.output_kind:
+            raise ValueError("output_kind is required")
+        if self.output_kind not in _DELIVERY_OUTPUT_KINDS:
+            raise ValueError(f"Unsupported output_kind: {self.output_kind}")
+        self.delivery_mode = _normalize_optional_string(self.delivery_mode).strip().lower() or "pull"
+        if self.delivery_mode not in _DELIVERY_MODES:
+            raise ValueError(f"Unsupported delivery_mode: {self.delivery_mode}")
+        route_names: list[str] = []
+        seen_route_names: set[str] = set()
+        for raw in _normalize_string_list(self.route_names):
+            name = str(raw or "").strip().lower()
+            if not name or name in seen_route_names:
+                continue
+            seen_route_names.add(name)
+            route_names.append(name)
+        self.route_names = route_names
+        self.cursor_or_since = _normalize_optional_string(self.cursor_or_since)
+        self.status = _normalize_optional_string(self.status) or "active"
+        if self.status not in _DELIVERY_SUBSCRIPTION_STATUSES:
+            self.status = "active"
+        self.id = _normalize_optional_string(self.id) or generate_slug(f"{self.subject_kind}-{self.subject_ref}-{self.output_kind}", max_length=64)
+        now = _utcnow()
+        if not self.created_at:
+            self.created_at = now
+        self.updated_at = _normalize_optional_string(self.updated_at) or self.created_at
+        self.governance = dict(self.governance or {})
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "DeliverySubscription":
+        valid = {f.name for f in cls.__dataclass_fields__.values()}
+        return cls(**{k: v for k, v in data.items() if k in valid})
+
+
 ReportRecord: TypeAlias = (
     ReportBrief
     | ClaimCard
@@ -359,6 +434,7 @@ ReportRecord: TypeAlias = (
     | CitationBundle
     | Report
     | ExportProfile
+    | DeliverySubscription
 )
 ReportRecordT = TypeVar(
     "ReportRecordT",
@@ -368,6 +444,7 @@ ReportRecordT = TypeVar(
     CitationBundle,
     Report,
     ExportProfile,
+    DeliverySubscription,
 )
 
 
@@ -383,6 +460,7 @@ class ReportStore:
         self.citation_bundles: dict[str, CitationBundle] = {}
         self.reports: dict[str, Report] = {}
         self.export_profiles: dict[str, ExportProfile] = {}
+        self.delivery_subscriptions: dict[str, DeliverySubscription] = {}
         self._load()
 
     def _load(self) -> None:
@@ -401,6 +479,7 @@ class ReportStore:
             self._load_collection(raw.get("citation_bundles"), CitationBundle.from_dict, self.citation_bundles)
             self._load_collection(raw.get("reports"), Report.from_dict, self.reports)
             self._load_collection(raw.get("export_profiles"), ExportProfile.from_dict, self.export_profiles)
+            self._load_collection(raw.get("delivery_subscriptions"), DeliverySubscription.from_dict, self.delivery_subscriptions)
         elif isinstance(raw, list):
             self._load_collection(raw, Report.from_dict, self.reports)
 
@@ -429,6 +508,9 @@ class ReportStore:
             "citation_bundles": [bundle.to_dict() for bundle in self._list_records(self.citation_bundles)],
             "reports": [report.to_dict() for report in self._list_records(self.reports)],
             "export_profiles": [profile.to_dict() for profile in self._list_records(self.export_profiles)],
+            "delivery_subscriptions": [
+                subscription.to_dict() for subscription in self._list_records(self.delivery_subscriptions)
+            ],
         }
 
     def save(self) -> None:
@@ -802,6 +884,149 @@ class ReportStore:
                     "severity": "warning",
                 })
         return normalized
+
+    @staticmethod
+    def _normalize_optional_subject_kind(value: str | None) -> str:
+        normalized = _normalize_optional_string(value).strip().lower()
+        if not normalized:
+            return ""
+        if normalized not in _DELIVERY_SUBJECT_KINDS:
+            raise ValueError(f"Unsupported subject_kind: {normalized}")
+        return normalized
+
+    @staticmethod
+    def _normalize_required_subject_kind(value: str | None) -> str:
+        normalized = _normalize_optional_string(value).strip().lower()
+        if not normalized:
+            raise ValueError("subject_kind is required")
+        if normalized not in _DELIVERY_SUBJECT_KINDS:
+            raise ValueError(f"Unsupported subject_kind: {normalized}")
+        return normalized
+
+    @staticmethod
+    def _normalize_required_output_kind(value: str | None) -> str:
+        normalized = _normalize_optional_string(value).strip().lower()
+        if not normalized:
+            raise ValueError("output_kind is required")
+        if normalized not in _DELIVERY_OUTPUT_KINDS:
+            raise ValueError(f"Unsupported output_kind: {normalized}")
+        return normalized
+
+    @staticmethod
+    def _normalize_optional_output_kind(value: str | None) -> str:
+        normalized = _normalize_optional_string(value).strip().lower()
+        if not normalized:
+            return ""
+        if normalized not in _DELIVERY_OUTPUT_KINDS:
+            raise ValueError(f"Unsupported output_kind: {normalized}")
+        return normalized
+
+    @staticmethod
+    def _normalize_optional_delivery_mode(value: str | None) -> str:
+        normalized = _normalize_optional_string(value).strip().lower() or "pull"
+        if normalized not in _DELIVERY_MODES:
+            raise ValueError(f"Unsupported delivery_mode: {normalized}")
+        return normalized
+
+    @staticmethod
+    def _normalize_optional_status(value: str | None) -> str:
+        normalized = _normalize_optional_string(value) or "active"
+        if normalized.lower() not in _DELIVERY_SUBSCRIPTION_STATUSES:
+            return "active"
+        return normalized.strip().lower()
+
+    def _normalize_delivery_route_names(self, values: Any) -> list[str]:
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for name in _normalize_string_list(values):
+            lowered = str(name).strip().lower()
+            if lowered and lowered not in seen:
+                normalized.append(lowered)
+                seen.add(lowered)
+        return normalized
+
+    # Delivery Subscription CRUD
+    def create_delivery_subscription(self, payload: DeliverySubscription | dict[str, Any]) -> DeliverySubscription:
+        if isinstance(payload, dict):
+            if "route_names" in payload:
+                payload = dict(payload)
+                payload["route_names"] = self._normalize_delivery_route_names(payload["route_names"])
+        return self._create(
+            payload,
+            DeliverySubscription.from_dict,
+            DeliverySubscription,
+            self.delivery_subscriptions,
+            id_prefix="delivery-subscription",
+        )
+
+    def list_delivery_subscriptions(
+        self,
+        *,
+        limit: int = 20,
+        status: str | None = None,
+        subject_kind: str | None = None,
+        subject_ref: str | None = None,
+        output_kind: str | None = None,
+        delivery_mode: str | None = None,
+        route_name: str | None = None,
+    ) -> list[DeliverySubscription]:
+        rows = list(self.delivery_subscriptions.values())
+        if subject_kind is not None:
+            normalized_subject_kind = self._normalize_required_subject_kind(subject_kind)
+            rows = [row for row in rows if row.subject_kind == normalized_subject_kind]
+        if subject_ref is not None:
+            normalized_subject_ref = _normalize_optional_string(subject_ref)
+            rows = [row for row in rows if row.subject_ref == normalized_subject_ref]
+        if output_kind is not None:
+            normalized_output_kind = self._normalize_required_output_kind(output_kind)
+            rows = [row for row in rows if row.output_kind == normalized_output_kind]
+        if delivery_mode is not None:
+            normalized_delivery_mode = self._normalize_optional_delivery_mode(delivery_mode)
+            rows = [row for row in rows if row.delivery_mode == normalized_delivery_mode]
+        if route_name is not None:
+            normalized_route_name = _normalize_optional_string(route_name).strip().lower()
+            rows = [
+                row
+                for row in rows
+                if normalized_route_name and normalized_route_name in {name.lower() for name in row.route_names}
+            ]
+        if status is not None:
+            allowed = {s.strip().lower() for s in _normalize_string_list([status])}
+            rows = [row for row in rows if str(getattr(row, "status", "")).strip().lower() in allowed]
+        rows.sort(key=lambda item: (str(item.updated_at), str(item.id)), reverse=True)
+        return rows[: max(0, int(limit))]
+
+    def get_delivery_subscription(self, identifier: str) -> DeliverySubscription | None:
+        return self._lookup(self.delivery_subscriptions, identifier)
+
+    def update_delivery_subscription(self, identifier: str, **payload: Any) -> DeliverySubscription | None:
+        updates: dict[str, Any] = {}
+        if "subject_kind" in payload:
+            updates["subject_kind"] = self._normalize_required_subject_kind(payload.get("subject_kind"))
+        if "subject_ref" in payload:
+            updates["subject_ref"] = _normalize_optional_string(payload.get("subject_ref"))
+        if "output_kind" in payload:
+            updates["output_kind"] = self._normalize_required_output_kind(payload.get("output_kind"))
+        if "delivery_mode" in payload:
+            updates["delivery_mode"] = self._normalize_optional_delivery_mode(payload.get("delivery_mode"))
+        if "route_names" in payload:
+            updates["route_names"] = self._normalize_delivery_route_names(payload.get("route_names"))
+        if "cursor_or_since" in payload:
+            updates["cursor_or_since"] = _normalize_optional_string(payload.get("cursor_or_since"))
+        if "status" in payload:
+            updates["status"] = self._normalize_optional_status(payload.get("status"))
+        current = self._update_generic(identifier, self.delivery_subscriptions, updates=updates)
+        if current is None:
+            return None
+        return current
+
+    def delete_delivery_subscription(self, identifier: str) -> DeliverySubscription | None:
+        current = self._lookup(self.delivery_subscriptions, identifier)
+        if current is None:
+            return None
+        del self.delivery_subscriptions[current.id]
+        self.save()
+        return current
 
     def assemble_report(
         self,
