@@ -172,3 +172,47 @@ def test_refresh_governance_snapshots_treats_quick_test_as_best_effort(
             True,
         ),
     ]
+
+
+def test_supports_auto_repo_landed_for_workspace_dirty_reopen(governance_loop) -> None:
+    runtime = {
+        "status": "blocked",
+        "reason": "next_slice_blocked",
+        "effective_blocking_facts": ["workspace_dirty"],
+        "remaining_promotion_gates": ["workspace_dirty", "repo_landed_false", "head_not_pushed"],
+    }
+
+    assert governance_loop.supports_auto_repo_landed(runtime) is True
+
+
+def test_supports_auto_repo_landed_rejects_non_workspace_blockers(governance_loop) -> None:
+    runtime = {
+        "status": "blocked",
+        "reason": "next_slice_blocked",
+        "effective_blocking_facts": ["workspace_dirty", "latest_local_smoke_failed"],
+        "remaining_promotion_gates": ["workspace_dirty", "repo_landed_false"],
+    }
+
+    assert governance_loop.supports_auto_repo_landed(runtime) is False
+
+
+def test_supports_auto_ci_proven_for_ready_manual_handoff(governance_loop) -> None:
+    runtime = {
+        "status": "ready",
+        "reason": "awaiting_manual_slice_execution",
+        "effective_blocking_facts": [],
+        "remaining_promotion_gates": ["head_not_pushed", "ci_run_not_proven"],
+    }
+
+    assert governance_loop.supports_auto_ci_proven(runtime) is True
+
+
+def test_supports_auto_ci_proven_rejects_hard_stop_gates(governance_loop) -> None:
+    runtime = {
+        "status": "ready",
+        "reason": "awaiting_manual_slice_execution",
+        "effective_blocking_facts": [],
+        "remaining_promotion_gates": ["ci_run_not_proven", "structured_release_bundle_missing"],
+    }
+
+    assert governance_loop.supports_auto_ci_proven(runtime) is False

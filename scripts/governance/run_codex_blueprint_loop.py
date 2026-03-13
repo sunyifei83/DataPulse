@@ -46,6 +46,7 @@ AUTO_CI_HARD_STOP_GATES = {
     "workflow_dispatch_missing",
     "structured_release_bundle_missing",
 }
+AUTO_REPO_LANDED_REOPEN_BLOCKERS = {"workspace_dirty"}
 WORKFLOW_RUN_FIELDS = [
     "databaseId",
     "headSha",
@@ -491,26 +492,39 @@ def run_pre_promotion_gate(
     )
 
 
+def _effective_blocker_set(runtime: dict[str, Any]) -> set[str]:
+    return {_to_text(item) for item in runtime.get("effective_blocking_facts", []) if _to_text(item)}
+
+
+def _is_terminal_promotion_gate_stop(runtime: dict[str, Any]) -> bool:
+    return _to_text(runtime.get("status")) == "stopped" and _to_text(runtime.get("reason")) == "promotion_gates_open"
+
+
 def supports_auto_repo_landed(runtime: dict[str, Any]) -> bool:
     remaining = {_to_text(item) for item in runtime.get("remaining_promotion_gates", []) if _to_text(item)}
-    if _to_text(runtime.get("status")) != "stopped":
+    if PROMOTION_REPO_LANDED not in remaining:
         return False
-    if _to_text(runtime.get("reason")) != "promotion_gates_open":
+    if _is_terminal_promotion_gate_stop(runtime):
+        return True
+    if _to_text(runtime.get("status")) != "blocked":
         return False
-    return PROMOTION_REPO_LANDED in remaining
+    if _to_text(runtime.get("reason")) != "next_slice_blocked":
+        return False
+    blockers = _effective_blocker_set(runtime)
+    return blockers == AUTO_REPO_LANDED_REOPEN_BLOCKERS
 
 
 def supports_auto_ci_proven(runtime: dict[str, Any]) -> bool:
     remaining = {_to_text(item) for item in runtime.get("remaining_promotion_gates", []) if _to_text(item)}
-    if _to_text(runtime.get("status")) != "stopped":
-        return False
-    if _to_text(runtime.get("reason")) != "promotion_gates_open":
-        return False
     if PROMOTION_REPO_LANDED in remaining:
         return False
     if remaining & AUTO_CI_HARD_STOP_GATES:
         return False
-    return bool(remaining & AUTO_CI_RESOLVABLE_GATES)
+    if not (remaining & AUTO_CI_RESOLVABLE_GATES):
+        return False
+    if _is_terminal_promotion_gate_stop(runtime):
+        return True
+    return _to_text(runtime.get("status")) == "ready" and _to_text(runtime.get("reason")) == "awaiting_manual_slice_execution"
 
 
 def evaluate_progress(
