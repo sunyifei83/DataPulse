@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -12,7 +13,19 @@ from typing import Any, cast
 from urllib.parse import urlparse
 
 from datapulse.collectors.trending import TrendingCollector, build_trending_url
-from datapulse.core.alerts import AlertRouteStore, AlertStore, dispatch_alert_event, evaluate_watch_alerts
+from datapulse.core.alerts import (
+    AlertRouteStore,
+    AlertStore,
+    _coerce_timeout_seconds,
+    _post_json,
+    _resolve_feishu_url,
+    _resolve_telegram_bot_token,
+    _resolve_telegram_chat_id,
+    _resolve_webhook_url,
+    dispatch_alert_event,
+    evaluate_watch_alerts,
+    resolve_delivery_targets,
+)
 from datapulse.core.confidence import compute_confidence
 from datapulse.core.entities import Entity, Relation
 from datapulse.core.entities import extract_entities as extract_entities_text
@@ -121,6 +134,17 @@ _WATCH_QUERY_CJK_SUFFIXES = (
     "新机发布", "新品", "发布", "公司", "集团", "监测", "消息", "新闻",
 )
 _WATCH_QUERY_CJK_EXACT_STOPWORDS = {"新品", "发布", "公司", "集团", "消息", "新闻", "监测"}
+_REPORT_DELIVERY_OUTPUT_KINDS = (
+    "report_brief",
+    "report_full",
+    "report_sources",
+    "report_watch_pack",
+)
+
+
+def _package_signature(payload: dict[str, Any]) -> str:
+    text = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
 
 
 class DataPulseReader:
@@ -2599,6 +2623,281 @@ class DataPulseReader:
     def delete_delivery_subscription(self, identifier: str) -> dict[str, Any] | None:
         subscription = self.report_store.delete_delivery_subscription(identifier)
         return subscription.to_dict() if subscription is not None else None
+
+    def list_delivery_dispatch_records(
+        self,
+        *,
+        limit: int = 20,
+        status: str | None = None,
+        subscription_id: str | None = None,
+        subject_kind: str | None = None,
+        subject_ref: str | None = None,
+        output_kind: str | None = None,
+        route_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return [
+            record.to_dict()
+            for record in self.report_store.list_delivery_dispatch_records(
+                limit=limit,
+                status=status,
+                subscription_id=subscription_id,
+                subject_kind=subject_kind,
+                subject_ref=subject_ref,
+                output_kind=output_kind,
+                route_name=route_name,
+            )
+        ]
+
+    @staticmethod
+    def _normalize_report_dispatch_output_kind(value: str | None) -> str:
+        normalized = str(value or "").strip().lower()
+        if normalized not in _REPORT_DELIVERY_OUTPUT_KINDS:
+            raise ValueError(f"Unsupported report delivery output kind: {value}")
+        return normalized
+
+    def _build_report_delivery_package(
+        self,
+        subscription: dict[str, Any],
+        *,
+        profile_id: str | None = None,
+        profile_payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        report_id = str(subscription.get("subject_ref", "")).strip()
+        if not report_id:
+            raise ValueError("Subscription subject_ref is required for report dispatch")
+
+        output_kind = self._normalize_report_dispatch_output_kind(subscription.get("output_kind"))
+        if output_kind == "report_brief":
+            report_payload = self.show_report(report_id)
+            if report_payload is None:
+                raise ValueError(f"Report not found: {report_id}")
+            package_payload = {
+                "kind": "report_brief",
+                "report": report_payload,
+                "watch_summary": {
+                    "section_count": len(report_payload.get("section_ids", [])),
+                    "claim_count": len(report_payload.get("claim_card_ids", [])),
+                    "bundle_count": len(report_payload.get("citation_bundle_ids", [])),
+                },
+            }
+        elif output_kind in {"report_full", "report_sources"}:
+            include_sections = output_kind == "report_full"
+            assembled = self.compose_report(
+                report_id,
+                profile_id=profile_id,
+                include_sections=include_sections,
+                include_claim_cards=True,
+                include_citation_bundles=True,
+                include_export_profiles=True,
+            )
+            if assembled is None:
+                raise ValueError(f"Report not found: {report_id}")
+            if output_kind == "report_full":
+                package_payload = {
+                    "kind": "report_full",
+                    "report": assembled,
+                }
+            else:
+                source_entries = []
+                for row in assembled.get("claim_cards", []):
+                    if not isinstance(row, dict):
+                        continue
+                    claim_id = str(row.get("id", "")).strip()
+                    if not claim_id:
+                        continue
+                    source_entries.append(
+                        {
+                            "claim_id": claim_id,
+                            "source_item_ids": list(row.get("source_item_ids", []) or []),
+                            "source_urls": list(row.get("source_urls", []) or []),
+                        }
+                    )
+                package_payload = {
+                    "kind": "report_sources",
+                    "report": assembled.get("report", {}),
+                    "sections": assembled.get("sections", []),
+                    "sources": source_entries,
+                }
+        else:
+            package_payload = {
+                "kind": "report_watch_pack",
+                "watch_pack": self.report_watch_pack(report_id, profile_id=profile_id),
+            }
+            if package_payload["watch_pack"] is None:
+                raise ValueError(f"Watch pack not available for report: {report_id}")
+
+        package_signature = _package_signature(package_payload)
+        package = {
+            "subscription_id": subscription.get("id"),
+            "subject_kind": "report",
+            "subject_ref": report_id,
+            "output_kind": output_kind,
+            "profile_id": profile_payload.get("id") if profile_payload else (profile_id or ""),
+            "package_signature": package_signature,
+            "package_id": f"{report_id}:{output_kind}:{package_signature}",
+            "payload": package_payload,
+        }
+        return package
+
+    def _extract_delivery_route_name(self, label: str) -> str:
+        text = str(label or "").strip()
+        if not text:
+            return ""
+        if text.startswith("route:"):
+            return text[len("route:") :]
+        if ":" in text:
+            return text.split(":", 1)[1].strip()
+        return text
+
+    def _send_report_delivery_payload_to_route(
+        self,
+        route_target: dict[str, Any],
+        package_payload: dict[str, Any],
+    ) -> None:
+        channel = str(route_target.get("channel", "")).strip().lower()
+        config_raw = route_target.get("config", route_target)
+        config = config_raw if isinstance(config_raw, dict) else {}
+        target_timeout = _coerce_timeout_seconds(config.get("timeout_seconds"), default=10.0)
+        message = json.dumps(package_payload, ensure_ascii=False, sort_keys=True, indent=2)
+        if channel == "webhook":
+            url = _resolve_webhook_url(config)
+            if not url:
+                raise ValueError("webhook_url is required")
+            _post_json(
+                url,
+                {"report_delivery": package_payload},
+                timeout=target_timeout,
+            )
+            return
+        if channel == "feishu":
+            url = _resolve_feishu_url(config)
+            if not url:
+                raise ValueError("feishu_webhook is required")
+            _post_json(
+                url,
+                {"msg_type": "text", "content": {"text": message}},
+                timeout=target_timeout,
+            )
+            return
+        if channel == "telegram":
+            bot_token = _resolve_telegram_bot_token(config)
+            chat_id = _resolve_telegram_chat_id(config)
+            if not bot_token or not chat_id:
+                raise ValueError("telegram_bot_token and telegram_chat_id are required")
+            _post_json(
+                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                {"chat_id": chat_id, "text": message[:3900], "disable_web_page_preview": True},
+                timeout=target_timeout,
+            )
+            return
+        raise ValueError(f"unsupported report delivery channel: {channel}")
+
+    def build_report_delivery_package(
+        self,
+        subscription_identifier: str,
+        *,
+        profile_id: str | None = None,
+    ) -> dict[str, Any]:
+        subscription = self.show_delivery_subscription(subscription_identifier)
+        if subscription is None:
+            raise ValueError(f"Delivery subscription not found: {subscription_identifier}")
+        if str(subscription.get("subject_kind", "")).strip().lower() != "report":
+            raise ValueError("Only report subscriptions can be used for report delivery packages")
+        profile_payload = self.show_export_profile(profile_id) if profile_id else None
+        return self._build_report_delivery_package(subscription, profile_id=profile_id, profile_payload=profile_payload)
+
+    def dispatch_report_delivery(
+        self,
+        subscription_identifier: str,
+        *,
+        profile_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        subscription = self.show_delivery_subscription(subscription_identifier)
+        if subscription is None:
+            raise ValueError(f"Delivery subscription not found: {subscription_identifier}")
+        if str(subscription.get("subject_kind", "")).strip().lower() != "report":
+            raise ValueError("Only report subscriptions can be dispatched by this method")
+        output_kind = self._normalize_report_dispatch_output_kind(subscription.get("output_kind"))
+        if output_kind not in _REPORT_DELIVERY_OUTPUT_KINDS:
+            raise ValueError(f"Unsupported report delivery output kind: {output_kind}")
+        package = self._build_report_delivery_package(subscription, profile_id=profile_id)
+
+        rule: dict[str, Any] = {
+            "routes": list(subscription.get("route_names", [])),
+        }
+        route_targets, route_errors = resolve_delivery_targets(rule)
+        target_by_name: dict[str, dict[str, Any]] = {}
+        for row in route_targets:
+            label = str(row.get("label", "")).strip()
+            route_name = self._extract_delivery_route_name(label)
+            if route_name:
+                target_by_name[route_name] = row
+
+        route_names = _normalize_string_list(subscription.get("route_names"))
+        dispatch_records: list[dict[str, Any]] = []
+        for route_name in route_names:
+            target = target_by_name.get(route_name)
+            route_label = str(target.get("label", "") if isinstance(target, dict) else "").strip()
+            channel = str(target.get("channel", "")).strip().lower() if isinstance(target, dict) else ""
+            error = ""
+            if not route_label:
+                route_label = f"route:{route_name}"
+            if not target:
+                error = str(route_errors.get(f"route:{route_name}") or route_errors.get(route_label) or "")
+                status = "missing_route"
+            else:
+                status = "pending"
+            record = self.report_store.create_delivery_dispatch_record(
+                {
+                    "subscription_id": str(subscription.get("id", "")),
+                    "subject_kind": "report",
+                    "subject_ref": str(subscription.get("subject_ref", "")),
+                    "output_kind": output_kind,
+                    "route_name": route_name,
+                    "route_label": route_label,
+                    "route_channel": channel,
+                    "package_id": str(package.get("package_id", "")),
+                    "package_signature": str(package.get("package_signature", "")),
+                    "package_profile_id": str(profile_id or ""),
+                    "status": status,
+                    "error": error,
+                    "attempts": 0,
+                }
+            )
+            dispatch_records.append(record.to_dict())
+
+        for row in dispatch_records:
+            if row.get("status") != "pending":
+                continue
+            route_name = str(row.get("route_name", "")).strip()
+            target = target_by_name.get(route_name)
+            if not isinstance(target, dict):
+                continue
+            record_id = str(row.get("id", "")).strip()
+            current_attempts = 0
+            try:
+                self._send_report_delivery_payload_to_route(target, package)
+                new_error = ""
+                current_status = "delivered"
+            except Exception as exc:  # noqa: BLE001
+                new_error = str(exc)
+                current_status = "failed"
+            current_attempts += 1
+            self.report_store.update_delivery_dispatch_record(
+                record_id,
+                status=current_status,
+                error=new_error,
+                attempts=current_attempts,
+                route_channel=target.get("channel", ""),
+            )
+            for idx, item in enumerate(dispatch_records):
+                if str(item.get("id", "")) == record_id:
+                    dispatch_records[idx]["status"] = current_status
+                    dispatch_records[idx]["error"] = new_error
+                    dispatch_records[idx]["attempts"] = current_attempts
+                    dispatch_records[idx]["route_channel"] = str(target.get("channel", ""))
+                    break
+        return dispatch_records
 
     @staticmethod
     def _normalize_report_export_format(output_format: str) -> str:

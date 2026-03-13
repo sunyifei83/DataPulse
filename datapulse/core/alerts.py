@@ -504,6 +504,13 @@ def _normalize_route_names(rule: dict[str, Any]) -> list[str]:
     return _normalize_string_list(rule.get("route"))
 
 
+def resolve_delivery_targets(
+    rule: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """Return dispatch targets and pre-validation errors for a route payload."""
+    return _resolve_delivery_targets(rule)
+
+
 def _max_risk_level(left: str, right: str) -> str:
     priority = {"none": 0, "low": 1, "medium": 2, "high": 3}
     return left if priority.get(left, 0) >= priority.get(right, 0) else right

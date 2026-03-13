@@ -1010,7 +1010,7 @@ Recommended stage preview:
 
 Current blueprint reopening target:
 
-- `L15.4` `Add report-backed package assembly and attributable dispatch records above current alert events`
+- `L15.5` `Expose delivery-subscription CRUD and report-backed dispatch through Reader, CLI, MCP, and HTTP API surfaces`
 
 The repository is now positioned on a manual ignition target beyond the completed report-production wave, with delivery/subscription follow-up documentation landing in `docs/governance/datapulse-report-delivery-subscription-blueprint.md`.
 

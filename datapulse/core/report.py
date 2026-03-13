@@ -87,6 +87,7 @@ _DELIVERY_OUTPUT_KINDS = (
 )
 _DELIVERY_MODES = ("pull", "push")
 _DELIVERY_SUBSCRIPTION_STATUSES = ("active", "paused", "disabled")
+_DELIVERY_DISPATCH_STATUSES = ("pending", "delivered", "failed", "skipped", "missing_route")
 
 
 _DEFAULT_EXPORT_PROFILES: tuple[dict[str, Any], ...] = (
@@ -427,6 +428,69 @@ class DeliverySubscription:
         return cls(**{k: v for k, v in data.items() if k in valid})
 
 
+@dataclass
+class DeliveryDispatchRecord:
+    subscription_id: str
+    subject_kind: str
+    subject_ref: str
+    output_kind: str
+    route_name: str = ""
+    route_label: str = ""
+    route_channel: str = ""
+    package_id: str = ""
+    package_signature: str = ""
+    package_profile_id: str = ""
+    status: str = "pending"
+    attempts: int = 0
+    error: str = ""
+    id: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+    governance: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.subscription_id = _normalize_optional_string(self.subscription_id)
+        if not self.subscription_id:
+            raise ValueError("subscription_id is required")
+        self.subject_kind = _normalize_optional_string(self.subject_kind).strip().lower()
+        if not self.subject_kind:
+            raise ValueError("subject_kind is required")
+        self.subject_ref = _normalize_optional_string(self.subject_ref)
+        if not self.subject_ref:
+            raise ValueError("subject_ref is required")
+        self.output_kind = _normalize_optional_string(self.output_kind).strip().lower()
+        if not self.output_kind:
+            raise ValueError("output_kind is required")
+        self.status = _normalize_optional_string(self.status).strip().lower() or "pending"
+        if self.status not in _DELIVERY_DISPATCH_STATUSES:
+            self.status = "pending"
+        self.route_name = _normalize_optional_string(self.route_name)
+        self.route_label = _normalize_optional_string(self.route_label)
+        self.route_channel = _normalize_optional_string(self.route_channel).strip().lower()
+        self.package_id = _normalize_optional_string(self.package_id)
+        self.package_signature = _normalize_optional_string(self.package_signature)
+        self.package_profile_id = _normalize_optional_string(self.package_profile_id)
+        self.attempts = _coerce_int(self.attempts, default=0)
+        self.error = _normalize_optional_string(self.error)
+        self.id = _normalize_optional_string(self.id) or generate_slug(
+            f"{self.subscription_id}-{self.route_name or 'route'}-{self.output_kind}",
+            max_length=64,
+        )
+        now = _utcnow()
+        if not self.created_at:
+            self.created_at = now
+        self.updated_at = _normalize_optional_string(self.updated_at) or self.created_at
+        self.governance = dict(self.governance or {})
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "DeliveryDispatchRecord":
+        valid = {f.name for f in cls.__dataclass_fields__.values()}
+        return cls(**{k: v for k, v in data.items() if k in valid})
+
+
 ReportRecord: TypeAlias = (
     ReportBrief
     | ClaimCard
@@ -435,6 +499,7 @@ ReportRecord: TypeAlias = (
     | Report
     | ExportProfile
     | DeliverySubscription
+    | DeliveryDispatchRecord
 )
 ReportRecordT = TypeVar(
     "ReportRecordT",
@@ -445,6 +510,7 @@ ReportRecordT = TypeVar(
     Report,
     ExportProfile,
     DeliverySubscription,
+    DeliveryDispatchRecord,
 )
 
 
@@ -461,6 +527,7 @@ class ReportStore:
         self.reports: dict[str, Report] = {}
         self.export_profiles: dict[str, ExportProfile] = {}
         self.delivery_subscriptions: dict[str, DeliverySubscription] = {}
+        self.delivery_dispatch_records: dict[str, DeliveryDispatchRecord] = {}
         self._load()
 
     def _load(self) -> None:
@@ -480,6 +547,11 @@ class ReportStore:
             self._load_collection(raw.get("reports"), Report.from_dict, self.reports)
             self._load_collection(raw.get("export_profiles"), ExportProfile.from_dict, self.export_profiles)
             self._load_collection(raw.get("delivery_subscriptions"), DeliverySubscription.from_dict, self.delivery_subscriptions)
+            self._load_collection(
+                raw.get("delivery_dispatch_records"),
+                DeliveryDispatchRecord.from_dict,
+                self.delivery_dispatch_records,
+            )
         elif isinstance(raw, list):
             self._load_collection(raw, Report.from_dict, self.reports)
 
@@ -510,6 +582,10 @@ class ReportStore:
             "export_profiles": [profile.to_dict() for profile in self._list_records(self.export_profiles)],
             "delivery_subscriptions": [
                 subscription.to_dict() for subscription in self._list_records(self.delivery_subscriptions)
+            ],
+            "delivery_dispatch_records": [
+                dispatch_record.to_dict()
+                for dispatch_record in self._list_records(self.delivery_dispatch_records)
             ],
         }
 
@@ -935,6 +1011,13 @@ class ReportStore:
             return "active"
         return normalized.strip().lower()
 
+    @staticmethod
+    def _normalize_optional_dispatch_status(value: str | None) -> str:
+        normalized = _normalize_optional_string(value) or "pending"
+        if normalized not in _DELIVERY_DISPATCH_STATUSES:
+            return "pending"
+        return normalized
+
     def _normalize_delivery_route_names(self, values: Any) -> list[str]:
         normalized: list[str] = []
         seen: set[str] = set()
@@ -1026,6 +1109,86 @@ class ReportStore:
             return None
         del self.delivery_subscriptions[current.id]
         self.save()
+        return current
+
+    # Delivery dispatch record CRUD
+    def create_delivery_dispatch_record(self, payload: DeliveryDispatchRecord | dict[str, Any]) -> DeliveryDispatchRecord:
+        return self._create(
+            payload,
+            DeliveryDispatchRecord.from_dict,
+            DeliveryDispatchRecord,
+            self.delivery_dispatch_records,
+            id_prefix="delivery-dispatch",
+        )
+
+    def list_delivery_dispatch_records(
+        self,
+        *,
+        limit: int = 20,
+        status: str | None = None,
+        subscription_id: str | None = None,
+        subject_kind: str | None = None,
+        subject_ref: str | None = None,
+        output_kind: str | None = None,
+        route_name: str | None = None,
+    ) -> list[DeliveryDispatchRecord]:
+        rows = list(self.delivery_dispatch_records.values())
+        if subscription_id is not None:
+            rows = [row for row in rows if row.subscription_id == _normalize_optional_string(subscription_id)]
+        if subject_kind is not None:
+            rows = [row for row in rows if row.subject_kind == _normalize_optional_string(subject_kind).strip().lower()]
+        if subject_ref is not None:
+            rows = [row for row in rows if row.subject_ref == _normalize_optional_string(subject_ref)]
+        if output_kind is not None:
+            rows = [row for row in rows if row.output_kind == _normalize_optional_string(output_kind).strip().lower()]
+        if route_name is not None:
+            normalized_route_name = _normalize_optional_string(route_name).strip().lower()
+            rows = [row for row in rows if row.route_name == normalized_route_name]
+        if status is not None:
+            allowed = {s.strip().lower() for s in _normalize_string_list([status])}
+            rows = [row for row in rows if str(getattr(row, "status", "")).strip().lower() in allowed]
+        rows.sort(key=lambda item: (str(item.updated_at), str(item.id)), reverse=True)
+        return rows[: max(0, int(limit))]
+
+    def get_delivery_dispatch_record(self, identifier: str) -> DeliveryDispatchRecord | None:
+        return self._lookup(self.delivery_dispatch_records, identifier)
+
+    def update_delivery_dispatch_record(self, identifier: str, **payload: Any) -> DeliveryDispatchRecord | None:
+        updates: dict[str, Any] = {}
+        if "subscription_id" in payload:
+            updates["subscription_id"] = _normalize_optional_string(payload.get("subscription_id"))
+        if "subject_kind" in payload:
+            updates["subject_kind"] = _normalize_optional_string(payload.get("subject_kind")).strip().lower()
+        if "subject_ref" in payload:
+            updates["subject_ref"] = _normalize_optional_string(payload.get("subject_ref"))
+        if "output_kind" in payload:
+            updates["output_kind"] = _normalize_optional_string(payload.get("output_kind")).strip().lower()
+        if "route_name" in payload:
+            updates["route_name"] = _normalize_optional_string(payload.get("route_name"))
+        if "route_label" in payload:
+            updates["route_label"] = _normalize_optional_string(payload.get("route_label"))
+        if "route_channel" in payload:
+            updates["route_channel"] = _normalize_optional_string(payload.get("route_channel")).strip().lower()
+        if "package_id" in payload:
+            updates["package_id"] = _normalize_optional_string(payload.get("package_id"))
+        if "package_signature" in payload:
+            updates["package_signature"] = _normalize_optional_string(payload.get("package_signature"))
+        if "package_profile_id" in payload:
+            updates["package_profile_id"] = _normalize_optional_string(payload.get("package_profile_id"))
+        if "status" in payload:
+            updates["status"] = self._normalize_optional_dispatch_status(payload.get("status"))
+        if "error" in payload:
+            updates["error"] = _normalize_optional_string(payload.get("error"))
+        current = self._update_generic(identifier, self.delivery_dispatch_records, updates=updates)
+        if current is None:
+            return None
+        if "attempts" in payload:
+            try:
+                current.attempts = _coerce_int(payload.get("attempts"), default=current.attempts)
+            except Exception:
+                current.attempts = _coerce_int(current.attempts, default=0)
+            self._touch(current)
+            self.save()
         return current
 
     def assemble_report(
