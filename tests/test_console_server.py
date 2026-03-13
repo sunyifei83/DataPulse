@@ -1021,6 +1021,129 @@ class _ConsoleReader:
         row.update(payload)
         return row
 
+    def list_delivery_subscriptions(
+        self,
+        limit=20,
+        status=None,
+        subject_kind=None,
+        subject_ref=None,
+        output_kind=None,
+        delivery_mode=None,
+        route_name=None,
+    ):
+        rows = [
+            {
+                "id": "delivery-subscription-report",
+                "subject_kind": "report",
+                "subject_ref": "report-openai-market",
+                "output_kind": "report_full",
+                "delivery_mode": "push",
+                "status": "active",
+                "route_names": ["ops-webhook"],
+                "cursor_or_since": "2026-03-06T00:00:00Z",
+            }
+        ]
+        if status:
+            rows = [row for row in rows if row.get("status") == status]
+        if subject_kind:
+            rows = [row for row in rows if row.get("subject_kind") == subject_kind]
+        if subject_ref:
+            rows = [row for row in rows if row.get("subject_ref") == subject_ref]
+        if output_kind:
+            rows = [row for row in rows if row.get("output_kind") == output_kind]
+        if delivery_mode:
+            rows = [row for row in rows if row.get("delivery_mode") == delivery_mode]
+        if route_name:
+            rows = [row for row in rows if route_name in row.get("route_names", [])]
+        return rows[:limit]
+
+    def create_delivery_subscription(self, **payload):
+        row = self.list_delivery_subscriptions(limit=1)[0].copy()
+        row["id"] = payload.get("id", "delivery-subscription-manual")
+        row.update(payload)
+        return row
+
+    def show_delivery_subscription(self, identifier):
+        if identifier != "delivery-subscription-report":
+            return None
+        return self.list_delivery_subscriptions(limit=1)[0].copy()
+
+    def update_delivery_subscription(self, identifier, **payload):
+        if identifier != "delivery-subscription-report":
+            return None
+        row = self.show_delivery_subscription(identifier)
+        row.update(payload)
+        return row
+
+    def delete_delivery_subscription(self, identifier):
+        if identifier != "delivery-subscription-report":
+            return None
+        return self.show_delivery_subscription(identifier)
+
+    def build_report_delivery_package(self, identifier, profile_id=None):
+        if identifier != "delivery-subscription-report":
+            raise ValueError(f"Delivery subscription not found: {identifier}")
+        return {
+            "subscription_id": identifier,
+            "subject_kind": "report",
+            "subject_ref": "report-openai-market",
+            "output_kind": "report_full",
+            "profile_id": profile_id or "",
+            "package_signature": "pkg-signature-1234",
+            "package_id": "report-openai-market:report_full:pkg-signature-1234",
+            "payload": {
+                "kind": "report_full",
+                "report": self.compose_report("report-openai-market", profile_id=profile_id),
+            },
+        }
+
+    def dispatch_report_delivery(self, identifier, profile_id=None):
+        if identifier != "delivery-subscription-report":
+            raise ValueError(f"Delivery subscription not found: {identifier}")
+        return [
+            {
+                "id": "delivery-dispatch-1",
+                "subscription_id": identifier,
+                "subject_kind": "report",
+                "subject_ref": "report-openai-market",
+                "output_kind": "report_full",
+                "route_name": "ops-webhook",
+                "route_label": "webhook:ops-webhook",
+                "route_channel": "webhook",
+                "package_id": "report-openai-market:report_full:pkg-signature-1234",
+                "package_signature": "pkg-signature-1234",
+                "package_profile_id": profile_id or "",
+                "status": "delivered",
+                "error": "",
+                "attempts": 1,
+            }
+        ]
+
+    def list_delivery_dispatch_records(
+        self,
+        limit=20,
+        status=None,
+        subscription_id=None,
+        subject_kind=None,
+        subject_ref=None,
+        output_kind=None,
+        route_name=None,
+    ):
+        rows = self.dispatch_report_delivery("delivery-subscription-report")
+        if status:
+            rows = [row for row in rows if row.get("status") == status]
+        if subscription_id:
+            rows = [row for row in rows if row.get("subscription_id") == subscription_id]
+        if subject_kind:
+            rows = [row for row in rows if row.get("subject_kind") == subject_kind]
+        if subject_ref:
+            rows = [row for row in rows if row.get("subject_ref") == subject_ref]
+        if output_kind:
+            rows = [row for row in rows if row.get("output_kind") == output_kind]
+        if route_name:
+            rows = [row for row in rows if row.get("route_name") == route_name]
+        return rows[:limit]
+
 
 def _client() -> TestClient:
     app = create_app(reader_factory=lambda: _ConsoleReader())
@@ -1661,6 +1784,55 @@ def test_console_report_watch_pack_routes(tmp_path, monkeypatch):
     assert mission["name"] == "Console Follow-up Watch"
     assert mission["query"] == "Console follow-up launch query"
     assert mission["platforms"] == ["twitter"]
+
+
+def test_console_delivery_routes():
+    client = _client()
+
+    subscriptions = client.get("/api/delivery-subscriptions?subject_kind=report&route_name=ops-webhook")
+    create_subscription = client.post(
+        "/api/delivery-subscriptions",
+        json={
+            "subject_kind": "report",
+            "subject_ref": "report-openai-market",
+            "output_kind": "report_full",
+            "delivery_mode": "push",
+            "route_names": ["ops-webhook"],
+        },
+    )
+    show_subscription = client.get("/api/delivery-subscriptions/delivery-subscription-report")
+    update_subscription = client.put(
+        "/api/delivery-subscriptions/delivery-subscription-report",
+        json={"status": "paused"},
+    )
+    package = client.get("/api/delivery-subscriptions/delivery-subscription-report/package?profile_id=profile-brief")
+    dispatch = client.post(
+        "/api/delivery-subscriptions/delivery-subscription-report/dispatch",
+        json={"profile_id": "profile-brief"},
+    )
+    dispatch_records = client.get(
+        "/api/delivery-dispatch-records?subscription_id=delivery-subscription-report&status=delivered"
+    )
+    delete_subscription = client.delete("/api/delivery-subscriptions/delivery-subscription-report")
+
+    assert subscriptions.status_code == 200
+    assert subscriptions.json()[0]["id"] == "delivery-subscription-report"
+    assert create_subscription.status_code == 200
+    assert create_subscription.json()["id"] == "delivery-subscription-manual"
+    assert show_subscription.status_code == 200
+    assert show_subscription.json()["subject_ref"] == "report-openai-market"
+    assert update_subscription.status_code == 200
+    assert update_subscription.json()["status"] == "paused"
+    assert package.status_code == 200
+    assert package.json()["package_id"] == "report-openai-market:report_full:pkg-signature-1234"
+    assert package.json()["profile_id"] == "profile-brief"
+    assert dispatch.status_code == 200
+    assert dispatch.json()[0]["status"] == "delivered"
+    assert dispatch.json()[0]["package_profile_id"] == "profile-brief"
+    assert dispatch_records.status_code == 200
+    assert dispatch_records.json()[0]["route_label"] == "webhook:ops-webhook"
+    assert delete_subscription.status_code == 200
+    assert delete_subscription.json()["id"] == "delivery-subscription-report"
 
 
 def test_console_ops_scorecard_with_real_reader(tmp_path, monkeypatch):

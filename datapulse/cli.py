@@ -1394,6 +1394,24 @@ def main() -> None:
         default=None,
         help="Toggle metadata section in markdown report export",
     )
+    management_group.add_argument("--delivery-subscription-list", action="store_true", help="List normalized delivery subscriptions")
+    management_group.add_argument("--delivery-subscription-show", metavar="SUBSCRIPTION", help="Show one delivery subscription by id")
+    management_group.add_argument("--delivery-subscription-create", action="store_true", help="Create one delivery subscription from --delivery-payload")
+    management_group.add_argument("--delivery-subscription-update", metavar="SUBSCRIPTION", help="Update one delivery subscription by id")
+    management_group.add_argument("--delivery-subscription-delete", metavar="SUBSCRIPTION", help="Delete one delivery subscription by id")
+    management_group.add_argument("--delivery-dispatch-list", action="store_true", help="List persisted delivery dispatch records")
+    management_group.add_argument("--delivery-package", metavar="SUBSCRIPTION", help="Build one report delivery package from a subscription id")
+    management_group.add_argument("--delivery-dispatch", metavar="SUBSCRIPTION", help="Dispatch one report delivery subscription by id")
+    management_group.add_argument("--delivery-limit", type=int, default=20, help="Max delivery rows to list")
+    management_group.add_argument("--delivery-payload", metavar="JSON", help="JSON payload for delivery subscription create/update")
+    management_group.add_argument("--delivery-status", help="Delivery status filter or update value")
+    management_group.add_argument("--delivery-subject-kind", help="Delivery subject_kind filter")
+    management_group.add_argument("--delivery-subject-ref", help="Delivery subject_ref filter")
+    management_group.add_argument("--delivery-output-kind", help="Delivery output_kind filter")
+    management_group.add_argument("--delivery-mode", help="Delivery mode filter")
+    management_group.add_argument("--delivery-route-name", help="Delivery route_name filter")
+    management_group.add_argument("--delivery-dispatch-subscription", help="Filter dispatch records by subscription id")
+    management_group.add_argument("--delivery-profile-id", help="Optional export profile id for package or dispatch actions")
     management_group.add_argument(
         "-i",
         "--login",
@@ -1789,6 +1807,122 @@ def main() -> None:
             print(story_export_payload)
         return
 
+    delivery_actions = [
+        ("list", args.delivery_subscription_list),
+        ("show", args.delivery_subscription_show is not None),
+        ("create", args.delivery_subscription_create),
+        ("update", args.delivery_subscription_update is not None),
+        ("delete", args.delivery_subscription_delete is not None),
+        ("dispatch_list", args.delivery_dispatch_list),
+        ("package", args.delivery_package is not None),
+        ("dispatch", args.delivery_dispatch is not None),
+    ]
+    if any(enabled for _, enabled in delivery_actions):
+        if sum(1 for _, enabled in delivery_actions if enabled) != 1:
+            parser.error(
+                "Use exactly one delivery action: --delivery-subscription-list / --delivery-subscription-show / "
+                "--delivery-subscription-create / --delivery-subscription-update / --delivery-subscription-delete / "
+                "--delivery-dispatch-list / --delivery-package / --delivery-dispatch"
+            )
+        delivery_payload = (
+            _load_json_payload(args.delivery_payload, "--delivery-payload", parser_obj=parser)
+            if args.delivery_payload
+            else {}
+        )
+
+        if args.delivery_subscription_list:
+            rows = reader.list_delivery_subscriptions(
+                limit=args.delivery_limit,
+                status=args.delivery_status,
+                subject_kind=args.delivery_subject_kind,
+                subject_ref=args.delivery_subject_ref,
+                output_kind=args.delivery_output_kind,
+                delivery_mode=args.delivery_mode,
+                route_name=args.delivery_route_name,
+            )
+            print(json.dumps(rows, ensure_ascii=False, indent=2))
+            return
+
+        if args.delivery_subscription_show is not None:
+            subscription_payload = reader.show_delivery_subscription(args.delivery_subscription_show)
+            if subscription_payload is None:
+                print(f"⚠️ delivery subscription not found: {args.delivery_subscription_show}")
+            else:
+                print(json.dumps(subscription_payload, ensure_ascii=False, indent=2))
+            return
+
+        if args.delivery_subscription_create:
+            if not delivery_payload:
+                parser.error("--delivery-subscription-create requires --delivery-payload")
+            try:
+                created = reader.create_delivery_subscription(**delivery_payload)
+            except (TypeError, ValueError) as exc:
+                print(f"❌ {exc}")
+                return
+            print(json.dumps(created, ensure_ascii=False, indent=2))
+            return
+
+        if args.delivery_subscription_update is not None:
+            if not delivery_payload and args.delivery_status is None:
+                parser.error("--delivery-subscription-update requires --delivery-payload or --delivery-status")
+            if args.delivery_status is not None:
+                delivery_payload["status"] = args.delivery_status
+            try:
+                updated = reader.update_delivery_subscription(args.delivery_subscription_update, **delivery_payload)
+            except ValueError as exc:
+                print(f"❌ {exc}")
+                return
+            if updated is None:
+                print(f"⚠️ delivery subscription not found: {args.delivery_subscription_update}")
+            else:
+                print(json.dumps(updated, ensure_ascii=False, indent=2))
+            return
+
+        if args.delivery_subscription_delete is not None:
+            deleted = reader.delete_delivery_subscription(args.delivery_subscription_delete)
+            if deleted is None:
+                print(f"⚠️ delivery subscription not found: {args.delivery_subscription_delete}")
+            else:
+                print(json.dumps(deleted, ensure_ascii=False, indent=2))
+            return
+
+        if args.delivery_dispatch_list:
+            rows = reader.list_delivery_dispatch_records(
+                limit=args.delivery_limit,
+                status=args.delivery_status,
+                subscription_id=args.delivery_dispatch_subscription,
+                subject_kind=args.delivery_subject_kind,
+                subject_ref=args.delivery_subject_ref,
+                output_kind=args.delivery_output_kind,
+                route_name=args.delivery_route_name,
+            )
+            print(json.dumps(rows, ensure_ascii=False, indent=2))
+            return
+
+        if args.delivery_package is not None:
+            try:
+                package_payload = reader.build_report_delivery_package(
+                    args.delivery_package,
+                    profile_id=args.delivery_profile_id,
+                )
+            except ValueError as exc:
+                print(f"❌ {exc}")
+                return
+            print(json.dumps(package_payload, ensure_ascii=False, indent=2))
+            return
+
+        if args.delivery_dispatch is not None:
+            try:
+                dispatch_payload = reader.dispatch_report_delivery(
+                    args.delivery_dispatch,
+                    profile_id=args.delivery_profile_id,
+                )
+            except ValueError as exc:
+                print(f"❌ {exc}")
+                return
+            print(json.dumps(dispatch_payload, ensure_ascii=False, indent=2))
+            return
+
     if args.report_object:
         if args.report_object == "citation-bundle":
             report_object = "citation_bundle"
@@ -2072,7 +2206,7 @@ def main() -> None:
         return
 
     if args.emit_digest_package:
-        package_payload = reader.emit_digest_package(
+        digest_package = reader.emit_digest_package(
             profile=args.source_profile,
             source_ids=_normalize_csv_ids(args.source_ids),
             top_n=args.top_n,
@@ -2080,7 +2214,7 @@ def main() -> None:
             min_confidence=args.min_confidence,
             output_format=args.emit_digest_format,
         )
-        print(package_payload)
+        print(digest_package)
         return
 
     if args.trending is not None:

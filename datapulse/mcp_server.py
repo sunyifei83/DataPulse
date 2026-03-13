@@ -460,6 +460,92 @@ async def _run_update_export_profile(identifier: str, payload: dict[str, Any] | 
     return json.dumps({"ok": updated is not None, "export_profile": updated}, ensure_ascii=False, indent=2)
 
 
+async def _run_list_delivery_subscriptions(
+    limit: int = 20,
+    status: str | None = None,
+    subject_kind: str | None = None,
+    subject_ref: str | None = None,
+    output_kind: str | None = None,
+    delivery_mode: str | None = None,
+    route_name: str | None = None,
+) -> str:
+    reader = DataPulseReader()
+    payload = reader.list_delivery_subscriptions(
+        limit=limit,
+        status=status,
+        subject_kind=subject_kind,
+        subject_ref=subject_ref,
+        output_kind=output_kind,
+        delivery_mode=delivery_mode,
+        route_name=route_name,
+    )
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_create_delivery_subscription(payload: dict[str, Any] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = payload or {}
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be an object")
+    created = reader.create_delivery_subscription(**payload)
+    return json.dumps(created, ensure_ascii=False, indent=2)
+
+
+async def _run_show_delivery_subscription(identifier: str) -> str:
+    reader = DataPulseReader()
+    payload = reader.show_delivery_subscription(identifier)
+    return json.dumps({"ok": payload is not None, "delivery_subscription": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_update_delivery_subscription(identifier: str, payload: dict[str, Any] | None = None) -> str:
+    reader = DataPulseReader()
+    payload = payload or {}
+    if not isinstance(payload, dict):
+        raise TypeError("payload must be an object")
+    updated = reader.update_delivery_subscription(identifier, **payload)
+    return json.dumps({"ok": updated is not None, "delivery_subscription": updated}, ensure_ascii=False, indent=2)
+
+
+async def _run_delete_delivery_subscription(identifier: str) -> str:
+    reader = DataPulseReader()
+    payload = reader.delete_delivery_subscription(identifier)
+    return json.dumps({"ok": payload is not None, "delivery_subscription": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_list_delivery_dispatch_records(
+    limit: int = 20,
+    status: str | None = None,
+    subscription_id: str | None = None,
+    subject_kind: str | None = None,
+    subject_ref: str | None = None,
+    output_kind: str | None = None,
+    route_name: str | None = None,
+) -> str:
+    reader = DataPulseReader()
+    payload = reader.list_delivery_dispatch_records(
+        limit=limit,
+        status=status,
+        subscription_id=subscription_id,
+        subject_kind=subject_kind,
+        subject_ref=subject_ref,
+        output_kind=output_kind,
+        route_name=route_name,
+    )
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_build_report_delivery_package(subscription_identifier: str, profile_id: str | None = None) -> str:
+    reader = DataPulseReader()
+    payload = reader.build_report_delivery_package(subscription_identifier, profile_id=profile_id)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_dispatch_report_delivery(subscription_identifier: str, profile_id: str | None = None) -> str:
+    reader = DataPulseReader()
+    payload = reader.dispatch_report_delivery(subscription_identifier, profile_id=profile_id)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
 async def _run_triage_list(
     limit: int = 20,
     min_confidence: float = 0.0,
@@ -1442,6 +1528,84 @@ def _register_tools(app: Any) -> None:
     async def update_export_profile(identifier: str, payload: dict[str, Any] | None = None) -> str:
         """Update one export profile."""
         return await _run_update_export_profile(identifier=identifier, payload=payload)
+
+    @app.tool()
+    async def list_delivery_subscriptions(
+        limit: int = 20,
+        status: str | None = None,
+        subject_kind: str | None = None,
+        subject_ref: str | None = None,
+        output_kind: str | None = None,
+        delivery_mode: str | None = None,
+        route_name: str | None = None,
+    ) -> str:
+        """List normalized delivery subscriptions across report, story, watch, and profile subjects."""
+        return await _run_list_delivery_subscriptions(
+            limit=limit,
+            status=status,
+            subject_kind=subject_kind,
+            subject_ref=subject_ref,
+            output_kind=output_kind,
+            delivery_mode=delivery_mode,
+            route_name=route_name,
+        )
+
+    @app.tool()
+    async def create_delivery_subscription(payload: dict[str, Any] | None = None) -> str:
+        """Create one normalized delivery subscription."""
+        return await _run_create_delivery_subscription(payload=payload)
+
+    @app.tool()
+    async def show_delivery_subscription(identifier: str) -> str:
+        """Show one normalized delivery subscription."""
+        return await _run_show_delivery_subscription(identifier=identifier)
+
+    @app.tool()
+    async def update_delivery_subscription(identifier: str, payload: dict[str, Any] | None = None) -> str:
+        """Update one normalized delivery subscription."""
+        return await _run_update_delivery_subscription(identifier=identifier, payload=payload)
+
+    @app.tool()
+    async def delete_delivery_subscription(identifier: str) -> str:
+        """Delete one normalized delivery subscription."""
+        return await _run_delete_delivery_subscription(identifier=identifier)
+
+    @app.tool()
+    async def list_delivery_dispatch_records(
+        limit: int = 20,
+        status: str | None = None,
+        subscription_id: str | None = None,
+        subject_kind: str | None = None,
+        subject_ref: str | None = None,
+        output_kind: str | None = None,
+        route_name: str | None = None,
+    ) -> str:
+        """List attributable delivery dispatch records created from route-backed report dispatch."""
+        return await _run_list_delivery_dispatch_records(
+            limit=limit,
+            status=status,
+            subscription_id=subscription_id,
+            subject_kind=subject_kind,
+            subject_ref=subject_ref,
+            output_kind=output_kind,
+            route_name=route_name,
+        )
+
+    @app.tool()
+    async def build_report_delivery_package(subscription_identifier: str, profile_id: str | None = None) -> str:
+        """Build one deterministic report delivery package for a report subscription."""
+        return await _run_build_report_delivery_package(
+            subscription_identifier=subscription_identifier,
+            profile_id=profile_id,
+        )
+
+    @app.tool()
+    async def dispatch_report_delivery(subscription_identifier: str, profile_id: str | None = None) -> str:
+        """Dispatch one report subscription through its named delivery routes and persist dispatch records."""
+        return await _run_dispatch_report_delivery(
+            subscription_identifier=subscription_identifier,
+            profile_id=profile_id,
+        )
 
     @app.tool()
     async def mark_processed(item_id: str, processed: bool = True) -> str:  # noqa: ANN001

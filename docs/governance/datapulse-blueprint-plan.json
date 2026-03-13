@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-13T17:00:00Z",
+  "generated_at_utc": "2026-03-13T18:00:00Z",
   "status": "in_progress",
   "activation": {
     "wired": true,
@@ -17,7 +17,8 @@
       "This overlay keeps the repository blueprint truth active while leaving continuation in explicit manual mode.",
       "The report-production wave is complete and remains part of active blueprint truth.",
       "A new report-delivery and subscription follow-up wave is now promoted into the active blueprint truth.",
-      "L15.1 through L15.4 are now landed as repo-truth documentation, contract alignment, normalized subscription persistence, and report-backed package assembly; the derived next slice now resolves to L15.5, opening cross-surface delivery CRUD and dispatch exposure.",
+      "L15.1 through L15.5 are now landed as repo-truth documentation, contract alignment, normalized subscription persistence, report-backed package assembly, and cross-surface delivery CRUD/dispatch exposure.",
+      "The derived next slice now resolves to L15.6, which should add browser-native delivery workspace affordances on top of the same Reader-backed APIs.",
       "Further work should extend the route-backed delivery contract without inventing GUI-only delivery state or altering the current loop mechanism."
     ]
   }

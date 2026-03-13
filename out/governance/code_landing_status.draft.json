@@ -1,7 +1,7 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-13T06:33:01Z",
+  "generated_at_utc": "2026-03-13T09:03:02Z",
   "status_kind": "draft_export",
   "wired": false,
   "headline_summary": {
@@ -10,33 +10,35 @@
     "head_published_to_upstream": true,
     "repo_landed": false,
     "ci_proven": false,
-    "ci_proof_mode": "governance_evidence_dispatch",
-    "required_workflow": "governance-evidence.yml",
+    "ci_proof_mode": "push_ci_workflow",
+    "required_workflow": "CI",
     "quick_test_gate": {
-      "status": "passed",
+      "status": "failed",
       "observed": true,
       "current_head_match": true,
-      "ok": true,
-      "generated_at_utc": "2026-03-13T06:32:57Z",
-      "head": "dd84cc474fec4082e62e1bd77a73e5174db40d32",
+      "ok": false,
+      "generated_at_utc": "2026-03-13T08:54:59Z",
+      "head": "42938cb069d236ad805cb2376ee5da559480d8ce",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
   },
   "git": {
-    "head": "dd84cc474fec4082e62e1bd77a73e5174db40d32",
+    "head": "42938cb069d236ad805cb2376ee5da559480d8ce",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "dd84cc474fec4082e62e1bd77a73e5174db40d32",
+    "upstream_head": "42938cb069d236ad805cb2376ee5da559480d8ce",
     "head_published_to_upstream": true
   },
   "workspace": {
     "clean": false,
     "dirty_entries": [
-      "M docs/governance/datapulse-blueprint-plan.draft.json",
+      "M datapulse/cli.py",
+      " M datapulse/console_server.py",
+      " M datapulse/mcp_server.py",
+      " M docs/governance/datapulse-blueprint-plan.draft.json",
       " M docs/governance/datapulse-blueprint-plan.json",
-      " M docs/gui_intelligence_console_plan.md",
-      "?? docs/governance/datapulse-report-delivery-subscription-blueprint.md"
+      " M tests/test_console_server.py"
     ],
     "reason": "git status reported local modifications."
   },
@@ -56,11 +58,11 @@
       "latest_observation": {
         "path": "artifacts/governance/quick_test_gate.draft.json",
         "schema_version": "quick_test_gate.v1",
-        "generated_at_utc": "2026-03-13T06:32:57Z",
-        "ok": true,
+        "generated_at_utc": "2026-03-13T08:54:59Z",
+        "ok": false,
         "read_only": true,
         "git": {
-          "head": "dd84cc474fec4082e62e1bd77a73e5174db40d32",
+          "head": "42938cb069d236ad805cb2376ee5da559480d8ce",
           "branch": "main"
         },
         "steps": [
@@ -104,11 +106,13 @@
               "mypy",
               "datapulse/"
             ],
-            "rc": 0,
-            "ok": true,
+            "rc": 1,
+            "ok": false,
             "stdout_tail": [
+              "datapulse/reader.py:2719: error: Dict entry 3 has incompatible type \"str\": \"list[dict[str, Sequence[Any]]]\"; expected \"str\": \"Collection[str]\"  [dict-item]",
+              "datapulse/reader.py:2724: error: Dict entry 1 has incompatible type \"str\": \"dict[str, Any] | None\"; expected \"str\": \"Collection[str]\"  [dict-item]",
               "datapulse/cli.py:315: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
-              "Success: no issues found in 59 source files"
+              "Found 2 errors in 1 file (checked 59 source files)"
             ],
             "stderr_tail": []
           },
@@ -169,7 +173,7 @@
           }
         ]
       },
-      "latest_observation_status": "passed",
+      "latest_observation_status": "failed",
       "latest_observation_current_head_match": true
     },
     "local_smoke": {
@@ -221,33 +225,46 @@
   "ci": {
     "workflow_name": "CI",
     "truth_source": ".github/workflows/ci.yml",
-    "docs_only_changes_skip_ci": true,
+    "docs_only_changes_skip_ci": false,
     "docs_paths_ignore_configured": true,
-    "proof_mode": "governance_evidence_dispatch",
+    "proof_mode": "push_ci_workflow",
     "head_published_to_upstream": true,
-    "required_workflow": "governance-evidence.yml",
-    "required_run": null,
-    "latest_head_ci_run": {
-      "database_id": 23038401227,
-      "head_sha": "dd84cc474fec4082e62e1bd77a73e5174db40d32",
+    "required_workflow": "CI",
+    "required_run": {
+      "database_id": 23043382629,
+      "head_sha": "42938cb069d236ad805cb2376ee5da559480d8ce",
       "head_branch": "main",
       "status": "completed",
-      "conclusion": "success",
+      "conclusion": "failure",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-13T06:00:50Z",
-      "updated_at": "2026-03-13T06:01:27Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23038401227"
+      "created_at": "2026-03-13T08:53:29Z",
+      "updated_at": "2026-03-13T08:54:14Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23043382629"
+    },
+    "latest_head_ci_run": {
+      "database_id": 23043382629,
+      "head_sha": "42938cb069d236ad805cb2376ee5da559480d8ce",
+      "head_branch": "main",
+      "status": "completed",
+      "conclusion": "failure",
+      "event": "push",
+      "workflow_name": "CI",
+      "created_at": "2026-03-13T08:53:29Z",
+      "updated_at": "2026-03-13T08:54:14Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23043382629"
     },
     "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
+        "datapulse/cli.py",
+        "datapulse/console_server.py",
+        "datapulse/mcp_server.py",
         "docs/governance/datapulse-blueprint-plan.draft.json",
         "docs/governance/datapulse-blueprint-plan.json",
-        "docs/gui_intelligence_console_plan.md",
-        "docs/governance/datapulse-report-delivery-subscription-blueprint.md"
+        "tests/test_console_server.py"
       ],
-      "docs_only": true
+      "docs_only": false
     }
   },
   "release": {
@@ -272,9 +289,7 @@
     ],
     "local_verification": [],
     "runtime_governance": [],
-    "ci_policy": [
-      "docs_only_changes_skip_ci"
-    ],
+    "ci_policy": [],
     "release_governance": []
   },
   "promotion_levels": {
@@ -288,7 +303,7 @@
       "satisfied": false,
       "reasons": [
         "repo_landed_false",
-        "governance_evidence_not_proven"
+        "ci_run_failed"
       ]
     }
   },
@@ -296,11 +311,11 @@
     "latest_quick_test_gate": {
       "path": "artifacts/governance/quick_test_gate.draft.json",
       "schema_version": "quick_test_gate.v1",
-      "generated_at_utc": "2026-03-13T06:32:57Z",
-      "ok": true,
+      "generated_at_utc": "2026-03-13T08:54:59Z",
+      "ok": false,
       "read_only": true,
       "git": {
-        "head": "dd84cc474fec4082e62e1bd77a73e5174db40d32",
+        "head": "42938cb069d236ad805cb2376ee5da559480d8ce",
         "branch": "main"
       },
       "steps": [
@@ -344,11 +359,13 @@
             "mypy",
             "datapulse/"
           ],
-          "rc": 0,
-          "ok": true,
+          "rc": 1,
+          "ok": false,
           "stdout_tail": [
+            "datapulse/reader.py:2719: error: Dict entry 3 has incompatible type \"str\": \"list[dict[str, Sequence[Any]]]\"; expected \"str\": \"Collection[str]\"  [dict-item]",
+            "datapulse/reader.py:2724: error: Dict entry 1 has incompatible type \"str\": \"dict[str, Any] | None\"; expected \"str\": \"Collection[str]\"  [dict-item]",
             "datapulse/cli.py:315: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
-            "Success: no issues found in 59 source files"
+            "Found 2 errors in 1 file (checked 59 source files)"
           ],
           "stderr_tail": []
         },
@@ -450,16 +467,16 @@
       }
     },
     "latest_head_ci_run": {
-      "database_id": 23038401227,
-      "head_sha": "dd84cc474fec4082e62e1bd77a73e5174db40d32",
+      "database_id": 23043382629,
+      "head_sha": "42938cb069d236ad805cb2376ee5da559480d8ce",
       "head_branch": "main",
       "status": "completed",
-      "conclusion": "success",
+      "conclusion": "failure",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-13T06:00:50Z",
-      "updated_at": "2026-03-13T06:01:27Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23038401227"
+      "created_at": "2026-03-13T08:53:29Z",
+      "updated_at": "2026-03-13T08:54:14Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23043382629"
     },
     "latest_head_governance_evidence_run": null
   },

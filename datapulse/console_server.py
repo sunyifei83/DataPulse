@@ -150,6 +150,30 @@ class ReportWatchPackRequest(BaseModel):
     alert_rules: list[dict[str, Any]] | None = None
 
 
+class DeliverySubscriptionCreateRequest(BaseModel):
+    subject_kind: str
+    subject_ref: str
+    output_kind: str
+    delivery_mode: str = "pull"
+    status: str = "active"
+    route_names: list[str] | None = None
+    cursor_or_since: str | None = None
+
+
+class DeliverySubscriptionUpdateRequest(BaseModel):
+    subject_kind: str | None = None
+    subject_ref: str | None = None
+    output_kind: str | None = None
+    delivery_mode: str | None = None
+    status: str | None = None
+    route_names: list[str] | None = None
+    cursor_or_since: str | None = None
+
+
+class DeliveryDispatchRequest(BaseModel):
+    profile_id: str | None = None
+
+
 def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) -> FastAPI:
     app = FastAPI(title=CONSOLE_TITLE, version="0.8.0")
 
@@ -699,6 +723,103 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
         if profile is None:
             raise HTTPException(status_code=404, detail=f"Export profile not found: {identifier}")
         return profile
+
+    @app.get("/api/delivery-subscriptions")
+    def list_delivery_subscriptions(
+        limit: int = 20,
+        status: str | None = None,
+        subject_kind: str | None = None,
+        subject_ref: str | None = None,
+        output_kind: str | None = None,
+        delivery_mode: str | None = None,
+        route_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return reader_factory().list_delivery_subscriptions(
+            limit=limit,
+            status=status,
+            subject_kind=subject_kind,
+            subject_ref=subject_ref,
+            output_kind=output_kind,
+            delivery_mode=delivery_mode,
+            route_name=route_name,
+        )
+
+    @app.post("/api/delivery-subscriptions")
+    def create_delivery_subscription(payload: DeliverySubscriptionCreateRequest) -> dict[str, Any]:
+        try:
+            return reader_factory().create_delivery_subscription(**payload.model_dump(exclude_none=True))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/delivery-subscriptions/{identifier}")
+    def show_delivery_subscription(identifier: str) -> dict[str, Any]:
+        subscription = reader_factory().show_delivery_subscription(identifier)
+        if subscription is None:
+            raise HTTPException(status_code=404, detail=f"Delivery subscription not found: {identifier}")
+        return subscription
+
+    @app.put("/api/delivery-subscriptions/{identifier}")
+    def update_delivery_subscription(
+        identifier: str,
+        payload: DeliverySubscriptionUpdateRequest,
+    ) -> dict[str, Any]:
+        try:
+            subscription = reader_factory().update_delivery_subscription(
+                identifier,
+                **payload.model_dump(exclude_none=True),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if subscription is None:
+            raise HTTPException(status_code=404, detail=f"Delivery subscription not found: {identifier}")
+        return subscription
+
+    @app.delete("/api/delivery-subscriptions/{identifier}")
+    def delete_delivery_subscription(identifier: str) -> dict[str, Any]:
+        subscription = reader_factory().delete_delivery_subscription(identifier)
+        if subscription is None:
+            raise HTTPException(status_code=404, detail=f"Delivery subscription not found: {identifier}")
+        return subscription
+
+    @app.get("/api/delivery-subscriptions/{identifier}/package")
+    def build_delivery_package(identifier: str, profile_id: str | None = None) -> dict[str, Any]:
+        try:
+            return reader_factory().build_report_delivery_package(identifier, profile_id=profile_id)
+        except ValueError as exc:
+            detail = str(exc)
+            if "not found" in detail.lower():
+                raise HTTPException(status_code=404, detail=detail) from exc
+            raise HTTPException(status_code=400, detail=detail) from exc
+
+    @app.post("/api/delivery-subscriptions/{identifier}/dispatch")
+    def dispatch_delivery_subscription(identifier: str, payload: DeliveryDispatchRequest) -> list[dict[str, Any]]:
+        try:
+            return reader_factory().dispatch_report_delivery(identifier, profile_id=payload.profile_id)
+        except ValueError as exc:
+            detail = str(exc)
+            if "not found" in detail.lower():
+                raise HTTPException(status_code=404, detail=detail) from exc
+            raise HTTPException(status_code=400, detail=detail) from exc
+
+    @app.get("/api/delivery-dispatch-records")
+    def list_delivery_dispatch_records(
+        limit: int = 20,
+        status: str | None = None,
+        subscription_id: str | None = None,
+        subject_kind: str | None = None,
+        subject_ref: str | None = None,
+        output_kind: str | None = None,
+        route_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return reader_factory().list_delivery_dispatch_records(
+            limit=limit,
+            status=status,
+            subscription_id=subscription_id,
+            subject_kind=subject_kind,
+            subject_ref=subject_ref,
+            output_kind=output_kind,
+            route_name=route_name,
+        )
 
     @app.get("/api/triage")
     def triage_list(limit: int = 20, state: list[str] | None = None, include_closed: bool = False) -> list[dict[str, Any]]:

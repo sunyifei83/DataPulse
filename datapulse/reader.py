@@ -2667,6 +2667,7 @@ class DataPulseReader:
             raise ValueError("Subscription subject_ref is required for report dispatch")
 
         output_kind = self._normalize_report_dispatch_output_kind(subscription.get("output_kind"))
+        package_payload: dict[str, Any]
         if output_kind == "report_brief":
             report_payload = self.show_report(report_id)
             if report_payload is None:
@@ -2698,7 +2699,7 @@ class DataPulseReader:
                     "report": assembled,
                 }
             else:
-                source_entries = []
+                source_entries: list[dict[str, Any]] = []
                 for row in assembled.get("claim_cards", []):
                     if not isinstance(row, dict):
                         continue
