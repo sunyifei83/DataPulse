@@ -1,7 +1,7 @@
 {
   "schema_version": "release_sidecar.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-12T12:54:01Z",
+  "generated_at_utc": "2026-03-13T05:59:57Z",
   "sidecar_kind": "draft_export",
   "wired": false,
   "release": {
@@ -21,9 +21,9 @@
     ]
   },
   "git": {
-    "head": "edd48141099e4b594977f0d1bd1b122cc78aaa34",
+    "head": "c1b63c69384e064c3e74fc5ec6026d21d5677f93",
     "branch": "main",
-    "workspace_clean": false
+    "workspace_clean": true
   },
   "build_artifacts": {
     "dist_exists": true,
@@ -86,8 +86,6 @@
   },
   "promotion_readiness": {
     "structured_release_bundle_available": true,
-    "reasons": [
-      "workspace_dirty"
-    ]
+    "reasons": []
   }
 }
