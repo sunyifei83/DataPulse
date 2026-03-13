@@ -24,7 +24,7 @@ This roadmap now projects the repo-level contract in [intelligence_lifecycle_con
 
 Canonical lifecycle:
 
-- `WatchMission -> MissionRun -> DataPulseItem review/triage -> Story/evidence package -> ReportBrief -> ClaimCard -> ReportSection -> Report -> ExportProfile -> brief/full/sources/watch-pack outputs -> AlertEvent / route delivery`
+- `WatchMission -> MissionRun -> DataPulseItem review/triage -> Story/evidence package -> ReportBrief -> ClaimCard -> ReportSection -> Report -> ExportProfile -> brief/full/sources/watch_pack outputs -> report subscription by output_kind and route-backed delivery observations`
 
 Stage mapping:
 
@@ -32,19 +32,20 @@ Stage mapping:
 - `G1` is the mission/run operating surface for `WatchMission` and `MissionRun`.
 - `G2` is the triage surface for shared `DataPulseItem` review state, notes, and duplicate explanations.
 - `G3` is the evidence surface for persisted `Story` objects, timelines, contradictions, graphs, and story export previews.
-- `G4` is the delivery/ops surface for `AlertEvent`, named routes, route health, and distribution quality observations.
+- `G4` is the delivery/ops surface for `AlertEvent`, named routes, route health, and distribution quality observations including report output observability.
 - `R1` extends stage mapping with report-layer nouns (`ReportBrief`, `ClaimCard`, `ReportSection`, `CitationBundle`, `Report`, `ExportProfile`) before any report browser-heavy editor work.
 - `R2` aligns report-layer core work to Reader-backed store updates and persistence semantics.
 - `R3` maps deterministic claim composition, citation binding, and quality evaluation into shared reader/CLI/MCP/console surfaces.
 - `R4` projects report CRUD, compose, quality preview, and exports through Reader/CLI/MCP/HTTP.
 - `R5` adds browser `Claim Composer` and `Report Studio` as thin projections over persisted report objects.
-- `R6` lands export profiles (`brief/full/sources/watch-pack`) and watch-feedback hooks without new UI-only state.
+- `R6` lands export profiles (`brief/full/sources/watch_pack`) and watch-feedback hooks without new UI-only state.
+- `L15.2` lands contract alignment for report-delivery subjects (`report`, `watch_mission`, `story`) and explicit `output_kind` routing.
 
 Roadmap rules:
 
 - the browser must stay a Reader-backed projection of the same lifecycle contract used by CLI and MCP
 - later delivery/subscription expansion belongs to the delivery contract follow-up, not to ad hoc GUI-only state
-- story export is currently the existing handoff format and should be treated as provisional until the report layer is persisted
+- story export is a legacy handoff format and should be treated as provisional after report outputs gain authoritative routing and delivery contract status
 
 ## Recommended Delivery Shape
 
@@ -254,7 +255,7 @@ Dependency:
 1. Keep `WatchMission` and `MissionRun` contracts stable across Reader, CLI, MCP, and API.
 2. Treat `G2` as the shared triage state surface rather than a second queue model.
 3. Treat `G3` as the evidence-preserving story surface, not a presentation-only board.
-4. Fold delivery observations (`AlertEvent`, routes, story export, ops facts) into one route-backed output model before richer subscriptions.
+4. Fold delivery observations (`AlertEvent`, routes, feeds, story export, report outputs, ops facts) into one route-backed output model before richer subscriptions.
 5. Expand drill-down only after the lifecycle nouns stay stable across all surfaces.
 
 ## Follow-up Baseline
@@ -1009,7 +1010,9 @@ Recommended stage preview:
 
 Current blueprint reopening target:
 
-- `L14.7` `Add brief / full / sources / watch-pack export profiles and report-to-watch feedback hooks`
+- `L15.3` `Add normalized delivery-subscription core objects and persistence without forking route truth`
+
+The repository is now positioned on a manual ignition target beyond the completed report-production wave, with delivery/subscription follow-up documentation landing in `docs/governance/datapulse-report-delivery-subscription-blueprint.md`.
 
 Current browser landing for `R5`:
 

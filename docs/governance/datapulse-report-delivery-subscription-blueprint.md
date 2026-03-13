@@ -6,6 +6,16 @@ This document promotes the next repo-relevant wave after report production into 
 
 The goal is not to reopen report persistence or invent another GUI product. The goal is to define the next narrow blueprint slices that turn authoritative report outputs into one Reader-backed delivery and subscription plane.
 
+## Canonical Contract Snapshot For L15.2
+
+L15.2 establishes these explicit normalized shapes before implementation:
+
+- Delivery subjects: `profile`, `watch_mission`, `story`, `report`
+- Delivery outputs: `alert_event`, `feed_json`, `feed_rss`, `feed_atom`, `story_json`, `story_markdown`, `report_brief`, `report_full`, `report_sources`, `report_watch_pack`
+- Route binding: `route_names` references named route identities from `AlertRouteStore`
+- Cursoring: `cursor_or_since` is used for pull subscriptions and future incremental report package pagination
+- Canonical subscription projection: `subject_kind + subject_ref + output_kind + delivery_mode + route_names + cursor_or_since`
+
 ## Current Repo Read
 
 The repository now has a lifecycle-complete report-production layer that reaches:
@@ -19,7 +29,7 @@ The repository now has a lifecycle-complete report-production layer that reaches
 - `ReportSection`
 - `Report`
 - `ExportProfile`
-- `brief / full / sources / watch-pack` report outputs
+- `brief / full / sources / watch_pack` report outputs
 
 Current repo anchors:
 

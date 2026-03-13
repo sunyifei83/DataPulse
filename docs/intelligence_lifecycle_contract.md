@@ -16,6 +16,7 @@ This contract covers the shared lifecycle semantics for:
 - `Story` and evidence packaging
 - report production objects: `ReportBrief`, `ClaimCard`, `ReportSection`, `CitationBundle`, `Report`, `ExportProfile`
 - `AlertEvent` and named-route delivery health as the current delivery surface
+- `Report` and `ExportProfile` as the authoritative delivery basis for report-layer outputs
 
 This contract currently records the repo-level semantics before full report model/runtime code lands.
 
@@ -29,6 +30,7 @@ This contract currently records the repo-level semantics before full report mode
 | Story assembly | `Story`, `StoryEvidence`, `StoryTimelineEvent`, `StoryConflict` | `datapulse/core/story.py` |
 | Report production (planned layer) | `ReportBrief`, `ClaimCard`, `ReportSection`, `CitationBundle`, `Report`, `ExportProfile` | `docs/intelligence_lifecycle_contract.md`, `docs/gui_intelligence_console_plan.md`, `docs/governance/datapulse-research-os-report-production-blueprint.md` |
 | Delivery and ops | `AlertEvent`, named alert routes, route health, ops snapshot | `datapulse/core/alerts.py`, `datapulse/reader.py` |
+| Report-backed delivery | `Report`, `ExportProfile` | `docs/intelligence_delivery_contract.md`, `docs/governance/datapulse-report-delivery-subscription-blueprint.md`, `datapulse/core/report.py` |
 
 ## Canonical Lifecycle
 
@@ -43,8 +45,8 @@ WatchMission
   -> ReportSection
   -> Report
   -> ExportProfile
-  -> brief / full / source / watch-pack outputs
-  -> AlertEvent / route delivery health
+  -> brief / full / source / watch_pack outputs
+  -> delivery subscription mapping by output kind and route observation
 ```
 
 The lifecycle is additive, not branchless:
@@ -55,7 +57,7 @@ The lifecycle is additive, not branchless:
 - one `Story` can aggregate items from multiple runs and multiple sources
 - one `Story` may be the evidence basis for multiple `ReportBrief` planning units
 - one `Report` can be exported through multiple `ExportProfile` shapes
-- delivery can consume either mission-level alert facts or report outputs
+- delivery can consume either mission-level alert facts, profile scope pull outputs, or report outputs
 
 ## Object Contract
 
@@ -173,12 +175,13 @@ The report layer is additive and starts above `Story` instead of replacing it.
 - fields: profile name, field mapping, rendering policy, delivery metadata
 - invariants: changing a profile changes output shape only; it never rewrites underlying story, claim, or report facts
 
-### 6. Delivery and distribution: `AlertEvent` plus route facts
+### 6. Delivery and distribution: `Report` plus route-backed event observation
 
-The current repo does not yet expose a standalone delivery object beyond alert events and route-health facts. The effective delivery layer today is:
+The delivery layer now binds authoritative report output kinds, push triggers, and route observations:
 
-- `AlertEvent` for mission-triggered threshold outputs
-- named alert routes from `AlertRouteStore`
+- `Report` + `ExportProfile` define authoritative report outputs (`brief`, `full`, `sources`, `watch_pack`)
+- `AlertEvent` for mission-level trigger records and route-aware delivery intents
+- named routes from `AlertRouteStore`
 - route delivery health and recent failure summaries from `alert_route_health()` and `ops_snapshot()`
 - story export output from `story_export(..., output_format="json"|"markdown")`
 
@@ -186,7 +189,7 @@ Contract rules:
 
 - mission-level delivery emits `AlertEvent` objects; it does not redefine mission or triage state.
 - route delivery health is an operational observation of output quality, not a replacement for alert/event truth.
-- story export remains the current handoff format until report outputs become authoritative via `ExportProfile`.
+- story export remains a legacy handoff format; report outputs are authoritative for report-layer delivery via `ExportProfile`.
 - future delivery/subscription work must extend this layer without inventing a second lifecycle separate from mission, triage, and story.
 
 ## Transition Contract
@@ -202,7 +205,7 @@ Contract rules:
 | `ClaimCard` | `ReportSection` | editorial sequencing and sectioning | section ordering and claim references are deterministic |
 | `ReportSection` | `Report` | report assembly | all section/claim objects are validated against provenance |
 | `Report` | `ExportProfile` | export-profile selection | profile output is deterministic for a given report snapshot |
-| `WatchMission` or `Story` | delivery output | alert evaluation, report export, route dispatch | output remains attributable to mission, rule, story, report, and route facts |
+| `WatchMission` or `Report` | report-aware delivery output | alert evaluation, report routing, route dispatch | output remains attributable via explicit `subject_kind`, `output_kind`, subject identity, rule, and route facts |
 
 ## Cross-Surface Parity
 
@@ -234,6 +237,7 @@ The following invariants should hold for all follow-up work:
 6. `ExportProfile` selects output shape only; it cannot mutate provenance-rich base objects.
 7. Delivery quality facts must stay attached to route or alert observations instead of mutating mission/story/report truth.
 8. New roadmap or API work should map back to one lifecycle step in this contract.
+9. Report delivery planning must use explicit `subject_kind` + `output_kind` mappings and route-backed observations, not UI-only state.
 
 ## Implications For Follow-up Slices
 

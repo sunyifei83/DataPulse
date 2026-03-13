@@ -13,7 +13,8 @@ This contract covers the current and near-term output semantics for:
 - source-profile subscriptions and feed export
 - watch-level alert rules and triggered `AlertEvent` records
 - named delivery routes from `AlertRouteStore`
-- story export as the current evidence-package handoff
+- report-output handoff via `Report` + `ExportProfile`
+- story export as the legacy evidence-package handoff
 - route health and ops observations
 
 This contract does not claim that the repo already has a first-class persisted `watch subscription` or `story subscription` object. Those remain follow-up work and must extend the contract below instead of bypassing it.
@@ -33,7 +34,7 @@ This contract does not claim that the repo already has a first-class persisted `
 ## Canonical Output Model
 
 ```text
-subscription scope or mission/story selection
+subscription scope or mission/story/report selection
   -> output package selection
   -> optional trigger evaluation
   -> named route dispatch or pull export
@@ -131,15 +132,16 @@ The repo currently exposes three output package families:
 | Package family | Current shape | Delivery mode |
 | --- | --- | --- |
 | mission alert | `AlertEvent` plus matched item payloads | push |
+| report output | `ExportProfile` selected outputs over `Report` (`brief`, `full`, `sources`, `watch_pack`) | pull (and future push) |
 | feed snapshot | JSON Feed, RSS, Atom built from profile/source subscription scope | pull |
 | story evidence package | story JSON or Markdown export | pull |
 
 Contract rules:
 
 - output packages are typed views over lifecycle truth; they are not independent business objects
-- feed export is the canonical pull subscription surface for profile-scoped consumption
-- story export is the canonical pull evidence-package handoff until richer downstream callbacks exist
-- route-backed push delivery currently operates on `AlertEvent`; future digest or story push delivery must still produce an attributable event record before dispatch
+- feed and report outputs are canonical pull subscription surfaces for profile and report-scoped consumption
+- story export is the legacy pull evidence-package handoff
+- route-backed push delivery currently operates on `AlertEvent`; future digest, report, or story push delivery must still produce an attributable event record before dispatch
 
 ## Route-Backed Delivery Contract
 
@@ -192,9 +194,9 @@ The repo does not yet persist a single normalized subscription object across pro
 | Field | Meaning | Current anchor |
 | --- | --- | --- |
 | `subscriber_kind` | who is consuming the output | not yet first-class |
-| `subject_kind` | `profile`, `watch_mission`, or `story` | profile exists now; watch/story follow-up |
+| `subject_kind` | `profile`, `watch_mission`, `story`, or `report` | profile exists now; watch/story/report follow-up |
 | `subject_ref` | stable subject identifier | profile name, mission ID, story ID |
-| `output_kind` | `alert_event`, `feed_json`, `feed_rss`, `feed_atom`, `story_json`, `story_markdown` | already implied by current APIs |
+| `output_kind` | `alert_event`, `feed_json`, `feed_rss`, `feed_atom`, `story_json`, `story_markdown`, `report_brief`, `report_full`, `report_sources`, `report_watch_pack` | already implied by current APIs |
 | `delivery_mode` | `pull` or `push` | already implied by current APIs |
 | `route_names` | named push targets | current `alert_rules.routes` |
 | `cursor_or_since` | incremental read pointer | current `since` on feed builders; future expansion |
@@ -202,6 +204,7 @@ The repo does not yet persist a single normalized subscription object across pro
 Forward-compatibility rules:
 
 - a future first-class subscription object must reference existing mission/story/profile truth instead of copying business fields
+- `subject_kind='report'` must bind `subject_ref` to a stable `Report` identifier and map to explicit report output kinds for delivery
 - `output_kind` and `delivery_mode` must remain explicit so feed export, story export, and route-backed push are one model
 - route-backed story or digest delivery should emit an attributable event/attempt record before transport
 
