@@ -98,8 +98,15 @@ def git_output(*args: str) -> str:
     return completed.stdout.strip()
 
 
-def run_step(name: str, command: list[str]) -> dict[str, object]:
-    completed = subprocess.run(command, cwd=REPO_ROOT, check=False, capture_output=True, text=True)
+def run_step(name: str, command: list[str], *, env: dict[str, str] | None = None) -> dict[str, object]:
+    completed = subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        env={**os.environ, **(env or {})},
+    )
     return {
         "name": name,
         "command": command,
@@ -145,7 +152,13 @@ def main() -> int:
     )
     steps.append(run_step("lint_datapulse", ruff_cmd + ["check", "datapulse/"]))
     steps.append(run_step("typecheck_datapulse", mypy_cmd + ["datapulse/"]))
-    steps.append(run_step("console_smoke", ["bash", "scripts/datapulse_console_smoke.sh"]))
+    steps.append(
+        run_step(
+            "console_smoke",
+            ["bash", "scripts/datapulse_console_smoke.sh"],
+            env={"DATAPULSE_CONSOLE_BROWSER_SMOKE": "1"},
+        )
+    )
     steps.append(run_step("smoke_list", datapulse_smoke + ["--list"]))
     steps.append(run_step("cli_list", datapulse_cli + ["--list", "--limit", "5", "--min-confidence", "0.0"]))
 

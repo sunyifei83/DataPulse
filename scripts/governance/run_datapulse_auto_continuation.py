@@ -95,6 +95,12 @@ def refresh_governance_snapshots_to_targets(
     project_loop_state_output: Path,
 ) -> dict[str, str]:
     return {
+        "quick_test_gate": run_capture(
+            [
+                *current_python_command(),
+                "scripts/governance/run_datapulse_quick_test_gate.py",
+            ]
+        ),
         "code_landing_status": run_capture(
             [
                 *current_python_command(),

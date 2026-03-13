@@ -3,10 +3,13 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 import socket
 import threading
 import time
+from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
+from typing import Any, cast
 
 import uvicorn
 
@@ -18,13 +21,57 @@ except ImportError as exc:  # pragma: no cover - exercised in runtime only
     raise SystemExit("Playwright is not installed. Run with: uv run --with playwright python scripts/datapulse_console_browser_smoke.py") from exc
 
 
-def _clone(payload):
+Row = dict[str, object]
+
+
+def _clone(payload: Any) -> Any:
     return deepcopy(payload)
+
+
+def _log(message: str) -> None:
+    print(message, flush=True)
+
+
+def _row(value: object) -> Row | None:
+    return cast(Row, value) if isinstance(value, dict) else None
+
+
+def _rows(value: object) -> list[Row]:
+    if not isinstance(value, list):
+        return []
+    return [cast(Row, item) for item in value if isinstance(item, dict)]
+
+
+def _strings(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [normalized for item in value if (normalized := str(item or "").strip())]
+
+
+def _as_int(value: object, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return default
+        try:
+            return int(normalized)
+        except ValueError:
+            try:
+                return int(float(normalized))
+            except ValueError:
+                return default
+    return default
 
 
 class _SmokeReader:
     def __init__(self) -> None:
-        self.routes = [
+        self.routes: list[Row] = [
             {
                 "name": "ops-webhook",
                 "channel": "webhook",
@@ -32,7 +79,7 @@ class _SmokeReader:
                 "webhook_url": "https://hooks.example.com/ops",
             }
         ]
-        self.watches = [
+        self.watches: list[Row] = [
             {
                 "id": "launch-ops",
                 "name": "Launch Ops",
@@ -50,7 +97,7 @@ class _SmokeReader:
                 "last_run_status": "success",
             }
         ]
-        self.triage_items = [
+        self.triage_items: list[Row] = [
             {
                 "id": "item-1",
                 "title": "OpenAI launch post",
@@ -80,7 +127,7 @@ class _SmokeReader:
                 ],
             },
         ]
-        self.stories = [
+        self.stories: list[Row] = [
             {
                 "id": "story-openai-launch",
                 "title": "OpenAI Launch",
@@ -101,7 +148,7 @@ class _SmokeReader:
                 "updated_at": "2026-03-06T00:05:00+00:00",
             }
         ]
-        self.report_briefs = [
+        self.report_briefs: list[Row] = [
             {
                 "id": "brief-openai-market",
                 "title": "OpenAI Market Brief",
@@ -111,7 +158,7 @@ class _SmokeReader:
                 "updated_at": "2026-03-06T00:00:00+00:00",
             }
         ]
-        self.claim_cards = [
+        self.claim_cards: list[Row] = [
             {
                 "id": "claim-openai-trend",
                 "brief_id": "brief-openai-market",
@@ -125,7 +172,7 @@ class _SmokeReader:
                 "updated_at": "2026-03-06T00:00:00+00:00",
             }
         ]
-        self.report_sections = [
+        self.report_sections: list[Row] = [
             {
                 "id": "section-market-context",
                 "report_id": "report-openai-market",
@@ -137,7 +184,7 @@ class _SmokeReader:
                 "updated_at": "2026-03-06T00:00:00+00:00",
             }
         ]
-        self.citation_bundles = [
+        self.citation_bundles: list[Row] = [
             {
                 "id": "bundle-openai",
                 "claim_card_id": "claim-openai-trend",
@@ -147,7 +194,7 @@ class _SmokeReader:
                 "note": "Primary launch coverage bundle.",
             }
         ]
-        self.reports = [
+        self.reports: list[Row] = [
             {
                 "id": "report-openai-market",
                 "brief_id": "brief-openai-market",
@@ -158,36 +205,196 @@ class _SmokeReader:
                 "section_ids": ["section-market-context"],
                 "claim_card_ids": ["claim-openai-trend"],
                 "citation_bundle_ids": ["bundle-openai"],
-                "export_profile_ids": ["profile-brief"],
+                "export_profile_ids": ["profile-brief", "profile-full", "profile-sources", "profile-watch-pack"],
                 "updated_at": "2026-03-06T00:00:00+00:00",
             }
         ]
-        self.export_profiles = [
+        self.export_profiles: list[Row] = [
             {
                 "id": "profile-brief",
                 "report_id": "report-openai-market",
-                "name": "Brief export profile",
+                "name": "brief",
+                "output_format": "markdown",
+                "include_sections": True,
+                "include_claim_cards": False,
+                "include_bundles": True,
+                "include_export_profiles": True,
+                "include_metadata": True,
+                "status": "active",
+            },
+            {
+                "id": "profile-full",
+                "report_id": "report-openai-market",
+                "name": "full",
                 "output_format": "markdown",
                 "include_sections": True,
                 "include_claim_cards": True,
                 "include_bundles": True,
                 "include_export_profiles": True,
+                "include_metadata": True,
+                "status": "active",
+            },
+            {
+                "id": "profile-sources",
+                "report_id": "report-openai-market",
+                "name": "sources",
+                "output_format": "json",
+                "include_sections": False,
+                "include_claim_cards": True,
+                "include_bundles": True,
+                "include_export_profiles": True,
+                "include_metadata": True,
+                "status": "active",
+            },
+            {
+                "id": "profile-watch-pack",
+                "report_id": "report-openai-market",
+                "name": "watch-pack",
+                "output_format": "json",
+                "include_sections": False,
+                "include_claim_cards": False,
+                "include_bundles": False,
+                "include_export_profiles": True,
+                "include_metadata": False,
                 "status": "active",
             }
         ]
+
+    @staticmethod
+    def _timestamp() -> str:
+        return "2026-03-06T00:00:00+00:00"
+
+    @staticmethod
+    def _slug(value: str, fallback: str) -> str:
+        normalized = re.sub(r"[^a-z0-9]+", "-", str(value or "").strip().lower()).strip("-")
+        return normalized or fallback
+
+    def _make_id(self, prefix: str, value: str, rows: Sequence[Mapping[str, object]]) -> str:
+        existing = {str(row.get("id") or "").strip() for row in rows}
+        stem = self._slug(value, prefix)
+        candidate = stem if stem.startswith(f"{prefix}-") else f"{prefix}-{stem}"
+        if candidate not in existing:
+            return candidate
+        index = 2
+        while f"{candidate}-{index}" in existing:
+            index += 1
+        return f"{candidate}-{index}"
+
+    @staticmethod
+    def _row_index(rows: Sequence[Mapping[str, object]], identifier: str, *, key: str = "id") -> int | None:
+        normalized = str(identifier or "").strip()
+        for index, row in enumerate(rows):
+            if str(row.get(key) or "").strip() == normalized:
+                return index
+        return None
+
+    def _upsert(self, rows: list[Row], item: Row, *, key: str = "id") -> Row:
+        identifier = str(item.get(key) or "").strip()
+        if not identifier:
+            raise ValueError(f"Missing required row key: {key}")
+        index = self._row_index(rows, identifier, key=key)
+        if index is None:
+            rows.insert(0, item)
+        else:
+            rows[index] = item
+        return item
+
+    @staticmethod
+    def _unique_ids(values: Iterable[str]) -> list[str]:
+        seen: list[str] = []
+        for value in values:
+            normalized = str(value or "").strip()
+            if normalized and normalized not in seen:
+                seen.append(normalized)
+        return seen
+
+    def _report_profiles(self, report_id: str) -> list[Row]:
+        normalized = str(report_id or "").strip()
+        return [row for row in self.export_profiles if str(row.get("report_id") or "").strip() == normalized]
+
+    def _ensure_default_export_profiles(self, report_id: str) -> list[str]:
+        normalized = str(report_id or "").strip()
+        if not normalized:
+            return []
+        existing = {str(row.get("name") or "").strip().lower(): row for row in self._report_profiles(normalized)}
+        templates = [
+            {
+                "id": f"profile-{self._slug(normalized, 'report')}-brief",
+                "report_id": normalized,
+                "name": "brief",
+                "output_format": "markdown",
+                "include_sections": True,
+                "include_claim_cards": False,
+                "include_bundles": True,
+                "include_export_profiles": True,
+                "include_metadata": True,
+                "status": "active",
+            },
+            {
+                "id": f"profile-{self._slug(normalized, 'report')}-full",
+                "report_id": normalized,
+                "name": "full",
+                "output_format": "markdown",
+                "include_sections": True,
+                "include_claim_cards": True,
+                "include_bundles": True,
+                "include_export_profiles": True,
+                "include_metadata": True,
+                "status": "active",
+            },
+            {
+                "id": f"profile-{self._slug(normalized, 'report')}-sources",
+                "report_id": normalized,
+                "name": "sources",
+                "output_format": "json",
+                "include_sections": False,
+                "include_claim_cards": True,
+                "include_bundles": True,
+                "include_export_profiles": True,
+                "include_metadata": True,
+                "status": "active",
+            },
+            {
+                "id": f"profile-{self._slug(normalized, 'report')}-watch-pack",
+                "report_id": normalized,
+                "name": "watch-pack",
+                "output_format": "json",
+                "include_sections": False,
+                "include_claim_cards": False,
+                "include_bundles": False,
+                "include_export_profiles": True,
+                "include_metadata": False,
+                "status": "active",
+            },
+        ]
+        ordered_ids: list[str] = []
+        for template in templates:
+            existing_profile = existing.get(str(template["name"]).lower())
+            if existing_profile is None:
+                self.export_profiles.append(template)
+                ordered_ids.append(str(template["id"]))
+            else:
+                ordered_ids.append(str(existing_profile.get("id") or ""))
+        report_index = self._row_index(self.reports, normalized)
+        if report_index is not None:
+            current = self.reports[report_index]
+            current_ids = self._unique_ids([*_strings(current.get("export_profile_ids")), *ordered_ids])
+            current["export_profile_ids"] = current_ids
+            current["updated_at"] = self._timestamp()
+        return [profile_id for profile_id in ordered_ids if profile_id]
 
     def _route_usage_names(self, route_name: str) -> list[str]:
         normalized = str(route_name or "").strip().lower()
         usage = []
         for watch in self.watches:
-            for rule in watch.get("alert_rules") or []:
-                routes = [str(item).strip().lower() for item in rule.get("routes") or []]
+            for rule in _rows(watch.get("alert_rules")):
+                routes = [route.lower() for route in _strings(rule.get("routes"))]
                 if normalized and normalized in routes:
                     usage.append(str(watch.get("name") or watch.get("id") or route_name))
                     break
         return usage
 
-    def _build_route_health(self, route: dict[str, str]) -> dict[str, object]:
+    def _build_route_health(self, route: Mapping[str, object]) -> Row:
         usage_names = self._route_usage_names(str(route.get("name") or ""))
         return {
             "name": route["name"],
@@ -220,8 +427,8 @@ class _SmokeReader:
                     "id": story_id,
                     "label": title,
                     "kind": "story",
-                    "item_count": int(story.get("item_count") or 0),
-                    "source_count": int(story.get("source_count") or 0),
+                    "item_count": _as_int(story.get("item_count")),
+                    "source_count": _as_int(story.get("source_count")),
                 },
                 {
                     "id": "entity:openai",
@@ -388,8 +595,9 @@ class _SmokeReader:
     def set_watch_alert_rules(self, identifier: str, *, alert_rules=None):
         for watch in self.watches:
             if watch["id"] == identifier:
-                watch["alert_rules"] = list(alert_rules or [])
-                watch["alert_rule_count"] = len(watch["alert_rules"])
+                rules = _rows(alert_rules)
+                watch["alert_rules"] = rules
+                watch["alert_rule_count"] = len(rules)
                 return self.show_watch(identifier)
         return None
 
@@ -663,7 +871,7 @@ class _SmokeReader:
         }
 
     def list_stories(self, limit: int = 8, min_items: int = 2):
-        rows = [story for story in self.stories if int(story.get("item_count") or 0) >= min_items]
+        rows = [story for story in self.stories if _as_int(story.get("item_count")) >= min_items]
         return _clone(rows[:limit])
 
     def create_story(self, **payload):
@@ -774,10 +982,18 @@ class _SmokeReader:
         return _clone(rows[:limit])
 
     def create_report_brief(self, **payload):
-        brief = self.report_briefs[0].copy() if self.report_briefs else {}
-        brief["id"] = payload.get("id", "brief-manual")
-        brief.update(payload)
-        return brief
+        title = str(payload.get("title") or "Manual Brief").strip() or "Manual Brief"
+        brief = {
+            "id": str(payload.get("id") or self._make_id("brief", title, self.report_briefs)),
+            "title": title,
+            "audience": str(payload.get("audience") or "").strip(),
+            "objective": str(payload.get("objective") or "").strip(),
+            "intent": str(payload.get("intent") or "").strip(),
+            "status": str(payload.get("status") or "draft").strip() or "draft",
+            "updated_at": self._timestamp(),
+        }
+        self._upsert(self.report_briefs, brief)
+        return _clone(brief)
 
     def show_report_brief(self, identifier: str):
         for brief in self.report_briefs:
@@ -789,7 +1005,7 @@ class _SmokeReader:
         for brief in self.report_briefs:
             if brief["id"] == identifier:
                 brief.update(payload)
-                brief["updated_at"] = "2026-03-06T00:00:00+00:00"
+                brief["updated_at"] = self._timestamp()
                 return _clone(brief)
         return None
 
@@ -800,10 +1016,21 @@ class _SmokeReader:
         return _clone(rows[:limit])
 
     def create_claim_card(self, **payload):
-        card = self.claim_cards[0].copy() if self.claim_cards else {}
-        card["id"] = payload.get("id", "claim-manual")
-        card.update(payload)
-        return card
+        statement = str(payload.get("statement") or payload.get("title") or "Manual claim.").strip() or "Manual claim."
+        card = {
+            "id": str(payload.get("id") or self._make_id("claim", statement, self.claim_cards)),
+            "brief_id": str(payload.get("brief_id") or "").strip(),
+            "title": str(payload.get("title") or statement[:48]).strip(),
+            "statement": statement,
+            "rationale": str(payload.get("rationale") or "").strip(),
+            "confidence": float(payload.get("confidence") or 0.0),
+            "status": str(payload.get("status") or "draft").strip() or "draft",
+            "source_item_ids": [str(item).strip() for item in payload.get("source_item_ids") or [] if str(item).strip()],
+            "citation_bundle_ids": [str(item).strip() for item in payload.get("citation_bundle_ids") or [] if str(item).strip()],
+            "updated_at": self._timestamp(),
+        }
+        self._upsert(self.claim_cards, card)
+        return _clone(card)
 
     def show_claim_card(self, identifier: str):
         for card in self.claim_cards:
@@ -815,6 +1042,7 @@ class _SmokeReader:
         for card in self.claim_cards:
             if card["id"] == identifier:
                 card.update(payload)
+                card["updated_at"] = self._timestamp()
                 return _clone(card)
         return None
 
@@ -827,10 +1055,20 @@ class _SmokeReader:
         return _clone(rows[:limit])
 
     def create_report_section(self, **payload):
-        section = self.report_sections[0].copy() if self.report_sections else {}
-        section["id"] = payload.get("id", "section-manual")
-        section.update(payload)
-        return section
+        title = str(payload.get("title") or "Manual Section").strip() or "Manual Section"
+        report_id = str(payload.get("report_id") or "").strip()
+        section = {
+            "id": str(payload.get("id") or self._make_id("section", f"{report_id}-{title}", self.report_sections)),
+            "report_id": report_id,
+            "title": title,
+            "position": int(payload.get("position") or 0),
+            "summary": str(payload.get("summary") or "").strip(),
+            "claim_card_ids": [str(item).strip() for item in payload.get("claim_card_ids") or [] if str(item).strip()],
+            "status": str(payload.get("status") or "draft").strip() or "draft",
+            "updated_at": self._timestamp(),
+        }
+        self._upsert(self.report_sections, section)
+        return _clone(section)
 
     def show_report_section(self, identifier: str):
         for section in self.report_sections:
@@ -842,6 +1080,7 @@ class _SmokeReader:
         for section in self.report_sections:
             if section["id"] == identifier:
                 section.update(payload)
+                section["updated_at"] = self._timestamp()
                 return _clone(section)
         return None
 
@@ -849,10 +1088,18 @@ class _SmokeReader:
         return _clone(self.citation_bundles[:limit])
 
     def create_citation_bundle(self, **payload):
-        bundle = self.citation_bundles[0].copy() if self.citation_bundles else {}
-        bundle["id"] = payload.get("id", "bundle-manual")
-        bundle.update(payload)
-        return bundle
+        label = str(payload.get("label") or "Manual Bundle").strip() or "Manual Bundle"
+        bundle = {
+            "id": str(payload.get("id") or self._make_id("bundle", label, self.citation_bundles)),
+            "claim_card_id": str(payload.get("claim_card_id") or "").strip(),
+            "label": label,
+            "source_item_ids": [str(item).strip() for item in payload.get("source_item_ids") or [] if str(item).strip()],
+            "source_urls": [str(item).strip() for item in payload.get("source_urls") or [] if str(item).strip()],
+            "note": str(payload.get("note") or "").strip(),
+            "updated_at": self._timestamp(),
+        }
+        self._upsert(self.citation_bundles, bundle)
+        return _clone(bundle)
 
     def show_citation_bundle(self, identifier: str):
         for bundle in self.citation_bundles:
@@ -864,6 +1111,7 @@ class _SmokeReader:
         for bundle in self.citation_bundles:
             if bundle["id"] == identifier:
                 bundle.update(payload)
+                bundle["updated_at"] = self._timestamp()
                 return _clone(bundle)
         return None
 
@@ -874,10 +1122,26 @@ class _SmokeReader:
         return _clone(rows[:limit])
 
     def create_report(self, **payload):
-        report = self.reports[0].copy() if self.reports else {}
-        report["id"] = payload.get("id", "report-manual")
-        report.update(payload)
-        return report
+        title = str(payload.get("title") or "Manual Report").strip() or "Manual Report"
+        report = {
+            "id": str(payload.get("id") or self._make_id("report", title, self.reports)),
+            "brief_id": str(payload.get("brief_id") or "").strip(),
+            "title": title,
+            "status": str(payload.get("status") or "draft").strip() or "draft",
+            "audience": str(payload.get("audience") or "").strip(),
+            "summary": str(payload.get("summary") or "").strip(),
+            "section_ids": [str(item).strip() for item in payload.get("section_ids") or [] if str(item).strip()],
+            "claim_card_ids": [str(item).strip() for item in payload.get("claim_card_ids") or [] if str(item).strip()],
+            "citation_bundle_ids": [str(item).strip() for item in payload.get("citation_bundle_ids") or [] if str(item).strip()],
+            "export_profile_ids": [str(item).strip() for item in payload.get("export_profile_ids") or [] if str(item).strip()],
+            "updated_at": self._timestamp(),
+        }
+        self._upsert(self.reports, report)
+        if not report["export_profile_ids"]:
+            report["export_profile_ids"] = self._ensure_default_export_profiles(str(report["id"]))
+        else:
+            self._ensure_default_export_profiles(str(report["id"]))
+        return _clone(report)
 
     def show_report(self, identifier: str):
         for report in self.reports:
@@ -889,34 +1153,139 @@ class _SmokeReader:
         for report in self.reports:
             if report["id"] == identifier:
                 report.update(payload)
-                report["updated_at"] = "2026-03-06T00:00:00+00:00"
+                report["updated_at"] = self._timestamp()
+                self._ensure_default_export_profiles(identifier)
                 return _clone(report)
         return None
 
     def compose_report(self, identifier: str, **kwargs):
-        if identifier != "report-openai-market":
+        report = self.show_report(identifier)
+        if report is None:
             return None
+        profile_id = str(kwargs.get("profile_id") or "").strip()
+        profile = self.show_export_profile(profile_id) if profile_id else None
+        if profile_id and (profile is None or str(profile.get("report_id") or "").strip() != str(identifier).strip()):
+            raise ValueError(f"Export profile not found: {profile_id}")
+        include_sections = kwargs.get("include_sections")
+        include_claim_cards = kwargs.get("include_claim_cards")
+        include_citation_bundles = kwargs.get("include_citation_bundles")
+        include_export_profiles = kwargs.get("include_export_profiles")
+        if profile is not None:
+            if include_sections is None:
+                include_sections = bool(profile.get("include_sections", True))
+            if include_claim_cards is None:
+                include_claim_cards = bool(profile.get("include_claim_cards", True))
+            if include_citation_bundles is None:
+                include_citation_bundles = bool(profile.get("include_bundles", True))
+            if include_export_profiles is None:
+                include_export_profiles = bool(profile.get("include_export_profiles", True))
+        include_sections = True if include_sections is None else bool(include_sections)
+        include_claim_cards = True if include_claim_cards is None else bool(include_claim_cards)
+        include_citation_bundles = True if include_citation_bundles is None else bool(include_citation_bundles)
+        include_export_profiles = True if include_export_profiles is None else bool(include_export_profiles)
+        section_map = {
+            str(section.get("id") or "").strip(): section
+            for section in self.report_sections
+            if str(section.get("report_id") or "").strip() == str(identifier).strip()
+        }
+        report_section_ids = _strings(report.get("section_ids"))
+        ordered_section_ids = self._unique_ids(
+            [*report_section_ids, *[section_id for section_id in section_map if section_id not in report_section_ids]]
+        )
+        sections = [section_map[section_id] for section_id in ordered_section_ids if section_id in section_map]
+        claim_map = {str(claim.get("id") or "").strip(): claim for claim in self.claim_cards}
+        section_claim_ids = [claim_id for section in sections for claim_id in _strings(section.get("claim_card_ids"))]
+        ordered_claim_ids = self._unique_ids([*_strings(report.get("claim_card_ids")), *section_claim_ids])
+        claims = [claim_map[claim_id] for claim_id in ordered_claim_ids if claim_id in claim_map]
+        bundle_map = {str(bundle.get("id") or "").strip(): bundle for bundle in self.citation_bundles}
+        claim_bundle_ids = [bundle_id for claim in claims for bundle_id in _strings(claim.get("citation_bundle_ids"))]
+        ordered_bundle_ids = self._unique_ids([*_strings(report.get("citation_bundle_ids")), *claim_bundle_ids])
+        bundles = [bundle_map[bundle_id] for bundle_id in ordered_bundle_ids if bundle_id in bundle_map]
+        profile_rows = self._report_profiles(str(identifier))
+        profile_map = {str(row.get("id") or "").strip(): row for row in profile_rows}
+        ordered_profile_ids = self._unique_ids(
+            [*_strings(report.get("export_profile_ids")), *[str(row.get("id") or "").strip() for row in profile_rows]]
+        )
+        profiles = [profile_map[profile_row_id] for profile_row_id in ordered_profile_ids if profile_row_id in profile_map]
+        claims_without_binding = []
+        for claim in claims:
+            direct_sources = _strings(claim.get("source_item_ids"))
+            claim_bundles = [bundle_map[bundle_id] for bundle_id in _strings(claim.get("citation_bundle_ids")) if bundle_id in bundle_map]
+            bundle_sources = any(
+                (_strings(bundle.get("source_item_ids")) or _strings(bundle.get("source_urls")))
+                for bundle in claim_bundles
+            )
+            if not direct_sources and not bundle_sources:
+                claims_without_binding.append(str(claim.get("id") or ""))
+        sections_without_claims = [
+            str(section.get("id") or "")
+            for section in sections
+            if not _strings(section.get("claim_card_ids"))
+        ]
+        contradiction_entries = []
+        for claim in claims:
+            if str(claim.get("status") or "").strip().lower() in {"conflicted", "blocked", "disputed"}:
+                contradiction_entries.append(
+                    {
+                        "detail": f"{claim.get('id')} is marked as {claim.get('status')}.",
+                        "source": str(claim.get("id") or ""),
+                        "severity": "error",
+                    }
+                )
+        export_gate_issues = []
+        if not profiles:
+            export_gate_issues.append({"kind": "missing_export_profiles", "detail": "Report has no export profiles."})
+        quality_status = "ready"
+        operator_action = "allow_export"
+        if contradiction_entries:
+            quality_status = "blocked"
+            operator_action = "hold_export"
+        elif claims_without_binding or sections_without_claims or export_gate_issues:
+            quality_status = "review_required"
+            operator_action = "review_before_export"
         payload = {
-            "report": self.show_report(identifier),
-            "sections": self.list_report_sections(),
-            "claim_cards": self.list_claim_cards(),
-            "citation_bundles": self.list_citation_bundles(),
+            "report": report,
+            "sections": _clone(sections if include_sections else []),
+            "claim_cards": _clone(claims if include_claim_cards else []),
+            "citation_bundles": _clone(bundles if include_citation_bundles else []),
+            "export_profiles": _clone(profiles if include_export_profiles else []),
             "quality": {
-                "status": "ok",
-                "score": 0.96,
-                "checks": {"fact_consistency": {"status": "ok"}, "coverage": {"status": "ok"}},
-                "can_export": True,
-                "operator_action": "approve",
+                "status": quality_status,
+                "score": 1.0 if quality_status == "ready" else (0.76 if quality_status == "review_required" else 0.24),
+                "checks": {
+                    "claim_source": {
+                        "status": "pass" if not claims_without_binding else "review_required",
+                        "issues": [
+                            {
+                                "kind": "uncited_claim",
+                                "ids": claims_without_binding,
+                                "detail": "Claims are missing source-bound evidence.",
+                            }
+                        ] if claims_without_binding else [],
+                    },
+                    "section_coverage": {
+                        "status": "pass" if not sections_without_claims else "review_required",
+                        "issues": [
+                            {
+                                "kind": "empty_sections",
+                                "ids": sections_without_claims,
+                                "detail": "Sections exist without attached claims.",
+                            }
+                        ] if sections_without_claims else [],
+                    },
+                    "contradictions": {
+                        "status": "blocked" if contradiction_entries else "clear",
+                        "entries": contradiction_entries,
+                    },
+                    "export_gates": {
+                        "status": "pass" if not export_gate_issues else "review_required",
+                        "issues": export_gate_issues,
+                    },
+                },
+                "can_export": quality_status == "ready",
+                "operator_action": operator_action,
             },
         }
-        if kwargs.get("profile_id") and kwargs["profile_id"] not in {"profile-brief"}:
-            raise ValueError(f"Export profile not found: {kwargs['profile_id']}")
-        if kwargs.get("include_sections") is False:
-            payload["sections"] = []
-        if kwargs.get("include_claim_cards") is False:
-            payload["claim_cards"] = []
-        if kwargs.get("include_citation_bundles") is False:
-            payload["citation_bundles"] = []
         return payload
 
     def assess_report_quality(self, identifier: str, **kwargs):
@@ -926,35 +1295,76 @@ class _SmokeReader:
         return payload.get("quality", {})
 
     def export_report(self, identifier: str, **kwargs):
-        if identifier != "report-openai-market":
+        payload = self.compose_report(identifier, **kwargs)
+        if payload is None:
             return None
         output_format = str(kwargs.get("output_format", "json")).strip().lower()
         if output_format == "json":
-            return json.dumps(self.compose_report(identifier, **kwargs), ensure_ascii=False, indent=2)
+            return json.dumps(payload, ensure_ascii=False, indent=2)
         if output_format in {"md", "markdown"}:
-            report = self.show_report(identifier) or {}
-            return f"# {report.get('title', 'Report')}\n\n- id: {report.get('id', identifier)}\n"
+            report = payload.get("report", {}) if isinstance(payload.get("report"), dict) else {}
+            sections = payload.get("sections", []) if isinstance(payload.get("sections"), list) else []
+            claims = payload.get("claim_cards", []) if isinstance(payload.get("claim_cards"), list) else []
+            lines = [
+                f"# {report.get('title', 'Report')}",
+                "",
+                f"- id: {report.get('id', identifier)}",
+                f"- status: {report.get('status', 'draft')}",
+                f"- audience: {report.get('audience', '-') or '-'}",
+                "",
+                "## Summary",
+                str(report.get("summary") or "-"),
+                "",
+            ]
+            if sections:
+                lines.append("## Sections")
+                for section in sections:
+                    lines.append(f"### {section.get('title', 'Section')}")
+                    if section.get("summary"):
+                        lines.append(str(section["summary"]))
+                    lines.append("")
+            if claims:
+                lines.append("## Claims")
+                for claim in claims:
+                    lines.append(f"- {claim.get('statement', claim.get('title', 'Claim'))}")
+                lines.append("")
+            return "\n".join(lines).strip() + "\n"
         raise ValueError(f"Unsupported report export format: {output_format}")
 
     def report_watch_pack(self, identifier: str, **kwargs):
-        if identifier != "report-openai-market":
+        report = self.show_report(identifier)
+        if report is None:
             return None
-        profile_id = kwargs.get("profile_id")
-        if profile_id and profile_id != "profile-brief":
-            raise ValueError(f"Export profile not found: {profile_id}")
+        profile_id = str(kwargs.get("profile_id") or "").strip()
+        if profile_id:
+            profile = self.show_export_profile(profile_id)
+            if profile is None or str(profile.get("report_id") or "").strip() != str(identifier).strip():
+                raise ValueError(f"Export profile not found: {profile_id}")
+        payload = self.compose_report(identifier, profile_id=profile_id or None)
+        if payload is None:
+            return None
+        sections = payload.get("sections", []) if isinstance(payload.get("sections"), list) else []
+        claims = payload.get("claim_cards", []) if isinstance(payload.get("claim_cards"), list) else []
+        bundles = payload.get("citation_bundles", []) if isinstance(payload.get("citation_bundles"), list) else []
+        source_urls = [
+            str(url).strip()
+            for bundle in bundles
+            for url in bundle.get("source_urls", [])
+            if str(url).strip()
+        ]
         return {
-            "id": "pack-openai",
+            "id": f"pack-{self._slug(str(identifier), 'report')}",
             "report_id": identifier,
-            "mission_name": "OpenAI Market Watch",
-            "query": "OpenAI launch adoption signals",
+            "mission_name": f"{report.get('title', 'Report').strip()} Follow-up Watch".strip(),
+            "query": str(report.get("title") or identifier).strip(),
             "platforms": ["twitter", "news"],
-            "sites": ["openai.com", "example.com"],
+            "sites": ["openai.com", "example.com", *source_urls[:1]],
             "schedule": "@hourly",
             "min_confidence": 0.6,
             "top_n": 10,
-            "profile_id": "profile-brief",
-            "sections": self.list_report_sections(),
-            "claim_cards": self.list_claim_cards(),
+            "profile_id": profile_id or "",
+            "sections": _clone(sections),
+            "claim_cards": _clone(claims),
         }
 
     def create_watch_from_report_pack(
@@ -971,29 +1381,25 @@ class _SmokeReader:
         top_n: int = 10,
         alert_rules: list[dict[str, object]] | None = None,
     ):
-        if identifier != "report-openai-market":
+        pack = self.report_watch_pack(identifier, profile_id=profile_id)
+        if pack is None:
             return None
-        if profile_id and profile_id != "profile-brief":
-            raise ValueError(f"Export profile not found: {profile_id}")
-        if not query:
-            return {"error": "query required"}
-        mission = {
-            "id": "watch-from-report",
-            "name": name or "OpenAI Market Watch",
-            "query": query,
-            "enabled": True,
-            "platforms": platforms or ["twitter"],
-            "sites": sites or ["openai.com"],
-            "schedule": schedule or "@daily",
-            "schedule_label": schedule or "@daily",
-            "is_due": False,
-            "next_run_at": "2026-03-06T01:00:00+00:00",
-            "alert_rule_count": len(alert_rules or []),
-            "alert_rules": alert_rules or [],
-            "last_run_at": "",
-            "last_run_status": "",
-        }
-        self.watches.append(mission)
+        mission_query = str(query or pack.get("query") or "").strip()
+        mission_name = str(name or pack.get("mission_name") or "").strip()
+        if not mission_query:
+            mission_query = f"Watch {identifier}"
+        if not mission_name:
+            mission_name = f"{identifier} Watch"
+        mission = self.create_watch(
+            name=mission_name,
+            query=mission_query,
+            platforms=platforms or pack.get("platforms") or ["twitter"],
+            sites=sites or pack.get("sites") or ["openai.com"],
+            schedule=schedule or pack.get("schedule") or "@daily",
+            min_confidence=min_confidence or pack.get("min_confidence") or 0.0,
+            top_n=top_n or pack.get("top_n") or 10,
+            alert_rules=alert_rules or [],
+        )
         return _clone(mission)
 
     def list_export_profiles(self, limit: int = 20, status: str | None = None, report_id: str | None = None, **_kwargs):
@@ -1005,10 +1411,27 @@ class _SmokeReader:
         return _clone(rows[:limit])
 
     def create_export_profile(self, **payload):
-        profile = self.export_profiles[0].copy() if self.export_profiles else {}
-        profile["id"] = payload.get("id", "profile-manual")
-        profile.update(payload)
-        return profile
+        name = str(payload.get("name") or "manual").strip() or "manual"
+        report_id = str(payload.get("report_id") or "").strip()
+        profile = {
+            "id": str(payload.get("id") or self._make_id("profile", f"{report_id}-{name}", self.export_profiles)),
+            "report_id": report_id,
+            "name": name,
+            "output_format": str(payload.get("output_format") or "json").strip() or "json",
+            "include_sections": bool(payload.get("include_sections", True)),
+            "include_claim_cards": bool(payload.get("include_claim_cards", True)),
+            "include_bundles": bool(payload.get("include_bundles", True)),
+            "include_export_profiles": bool(payload.get("include_export_profiles", True)),
+            "include_metadata": bool(payload.get("include_metadata", True)),
+            "status": str(payload.get("status") or "active").strip() or "active",
+        }
+        self._upsert(self.export_profiles, profile)
+        if report_id:
+            report = self.show_report(report_id)
+            if report is not None:
+                next_ids = self._unique_ids([*(report.get("export_profile_ids") or []), str(profile["id"])])
+                self.update_report(report_id, export_profile_ids=next_ids)
+        return _clone(profile)
 
     def show_export_profile(self, identifier: str):
         for profile in self.export_profiles:
@@ -1020,6 +1443,7 @@ class _SmokeReader:
         for profile in self.export_profiles:
             if profile["id"] == identifier:
                 profile.update(payload)
+                profile["updated_at"] = self._timestamp()
                 return _clone(profile)
         return None
 
@@ -1043,14 +1467,16 @@ def _wait_for_port(port: int, timeout: float = 8.0) -> None:
 
 def _bind_page_logging(page: Page, label: str) -> None:
     page.set_default_timeout(10000)
+
     def handle_page_error(error) -> None:
-        print(f"[console-browser-smoke] {label} pageerror: {error}")
+        _log(f"[console-browser-smoke] {label} pageerror: {error}")
 
     page.on("pageerror", handle_page_error)
+
     def handle_console(message) -> None:
         if message.type not in {"error", "warning"}:
             return
-        print(f"[console-browser-smoke] {label} console:{message.type}: {message.text}")
+        _log(f"[console-browser-smoke] {label} console:{message.type}: {message.text}")
 
     page.on("console", handle_console)
     page.on("dialog", lambda dialog: dialog.accept())
@@ -1146,6 +1572,149 @@ def _goto(page: Page, url: str) -> None:
     page.goto(url, wait_until="domcontentloaded", timeout=20000)
 
 
+def _fetch_json(page: Page, url: str, *, method: str = "GET", payload: Row | None = None) -> Row:
+    response = page.evaluate(
+        """async ({ url, method, payload }) => {
+            const options = { method };
+            if (payload) {
+              options.headers = { "Content-Type": "application/json" };
+              options.body = JSON.stringify(payload);
+            }
+            const resp = await fetch(url, options);
+            let data = null;
+            try {
+              data = await resp.json();
+            } catch (error) {
+              data = { parse_error: String(error) };
+            }
+            return { status: resp.status, ok: resp.ok, data };
+        }""",
+        {"url": url, "method": method, "payload": payload},
+    )
+    if not isinstance(response, dict):
+        raise AssertionError(f"Unexpected fetch payload for {url}: {response!r}")
+    return cast(Row, response)
+
+
+def _fetch_text(page: Page, url: str, *, method: str = "GET", payload: Row | None = None) -> Row:
+    response = page.evaluate(
+        """async ({ url, method, payload }) => {
+            const options = { method };
+            if (payload) {
+              options.headers = { "Content-Type": "application/json" };
+              options.body = JSON.stringify(payload);
+            }
+            const resp = await fetch(url, options);
+            const text = await resp.text();
+            return { status: resp.status, ok: resp.ok, text };
+        }""",
+        {"url": url, "method": method, "payload": payload},
+    )
+    if not isinstance(response, dict):
+        raise AssertionError(f"Unexpected text fetch payload for {url}: {response!r}")
+    return cast(Row, response)
+
+
+def _wait_for_report_id(page: Page, title: str, *, timeout_ms: int = 20000) -> str:
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    last_payload: Row | None = None
+    while time.monotonic() < deadline:
+        payload = _fetch_json(page, "/api/reports?limit=40")
+        last_payload = payload
+        if _as_int(payload.get("status")) == 200:
+            for row in _rows(payload.get("data")):
+                if str(row.get("title") or "").strip() == title:
+                    identifier = str(row.get("id") or "").strip()
+                    if identifier:
+                        return identifier
+        time.sleep(0.2)
+    raise AssertionError(f"timed out waiting for report {title!r}: {last_payload}")
+
+
+def _wait_for_report_section_id(page: Page, report_id: str, title: str, *, timeout_ms: int = 20000) -> str:
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    last_payload: Row | None = None
+    while time.monotonic() < deadline:
+        payload = _fetch_json(page, "/api/report-sections?limit=40")
+        last_payload = payload
+        if _as_int(payload.get("status")) == 200:
+            for row in _rows(payload.get("data")):
+                if str(row.get("report_id") or "").strip() != report_id:
+                    continue
+                if str(row.get("title") or "").strip() != title:
+                    continue
+                identifier = str(row.get("id") or "").strip()
+                if identifier:
+                    return identifier
+        time.sleep(0.2)
+    raise AssertionError(f"timed out waiting for report section {title!r} on {report_id!r}: {last_payload}")
+
+
+def _wait_for_report_compose_ready(page: Page, report_id: str, *, timeout_ms: int = 20000) -> Row:
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    last_payload: Row | None = None
+    while time.monotonic() < deadline:
+        payload = _fetch_json(page, f"/api/reports/{report_id}/compose")
+        last_payload = payload
+        if _as_int(payload.get("status")) == 200:
+            data = _row(payload.get("data"))
+            quality = _row(data.get("quality")) if data is not None else None
+            if quality is not None and str(quality.get("status") or "").strip().lower() == "ready" and bool(quality.get("can_export")):
+                assert data is not None
+                return data
+        time.sleep(0.2)
+    raise AssertionError(f"timed out waiting for report compose readiness on {report_id!r}: {last_payload}")
+
+
+def _wait_for_claim_card(page: Page, statement: str, *, timeout_ms: int = 20000) -> Row:
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    last_payload: Row | None = None
+    while time.monotonic() < deadline:
+        payload = _fetch_json(page, "/api/claim-cards?limit=40")
+        last_payload = payload
+        if _as_int(payload.get("status")) == 200:
+            for row in _rows(payload.get("data")):
+                if str(row.get("statement") or "").strip() == statement:
+                    return row
+        time.sleep(0.2)
+    raise AssertionError(f"timed out waiting for claim card {statement!r}: {last_payload}")
+
+
+def _wait_for_citation_bundle(page: Page, claim_id: str, url_fragment: str, *, timeout_ms: int = 20000) -> Row:
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    last_payload: Row | None = None
+    while time.monotonic() < deadline:
+        payload = _fetch_json(page, "/api/citation-bundles?limit=40")
+        last_payload = payload
+        if _as_int(payload.get("status")) == 200:
+            for row in _rows(payload.get("data")):
+                if str(row.get("claim_card_id") or "").strip() != claim_id:
+                    continue
+                if any(url_fragment in value for value in _strings(row.get("source_urls"))):
+                    return row
+        time.sleep(0.2)
+    raise AssertionError(f"timed out waiting for citation bundle on claim {claim_id!r}: {last_payload}")
+
+
+def _wait_for_report_markdown(
+    page: Page,
+    report_id: str,
+    *,
+    expected_fragments: Sequence[str],
+    timeout_ms: int = 20000,
+) -> str:
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    last_payload: Row | None = None
+    while time.monotonic() < deadline:
+        payload = _fetch_text(page, f"/api/reports/{report_id}/export?output_format=markdown")
+        last_payload = payload
+        text = str(payload.get("text") or "")
+        if _as_int(payload.get("status")) == 200 and all(fragment in text for fragment in expected_fragments):
+            return text
+        time.sleep(0.2)
+    raise AssertionError(f"timed out waiting for markdown export on {report_id!r}: {last_payload}")
+
+
 def _launch_browser(playwright: Playwright):
     launch_attempts = [
         {"channel": "chrome", "headless": True},
@@ -1161,7 +1730,7 @@ def _launch_browser(playwright: Playwright):
 
 
 def _exercise_deep_link_and_existing_flow(page: Page, base_url: str) -> None:
-    print("[console-browser-smoke] deep-link watch")
+    _log("[console-browser-smoke] deep-link watch")
     _goto(page, f"{base_url}/?watch_search=Launch#section-cockpit")
     _wait_for_console_ready(page)
     page.wait_for_function("() => window.location.hash === '#section-cockpit'", timeout=10000)
@@ -1169,7 +1738,7 @@ def _exercise_deep_link_and_existing_flow(page: Page, base_url: str) -> None:
     page.wait_for_function("() => document.querySelector('[data-watch-search]')?.value === 'Launch'", timeout=10000)
     page.wait_for_function("() => document.querySelector('#watch-detail')?.textContent?.includes('Launch Ops')", timeout=10000)
 
-    print("[console-browser-smoke] palette run-due")
+    _log("[console-browser-smoke] palette run-due")
     page.evaluate("openCommandPalette()")
     page.wait_for_selector(".palette-backdrop.open", timeout=10000)
     page.fill("#command-palette-input", "run due")
@@ -1180,7 +1749,7 @@ def _exercise_deep_link_and_existing_flow(page: Page, base_url: str) -> None:
 
 
 def _exercise_navigation_convergence(page: Page) -> None:
-    print("[console-browser-smoke] navigation convergence")
+    _log("[console-browser-smoke] navigation convergence")
     page.wait_for_function("() => document.querySelectorAll('.topbar-nav .nav-pill').length === 4", timeout=10000)
     page.wait_for_function(
         """() => {
@@ -1204,7 +1773,7 @@ def _exercise_navigation_convergence(page: Page) -> None:
 
 
 def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
-    print("[console-browser-smoke] save view and set default")
+    _log("[console-browser-smoke] save view and set default")
     _goto(page, f"{base_url}/?triage_filter=verified#section-triage")
     _wait_for_console_ready(page)
     page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
@@ -1223,7 +1792,7 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
         timeout=10000,
     )
 
-    print("[console-browser-smoke] default boot and dock restore")
+    _log("[console-browser-smoke] default boot and dock restore")
     next_page = browser.new_page()
     _bind_page_logging(next_page, "page-2")
     _goto(next_page, base_url)
@@ -1259,7 +1828,7 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
 
 
 def _exercise_route_crud(page: Page) -> None:
-    print("[console-browser-smoke] route crud")
+    _log("[console-browser-smoke] route crud")
     page.evaluate("jumpToSection('section-ops')")
     page.wait_for_function("() => window.location.hash === '#section-ops'", timeout=10000)
     _wait_for_active_rail(page, "nav-delivery", "#section-ops")
@@ -1299,7 +1868,7 @@ def _exercise_route_crud(page: Page) -> None:
 
 
 def _exercise_triage_to_story(page: Page, base_url: str) -> None:
-    print("[console-browser-smoke] triage to story")
+    _log("[console-browser-smoke] triage to story")
     _goto(page, f"{base_url}/?triage_filter=all#section-triage")
     _wait_for_console_ready(page)
     page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
@@ -1342,8 +1911,198 @@ def _exercise_triage_to_story(page: Page, base_url: str) -> None:
     )
 
 
+def _exercise_report_workspaces(page: Page) -> None:
+    _log("[console-browser-smoke] report workspaces")
+    brief_list = _fetch_json(page, "/api/report-briefs")
+    assert _as_int(brief_list.get("status")) == 200, f"report brief list failed: {brief_list}"
+    brief_payload = _fetch_json(
+        page,
+        "/api/report-briefs",
+        method="POST",
+        payload={
+            "title": "Browser Smoke Brief",
+            "objective": "Verify report browser workspace and watch-pack flows.",
+            "status": "draft",
+        },
+    )
+    assert _as_int(brief_payload.get("status")) == 200, f"report brief create failed: {brief_payload}"
+    brief_row = _row(brief_payload.get("data"))
+    assert brief_row is not None, f"unexpected report brief payload: {brief_payload}"
+    brief_id = str(brief_row.get("id") or "").strip()
+    assert brief_id, f"missing report brief id: {brief_payload}"
+
+    report_title = "Browser Smoke Report"
+    section_title = "Signal Summary"
+    claim_statement = "Browser smoke claim is grounded."
+    watch_name = "Browser Smoke Follow-up Watch"
+    watch_query = "Browser smoke report follow-up"
+
+    page.evaluate("jumpToSection('section-report-studio')")
+    page.wait_for_function("() => window.location.hash === '#section-report-studio'", timeout=10000)
+    _wait_for_active_rail(page, "nav-review", "#section-report-studio")
+    page.wait_for_selector("#report-create-form", state="attached", timeout=10000)
+    page.fill("#report-create-form [name='title']", report_title)
+    page.fill("#report-create-form [name='audience']", "ops")
+    page.fill("#report-create-form [name='summary']", "Browser smoke validates report composition, export, and follow-up watch reuse.")
+    _submit_form(page, "#report-create-form")
+    report_id = _wait_for_report_id(page, report_title)
+    page.evaluate("refreshBoard()")
+    page.wait_for_function(
+        "(reportId) => Array.from(document.querySelector('#report-studio-select')?.options || []).some((entry) => entry.value === reportId)",
+        arg=report_id,
+        timeout=20000,
+    )
+    page.select_option("#report-studio-select", report_id)
+    page.wait_for_function(
+        "(reportId) => document.querySelector('#report-studio-select')?.value === reportId",
+        arg=report_id,
+        timeout=20000,
+    )
+    assert report_id, "report create flow did not expose the new report id"
+    report_update = _fetch_json(
+        page,
+        f"/api/reports/{report_id}",
+        method="PUT",
+        payload={"brief_id": brief_id},
+    )
+    assert _as_int(report_update.get("status")) == 200, f"report brief binding failed: {report_update}"
+    page.evaluate("refreshBoard()")
+    page.wait_for_function("([reportId, title]) => document.querySelector('#report-studio-select')?.value === reportId && document.querySelector('#section-report-studio')?.textContent?.includes(title)", arg=[report_id, report_title], timeout=20000)
+    page.wait_for_function(
+        "() => Array.from(document.querySelectorAll('#section-report-studio .chip')).some((chip) => chip.textContent?.includes('watch-pack'))",
+        timeout=10000,
+    )
+
+    page.fill("#report-section-form [name='title']", section_title)
+    page.fill("#report-section-form [name='position']", "1")
+    page.fill("#report-section-form [name='summary']", "Track the grounded evidence that survives composition and export.")
+    _submit_form(page, "#report-section-form")
+    section_id = _wait_for_report_section_id(page, report_id, section_title)
+    page.evaluate("refreshBoard()")
+    page.wait_for_function(
+        "([reportId, sectionId]) => document.querySelector('#report-studio-select')?.value === reportId && !!document.querySelector(`[data-report-section-focus=\"${sectionId}\"]`)",
+        arg=[report_id, section_id],
+        timeout=20000,
+    )
+    _click(page, f'[data-report-section-focus="{section_id}"]')
+    page.wait_for_function("() => window.location.hash === '#section-claims'", timeout=10000)
+    _wait_for_active_rail(page, "nav-review", "#section-claims")
+    page.wait_for_function(
+        "(reportId) => document.querySelector('#claim-report-select')?.value === reportId && document.querySelector('#claim-section-select')?.value !== ''",
+        arg=report_id,
+        timeout=20000,
+    )
+
+    page.fill("#claim-composer-form [name='statement']", claim_statement)
+    page.fill("#claim-composer-form [name='rationale']", "Browser smoke keeps the claim attached to both item ids and citation bundles.")
+    page.fill("#claim-composer-form [name='confidence']", "0.93")
+    page.fill("#claim-composer-form [name='source_item_ids']", "item-1")
+    page.fill("#claim-composer-form [name='source_urls']", "https://example.com/browser-smoke-claim")
+    page.fill("#claim-composer-form [name='bundle_note']", "Browser smoke source binding")
+    _submit_form(page, "#claim-composer-form")
+    created_claim = _wait_for_claim_card(page, claim_statement)
+    created_bundle = _wait_for_citation_bundle(page, str(created_claim.get("id") or "").strip(), "browser-smoke-claim")
+    assert _strings(created_claim.get("source_item_ids")) == ["item-1"], f"claim source binding mismatch: {created_claim}"
+    assert "https://example.com/browser-smoke-claim" in _strings(created_bundle.get("source_urls")), f"bundle source url mismatch: {created_bundle}"
+    page.evaluate("refreshBoard()")
+    page.wait_for_function(
+        "([statement, urlFragment]) => document.querySelector('#section-claims')?.textContent?.includes(statement) && document.querySelector('#section-claims')?.textContent?.includes(urlFragment)",
+        arg=[claim_statement, "browser-smoke-claim"],
+        timeout=20000,
+    )
+
+    page.evaluate("jumpToSection('section-report-studio')")
+    page.wait_for_function("() => window.location.hash === '#section-report-studio'", timeout=10000)
+    page.wait_for_function(
+        "([sectionTitle, claimSnippet]) => document.querySelector('#section-report-studio')?.textContent?.includes(sectionTitle) && document.querySelector('#section-report-studio')?.textContent?.includes(claimSnippet)",
+        arg=[section_title, "Browser smoke claim"],
+        timeout=20000,
+    )
+    _click(page, "[data-report-compose-refresh]")
+    composed_report = _wait_for_report_compose_ready(page, report_id)
+    composed_quality = _row(composed_report.get("quality"))
+    assert composed_quality is not None, f"compose payload missing quality: {composed_report}"
+    assert str(composed_quality.get("status") or "").strip().lower() == "ready", f"compose quality was not ready: {composed_quality}"
+    assert bool(composed_quality.get("can_export")), f"compose quality did not allow export: {composed_quality}"
+    page.evaluate(
+        """async (reportId) => {
+            if (typeof selectReport === "function") {
+                await selectReport(reportId);
+            }
+        }""",
+        report_id,
+    )
+    _click(page, "[data-report-preview-markdown]")
+    exported_markdown = _wait_for_report_markdown(
+        page,
+        report_id,
+        expected_fragments=[report_title, section_title, claim_statement],
+    )
+    assert "## Signal Summary" in exported_markdown, f"markdown export did not include section heading: {exported_markdown}"
+    page.evaluate(
+        """async (reportId) => {
+            if (typeof previewReportMarkdown === "function") {
+                await previewReportMarkdown(reportId);
+            }
+        }""",
+        report_id,
+    )
+    page.wait_for_function(
+        "([reportTitle, sectionTitle, claimStatement]) => { const preview = document.querySelector('#section-report-studio pre.text-block'); return !!preview && preview.textContent.includes(reportTitle) && preview.textContent.includes(sectionTitle) && preview.textContent.includes(claimStatement); }",
+        arg=[report_title, section_title, claim_statement],
+        timeout=20000,
+    )
+
+    profiles_payload = _fetch_json(page, "/api/export-profiles")
+    assert _as_int(profiles_payload.get("status")) == 200, f"export profile list failed: {profiles_payload}"
+    profile_rows = _rows(profiles_payload.get("data"))
+    watch_pack_profile = next(
+        (
+            row
+            for row in profile_rows
+            if isinstance(row, dict)
+            and str(row.get("report_id") or "").strip() == report_id
+            and str(row.get("name") or "").strip().lower() == "watch-pack"
+        ),
+        None,
+    )
+    assert watch_pack_profile is not None, f"missing watch-pack profile for {report_id}: {profile_rows}"
+    watch_pack_payload = _fetch_json(page, f"/api/reports/{report_id}/watch-pack")
+    assert _as_int(watch_pack_payload.get("status")) == 200, f"watch-pack route failed: {watch_pack_payload}"
+    watch_pack = _row(watch_pack_payload.get("data"))
+    assert watch_pack is not None, f"unexpected watch-pack payload: {watch_pack_payload}"
+    assert str(watch_pack.get("report_id") or "") == report_id, f"watch-pack report id mismatch: {watch_pack}"
+    assert str(watch_pack.get("query") or "") == report_title, f"watch-pack query mismatch: {watch_pack}"
+    watch_create_payload = _fetch_json(
+        page,
+        f"/api/reports/{report_id}/watch-from-pack",
+        method="POST",
+        payload={
+            "profile_id": str(watch_pack_profile.get("id") or ""),
+            "name": watch_name,
+            "query": watch_query,
+            "platforms": ["twitter"],
+        },
+    )
+    assert _as_int(watch_create_payload.get("status")) == 200, f"watch-from-pack failed: {watch_create_payload}"
+    created_watch = _row(watch_create_payload.get("data"))
+    assert created_watch is not None, f"unexpected watch-from-pack payload: {watch_create_payload}"
+    assert str(created_watch.get("name") or "") == watch_name, f"watch name mismatch: {created_watch}"
+    assert str(created_watch.get("query") or "") == watch_query, f"watch query mismatch: {created_watch}"
+
+    page.evaluate("refreshBoard()")
+    page.evaluate("jumpToSection('section-cockpit')")
+    page.wait_for_function("() => window.location.hash === '#section-cockpit'", timeout=10000)
+    _wait_for_active_rail(page, "nav-missions", "#section-cockpit")
+    page.wait_for_function(
+        "(expectedName) => document.querySelector('#watch-list')?.textContent?.includes(expectedName)",
+        arg=watch_name,
+        timeout=20000,
+    )
+
+
 def _exercise_responsive_interaction_safety(page: Page) -> None:
-    print("[console-browser-smoke] responsive interaction safety")
+    _log("[console-browser-smoke] responsive interaction safety")
     page.set_viewport_size({"width": 980, "height": 1100})
     _wait_for_responsive_contract(
         page,
@@ -1425,7 +2184,7 @@ def _exercise_responsive_interaction_safety(page: Page) -> None:
 
 def main() -> int:
     reader = _SmokeReader()
-    app = create_app(reader_factory=lambda: reader)
+    app = create_app(reader_factory=cast(Any, lambda: reader))
     port = _find_free_port()
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error"))
     thread = threading.Thread(target=server.run, daemon=True)
@@ -1444,13 +2203,14 @@ def main() -> int:
             second_page = _exercise_saved_views_and_dock(page, base_url, context)
             _exercise_route_crud(second_page)
             _exercise_triage_to_story(second_page, base_url)
+            _exercise_report_workspaces(second_page)
             _exercise_responsive_interaction_safety(second_page)
             browser.close()
     finally:
         server.should_exit = True
         thread.join(timeout=5)
 
-    print("[console-browser-smoke] pass")
+    _log("[console-browser-smoke] pass")
     return 0
 
 

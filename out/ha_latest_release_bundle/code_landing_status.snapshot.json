@@ -1,39 +1,43 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-12T11:46:43Z",
+  "generated_at_utc": "2026-03-12T12:53:41Z",
   "status_kind": "draft_export",
   "wired": false,
   "headline_summary": {
-    "current_level": "ci_proven",
-    "workspace_clean": true,
+    "current_level": "manual_only",
+    "workspace_clean": false,
     "head_published_to_upstream": true,
-    "repo_landed": true,
-    "ci_proven": true,
-    "ci_proof_mode": "governance_evidence_dispatch",
-    "required_workflow": "governance-evidence.yml",
+    "repo_landed": false,
+    "ci_proven": false,
+    "ci_proof_mode": "push_ci_workflow",
+    "required_workflow": "CI",
     "quick_test_gate": {
-      "status": "stale_head",
+      "status": "passed",
       "observed": true,
-      "current_head_match": false,
+      "current_head_match": true,
       "ok": true,
-      "generated_at_utc": "2026-03-11T03:14:22Z",
-      "head": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
+      "generated_at_utc": "2026-03-12T12:53:25Z",
+      "head": "edd48141099e4b594977f0d1bd1b122cc78aaa34",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
   },
   "git": {
-    "head": "77531348fda5c9a2f131b0fe9546f5167dff63a9",
+    "head": "edd48141099e4b594977f0d1bd1b122cc78aaa34",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "77531348fda5c9a2f131b0fe9546f5167dff63a9",
+    "upstream_head": "edd48141099e4b594977f0d1bd1b122cc78aaa34",
     "head_published_to_upstream": true
   },
   "workspace": {
-    "clean": true,
-    "dirty_entries": [],
-    "reason": ""
+    "clean": false,
+    "dirty_entries": [
+      " M scripts/datapulse_console_browser_smoke.py",
+      " M scripts/governance/run_datapulse_auto_continuation.py",
+      " M scripts/governance/run_datapulse_quick_test_gate.py"
+    ],
+    "reason": "git status reported local modifications."
   },
   "verification": {
     "compileall": {
@@ -51,11 +55,11 @@
       "latest_observation": {
         "path": "artifacts/governance/quick_test_gate.draft.json",
         "schema_version": "quick_test_gate.v1",
-        "generated_at_utc": "2026-03-11T03:14:22Z",
+        "generated_at_utc": "2026-03-12T12:53:25Z",
         "ok": true,
         "read_only": true,
         "git": {
-          "head": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
+          "head": "edd48141099e4b594977f0d1bd1b122cc78aaa34",
           "branch": "main"
         },
         "steps": [
@@ -64,7 +68,7 @@
             "command": [
               "uv",
               "run",
-              "python3",
+              "python",
               "-c",
               "import datapulse; print(datapulse.__name__)"
             ],
@@ -103,7 +107,7 @@
             "ok": true,
             "stdout_tail": [
               "datapulse/cli.py:315: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
-              "Success: no issues found in 57 source files"
+              "Success: no issues found in 59 source files"
             ],
             "stderr_tail": []
           },
@@ -116,10 +120,10 @@
             "rc": 0,
             "ok": true,
             "stdout_tail": [
-              "[console-smoke] check: module help",
-              "[console-smoke] check: wrapper help",
-              "[console-smoke] check: installed entrypoint help",
-              "[console-smoke] skip: browser smoke (set DATAPULSE_CONSOLE_BROWSER_SMOKE=1 to enable)",
+              "[console-browser-smoke] triage to story",
+              "[console-browser-smoke] report workspaces",
+              "[console-browser-smoke] responsive interaction safety",
+              "[console-browser-smoke] pass",
               "[console-smoke] pass"
             ],
             "stderr_tail": []
@@ -154,18 +158,18 @@
             "rc": 0,
             "ok": true,
             "stdout_tail": [
-              "    https://x.com/KUGQS172/status/2009205845897457873",
-              " 4. [twitter] Tweet by @AndrejPlenkovic (Wed Feb 18 16:31:50 +0000 20 - 0.990",
-              "    https://x.com/AndrejPlenkovic/status/2024159936549183670",
-              " 5. [twitter] Tweet by @ANANonprofit (Thu Feb 12 14:00:00 +0000 2026) - 0.990",
-              "    https://x.com/ANANonprofit/status/2021947397866398012"
+              "    https://x.com/QQ_Timmy/status/1934942210426118243",
+              " 4. [twitter] Tweet by @grok (Mon Mar 02 14:26:45 +0000 2026) - 0.990",
+              "    https://x.com/grok/status/2028477112630341824",
+              " 5. [twitter] Tweet by @KUGQS172 (Thu Jan 08 10:09:37 +0000 2026) - 0.990",
+              "    https://x.com/KUGQS172/status/2009205845897457873"
             ],
             "stderr_tail": []
           }
         ]
       },
-      "latest_observation_status": "stale_head",
-      "latest_observation_current_head_match": false
+      "latest_observation_status": "passed",
+      "latest_observation_current_head_match": true
     },
     "local_smoke": {
       "gateable": false,
@@ -216,41 +220,43 @@
   "ci": {
     "workflow_name": "CI",
     "truth_source": ".github/workflows/ci.yml",
-    "docs_only_changes_skip_ci": true,
+    "docs_only_changes_skip_ci": false,
     "docs_paths_ignore_configured": true,
-    "proof_mode": "governance_evidence_dispatch",
+    "proof_mode": "push_ci_workflow",
     "head_published_to_upstream": true,
-    "required_workflow": "governance-evidence.yml",
+    "required_workflow": "CI",
     "required_run": {
-      "database_id": 23000352965,
-      "head_sha": "77531348fda5c9a2f131b0fe9546f5167dff63a9",
+      "database_id": 23000626856,
+      "head_sha": "edd48141099e4b594977f0d1bd1b122cc78aaa34",
       "head_branch": "main",
       "status": "completed",
       "conclusion": "success",
-      "event": "workflow_dispatch",
-      "workflow_name": "governance-evidence",
-      "created_at": "2026-03-12T11:44:54Z",
-      "updated_at": "2026-03-12T11:45:17Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23000352965"
+      "event": "push",
+      "workflow_name": "CI",
+      "created_at": "2026-03-12T11:52:27Z",
+      "updated_at": "2026-03-12T11:53:00Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23000626856"
     },
-    "latest_head_ci_run": null,
-    "latest_head_governance_evidence_run": {
-      "database_id": 23000352965,
-      "head_sha": "77531348fda5c9a2f131b0fe9546f5167dff63a9",
+    "latest_head_ci_run": {
+      "database_id": 23000626856,
+      "head_sha": "edd48141099e4b594977f0d1bd1b122cc78aaa34",
       "head_branch": "main",
       "status": "completed",
       "conclusion": "success",
-      "event": "workflow_dispatch",
-      "workflow_name": "governance-evidence",
-      "created_at": "2026-03-12T11:44:54Z",
-      "updated_at": "2026-03-12T11:45:17Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23000352965"
+      "event": "push",
+      "workflow_name": "CI",
+      "created_at": "2026-03-12T11:52:27Z",
+      "updated_at": "2026-03-12T11:53:00Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23000626856"
     },
+    "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
-        "docs/governance/datapulse-blueprint-plan.draft.json"
+        "scripts/datapulse_console_browser_smoke.py",
+        "scripts/governance/run_datapulse_auto_continuation.py",
+        "scripts/governance/run_datapulse_quick_test_gate.py"
       ],
-      "docs_only": true
+      "docs_only": false
     }
   },
   "release": {
@@ -270,33 +276,37 @@
     ]
   },
   "gate_groups": {
-    "execution_safety": [],
+    "execution_safety": [
+      "workspace_dirty"
+    ],
     "local_verification": [],
     "runtime_governance": [],
-    "ci_policy": [
-      "docs_only_changes_skip_ci"
-    ],
+    "ci_policy": [],
     "release_governance": []
   },
   "promotion_levels": {
     "repo_landed": {
-      "satisfied": true,
-      "reasons": []
+      "satisfied": false,
+      "reasons": [
+        "workspace_dirty"
+      ]
     },
     "ci_proven": {
-      "satisfied": true,
-      "reasons": []
+      "satisfied": false,
+      "reasons": [
+        "repo_landed_false"
+      ]
     }
   },
   "observed_evidence": {
     "latest_quick_test_gate": {
       "path": "artifacts/governance/quick_test_gate.draft.json",
       "schema_version": "quick_test_gate.v1",
-      "generated_at_utc": "2026-03-11T03:14:22Z",
+      "generated_at_utc": "2026-03-12T12:53:25Z",
       "ok": true,
       "read_only": true,
       "git": {
-        "head": "543b22383aed3334cf1e5db9af30ac1d7c2cc543",
+        "head": "edd48141099e4b594977f0d1bd1b122cc78aaa34",
         "branch": "main"
       },
       "steps": [
@@ -305,7 +315,7 @@
           "command": [
             "uv",
             "run",
-            "python3",
+            "python",
             "-c",
             "import datapulse; print(datapulse.__name__)"
           ],
@@ -344,7 +354,7 @@
           "ok": true,
           "stdout_tail": [
             "datapulse/cli.py:315: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
-            "Success: no issues found in 57 source files"
+            "Success: no issues found in 59 source files"
           ],
           "stderr_tail": []
         },
@@ -357,10 +367,10 @@
           "rc": 0,
           "ok": true,
           "stdout_tail": [
-            "[console-smoke] check: module help",
-            "[console-smoke] check: wrapper help",
-            "[console-smoke] check: installed entrypoint help",
-            "[console-smoke] skip: browser smoke (set DATAPULSE_CONSOLE_BROWSER_SMOKE=1 to enable)",
+            "[console-browser-smoke] triage to story",
+            "[console-browser-smoke] report workspaces",
+            "[console-browser-smoke] responsive interaction safety",
+            "[console-browser-smoke] pass",
             "[console-smoke] pass"
           ],
           "stderr_tail": []
@@ -395,11 +405,11 @@
           "rc": 0,
           "ok": true,
           "stdout_tail": [
-            "    https://x.com/KUGQS172/status/2009205845897457873",
-            " 4. [twitter] Tweet by @AndrejPlenkovic (Wed Feb 18 16:31:50 +0000 20 - 0.990",
-            "    https://x.com/AndrejPlenkovic/status/2024159936549183670",
-            " 5. [twitter] Tweet by @ANANonprofit (Thu Feb 12 14:00:00 +0000 2026) - 0.990",
-            "    https://x.com/ANANonprofit/status/2021947397866398012"
+            "    https://x.com/QQ_Timmy/status/1934942210426118243",
+            " 4. [twitter] Tweet by @grok (Mon Mar 02 14:26:45 +0000 2026) - 0.990",
+            "    https://x.com/grok/status/2028477112630341824",
+            " 5. [twitter] Tweet by @KUGQS172 (Thu Jan 08 10:09:37 +0000 2026) - 0.990",
+            "    https://x.com/KUGQS172/status/2009205845897457873"
           ],
           "stderr_tail": []
         }
@@ -445,19 +455,19 @@
         "report_root": "/Users/sunyifei/DataPulse"
       }
     },
-    "latest_head_ci_run": null,
-    "latest_head_governance_evidence_run": {
-      "database_id": 23000352965,
-      "head_sha": "77531348fda5c9a2f131b0fe9546f5167dff63a9",
+    "latest_head_ci_run": {
+      "database_id": 23000626856,
+      "head_sha": "edd48141099e4b594977f0d1bd1b122cc78aaa34",
       "head_branch": "main",
       "status": "completed",
       "conclusion": "success",
-      "event": "workflow_dispatch",
-      "workflow_name": "governance-evidence",
-      "created_at": "2026-03-12T11:44:54Z",
-      "updated_at": "2026-03-12T11:45:17Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23000352965"
-    }
+      "event": "push",
+      "workflow_name": "CI",
+      "created_at": "2026-03-12T11:52:27Z",
+      "updated_at": "2026-03-12T11:53:00Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23000626856"
+    },
+    "latest_head_governance_evidence_run": null
   },
   "evidence_paths": {
     "quick_test_gate": "artifacts/governance/quick_test_gate.draft.json",
