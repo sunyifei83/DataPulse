@@ -1,39 +1,44 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-13T05:59:32Z",
+  "generated_at_utc": "2026-03-13T06:33:01Z",
   "status_kind": "draft_export",
   "wired": false,
   "headline_summary": {
-    "current_level": "ci_proven",
-    "workspace_clean": true,
+    "current_level": "manual_only",
+    "workspace_clean": false,
     "head_published_to_upstream": true,
-    "repo_landed": true,
-    "ci_proven": true,
-    "ci_proof_mode": "push_ci_workflow",
-    "required_workflow": "CI",
+    "repo_landed": false,
+    "ci_proven": false,
+    "ci_proof_mode": "governance_evidence_dispatch",
+    "required_workflow": "governance-evidence.yml",
     "quick_test_gate": {
       "status": "passed",
       "observed": true,
       "current_head_match": true,
       "ok": true,
-      "generated_at_utc": "2026-03-13T05:59:28Z",
-      "head": "c1b63c69384e064c3e74fc5ec6026d21d5677f93",
+      "generated_at_utc": "2026-03-13T06:32:57Z",
+      "head": "dd84cc474fec4082e62e1bd77a73e5174db40d32",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
   },
   "git": {
-    "head": "c1b63c69384e064c3e74fc5ec6026d21d5677f93",
+    "head": "dd84cc474fec4082e62e1bd77a73e5174db40d32",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "c1b63c69384e064c3e74fc5ec6026d21d5677f93",
+    "upstream_head": "dd84cc474fec4082e62e1bd77a73e5174db40d32",
     "head_published_to_upstream": true
   },
   "workspace": {
-    "clean": true,
-    "dirty_entries": [],
-    "reason": ""
+    "clean": false,
+    "dirty_entries": [
+      "M docs/governance/datapulse-blueprint-plan.draft.json",
+      " M docs/governance/datapulse-blueprint-plan.json",
+      " M docs/gui_intelligence_console_plan.md",
+      "?? docs/governance/datapulse-report-delivery-subscription-blueprint.md"
+    ],
+    "reason": "git status reported local modifications."
   },
   "verification": {
     "compileall": {
@@ -51,11 +56,11 @@
       "latest_observation": {
         "path": "artifacts/governance/quick_test_gate.draft.json",
         "schema_version": "quick_test_gate.v1",
-        "generated_at_utc": "2026-03-13T05:59:28Z",
+        "generated_at_utc": "2026-03-13T06:32:57Z",
         "ok": true,
         "read_only": true,
         "git": {
-          "head": "c1b63c69384e064c3e74fc5ec6026d21d5677f93",
+          "head": "dd84cc474fec4082e62e1bd77a73e5174db40d32",
           "branch": "main"
         },
         "steps": [
@@ -216,56 +221,33 @@
   "ci": {
     "workflow_name": "CI",
     "truth_source": ".github/workflows/ci.yml",
-    "docs_only_changes_skip_ci": false,
+    "docs_only_changes_skip_ci": true,
     "docs_paths_ignore_configured": true,
-    "proof_mode": "push_ci_workflow",
+    "proof_mode": "governance_evidence_dispatch",
     "head_published_to_upstream": true,
-    "required_workflow": "CI",
-    "required_run": {
-      "database_id": 23034125704,
-      "head_sha": "c1b63c69384e064c3e74fc5ec6026d21d5677f93",
-      "head_branch": "main",
-      "status": "completed",
-      "conclusion": "success",
-      "event": "push",
-      "workflow_name": "CI",
-      "created_at": "2026-03-13T02:56:24Z",
-      "updated_at": "2026-03-13T02:56:59Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23034125704"
-    },
+    "required_workflow": "governance-evidence.yml",
+    "required_run": null,
     "latest_head_ci_run": {
-      "database_id": 23034125704,
-      "head_sha": "c1b63c69384e064c3e74fc5ec6026d21d5677f93",
+      "database_id": 23038401227,
+      "head_sha": "dd84cc474fec4082e62e1bd77a73e5174db40d32",
       "head_branch": "main",
       "status": "completed",
       "conclusion": "success",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-13T02:56:24Z",
-      "updated_at": "2026-03-13T02:56:59Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23034125704"
+      "created_at": "2026-03-13T06:00:50Z",
+      "updated_at": "2026-03-13T06:01:27Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23038401227"
     },
     "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
-        "out/governance/code_landing_status.draft.json",
-        "out/governance/project_specific_loop_state.draft.json",
-        "out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json",
-        "out/ha_latest_release_bundle/code_landing_status.draft.json",
-        "out/ha_latest_release_bundle/code_landing_status.snapshot.json",
-        "out/ha_latest_release_bundle/evidence_bundle_manifest.draft.json",
-        "out/ha_latest_release_bundle/ha_delivery_facts.draft.json",
-        "out/ha_latest_release_bundle/ha_delivery_landing.draft.json",
-        "out/ha_latest_release_bundle/ha_recovery_preset.draft.json",
-        "out/ha_latest_release_bundle/project_specific_loop_state.draft.json",
-        "out/ha_latest_release_bundle/release_readiness_fact.draft.json",
-        "out/ha_latest_release_bundle/release_sidecar.draft.json",
-        "out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
-        "scripts/datapulse_console_browser_smoke.py",
-        "scripts/governance/run_datapulse_auto_continuation.py",
-        "scripts/governance/run_datapulse_quick_test_gate.py"
+        "docs/governance/datapulse-blueprint-plan.draft.json",
+        "docs/governance/datapulse-blueprint-plan.json",
+        "docs/gui_intelligence_console_plan.md",
+        "docs/governance/datapulse-report-delivery-subscription-blueprint.md"
       ],
-      "docs_only": false
+      "docs_only": true
     }
   },
   "release": {
@@ -285,31 +267,40 @@
     ]
   },
   "gate_groups": {
-    "execution_safety": [],
+    "execution_safety": [
+      "workspace_dirty"
+    ],
     "local_verification": [],
     "runtime_governance": [],
-    "ci_policy": [],
+    "ci_policy": [
+      "docs_only_changes_skip_ci"
+    ],
     "release_governance": []
   },
   "promotion_levels": {
     "repo_landed": {
-      "satisfied": true,
-      "reasons": []
+      "satisfied": false,
+      "reasons": [
+        "workspace_dirty"
+      ]
     },
     "ci_proven": {
-      "satisfied": true,
-      "reasons": []
+      "satisfied": false,
+      "reasons": [
+        "repo_landed_false",
+        "governance_evidence_not_proven"
+      ]
     }
   },
   "observed_evidence": {
     "latest_quick_test_gate": {
       "path": "artifacts/governance/quick_test_gate.draft.json",
       "schema_version": "quick_test_gate.v1",
-      "generated_at_utc": "2026-03-13T05:59:28Z",
+      "generated_at_utc": "2026-03-13T06:32:57Z",
       "ok": true,
       "read_only": true,
       "git": {
-        "head": "c1b63c69384e064c3e74fc5ec6026d21d5677f93",
+        "head": "dd84cc474fec4082e62e1bd77a73e5174db40d32",
         "branch": "main"
       },
       "steps": [
@@ -459,16 +450,16 @@
       }
     },
     "latest_head_ci_run": {
-      "database_id": 23034125704,
-      "head_sha": "c1b63c69384e064c3e74fc5ec6026d21d5677f93",
+      "database_id": 23038401227,
+      "head_sha": "dd84cc474fec4082e62e1bd77a73e5174db40d32",
       "head_branch": "main",
       "status": "completed",
       "conclusion": "success",
       "event": "push",
       "workflow_name": "CI",
-      "created_at": "2026-03-13T02:56:24Z",
-      "updated_at": "2026-03-13T02:56:59Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23034125704"
+      "created_at": "2026-03-13T06:00:50Z",
+      "updated_at": "2026-03-13T06:01:27Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23038401227"
     },
     "latest_head_governance_evidence_run": null
   },

@@ -1015,3 +1015,5 @@ Current browser landing for `R5`:
 
 - the review rail now projects persisted report objects into `Claim Composer` and `Report Studio` inside the existing console shell
 - operators can create claim cards, bind them to reports and sections, inspect quality guardrails, and preview Markdown without introducing browser-only report state
+
+With the report-production wave now landed, the next repo-relevant extension is not a richer report editor. The next wave is route-backed delivery and normalized subscriptions for authoritative report outputs. That promoted follow-up blueprint now lives in `docs/governance/datapulse-report-delivery-subscription-blueprint.md`.

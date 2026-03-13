@@ -77,7 +77,8 @@
     "L11": "completed",
     "L12": "completed",
     "L13": "completed",
-    "L14": "completed"
+    "L14": "completed",
+    "L15": "pending"
   },
   "phases": [
     {
@@ -1782,14 +1783,193 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L15",
+      "title": "Report-Backed Delivery And Subscription Follow-up",
+      "goal": "Extend authoritative report outputs into one Reader-backed delivery and subscription plane so DataPulse can subscribe to, route, and audit report-derived packages without inventing GUI-only delivery state or a second lifecycle.",
+      "status": "pending",
+      "slices": [
+        {
+          "id": "L15.1",
+          "title": "Promote the repo-scoped report-delivery and subscription blueprint plus ignition map into repository truth",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "test -f docs/governance/datapulse-report-delivery-subscription-blueprint.md",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-report-delivery-subscription-blueprint.md",
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "exit_condition": "The repository contains a repo-scoped blueprint for report-backed delivery and normalized subscriptions, and the active blueprint path exposes a new manual ignition target beyond the completed report-production wave.",
+          "notes": [
+            "Promote the next-wave route map into repo truth before reopening implementation slices.",
+            "Keep this slice limited to blueprint and roadmap truth rather than contract or code work."
+          ]
+        },
+        {
+          "id": "L15.2",
+          "title": "Extend lifecycle and delivery contracts with report-authoritative output kinds and normalized subscription invariants",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+            "grep -En 'subject_kind|output_kind|route_names|cursor_or_since|report' docs/intelligence_delivery_contract.md docs/intelligence_lifecycle_contract.md docs/governance/datapulse-report-delivery-subscription-blueprint.md"
+          ],
+          "artifacts": [
+            "docs/intelligence_lifecycle_contract.md",
+            "docs/intelligence_delivery_contract.md",
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-report-delivery-subscription-blueprint.md"
+          ],
+          "exit_condition": "The repo has one explicit contract of record for how report outputs become authoritative delivery subjects and how normalized subscriptions relate to routes, output kinds, and delivery observations.",
+          "notes": [
+            "Extend the current delivery contract rather than bypassing it with report-specific ad hoc terms.",
+            "Treat report-backed delivery as additive to alerts, feeds, and story export."
+          ]
+        },
+        {
+          "id": "L15.3",
+          "title": "Add normalized delivery-subscription core objects and persistence without forking route truth",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/reader.py",
+            "uv run pytest tests/test_delivery.py tests/test_report.py -q"
+          ],
+          "artifacts": [
+            "datapulse/reader.py",
+            "datapulse/core/alerts.py",
+            "datapulse/core/report.py",
+            "tests/test_delivery.py"
+          ],
+          "exit_condition": "The repo can persist normalized delivery-subscription state for report, story, watch, and profile subjects using explicit subject, output, route, and cursor semantics instead of CLI-only flags or browser-local toggles.",
+          "notes": [
+            "Keep named routes as reusable sink identities rather than duplicating transport secrets inline.",
+            "Do not copy report or story business fields into subscription records."
+          ]
+        },
+        {
+          "id": "L15.4",
+          "title": "Add report-backed package assembly and attributable dispatch records above current alert events",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/reader.py datapulse/console_server.py",
+            "uv run pytest tests/test_delivery.py tests/test_console_server.py -q"
+          ],
+          "artifacts": [
+            "datapulse/reader.py",
+            "datapulse/console_server.py",
+            "datapulse/core/alerts.py",
+            "datapulse/core/report.py",
+            "tests/test_delivery.py",
+            "tests/test_console_server.py"
+          ],
+          "exit_condition": "Report-backed pull and push packages can be assembled deterministically, and route-backed dispatch produces attributable event or attempt records before transport.",
+          "notes": [
+            "Preserve provenance back to report and export-profile truth.",
+            "Treat dispatch records as delivery observations, not as replacements for report truth."
+          ]
+        },
+        {
+          "id": "L15.5",
+          "title": "Expose delivery-subscription CRUD and report-backed dispatch through Reader, CLI, MCP, and HTTP API surfaces",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/reader.py datapulse/cli.py datapulse/mcp_server.py datapulse/console_server.py",
+            "uv run pytest tests/test_delivery.py tests/test_console_server.py -q"
+          ],
+          "artifacts": [
+            "datapulse/reader.py",
+            "datapulse/cli.py",
+            "datapulse/mcp_server.py",
+            "datapulse/console_server.py",
+            "tests/test_delivery.py",
+            "tests/test_console_server.py"
+          ],
+          "exit_condition": "Normalized delivery-subscription nouns and report-backed dispatch are available through the same Reader-backed surfaces used by CLI, MCP, and browser flows.",
+          "notes": [
+            "Keep naming and status semantics aligned across every surface.",
+            "Browser work should depend on the same Reader-backed delivery APIs."
+          ]
+        },
+        {
+          "id": "L15.6",
+          "title": "Add a browser delivery workspace for subscriptions, route-backed dispatch, and report package audit inside the current console shell",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+            "uv run pytest tests/test_console_server.py tests/test_delivery.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "datapulse/console_server.py",
+            "docs/gui_intelligence_console_plan.md",
+            "tests/test_console_server.py",
+            "tests/test_delivery.py"
+          ],
+          "exit_condition": "Operators can subscribe to, inspect, and dispatch report-backed output packages in the browser without introducing a second frontend product or browser-only delivery state.",
+          "notes": [
+            "Stay inside the current shell and current Reader-backed contract.",
+            "The browser should project persisted delivery objects rather than simulate them locally."
+          ]
+        },
+        {
+          "id": "L15.7",
+          "title": "Harden verification for route-backed report delivery, subscription normalization, and delivery audit flows",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "bash scripts/datapulse_console_smoke.sh",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+            "uv run --with playwright python scripts/datapulse_console_browser_smoke.py",
+            "uv run pytest tests/test_delivery.py tests/test_console_server.py tests/test_report.py -q"
+          ],
+          "artifacts": [
+            "scripts/datapulse_console_smoke.sh",
+            "scripts/datapulse_console_browser_smoke.py",
+            "tests/test_delivery.py",
+            "tests/test_console_server.py",
+            "datapulse/console_markup.py",
+            "datapulse/console_server.py"
+          ],
+          "exit_condition": "The report-backed delivery plane has regression coverage for subscription persistence, route-backed dispatch, audit records, and browser workflow before richer briefing output work lands.",
+          "notes": [
+            "Prefer high-signal end-to-end assertions over brittle snapshots.",
+            "Protect delivery auditability and route semantics before adding richer briefing affordances."
+          ]
+        }
+      ]
     }
   ],
-    "recommended_next_slice": {
-        "id": "no-open-slice",
-        "title": "No open slice",
-        "category": "complete",
-        "reason": "All current blueprint slices are completed."
-    },
+  "recommended_next_slice": {
+    "id": "L15.1",
+    "title": "Promote the repo-scoped report-delivery and subscription blueprint plus ignition map into repository truth",
+    "category": "manual",
+    "reason": "Derived from the next open slice in the working copy."
+  },
     "progress_log": [
         {
             "at_utc": "2026-03-12T23:50:00Z",
@@ -1957,5 +2137,5 @@
       "status": "completed"
     }
     ],
-    "last_updated_utc": "2026-03-12T23:50:00Z"
+    "last_updated_utc": "2026-03-13T06:20:00Z"
 }
