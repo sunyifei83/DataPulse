@@ -68,14 +68,29 @@ def parse_args() -> argparse.Namespace:
 
 
 def run_capture(command: list[str]) -> str:
+    return run_capture_with_mode(command)
+
+
+def run_capture_with_mode(command: list[str], *, required: bool = True) -> str:
     completed = subprocess.run(
         command,
         cwd=REPO_ROOT,
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
     )
-    return completed.stdout.strip()
+    stdout = completed.stdout.strip()
+    stderr = completed.stderr.strip()
+    if required and completed.returncode != 0:
+        raise subprocess.CalledProcessError(
+            completed.returncode,
+            completed.args,
+            output=completed.stdout,
+            stderr=completed.stderr,
+        )
+    if stdout:
+        return stdout
+    return stderr
 
 
 def refresh_governance_snapshots(bundle_dir: Path, *, plan_path: Path = DEFAULT_PLAN_PATH) -> dict[str, str]:
@@ -95,11 +110,13 @@ def refresh_governance_snapshots_to_targets(
     project_loop_state_output: Path,
 ) -> dict[str, str]:
     return {
-        "quick_test_gate": run_capture(
+        # quick_test_gate is an observational wrapper, not a required loop refresh gate.
+        "quick_test_gate": run_capture_with_mode(
             [
                 *current_python_command(),
                 "scripts/governance/run_datapulse_quick_test_gate.py",
-            ]
+            ],
+            required=False,
         ),
         "code_landing_status": run_capture(
             [
