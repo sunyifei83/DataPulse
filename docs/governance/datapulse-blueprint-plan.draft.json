@@ -2,7 +2,7 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-13T18:00:00Z",
+  "generated_at_utc": "2026-03-13T11:19:16Z",
   "status": "in_progress",
   "activation": {
     "wired": false,
@@ -78,7 +78,8 @@
     "L12": "completed",
     "L13": "completed",
     "L14": "completed",
-    "L15": "in_progress"
+    "L15": "completed",
+    "L16": "pending"
   },
   "phases": [
     {
@@ -1616,17 +1617,17 @@
             "The promoted map must stay additive to the Reader-backed lifecycle rather than reopening the console as a second product."
           ]
         },
-                {
-                    "id": "L14.2",
-                    "title": "Extend the lifecycle contract and roadmap with report-layer nouns, stage mapping, and invariants",
-                    "category": "manual",
-                    "execution_profile": "draft_only",
-                    "promotion_scope": "none",
-                    "status": "completed",
-                    "verification_commands": [
-                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
-                        "grep -En 'ReportBrief|ClaimCard|ReportSection|CitationBundle|ExportProfile' docs/intelligence_lifecycle_contract.md docs/gui_intelligence_console_plan.md docs/governance/datapulse-research-os-report-production-blueprint.md"
-                    ],
+        {
+          "id": "L14.2",
+          "title": "Extend the lifecycle contract and roadmap with report-layer nouns, stage mapping, and invariants",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+            "grep -En 'ReportBrief|ClaimCard|ReportSection|CitationBundle|ExportProfile' docs/intelligence_lifecycle_contract.md docs/gui_intelligence_console_plan.md docs/governance/datapulse-research-os-report-production-blueprint.md"
+          ],
           "artifacts": [
             "docs/intelligence_lifecycle_contract.md",
             "docs/gui_intelligence_console_plan.md",
@@ -1706,9 +1707,9 @@
             "Add report CRUD plus compose, quality-preview, and export endpoints without forking naming or status semantics by surface.",
             "Keep browser work dependent on the same Reader-backed report APIs."
           ]
-    },
-    {
-      "id": "L14.6",
+        },
+        {
+          "id": "L14.6",
           "title": "Add browser Claim Composer and Report Studio workspaces inside the current console shell",
           "category": "manual",
           "execution_profile": "workflow_change",
@@ -1788,7 +1789,7 @@
       "id": "L15",
       "title": "Report-Backed Delivery And Subscription Follow-up",
       "goal": "Extend authoritative report outputs into one Reader-backed delivery and subscription plane so DataPulse can subscribe to, route, and audit report-derived packages without inventing GUI-only delivery state or a second lifecycle.",
-      "status": "in_progress",
+      "status": "completed",
       "slices": [
         {
           "id": "L15.1",
@@ -1815,13 +1816,13 @@
           ]
         },
         {
-                    "id": "L15.2",
-                    "title": "Extend lifecycle and delivery contracts with report-authoritative output kinds and normalized subscription invariants",
-                    "category": "manual",
-                    "execution_profile": "draft_only",
-                    "promotion_scope": "none",
-                    "status": "completed",
-                    "verification_commands": [
+          "id": "L15.2",
+          "title": "Extend lifecycle and delivery contracts with report-authoritative output kinds and normalized subscription invariants",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
             "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
             "grep -En 'subject_kind|output_kind|route_names|cursor_or_since|report' docs/intelligence_delivery_contract.md docs/intelligence_lifecycle_contract.md docs/governance/datapulse-report-delivery-subscription-blueprint.md"
           ],
@@ -1860,7 +1861,7 @@
             "Do not copy report or story business fields into subscription records."
           ]
         },
-      {
+        {
           "id": "L15.4",
           "title": "Add report-backed package assembly and attributable dispatch records above current alert events",
           "category": "manual",
@@ -1916,7 +1917,7 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
             "uv run pytest tests/test_console_server.py tests/test_delivery.py -q"
@@ -1940,7 +1941,7 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "bash scripts/datapulse_console_smoke.sh",
             "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
@@ -1962,79 +1963,347 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L16",
+      "title": "ModelBus-backed AI assistance governance and runtime bridge",
+      "status": "pending",
+      "slices": [
+        {
+          "id": "L16.1",
+          "title": "Land the ModelBus-backed AI assistance governance blueprint and ignition map",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-14T13:59:01Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+              "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "selected_heading": "",
+              "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+            }
+          }
+        },
+        {
+          "id": "L16.2",
+          "title": "Define AI assistance surface contracts and switch semantics for watch triage report and delivery",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "artifacts": [
+            "docs/intelligence_lifecycle_contract.md",
+            "docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "exit_condition": "AI assistance surfaces and off/assist/review switch semantics are explicit in the shared lifecycle contract without granting AI direct final-state authority.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-14T14:07:50Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+              "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "selected_heading": "",
+              "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+            }
+          }
+        },
+        {
+          "id": "L16.3",
+          "title": "Add the DataPulse ModelBus bridge contract for route alias bus key and runtime config inputs",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-modelbus-bridge-contract.md",
+            "docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "exit_condition": "The DataPulse-to-ModelBus bridge contract defines runtime inputs, surface-to-alias mapping, secret boundaries, and fallback policy ownership without binding DataPulse to provider SDK specifics.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-14T14:07:54Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+              "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "selected_heading": "",
+              "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+            }
+          }
+        },
+        {
+          "id": "L16.4",
+          "title": "Add structured output contracts and fail-closed validation for AI assistance payloads",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m json.tool docs/contracts/datapulse_ai_watch_suggestion_contract.json",
+            "python3 -m json.tool docs/contracts/datapulse_ai_triage_explain_contract.json",
+            "python3 -m json.tool docs/contracts/datapulse_ai_claim_draft_contract.json",
+            "python3 -m json.tool docs/contracts/datapulse_ai_delivery_summary_contract.json"
+          ],
+          "artifacts": [
+            "docs/contracts/datapulse_ai_watch_suggestion_contract.json",
+            "docs/contracts/datapulse_ai_triage_explain_contract.json",
+            "docs/contracts/datapulse_ai_claim_draft_contract.json",
+            "docs/contracts/datapulse_ai_delivery_summary_contract.json"
+          ],
+          "exit_condition": "AI assistance payloads are governed by explicit schemas and fail closed when structured contracts are missing or invalid.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-14T14:07:58Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+              "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "selected_heading": "",
+              "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+            }
+          }
+        },
+        {
+          "id": "L16.5",
+          "title": "Introduce candidate subscriptions and capability admission facts for AI assistance surfaces",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-ai-surface-subscriptions.example.json",
+            "python3 -m json.tool out/governance/datapulse-ai-surface-admission.example.json"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-ai-surface-admission-contract.md",
+            "docs/governance/datapulse-ai-surface-subscriptions.example.json",
+            "out/governance/datapulse-ai-surface-admission.example.json"
+          ],
+          "exit_condition": "AI candidate subscriptions, admitted surface capabilities, and rejectable gaps are machine-readable and decoupled from local provider assumptions.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-14T14:08:02Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+              "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "selected_heading": "",
+              "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+            }
+          }
+        },
+        {
+          "id": "L16.6",
+          "title": "Add Reader-backed AI assistance services for suggestions drafts and governed prechecks",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "pytest"
+          ],
+          "artifacts": [
+            "datapulse/reader.py",
+            "datapulse/core/watchlist.py",
+            "datapulse/core/triage.py",
+            "datapulse/core/report.py",
+            "tests/test_reader.py",
+            "tests/test_triage.py",
+            "tests/test_report.py"
+          ],
+          "exit_condition": "Reader-backed AI assist services can generate governed suggestions and drafts under off/assist/review policy without writing final operational states directly.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-14T14:08:05Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+              "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "selected_heading": "",
+              "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+            }
+          }
+        },
+        {
+          "id": "L16.7",
+          "title": "Project AI assistance surfaces through CLI MCP Console and ops scorecards",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "pytest"
+          ],
+          "artifacts": [
+            "datapulse/cli.py",
+            "datapulse/mcp_server.py",
+            "datapulse/console_server.py",
+            "datapulse/console_markup.py",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "CLI, MCP, and Console expose the same AI assistance surfaces and operator-visible governance signals without creating GUI-only AI state.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-14T14:08:09Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+              "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "selected_heading": "",
+              "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+            }
+          }
+        },
+        {
+          "id": "L16.8",
+          "title": "Harden verification gates and governance scorecards for AI assistance runtime semantics",
+          "category": "manual",
+          "execution_profile": "runtime_validation",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "pytest",
+            "bash scripts/quick_test.sh"
+          ],
+          "artifacts": [
+            "tests/test_delivery.py",
+            "tests/test_report.py",
+            "tests/test_story.py",
+            "docs/test_facts.md",
+            "out/governance/datapulse-ai-surface-admission.example.json"
+          ],
+          "exit_condition": "Verification gates and scorecards cover switch modes, schema fail-closed behavior, admission misses, route fallback, and manual override observability for AI assistance runtime semantics.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-14T14:08:13Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+              "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+              "selected_heading": "",
+              "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+            }
+          }
+        }
+      ]
     }
   ],
-    "recommended_next_slice": {
-        "id": "L15.6",
-        "title": "Add a browser delivery workspace for subscriptions, route-backed dispatch, and report package audit inside the current console shell",
-        "category": "manual",
-        "reason": "Derived from the next open slice in the working copy."
+  "recommended_next_slice": {
+    "id": "L16.1",
+    "title": "Land the ModelBus-backed AI assistance governance blueprint and ignition map",
+    "reason": "Derived from the next open slice in the working copy."
+  },
+  "progress_log": [
+    {
+      "at_utc": "2026-03-13T18:20:00Z",
+      "slice_id": "L15.6",
+      "status": "completed"
     },
-    "progress_log": [
-        {
-            "at_utc": "2026-03-13T18:00:00Z",
-            "slice_id": "L15.5",
-            "status": "completed"
-        },
-        {
-            "at_utc": "2026-03-13T17:00:00Z",
-            "slice_id": "L15.4",
-            "status": "completed"
-        },
-        {
-            "at_utc": "2026-03-13T16:10:00Z",
-            "slice_id": "L15.3",
-            "status": "completed"
-        },
-        {
-            "at_utc": "2026-03-13T06:30:00Z",
-            "slice_id": "L15.1",
-            "status": "completed"
-        },
-        {
-            "at_utc": "2026-03-13T07:00:00Z",
-            "slice_id": "L15.2",
-            "status": "completed"
-        },
-        {
-            "at_utc": "2026-03-12T23:50:00Z",
-            "slice_id": "L14.8",
-            "status": "completed"
-        },
-        {
-            "at_utc": "2026-03-12T23:45:00Z",
-            "slice_id": "L14.7",
-            "status": "completed"
-        },
-        {
-            "at_utc": "2026-03-12T22:00:00Z",
-            "slice_id": "L14.5",
-            "status": "completed"
-        },
-        {
-            "at_utc": "2026-03-12T08:47:32Z",
-            "slice_id": "L14.6",
-            "status": "completed"
-        },
-        {
-            "at_utc": "2026-03-12T14:05:00Z",
-            "slice_id": "L14.4",
-            "status": "completed"
-        },
-        {
-            "at_utc": "2026-03-12T05:49:47Z",
-            "slice_id": "L14.2",
-            "status": "completed"
-        },
-        {
-            "at_utc": "2026-03-12T11:20:31Z",
-            "slice_id": "L14.3",
-            "status": "completed"
-        },
-        {
-            "at_utc": "2026-03-11T11:08:59Z",
-            "slice_id": "L13.7",
-            "status": "completed"
+    {
+      "at_utc": "2026-03-13T18:00:00Z",
+      "slice_id": "L15.5",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-13T17:00:00Z",
+      "slice_id": "L15.4",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-13T16:10:00Z",
+      "slice_id": "L15.3",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-13T06:30:00Z",
+      "slice_id": "L15.1",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-13T07:00:00Z",
+      "slice_id": "L15.2",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-12T23:50:00Z",
+      "slice_id": "L14.8",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-12T23:45:00Z",
+      "slice_id": "L14.7",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-12T22:00:00Z",
+      "slice_id": "L14.5",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-12T08:47:32Z",
+      "slice_id": "L14.6",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-12T14:05:00Z",
+      "slice_id": "L14.4",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-12T05:49:47Z",
+      "slice_id": "L14.2",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-12T11:20:31Z",
+      "slice_id": "L14.3",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-11T11:08:59Z",
+      "slice_id": "L13.7",
+      "status": "completed"
     },
     {
       "at_utc": "2026-03-11T09:11:07Z",
@@ -2160,7 +2429,12 @@
       "at_utc": "2026-03-12T04:17:51Z",
       "slice_id": "L14.1",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-13T11:19:16Z",
+      "slice_id": "L15.7",
+      "status": "completed"
     }
-    ],
-    "last_updated_utc": "2026-03-13T18:00:00Z"
+  ],
+  "last_updated_utc": "2026-03-14T14:09:39Z"
 }
