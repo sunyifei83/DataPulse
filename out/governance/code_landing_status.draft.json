@@ -1,7 +1,7 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-14T14:22:58Z",
+  "generated_at_utc": "2026-03-14T14:45:56Z",
   "status_kind": "draft_export",
   "wired": false,
   "headline_summary": {
@@ -10,41 +10,33 @@
     "head_published_to_upstream": true,
     "repo_landed": false,
     "ci_proven": false,
-    "ci_proof_mode": "push_ci_workflow",
-    "required_workflow": "CI",
+    "ci_proof_mode": "governance_evidence_dispatch",
+    "required_workflow": "governance-evidence.yml",
     "quick_test_gate": {
-      "status": "stale_head",
+      "status": "passed",
       "observed": true,
-      "current_head_match": false,
+      "current_head_match": true,
       "ok": true,
-      "generated_at_utc": "2026-03-13T11:56:15Z",
-      "head": "c1077d78d7fab8ae64c8e9482f056f4095bcc0c1",
+      "generated_at_utc": "2026-03-14T14:40:23Z",
+      "head": "a27bae806a41500ed69e04ae92c6122c728c0627",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
   },
   "git": {
-    "head": "0f84b58ec4b71681813a8d2c933ca9128eaf6471",
+    "head": "a27bae806a41500ed69e04ae92c6122c728c0627",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "0f84b58ec4b71681813a8d2c933ca9128eaf6471",
+    "upstream_head": "a27bae806a41500ed69e04ae92c6122c728c0627",
     "head_published_to_upstream": true
   },
   "workspace": {
     "clean": false,
     "dirty_entries": [
-      "M datapulse/console_markup.py",
-      " M docs/governance/datapulse-auto-continuation-policy.json",
-      " M docs/governance/datapulse-auto-continuation-policy.md",
-      " M docs/governance/datapulse-codex-blueprint-loop.draft.md",
-      " M docs/governance/datapulse-external-fact-intake.draft.md",
-      " M docs/gui_intelligence_console_plan.md",
-      " M scripts/datapulse_console_browser_smoke.py",
-      " M scripts/governance/ignite_datapulse_codex_loop.sh",
-      " M scripts/governance/run_codex_blueprint_loop.py",
-      " M tests/test_console_server.py",
-      " M tests/test_delivery.py",
-      "?? scripts/governance/land_datapulse_blueprint_intake.py"
+      "M docs/governance/datapulse-blueprint-plan.draft.json",
+      " M docs/intelligence_lifecycle_contract.md",
+      "?? docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
+      "?? docs/governance/datapulse-modelbus-bridge-contract.md"
     ],
     "reason": "git status reported local modifications."
   },
@@ -64,11 +56,11 @@
       "latest_observation": {
         "path": "artifacts/governance/quick_test_gate.draft.json",
         "schema_version": "quick_test_gate.v1",
-        "generated_at_utc": "2026-03-13T11:56:15Z",
+        "generated_at_utc": "2026-03-14T14:40:23Z",
         "ok": true,
         "read_only": true,
         "git": {
-          "head": "c1077d78d7fab8ae64c8e9482f056f4095bcc0c1",
+          "head": "a27bae806a41500ed69e04ae92c6122c728c0627",
           "branch": "main"
         },
         "steps": [
@@ -140,11 +132,7 @@
           {
             "name": "smoke_list",
             "command": [
-              "uv",
-              "run",
-              "python",
-              "-m",
-              "datapulse.tools.smoke",
+              "datapulse-smoke",
               "--list"
             ],
             "rc": 0,
@@ -161,11 +149,7 @@
           {
             "name": "cli_list",
             "command": [
-              "uv",
-              "run",
-              "python",
-              "-m",
-              "datapulse.cli",
+              "datapulse",
               "--list",
               "--limit",
               "5",
@@ -185,8 +169,8 @@
           }
         ]
       },
-      "latest_observation_status": "stale_head",
-      "latest_observation_current_head_match": false
+      "latest_observation_status": "passed",
+      "latest_observation_current_head_match": true
     },
     "local_smoke": {
       "gateable": false,
@@ -237,30 +221,22 @@
   "ci": {
     "workflow_name": "CI",
     "truth_source": ".github/workflows/ci.yml",
-    "docs_only_changes_skip_ci": false,
+    "docs_only_changes_skip_ci": true,
     "docs_paths_ignore_configured": true,
-    "proof_mode": "push_ci_workflow",
+    "proof_mode": "governance_evidence_dispatch",
     "head_published_to_upstream": true,
-    "required_workflow": "CI",
+    "required_workflow": "governance-evidence.yml",
     "required_run": null,
     "latest_head_ci_run": null,
     "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
-        "datapulse/console_markup.py",
-        "docs/governance/datapulse-auto-continuation-policy.json",
-        "docs/governance/datapulse-auto-continuation-policy.md",
-        "docs/governance/datapulse-codex-blueprint-loop.draft.md",
-        "docs/governance/datapulse-external-fact-intake.draft.md",
-        "docs/gui_intelligence_console_plan.md",
-        "scripts/datapulse_console_browser_smoke.py",
-        "scripts/governance/ignite_datapulse_codex_loop.sh",
-        "scripts/governance/run_codex_blueprint_loop.py",
-        "tests/test_console_server.py",
-        "tests/test_delivery.py",
-        "scripts/governance/land_datapulse_blueprint_intake.py"
+        "docs/governance/datapulse-blueprint-plan.draft.json",
+        "docs/intelligence_lifecycle_contract.md",
+        "docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
+        "docs/governance/datapulse-modelbus-bridge-contract.md"
       ],
-      "docs_only": false
+      "docs_only": true
     }
   },
   "release": {
@@ -285,7 +261,9 @@
     ],
     "local_verification": [],
     "runtime_governance": [],
-    "ci_policy": [],
+    "ci_policy": [
+      "docs_only_changes_skip_ci"
+    ],
     "release_governance": []
   },
   "promotion_levels": {
@@ -299,7 +277,7 @@
       "satisfied": false,
       "reasons": [
         "repo_landed_false",
-        "ci_run_not_proven"
+        "governance_evidence_not_proven"
       ]
     }
   },
@@ -307,11 +285,11 @@
     "latest_quick_test_gate": {
       "path": "artifacts/governance/quick_test_gate.draft.json",
       "schema_version": "quick_test_gate.v1",
-      "generated_at_utc": "2026-03-13T11:56:15Z",
+      "generated_at_utc": "2026-03-14T14:40:23Z",
       "ok": true,
       "read_only": true,
       "git": {
-        "head": "c1077d78d7fab8ae64c8e9482f056f4095bcc0c1",
+        "head": "a27bae806a41500ed69e04ae92c6122c728c0627",
         "branch": "main"
       },
       "steps": [
@@ -383,11 +361,7 @@
         {
           "name": "smoke_list",
           "command": [
-            "uv",
-            "run",
-            "python",
-            "-m",
-            "datapulse.tools.smoke",
+            "datapulse-smoke",
             "--list"
           ],
           "rc": 0,
@@ -404,11 +378,7 @@
         {
           "name": "cli_list",
           "command": [
-            "uv",
-            "run",
-            "python",
-            "-m",
-            "datapulse.cli",
+            "datapulse",
             "--list",
             "--limit",
             "5",

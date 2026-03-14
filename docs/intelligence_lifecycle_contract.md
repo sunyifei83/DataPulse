@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This document defines the canonical DataPulse intelligence lifecycle that now spans recurring mission execution, inbox triage, story assembly, and structured report production.
+This document defines the canonical DataPulse intelligence lifecycle that now spans recurring mission execution, inbox triage, story assembly, structured report production, and the governed AI-assistance overlay attached to those layers.
 
-It is the contract of record for `L6.1` and the report-production anchor of `L14.2`. It must align Reader, CLI, MCP, and browser console work to one progression and one source of truth.
+It is the contract of record for `L6.1`, the report-production anchor of `L14.2`, and the AI surface/switch anchor of `L16.2`. It must align Reader, CLI, MCP, and browser console work to one progression and one source of truth.
 
 ## Scope
 
@@ -17,6 +17,7 @@ This contract covers the shared lifecycle semantics for:
 - report production objects: `ReportBrief`, `ClaimCard`, `ReportSection`, `CitationBundle`, `Report`, `ExportProfile`
 - `AlertEvent` and named-route delivery health as the current delivery surface
 - `Report` and `ExportProfile` as the authoritative delivery basis for report-layer outputs
+- AI assistance surface contracts and `off` / `assist` / `review` switch semantics for watch, triage, report, and delivery work
 
 This contract currently records the repo-level semantics before full report model/runtime code lands.
 
@@ -31,6 +32,7 @@ This contract currently records the repo-level semantics before full report mode
 | Report production (planned layer) | `ReportBrief`, `ClaimCard`, `ReportSection`, `CitationBundle`, `Report`, `ExportProfile` | `docs/intelligence_lifecycle_contract.md`, `docs/gui_intelligence_console_plan.md`, `docs/governance/datapulse-research-os-report-production-blueprint.md` |
 | Delivery and ops | `AlertEvent`, named alert routes, route health, ops snapshot | `datapulse/core/alerts.py`, `datapulse/reader.py` |
 | Report-backed delivery | `Report`, `ExportProfile` | `docs/intelligence_delivery_contract.md`, `docs/governance/datapulse-report-delivery-subscription-blueprint.md`, `datapulse/core/report.py` |
+| AI assistance overlay (planned layer) | `mission_suggest`, `triage_assist`, `claim_draft`, `report_draft`, `delivery_summary`; `off`, `assist`, `review` | `docs/intelligence_lifecycle_contract.md`, `docs/governance/datapulse-modelbus-ai-governance-blueprint.md` |
 
 ## Canonical Lifecycle
 
@@ -58,6 +60,12 @@ The lifecycle is additive, not branchless:
 - one `Story` may be the evidence basis for multiple `ReportBrief` planning units
 - one `Report` can be exported through multiple `ExportProfile` shapes
 - delivery can consume either mission-level alert facts, profile scope pull outputs, or report outputs
+
+AI assistance is also additive:
+
+- AI surfaces attach to existing lifecycle objects; they do not create a second object chain.
+- one lifecycle object may have zero or many AI suggestion or draft payloads over time.
+- AI outputs remain subordinate to operator and deterministic authority even when review workflows are enabled.
 
 ## Object Contract
 
@@ -192,6 +200,42 @@ Contract rules:
 - story export remains a legacy handoff format; report outputs are authoritative for report-layer delivery via `ExportProfile`.
 - future delivery/subscription work must extend this layer without inventing a second lifecycle separate from mission, triage, and story.
 
+## Governed AI Assistance Overlay
+
+AI assistance is an explicit overlay on the canonical lifecycle objects above. It does not introduce a parallel lifecycle, and it does not grant AI direct final-state authority.
+
+### Surface contract
+
+| Surface | Lifecycle anchor | Allowed AI outputs | Never allowed |
+| --- | --- | --- | --- |
+| `mission_suggest` | `WatchMission` intent and mission-planning inputs | candidate mission definitions, query/site edits, scope suggestions, run-readiness notes | directly creating or mutating live mission state, enabling schedules, or emitting delivery events |
+| `triage_assist` | `DataPulseItem` review queue and reviewer context | explain payloads, candidate review rationales, duplicate hints, evidence-gap flags, operator-visible draft notes | writing final `review_state`, silently overwriting reviewer notes/actions, or bypassing item-level review authority |
+| `claim_draft` | `Story`, `ReportBrief`, and `ClaimCard` staging | candidate claims, evidence bindings, contradiction flags, confidence drafts | marking claims final, clearing unresolved evidence gaps without review, or bypassing report quality gates |
+| `report_draft` | `ReportSection`, `Report`, and `ExportProfile` staging | section drafts, outline proposals, synthesis rewrites, output-package suggestions | marking a report final/exportable, rewriting provenance lineage, or changing delivery policy as source truth |
+| `delivery_summary` | `AlertEvent`, named-route health, report-output audit, and delivery observations | route-health summaries, dispatch explanations, operator-visible delivery digests, candidate incident notes | dispatching routes, acknowledging/suppressing failure truth, or replacing attributable event/attempt records |
+
+Contract rules:
+
+- every AI payload must be attributable to one explicit surface id and one underlying lifecycle object or object set.
+- surfaces may emit `suggestion`, `draft`, `explain`, or candidate judgment payloads only.
+- surfaces must not write final review, export, or dispatch outcomes directly.
+- delivery-facing AI may summarize route and report-output facts, but it may not become a transport executor.
+
+### Switch semantics
+
+The same switch semantics apply across Reader, CLI, MCP, API, and browser projection:
+
+- `off`: no AI assistance call is made; the lifecycle stays fully deterministic/manual.
+- `assist`: AI may generate additive suggestions, drafts, and explanations for the declared surface, but final state transitions still require existing deterministic rules or operator action.
+- `review`: AI may prefill candidate initial assessments or draft packages for the declared surface, but nothing becomes final until an operator confirms it or a pre-existing deterministic rule independently permits the same outcome.
+
+Switch rules:
+
+- `review` is not autonomous mode; it is still operator-confirmed mode.
+- the switch meaning must not drift by tool, route, or UI.
+- switching a surface to `assist` or `review` does not widen the allowed output types for that surface.
+- manual override, degradation, and failure facts remain visible governance observations rather than hidden prompt behavior.
+
 ## Transition Contract
 
 | From | To | Transition source | Required shared truth |
@@ -218,6 +262,7 @@ Current lifecycle parity already exists and must remain true:
 | Story | `story_build`, `list_stories`, `show_story`, `story_update`, `story_graph`, `export_story` | `--story-*`, `story_*`, `/api/stories*` |
 | Delivery and ops | `list_alerts`, `list_alert_routes`, `alert_route_health`, `ops_snapshot` | `--alert-*`, `--ops-overview`, `alert_route_health`, `ops_overview`, `/api/alert-routes*` |
 | Report (planned) | planned `report` readers and stores (L14.5+) | planned `--report-*`, `report_*`, `/api/reports*` |
+| AI assistance (planned) | planned Reader-backed requests keyed by `mission_suggest`, `triage_assist`, `claim_draft`, `report_draft`, `delivery_summary` plus shared switch modes | future CLI, MCP, API, and console projections must reuse the same surface ids and `off` / `assist` / `review` meanings |
 
 Contract rules:
 
@@ -238,10 +283,16 @@ The following invariants should hold for all follow-up work:
 7. Delivery quality facts must stay attached to route or alert observations instead of mutating mission/story/report truth.
 8. New roadmap or API work should map back to one lifecycle step in this contract.
 9. Report delivery planning must use explicit `subject_kind` + `output_kind` mappings and route-backed observations, not UI-only state.
+10. AI assistance is a governed overlay keyed by explicit surface ids; it is not a second lifecycle.
+11. `off`, `assist`, and `review` must mean the same thing across Reader, CLI, MCP, API, and browser projection.
+12. AI may emit only suggestion/draft/explain or candidate judgment payloads; it must not write final review, export, or route-dispatch state directly.
+13. `review` mode still requires operator confirmation for state transitions, report finalization, and delivery actions that matter to repo truth.
+14. AI runtime and governance observations may inform operators, but they do not replace lifecycle source truth.
 
 ## Implications For Follow-up Slices
 
 - `L6.2` should project this lifecycle contract back into roadmap docs so existing stage naming describes the same chain.
 - `L14.2` extends this contract with report-layer nouns, stage mapping, and invariants.
+- `L16.2` defines the AI surface ids and `off` / `assist` / `review` semantics in this shared lifecycle contract before bridge or schema slices land.
 - `L14.3` onward should realize these report-layer objects in core and persistence before deeper UI-specific workflows.
 - `L14.6` and later should only project persisted report objects; no browser-only report state.

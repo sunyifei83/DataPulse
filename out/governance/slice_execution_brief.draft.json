@@ -1,38 +1,48 @@
 {
   "schema_version": "datapulse_slice_execution_brief.v1",
   "project": "DataPulse",
-  "status": "ready",
-  "reason": "awaiting_manual_slice_execution",
+  "status": "blocked",
+  "reason": "next_slice_blocked",
   "current_level": "manual_only",
   "next_slice": {
-    "id": "L16.1",
-    "title": "Land the ModelBus-backed AI assistance governance blueprint and ignition map",
+    "id": "L16.4",
+    "title": "Add structured output contracts and fail-closed validation for AI assistance payloads",
     "category": "manual",
     "phase_id": "L16",
-    "execution_profile": "draft_only",
+    "execution_profile": "workflow_change",
     "promotion_scope": "none",
     "closes_gates": []
   },
   "slice_execution_brief": {
-    "slice_id": "L16.1",
+    "slice_id": "L16.4",
     "phase_id": "L16",
-    "title": "Land the ModelBus-backed AI assistance governance blueprint and ignition map",
+    "title": "Add structured output contracts and fail-closed validation for AI assistance payloads",
     "category": "manual",
-    "execution_profile": "draft_only",
-    "adapter_type": "draft_only",
+    "execution_profile": "workflow_change",
+    "adapter_type": "workflow_change",
     "execute_mode": "manual_edit",
-    "summary": "Land the ModelBus-backed AI assistance governance blueprint and ignition map",
+    "summary": "Add structured output contracts and fail-closed validation for AI assistance payloads",
     "candidate_commands": [
-      "sed -n '1,220p' docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
-      "sed -n '1,220p' docs/governance/datapulse-blueprint-plan.draft.json"
+      "python3 -m json.tool docs/contracts/datapulse_ai_watch_suggestion_contract.json",
+      "python3 -m json.tool docs/contracts/datapulse_ai_triage_explain_contract.json",
+      "python3 -m json.tool docs/contracts/datapulse_ai_claim_draft_contract.json",
+      "python3 -m json.tool docs/contracts/datapulse_ai_delivery_summary_contract.json"
     ],
-    "verification_commands": [],
+    "verification_commands": [
+      "python3 -m json.tool docs/contracts/datapulse_ai_watch_suggestion_contract.json",
+      "python3 -m json.tool docs/contracts/datapulse_ai_triage_explain_contract.json",
+      "python3 -m json.tool docs/contracts/datapulse_ai_claim_draft_contract.json",
+      "python3 -m json.tool docs/contracts/datapulse_ai_delivery_summary_contract.json"
+    ],
     "target_artifacts": [
-      "docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
-      "docs/governance/datapulse-blueprint-plan.draft.json"
+      "docs/contracts/datapulse_ai_watch_suggestion_contract.json",
+      "docs/contracts/datapulse_ai_triage_explain_contract.json",
+      "docs/contracts/datapulse_ai_claim_draft_contract.json",
+      "docs/contracts/datapulse_ai_delivery_summary_contract.json"
     ],
-    "exit_condition": "",
+    "exit_condition": "AI assistance payloads are governed by explicit schemas and fail closed when structured contracts are missing or invalid.",
     "notes": [
+      "exit_condition: AI assistance payloads are governed by explicit schemas and fail closed when structured contracts are missing or invalid.",
       "promotion_scope: none",
       "source_note: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
       "fact_source: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
@@ -43,10 +53,12 @@
       "plan_slice": true
     }
   },
-  "blocking_facts": [],
+  "blocking_facts": [
+    "workspace_dirty"
+  ],
   "remaining_promotion_gates": [
     "workspace_dirty",
     "repo_landed_false",
-    "ci_run_not_proven"
+    "governance_evidence_not_proven"
   ]
 }
