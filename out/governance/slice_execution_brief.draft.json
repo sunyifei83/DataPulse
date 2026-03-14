@@ -5,8 +5,8 @@
   "reason": "next_slice_blocked",
   "current_level": "manual_only",
   "next_slice": {
-    "id": "L16.4",
-    "title": "Add structured output contracts and fail-closed validation for AI assistance payloads",
+    "id": "L16.5",
+    "title": "Introduce candidate subscriptions and capability admission facts for AI assistance surfaces",
     "category": "manual",
     "phase_id": "L16",
     "execution_profile": "workflow_change",
@@ -14,35 +14,30 @@
     "closes_gates": []
   },
   "slice_execution_brief": {
-    "slice_id": "L16.4",
+    "slice_id": "L16.5",
     "phase_id": "L16",
-    "title": "Add structured output contracts and fail-closed validation for AI assistance payloads",
+    "title": "Introduce candidate subscriptions and capability admission facts for AI assistance surfaces",
     "category": "manual",
     "execution_profile": "workflow_change",
     "adapter_type": "workflow_change",
     "execute_mode": "manual_edit",
-    "summary": "Add structured output contracts and fail-closed validation for AI assistance payloads",
+    "summary": "Introduce candidate subscriptions and capability admission facts for AI assistance surfaces",
     "candidate_commands": [
-      "python3 -m json.tool docs/contracts/datapulse_ai_watch_suggestion_contract.json",
-      "python3 -m json.tool docs/contracts/datapulse_ai_triage_explain_contract.json",
-      "python3 -m json.tool docs/contracts/datapulse_ai_claim_draft_contract.json",
-      "python3 -m json.tool docs/contracts/datapulse_ai_delivery_summary_contract.json"
+      "python3 -m json.tool docs/governance/datapulse-ai-surface-subscriptions.example.json",
+      "python3 -m json.tool out/governance/datapulse-ai-surface-admission.example.json"
     ],
     "verification_commands": [
-      "python3 -m json.tool docs/contracts/datapulse_ai_watch_suggestion_contract.json",
-      "python3 -m json.tool docs/contracts/datapulse_ai_triage_explain_contract.json",
-      "python3 -m json.tool docs/contracts/datapulse_ai_claim_draft_contract.json",
-      "python3 -m json.tool docs/contracts/datapulse_ai_delivery_summary_contract.json"
+      "python3 -m json.tool docs/governance/datapulse-ai-surface-subscriptions.example.json",
+      "python3 -m json.tool out/governance/datapulse-ai-surface-admission.example.json"
     ],
     "target_artifacts": [
-      "docs/contracts/datapulse_ai_watch_suggestion_contract.json",
-      "docs/contracts/datapulse_ai_triage_explain_contract.json",
-      "docs/contracts/datapulse_ai_claim_draft_contract.json",
-      "docs/contracts/datapulse_ai_delivery_summary_contract.json"
+      "docs/governance/datapulse-ai-surface-admission-contract.md",
+      "docs/governance/datapulse-ai-surface-subscriptions.example.json",
+      "out/governance/datapulse-ai-surface-admission.example.json"
     ],
-    "exit_condition": "AI assistance payloads are governed by explicit schemas and fail closed when structured contracts are missing or invalid.",
+    "exit_condition": "AI candidate subscriptions, admitted surface capabilities, and rejectable gaps are machine-readable and decoupled from local provider assumptions.",
     "notes": [
-      "exit_condition: AI assistance payloads are governed by explicit schemas and fail closed when structured contracts are missing or invalid.",
+      "exit_condition: AI candidate subscriptions, admitted surface capabilities, and rejectable gaps are machine-readable and decoupled from local provider assumptions.",
       "promotion_scope: none",
       "source_note: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
       "fact_source: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",

@@ -1,7 +1,7 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-14T14:45:56Z",
+  "generated_at_utc": "2026-03-14T15:14:56Z",
   "status_kind": "draft_export",
   "wired": false,
   "headline_summary": {
@@ -17,26 +17,28 @@
       "observed": true,
       "current_head_match": true,
       "ok": true,
-      "generated_at_utc": "2026-03-14T14:40:23Z",
-      "head": "a27bae806a41500ed69e04ae92c6122c728c0627",
+      "generated_at_utc": "2026-03-14T15:02:26Z",
+      "head": "bb67524f24fdc0abbbf9f7a4dc787ae5e6f4167a",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
   },
   "git": {
-    "head": "a27bae806a41500ed69e04ae92c6122c728c0627",
+    "head": "bb67524f24fdc0abbbf9f7a4dc787ae5e6f4167a",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "a27bae806a41500ed69e04ae92c6122c728c0627",
+    "upstream_head": "bb67524f24fdc0abbbf9f7a4dc787ae5e6f4167a",
     "head_published_to_upstream": true
   },
   "workspace": {
     "clean": false,
     "dirty_entries": [
       "M docs/governance/datapulse-blueprint-plan.draft.json",
-      " M docs/intelligence_lifecycle_contract.md",
-      "?? docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
-      "?? docs/governance/datapulse-modelbus-bridge-contract.md"
+      " M docs/governance/datapulse-modelbus-bridge-contract.md",
+      "?? docs/contracts/datapulse_ai_claim_draft_contract.json",
+      "?? docs/contracts/datapulse_ai_delivery_summary_contract.json",
+      "?? docs/contracts/datapulse_ai_triage_explain_contract.json",
+      "?? docs/contracts/datapulse_ai_watch_suggestion_contract.json"
     ],
     "reason": "git status reported local modifications."
   },
@@ -56,11 +58,11 @@
       "latest_observation": {
         "path": "artifacts/governance/quick_test_gate.draft.json",
         "schema_version": "quick_test_gate.v1",
-        "generated_at_utc": "2026-03-14T14:40:23Z",
+        "generated_at_utc": "2026-03-14T15:02:26Z",
         "ok": true,
         "read_only": true,
         "git": {
-          "head": "a27bae806a41500ed69e04ae92c6122c728c0627",
+          "head": "bb67524f24fdc0abbbf9f7a4dc787ae5e6f4167a",
           "branch": "main"
         },
         "steps": [
@@ -232,9 +234,11 @@
     "change_scope": {
       "paths": [
         "docs/governance/datapulse-blueprint-plan.draft.json",
-        "docs/intelligence_lifecycle_contract.md",
-        "docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
-        "docs/governance/datapulse-modelbus-bridge-contract.md"
+        "docs/governance/datapulse-modelbus-bridge-contract.md",
+        "docs/contracts/datapulse_ai_claim_draft_contract.json",
+        "docs/contracts/datapulse_ai_delivery_summary_contract.json",
+        "docs/contracts/datapulse_ai_triage_explain_contract.json",
+        "docs/contracts/datapulse_ai_watch_suggestion_contract.json"
       ],
       "docs_only": true
     }
@@ -285,11 +289,11 @@
     "latest_quick_test_gate": {
       "path": "artifacts/governance/quick_test_gate.draft.json",
       "schema_version": "quick_test_gate.v1",
-      "generated_at_utc": "2026-03-14T14:40:23Z",
+      "generated_at_utc": "2026-03-14T15:02:26Z",
       "ok": true,
       "read_only": true,
       "git": {
-        "head": "a27bae806a41500ed69e04ae92c6122c728c0627",
+        "head": "bb67524f24fdc0abbbf9f7a4dc787ae5e6f4167a",
         "branch": "main"
       },
       "steps": [

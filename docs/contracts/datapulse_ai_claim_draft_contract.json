@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datapulse/contracts/datapulse_ai_claim_draft_contract.v1.schema.json",
+  "title": "DataPulse AI Claim Draft Payload Contract",
+  "description": "Structured output contract for L16.4 claim draft payloads. Missing contract lookup or validation failure must fail closed instead of introducing freeform claim text into governed report flows.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_id",
+    "surface",
+    "output_kind",
+    "subject",
+    "payload"
+  ],
+  "x-datapulse-governance": {
+    "phase": "L16.4",
+    "validation_mode": "fail_closed",
+    "on_missing_contract": "reject_and_fallback",
+    "on_validation_error": "reject_and_fallback"
+  },
+  "properties": {
+    "contract_id": {
+      "const": "datapulse_ai_claim_draft.v1"
+    },
+    "surface": {
+      "const": "claim_draft"
+    },
+    "output_kind": {
+      "const": "draft"
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "Story",
+            "ReportBrief",
+            "ClaimCard"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "claim_cards"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_cards": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "statement",
+              "confidence",
+              "status",
+              "source_item_ids",
+              "governance"
+            ],
+            "properties": {
+              "statement": {
+                "type": "string",
+                "minLength": 1
+              },
+              "brief_id": {
+                "type": "string"
+              },
+              "rationale": {
+                "type": "string"
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0
+              },
+              "status": {
+                "enum": [
+                  "draft",
+                  "review"
+                ]
+              },
+              "citation_bundle_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "source_item_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 1,
+                "uniqueItems": true
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              },
+              "governance": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "evidence_status",
+                  "contradictions"
+                ],
+                "properties": {
+                  "evidence_status": {
+                    "enum": [
+                      "bound",
+                      "partial",
+                      "missing"
+                    ]
+                  },
+                  "contradictions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "topic",
+                        "severity",
+                        "note"
+                      ],
+                      "properties": {
+                        "topic": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "severity": {
+                          "enum": [
+                            "warning",
+                            "error"
+                          ]
+                        },
+                        "note": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  },
+                  "unresolved_flags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -2063,7 +2063,7 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "python3 -m json.tool docs/contracts/datapulse_ai_watch_suggestion_contract.json",
             "python3 -m json.tool docs/contracts/datapulse_ai_triage_explain_contract.json",
@@ -2230,11 +2230,16 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L16.4",
-    "title": "Add structured output contracts and fail-closed validation for AI assistance payloads",
+    "id": "L16.5",
+    "title": "Introduce candidate subscriptions and capability admission facts for AI assistance surfaces",
     "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-14T15:09:04Z",
+      "slice_id": "L16.4",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-14T14:42:55Z",
       "slice_id": "L16.3",
@@ -2451,5 +2456,5 @@
       "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-14T14:42:55Z"
+  "last_updated_utc": "2026-03-14T15:09:04Z"
 }

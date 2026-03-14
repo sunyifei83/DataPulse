@@ -117,6 +117,16 @@ Mapping rules:
 4. Surface ids and alias keys must not drift by Reader, CLI, MCP, API, or browser surface.
 5. DataPulse business modules must not inspect alias internals to infer provider family or model brand.
 
+`L16.4` binds the currently admitted structured payload contracts as follows:
+
+| Surface | Structured payload contract | Artifact |
+| --- | --- | --- |
+| `mission_suggest` | `datapulse_ai_watch_suggestion.v1` | `docs/contracts/datapulse_ai_watch_suggestion_contract.json` |
+| `triage_assist` | `datapulse_ai_triage_explain.v1` | `docs/contracts/datapulse_ai_triage_explain_contract.json` |
+| `claim_draft` | `datapulse_ai_claim_draft.v1` | `docs/contracts/datapulse_ai_claim_draft_contract.json` |
+| `delivery_summary` | `datapulse_ai_delivery_summary.v1` | `docs/contracts/datapulse_ai_delivery_summary_contract.json` |
+| `report_draft` | no admitted contract in `L16.4` | fail closed to manual or deterministic behavior until a concrete contract lands |
+
 ## Secret And Ownership Boundary
 
 ### DataPulse-owned inputs
@@ -172,7 +182,7 @@ Boundary rule:
   "governance": {
     "allow_final_state_write": false,
     "allow_degraded_result": true,
-    "schema_contract": "pending_l16_4"
+    "schema_contract": "datapulse_ai_triage_explain.v1"
   },
   "runtime": {
     "request_id": "req-123",
@@ -205,7 +215,7 @@ Required request fields:
   "alias": "dp.triage.assist",
   "result": {
     "payload": {},
-    "raw_contract": "pending_l16_4"
+    "raw_contract": "datapulse_ai_triage_explain.v1"
   },
   "runtime_facts": {
     "status": "applied",
@@ -244,7 +254,8 @@ Result rules:
 - the bridge result must stay provider-agnostic at the DataPulse boundary
 - runtime facts must expose whether degradation or fallback happened, but need not expose provider secrets or provider-specific topology
 - invalid JSON, missing required fields, or unknown surface/alias binding is bridge failure, not silent success
-- a later `L16.4` contract may replace `raw_contract: pending_l16_4` with concrete schema ids, but it must keep the same bridge envelope
+- `result.raw_contract` must name one concrete admitted payload contract, and `result.payload` must validate against that contract before downstream review surfaces may consume it
+- if the surface has no admitted payload contract, contract lookup fails, or validation fails, DataPulse must fail closed to manual or deterministic behavior instead of accepting freeform text
 
 ## Fallback And Degradation Ownership
 
@@ -276,7 +287,7 @@ The following invariants should hold for all follow-up work:
 
 ## Implications For Follow-up Slices
 
-- `L16.4` should bind concrete structured output schema ids onto the `result.payload` contract without changing bridge ownership.
+- `L16.4` now binds concrete payload contracts for `mission_suggest`, `triage_assist`, `claim_draft`, and `delivery_summary`; `report_draft` remains fail-closed until its own contract lands.
 - `L16.5` should admit or reject alias-backed capabilities per surface, rather than embedding admission in provider-specific code paths.
 - `L16.6` should place Reader-backed AI services behind this bridge instead of talking to providers directly.
 - `L16.7` should project the same surface ids, alias-derived runtime facts, and fallback observations across CLI, MCP, API, and console.

@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datapulse/contracts/datapulse_ai_delivery_summary_contract.v1.schema.json",
+  "title": "DataPulse AI Delivery Summary Payload Contract",
+  "description": "Structured output contract for L16.4 delivery summary payloads. Missing contract lookup or validation failure must fail closed to attributable delivery facts instead of freeform operator-facing prose.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_id",
+    "surface",
+    "output_kind",
+    "subject",
+    "payload"
+  ],
+  "x-datapulse-governance": {
+    "phase": "L16.4",
+    "validation_mode": "fail_closed",
+    "on_missing_contract": "reject_and_fallback",
+    "on_validation_error": "reject_and_fallback"
+  },
+  "properties": {
+    "contract_id": {
+      "const": "datapulse_ai_delivery_summary.v1"
+    },
+    "surface": {
+      "const": "delivery_summary"
+    },
+    "output_kind": {
+      "const": "summary"
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "AlertEvent",
+            "AlertRouteSet",
+            "Report"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "overall_status",
+        "routes"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "overall_status": {
+          "enum": [
+            "healthy",
+            "degraded",
+            "missing",
+            "idle"
+          ]
+        },
+        "dispatch_explanation": {
+          "type": "string"
+        },
+        "report_output_kind": {
+          "enum": [
+            "brief",
+            "full",
+            "sources",
+            "watch_pack"
+          ]
+        },
+        "routes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "status",
+              "event_count",
+              "delivered_count",
+              "failure_count"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "channel": {
+                "type": "string",
+                "minLength": 1
+              },
+              "status": {
+                "enum": [
+                  "healthy",
+                  "degraded",
+                  "missing",
+                  "idle"
+                ]
+              },
+              "event_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "delivered_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "failure_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "success_rate": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0.0,
+                "maximum": 1.0
+              },
+              "last_event_at": {
+                "type": "string"
+              },
+              "last_delivered_at": {
+                "type": "string"
+              },
+              "last_failed_at": {
+                "type": "string"
+              },
+              "last_error": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "incident_notes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "title",
+              "detail",
+              "severity"
+            ],
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "detail": {
+                "type": "string",
+                "minLength": 1
+              },
+              "severity": {
+                "enum": [
+                  "info",
+                  "warning",
+                  "error"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

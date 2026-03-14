@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datapulse/contracts/datapulse_ai_triage_explain_contract.v1.schema.json",
+  "title": "DataPulse AI Triage Explain Payload Contract",
+  "description": "Structured output contract for L16.4 triage explain payloads. Missing contract lookup or validation failure must fail closed to manual review or deterministic triage behavior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_id",
+    "surface",
+    "output_kind",
+    "subject",
+    "payload"
+  ],
+  "x-datapulse-governance": {
+    "phase": "L16.4",
+    "validation_mode": "fail_closed",
+    "on_missing_contract": "reject_and_fallback",
+    "on_validation_error": "reject_and_fallback"
+  },
+  "properties": {
+    "contract_id": {
+      "const": "datapulse_ai_triage_explain.v1"
+    },
+    "surface": {
+      "const": "triage_assist"
+    },
+    "output_kind": {
+      "const": "explain"
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id"
+      ],
+      "properties": {
+        "kind": {
+          "const": "DataPulseItem"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "item",
+        "candidate_count",
+        "candidates",
+        "suggested_primary_id"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "item": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "title"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1
+            },
+            "url": {
+              "type": "string",
+              "minLength": 1
+            },
+            "review_state": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "candidate_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "returned_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "suggested_primary_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_gap_flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "similarity",
+              "signals",
+              "suggested_primary_id",
+              "rationale"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "url": {
+                "type": "string",
+                "minLength": 1
+              },
+              "review_state": {
+                "type": "string",
+                "minLength": 1
+              },
+              "similarity": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0
+              },
+              "title_overlap": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0
+              },
+              "content_overlap": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0
+              },
+              "same_domain": {
+                "type": "boolean"
+              },
+              "fingerprint_match": {
+                "type": "boolean"
+              },
+              "signals": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 1,
+                "uniqueItems": true
+              },
+              "suggested_primary_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "rationale": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
