@@ -2,7 +2,7 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-14T14:42:55Z",
+  "generated_at_utc": "2026-03-14T15:21:32Z",
   "status": "in_progress",
   "activation": {
     "wired": false,
@@ -2098,7 +2098,7 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "python3 -m json.tool docs/governance/datapulse-ai-surface-subscriptions.example.json",
             "python3 -m json.tool out/governance/datapulse-ai-surface-admission.example.json"
@@ -2230,11 +2230,16 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L16.5",
-    "title": "Introduce candidate subscriptions and capability admission facts for AI assistance surfaces",
+    "id": "L16.6",
+    "title": "Add Reader-backed AI assistance services for suggestions drafts and governed prechecks",
     "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-14T15:21:32Z",
+      "slice_id": "L16.5",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-14T15:09:04Z",
       "slice_id": "L16.4",

@@ -1,7 +1,7 @@
 {
   "schema_version": "project_specific_loop_state.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-14T15:14:57Z",
+  "generated_at_utc": "2026-03-14T15:25:06Z",
   "state_kind": "draft_export",
   "source_plan": "docs/governance/datapulse-blueprint-plan.json",
   "wired": true,
@@ -89,11 +89,12 @@
     "L16.1",
     "L16.2",
     "L16.3",
-    "L16.4"
+    "L16.4",
+    "L16.5"
   ],
   "next_slice": {
-    "id": "L16.5",
-    "title": "Introduce candidate subscriptions and capability admission facts for AI assistance surfaces",
+    "id": "L16.6",
+    "title": "Add Reader-backed AI assistance services for suggestions drafts and governed prechecks",
     "category": "manual",
     "phase_id": "L16",
     "execution_profile": "workflow_change",
@@ -103,7 +104,7 @@
   "remaining_promotion_gates": [
     "workspace_dirty",
     "repo_landed_false",
-    "governance_evidence_not_proven"
+    "ci_run_not_proven"
   ],
   "blocking_facts": [
     "workspace_dirty"
@@ -118,7 +119,7 @@
   "control_contract": {
     "progress_truth": {
       "source": "blueprint_plan_next_open_slice",
-      "current_next_slice_id": "L16.5"
+      "current_next_slice_id": "L16.6"
     },
     "stop_truth": {
       "source": "blocking_facts_and_flow_control",
@@ -175,8 +176,8 @@
       "observed": true,
       "current_head_match": true,
       "ok": true,
-      "generated_at_utc": "2026-03-14T15:02:26Z",
-      "head": "bb67524f24fdc0abbbf9f7a4dc787ae5e6f4167a",
+      "generated_at_utc": "2026-03-14T15:18:36Z",
+      "head": "c6bbbdf2b313f8fe9d8ba67c5a0e86a7a3dd610f",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
@@ -184,8 +185,8 @@
   "headline_summary": {
     "current_level": "manual_only",
     "workspace_clean": false,
-    "next_slice_id": "L16.5",
-    "next_slice_title": "Introduce candidate subscriptions and capability admission facts for AI assistance surfaces",
+    "next_slice_id": "L16.6",
+    "next_slice_title": "Add Reader-backed AI assistance services for suggestions drafts and governed prechecks",
     "status_if_run_now": "blocked",
     "reason_if_run_now": "next_slice_blocked",
     "quick_test_gate": {
@@ -193,8 +194,8 @@
       "observed": true,
       "current_head_match": true,
       "ok": true,
-      "generated_at_utc": "2026-03-14T15:02:26Z",
-      "head": "bb67524f24fdc0abbbf9f7a4dc787ae5e6f4167a",
+      "generated_at_utc": "2026-03-14T15:18:36Z",
+      "head": "c6bbbdf2b313f8fe9d8ba67c5a0e86a7a3dd610f",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }

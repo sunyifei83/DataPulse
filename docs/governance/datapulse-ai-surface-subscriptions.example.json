@@ -1,0 +1,299 @@
+{
+  "schema_version": "datapulse_ai_surface_subscriptions.v1",
+  "generated_at_utc": "2026-03-14T15:21:32Z",
+  "governance_phase": "L16.5",
+  "surfaces": [
+    {
+      "surface": "mission_suggest",
+      "lifecycle_anchor": "WatchMission",
+      "mode_candidates": [
+        "assist",
+        "review"
+      ],
+      "required_output_kind": "suggestion",
+      "required_schema_contract": "datapulse_ai_watch_suggestion.v1",
+      "required_capabilities": [
+        "structured_output",
+        "schema_bound",
+        "operator_visible_fallback",
+        "manual_review_safe",
+        "bounded_scope_suggestions"
+      ],
+      "must_expose_runtime_facts": [
+        "alias",
+        "fallback_used",
+        "degraded",
+        "schema_valid",
+        "manual_override_required"
+      ],
+      "candidate_subscriptions": [
+        {
+          "subscription_id": "mission_suggest.core",
+          "alias": "dp.mission.suggest",
+          "selection_rank": 1,
+          "capabilities": [
+            "structured_output",
+            "schema_bound",
+            "operator_visible_fallback",
+            "manual_review_safe",
+            "bounded_scope_suggestions"
+          ],
+          "output_contracts": [
+            "datapulse_ai_watch_suggestion.v1"
+          ],
+          "degraded_result_allowed": true,
+          "provider_assumptions": []
+        },
+        {
+          "subscription_id": "mission_suggest.standby",
+          "alias": "dp.mission.suggest.standby",
+          "selection_rank": 2,
+          "capabilities": [
+            "structured_output",
+            "schema_bound",
+            "operator_visible_fallback",
+            "manual_review_safe",
+            "bounded_scope_suggestions"
+          ],
+          "output_contracts": [
+            "datapulse_ai_watch_suggestion.v1"
+          ],
+          "degraded_result_allowed": true,
+          "provider_assumptions": []
+        }
+      ],
+      "known_gaps": []
+    },
+    {
+      "surface": "triage_assist",
+      "lifecycle_anchor": "DataPulseItem",
+      "mode_candidates": [
+        "assist",
+        "review"
+      ],
+      "required_output_kind": "explain",
+      "required_schema_contract": "datapulse_ai_triage_explain.v1",
+      "required_capabilities": [
+        "structured_output",
+        "schema_bound",
+        "operator_visible_fallback",
+        "manual_review_safe",
+        "evidence_gap_flags"
+      ],
+      "must_expose_runtime_facts": [
+        "alias",
+        "fallback_used",
+        "degraded",
+        "schema_valid",
+        "manual_override_required"
+      ],
+      "candidate_subscriptions": [
+        {
+          "subscription_id": "triage_assist.core",
+          "alias": "dp.triage.assist",
+          "selection_rank": 1,
+          "capabilities": [
+            "structured_output",
+            "schema_bound",
+            "operator_visible_fallback",
+            "manual_review_safe",
+            "evidence_gap_flags"
+          ],
+          "output_contracts": [
+            "datapulse_ai_triage_explain.v1"
+          ],
+          "degraded_result_allowed": true,
+          "provider_assumptions": []
+        },
+        {
+          "subscription_id": "triage_assist.standby",
+          "alias": "dp.triage.assist.standby",
+          "selection_rank": 2,
+          "capabilities": [
+            "structured_output",
+            "schema_bound",
+            "operator_visible_fallback",
+            "manual_review_safe",
+            "evidence_gap_flags"
+          ],
+          "output_contracts": [
+            "datapulse_ai_triage_explain.v1"
+          ],
+          "degraded_result_allowed": true,
+          "provider_assumptions": []
+        }
+      ],
+      "known_gaps": []
+    },
+    {
+      "surface": "claim_draft",
+      "lifecycle_anchor": "Story",
+      "mode_candidates": [
+        "assist",
+        "review"
+      ],
+      "required_output_kind": "draft",
+      "required_schema_contract": "datapulse_ai_claim_draft.v1",
+      "required_capabilities": [
+        "structured_output",
+        "schema_bound",
+        "operator_visible_fallback",
+        "manual_review_safe",
+        "evidence_binding"
+      ],
+      "must_expose_runtime_facts": [
+        "alias",
+        "fallback_used",
+        "degraded",
+        "schema_valid",
+        "manual_override_required"
+      ],
+      "candidate_subscriptions": [
+        {
+          "subscription_id": "claim_draft.core",
+          "alias": "dp.claim.draft",
+          "selection_rank": 1,
+          "capabilities": [
+            "structured_output",
+            "schema_bound",
+            "operator_visible_fallback",
+            "manual_review_safe",
+            "evidence_binding"
+          ],
+          "output_contracts": [
+            "datapulse_ai_claim_draft.v1"
+          ],
+          "degraded_result_allowed": false,
+          "provider_assumptions": []
+        },
+        {
+          "subscription_id": "claim_draft.standby",
+          "alias": "dp.claim.draft.standby",
+          "selection_rank": 2,
+          "capabilities": [
+            "structured_output",
+            "schema_bound",
+            "operator_visible_fallback",
+            "manual_review_safe",
+            "evidence_binding"
+          ],
+          "output_contracts": [
+            "datapulse_ai_claim_draft.v1"
+          ],
+          "degraded_result_allowed": false,
+          "provider_assumptions": []
+        }
+      ],
+      "known_gaps": []
+    },
+    {
+      "surface": "report_draft",
+      "lifecycle_anchor": "Report",
+      "mode_candidates": [
+        "assist",
+        "review"
+      ],
+      "required_output_kind": "draft",
+      "required_schema_contract": "",
+      "required_capabilities": [
+        "structured_output",
+        "schema_bound",
+        "operator_visible_fallback",
+        "manual_review_safe",
+        "provenance_preserving_rewrite"
+      ],
+      "must_expose_runtime_facts": [
+        "alias",
+        "fallback_used",
+        "degraded",
+        "schema_valid",
+        "manual_override_required"
+      ],
+      "candidate_subscriptions": [
+        {
+          "subscription_id": "report_draft.experimental",
+          "alias": "dp.report.draft",
+          "selection_rank": 1,
+          "capabilities": [
+            "structured_output",
+            "schema_bound",
+            "operator_visible_fallback",
+            "manual_review_safe",
+            "provenance_preserving_rewrite"
+          ],
+          "output_contracts": [],
+          "degraded_result_allowed": false,
+          "provider_assumptions": []
+        }
+      ],
+      "known_gaps": [
+        {
+          "gap_id": "missing_structured_contract",
+          "blocking": true,
+          "reason": "report_draft has no admitted structured payload contract after L16.4 and must fail closed."
+        }
+      ]
+    },
+    {
+      "surface": "delivery_summary",
+      "lifecycle_anchor": "AlertEvent",
+      "mode_candidates": [
+        "assist",
+        "review"
+      ],
+      "required_output_kind": "summary",
+      "required_schema_contract": "datapulse_ai_delivery_summary.v1",
+      "required_capabilities": [
+        "structured_output",
+        "schema_bound",
+        "operator_visible_fallback",
+        "manual_review_safe",
+        "route_health_summary"
+      ],
+      "must_expose_runtime_facts": [
+        "alias",
+        "fallback_used",
+        "degraded",
+        "schema_valid",
+        "manual_override_required"
+      ],
+      "candidate_subscriptions": [
+        {
+          "subscription_id": "delivery_summary.core",
+          "alias": "dp.delivery.summary",
+          "selection_rank": 1,
+          "capabilities": [
+            "structured_output",
+            "schema_bound",
+            "operator_visible_fallback",
+            "manual_review_safe",
+            "route_health_summary"
+          ],
+          "output_contracts": [
+            "datapulse_ai_delivery_summary.v1"
+          ],
+          "degraded_result_allowed": true,
+          "provider_assumptions": []
+        },
+        {
+          "subscription_id": "delivery_summary.standby",
+          "alias": "dp.delivery.summary.standby",
+          "selection_rank": 2,
+          "capabilities": [
+            "structured_output",
+            "schema_bound",
+            "operator_visible_fallback",
+            "manual_review_safe",
+            "route_health_summary"
+          ],
+          "output_contracts": [
+            "datapulse_ai_delivery_summary.v1"
+          ],
+          "degraded_result_allowed": true,
+          "provider_assumptions": []
+        }
+      ],
+      "known_gaps": []
+    }
+  ]
+}

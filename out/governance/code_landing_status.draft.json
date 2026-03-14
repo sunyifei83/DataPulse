@@ -1,7 +1,7 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-14T15:14:56Z",
+  "generated_at_utc": "2026-03-14T15:25:06Z",
   "status_kind": "draft_export",
   "wired": false,
   "headline_summary": {
@@ -10,35 +10,34 @@
     "head_published_to_upstream": true,
     "repo_landed": false,
     "ci_proven": false,
-    "ci_proof_mode": "governance_evidence_dispatch",
-    "required_workflow": "governance-evidence.yml",
+    "ci_proof_mode": "push_ci_workflow",
+    "required_workflow": "CI",
     "quick_test_gate": {
       "status": "passed",
       "observed": true,
       "current_head_match": true,
       "ok": true,
-      "generated_at_utc": "2026-03-14T15:02:26Z",
-      "head": "bb67524f24fdc0abbbf9f7a4dc787ae5e6f4167a",
+      "generated_at_utc": "2026-03-14T15:18:36Z",
+      "head": "c6bbbdf2b313f8fe9d8ba67c5a0e86a7a3dd610f",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
   },
   "git": {
-    "head": "bb67524f24fdc0abbbf9f7a4dc787ae5e6f4167a",
+    "head": "c6bbbdf2b313f8fe9d8ba67c5a0e86a7a3dd610f",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "bb67524f24fdc0abbbf9f7a4dc787ae5e6f4167a",
+    "upstream_head": "c6bbbdf2b313f8fe9d8ba67c5a0e86a7a3dd610f",
     "head_published_to_upstream": true
   },
   "workspace": {
     "clean": false,
     "dirty_entries": [
       "M docs/governance/datapulse-blueprint-plan.draft.json",
-      " M docs/governance/datapulse-modelbus-bridge-contract.md",
-      "?? docs/contracts/datapulse_ai_claim_draft_contract.json",
-      "?? docs/contracts/datapulse_ai_delivery_summary_contract.json",
-      "?? docs/contracts/datapulse_ai_triage_explain_contract.json",
-      "?? docs/contracts/datapulse_ai_watch_suggestion_contract.json"
+      "?? docs/governance/datapulse-ai-surface-admission-contract.md",
+      "?? docs/governance/datapulse-ai-surface-subscriptions.example.json",
+      "?? out/governance/datapulse-ai-surface-admission.example.json",
+      "?? scripts/governance/export_datapulse_ai_surface_admission_example.py"
     ],
     "reason": "git status reported local modifications."
   },
@@ -58,11 +57,11 @@
       "latest_observation": {
         "path": "artifacts/governance/quick_test_gate.draft.json",
         "schema_version": "quick_test_gate.v1",
-        "generated_at_utc": "2026-03-14T15:02:26Z",
+        "generated_at_utc": "2026-03-14T15:18:36Z",
         "ok": true,
         "read_only": true,
         "git": {
-          "head": "bb67524f24fdc0abbbf9f7a4dc787ae5e6f4167a",
+          "head": "c6bbbdf2b313f8fe9d8ba67c5a0e86a7a3dd610f",
           "branch": "main"
         },
         "steps": [
@@ -223,24 +222,23 @@
   "ci": {
     "workflow_name": "CI",
     "truth_source": ".github/workflows/ci.yml",
-    "docs_only_changes_skip_ci": true,
+    "docs_only_changes_skip_ci": false,
     "docs_paths_ignore_configured": true,
-    "proof_mode": "governance_evidence_dispatch",
+    "proof_mode": "push_ci_workflow",
     "head_published_to_upstream": true,
-    "required_workflow": "governance-evidence.yml",
+    "required_workflow": "CI",
     "required_run": null,
     "latest_head_ci_run": null,
     "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
         "docs/governance/datapulse-blueprint-plan.draft.json",
-        "docs/governance/datapulse-modelbus-bridge-contract.md",
-        "docs/contracts/datapulse_ai_claim_draft_contract.json",
-        "docs/contracts/datapulse_ai_delivery_summary_contract.json",
-        "docs/contracts/datapulse_ai_triage_explain_contract.json",
-        "docs/contracts/datapulse_ai_watch_suggestion_contract.json"
+        "docs/governance/datapulse-ai-surface-admission-contract.md",
+        "docs/governance/datapulse-ai-surface-subscriptions.example.json",
+        "out/governance/datapulse-ai-surface-admission.example.json",
+        "scripts/governance/export_datapulse_ai_surface_admission_example.py"
       ],
-      "docs_only": true
+      "docs_only": false
     }
   },
   "release": {
@@ -265,9 +263,7 @@
     ],
     "local_verification": [],
     "runtime_governance": [],
-    "ci_policy": [
-      "docs_only_changes_skip_ci"
-    ],
+    "ci_policy": [],
     "release_governance": []
   },
   "promotion_levels": {
@@ -281,7 +277,7 @@
       "satisfied": false,
       "reasons": [
         "repo_landed_false",
-        "governance_evidence_not_proven"
+        "ci_run_not_proven"
       ]
     }
   },
@@ -289,11 +285,11 @@
     "latest_quick_test_gate": {
       "path": "artifacts/governance/quick_test_gate.draft.json",
       "schema_version": "quick_test_gate.v1",
-      "generated_at_utc": "2026-03-14T15:02:26Z",
+      "generated_at_utc": "2026-03-14T15:18:36Z",
       "ok": true,
       "read_only": true,
       "git": {
-        "head": "bb67524f24fdc0abbbf9f7a4dc787ae5e6f4167a",
+        "head": "c6bbbdf2b313f8fe9d8ba67c5a0e86a7a3dd610f",
         "branch": "main"
       },
       "steps": [
