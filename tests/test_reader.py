@@ -289,3 +289,86 @@ class TestBuildAtomFeed:
         entry = root.find("atom:entry", ns)
         entry_id = entry.find("atom:id", ns).text
         assert entry_id.startswith("urn:datapulse:")
+
+
+def test_ai_surface_precheck_rejects_report_draft_without_contract(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    inbox_path = str(tmp_path / "inbox.json")
+    catalog_path = str(tmp_path / "catalog.json")
+    Path(catalog_path).write_text(json.dumps({
+        "version": 1, "sources": [], "subscriptions": {}, "packs": [],
+    }), encoding="utf-8")
+    monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+
+    reader = DataPulseReader(inbox_path=inbox_path)
+    payload = reader.ai_surface_precheck("report_draft", mode="assist")
+
+    assert payload["ok"] is False
+    assert payload["mode_status"] == "rejected"
+    assert payload["admission_status"] == "rejected"
+    assert payload["contract_id"] == ""
+    assert payload["contract_available"] is False
+    assert payload["manual_fallback"] == "manual_or_deterministic_behavior"
+
+
+def test_ai_mission_suggest_returns_governed_payload_without_mutation(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    inbox_path = str(tmp_path / "inbox.json")
+    catalog_path = str(tmp_path / "catalog.json")
+    watch_path = str(tmp_path / "watchlist.json")
+    Path(catalog_path).write_text(json.dumps({
+        "version": 1, "sources": [], "subscriptions": {}, "packs": [],
+    }), encoding="utf-8")
+    monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(watch_path))
+
+    reader = DataPulseReader(inbox_path=inbox_path)
+    mission = reader.create_watch(
+        name="AI Assist Watch",
+        query="edge inference launch",
+        mission_intent={
+            "scope_entities": ["Acme"],
+            "scope_topics": ["launch"],
+            "scope_regions": ["us"],
+        },
+        sites=["example.com"],
+        schedule="@hourly",
+    )
+    before = reader.show_watch(mission["id"])
+
+    payload = reader.ai_mission_suggest(mission["id"], mode="assist")
+    after = reader.show_watch(mission["id"])
+
+    assert payload is not None
+    assert payload["precheck"]["mode_status"] == "admitted"
+    assert payload["output"]["contract_id"] == "datapulse_ai_watch_suggestion.v1"
+    assert payload["output"]["payload"]["proposed_query"] == "edge inference launch"
+    assert payload["output"]["payload"]["run_readiness"]["status"] in {"ready", "needs_review", "blocked"}
+    assert payload["runtime_facts"]["source"] == "deterministic"
+    assert payload["runtime_facts"]["schema_valid"] is True
+    assert before["updated_at"] == after["updated_at"]
+
+
+def test_ai_mission_suggest_off_mode_short_circuits(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    inbox_path = str(tmp_path / "inbox.json")
+    catalog_path = str(tmp_path / "catalog.json")
+    watch_path = str(tmp_path / "watchlist.json")
+    Path(catalog_path).write_text(json.dumps({
+        "version": 1, "sources": [], "subscriptions": {}, "packs": [],
+    }), encoding="utf-8")
+    monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(watch_path))
+
+    reader = DataPulseReader(inbox_path=inbox_path)
+    mission = reader.create_watch(name="Manual Watch", query="manual trigger only")
+
+    payload = reader.ai_mission_suggest(mission["id"], mode="off")
+
+    assert payload is not None
+    assert payload["precheck"]["mode"] == "off"
+    assert payload["output"] is None
+    assert payload["runtime_facts"]["status"] == "manual_only"

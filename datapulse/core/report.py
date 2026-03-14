@@ -72,6 +72,178 @@ def _coerce_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def build_claim_draft_from_story(
+    story_payload: dict[str, Any],
+    *,
+    brief_id: str = "",
+    mode: str = "assist",
+) -> dict[str, Any]:
+    story_id = _normalize_optional_string(story_payload.get("id"))
+    story_title = _normalize_optional_string(story_payload.get("title"))
+    story_summary = _normalize_optional_string(story_payload.get("summary"))
+    semantic_review = _as_dict(story_payload.get("semantic_review"))
+    claim_candidates_raw = semantic_review.get("claim_candidates")
+    claim_candidates: list[str] = []
+    if isinstance(claim_candidates_raw, list):
+        claim_candidates = _normalize_string_list(claim_candidates_raw)
+    if not claim_candidates:
+        for field in (story_summary, story_title):
+            text = _normalize_optional_string(field)
+            if text and text not in claim_candidates:
+                claim_candidates.append(text)
+            if claim_candidates:
+                break
+
+    evidence_rows: list[dict[str, Any]] = []
+    for field in ("primary_evidence", "secondary_evidence"):
+        raw_rows = story_payload.get(field)
+        if not isinstance(raw_rows, list):
+            continue
+        for raw_row in raw_rows:
+            if isinstance(raw_row, dict):
+                evidence_rows.append(raw_row)
+
+    source_item_ids = _normalize_id_sequence([row.get("item_id") for row in evidence_rows])
+    contradictions_raw = story_payload.get("contradictions")
+    contradictions: list[dict[str, Any]] = []
+    if isinstance(contradictions_raw, list):
+        for raw_row in contradictions_raw:
+            if not isinstance(raw_row, dict):
+                continue
+            topic = _normalize_optional_string(raw_row.get("topic")) or "story_conflict"
+            severity = "error" if int(raw_row.get("negative", 0) or 0) > 0 else "warning"
+            note = _normalize_optional_string(raw_row.get("note")) or (
+                f"Conflicting evidence remains on `{topic}` across the story evidence set."
+            )
+            contradictions.append({
+                "topic": topic,
+                "severity": severity,
+                "note": note,
+            })
+
+    governance = _as_dict(story_payload.get("governance"))
+    factuality = _as_dict(governance.get("factuality"))
+    delivery_risk = _as_dict(governance.get("delivery_risk"))
+    unresolved_flags: list[str] = []
+    if source_item_ids:
+        evidence_status = "bound"
+    else:
+        evidence_status = "missing"
+        unresolved_flags.append("missing_evidence_binding")
+    if contradictions:
+        unresolved_flags.append("story_contradictions_present")
+    if str(factuality.get("status", "") or "").strip().lower() not in {"", "ready"}:
+        unresolved_flags.append("factuality_review_required")
+    if str(delivery_risk.get("status", "") or "").strip().lower() == "review_required":
+        unresolved_flags.append("delivery_review_required")
+
+    confidence = round(max(0.0, min(1.0, _coerce_float(story_payload.get("confidence"), default=0.0))), 4)
+    if confidence <= 0.0:
+        confidence = 0.55 if source_item_ids else 0.35
+    if contradictions:
+        confidence = min(confidence, 0.6)
+
+    normalized_mode = str(mode or "assist").strip().lower() or "assist"
+    default_status = "review" if normalized_mode == "review" or unresolved_flags else "draft"
+    summary = (
+        f"Claim draft prepared from story `{story_title or story_id or 'untitled-story'}` "
+        f"using {len(source_item_ids)} bound evidence items."
+    )
+
+    claim_cards: list[dict[str, Any]] = []
+    for statement in claim_candidates[:3]:
+        text = _normalize_optional_string(statement)
+        if not text:
+            continue
+        claim_cards.append(
+            {
+                "statement": text,
+                "brief_id": brief_id,
+                "rationale": (
+                    f"Draft synthesized from story `{story_title or story_id or 'untitled-story'}` "
+                    f"with {len(evidence_rows)} evidence rows."
+                ),
+                "confidence": confidence,
+                "status": default_status,
+                "source_item_ids": list(source_item_ids),
+                "tags": _normalize_string_list(story_payload.get("entities"))[:5],
+                "governance": {
+                    "evidence_status": evidence_status,
+                    "contradictions": contradictions,
+                    "unresolved_flags": _normalize_string_list(unresolved_flags),
+                },
+            }
+        )
+
+    return {
+        "summary": summary,
+        "claim_cards": claim_cards,
+    }
+
+
+def validate_claim_draft_payload(payload: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(payload, dict):
+        return ["payload must be an object"]
+    if not str(payload.get("summary", "") or "").strip():
+        errors.append("summary is required")
+    claim_cards = payload.get("claim_cards")
+    if not isinstance(claim_cards, list) or not claim_cards:
+        errors.append("claim_cards must contain at least one entry")
+        claim_cards = []
+    for index, claim in enumerate(claim_cards, start=1):
+        if not isinstance(claim, dict):
+            errors.append(f"claim_cards[{index}] must be an object")
+            continue
+        if not str(claim.get("statement", "") or "").strip():
+            errors.append(f"claim_cards[{index}].statement is required")
+        try:
+            confidence = float(claim.get("confidence", 0.0) or 0.0)
+        except Exception:
+            errors.append(f"claim_cards[{index}].confidence must be numeric")
+            confidence = 0.0
+        if confidence < 0.0 or confidence > 1.0:
+            errors.append(f"claim_cards[{index}].confidence must be between 0 and 1")
+        if str(claim.get("status", "") or "").strip().lower() not in {"draft", "review"}:
+            errors.append(f"claim_cards[{index}].status must be draft/review")
+        source_item_ids = claim.get("source_item_ids")
+        if not isinstance(source_item_ids, list) or not any(str(item or "").strip() for item in source_item_ids):
+            errors.append(f"claim_cards[{index}].source_item_ids must contain at least one entry")
+        governance = claim.get("governance")
+        if not isinstance(governance, dict):
+            errors.append(f"claim_cards[{index}].governance is required")
+            continue
+        if str(governance.get("evidence_status", "") or "").strip().lower() not in {"bound", "partial", "missing"}:
+            errors.append(f"claim_cards[{index}].governance.evidence_status is invalid")
+        contradictions = governance.get("contradictions")
+        if not isinstance(contradictions, list):
+            errors.append(f"claim_cards[{index}].governance.contradictions must be a list")
+            continue
+        for contradiction_index, contradiction in enumerate(contradictions, start=1):
+            if not isinstance(contradiction, dict):
+                errors.append(
+                    f"claim_cards[{index}].governance.contradictions[{contradiction_index}] must be an object"
+                )
+                continue
+            if not str(contradiction.get("topic", "") or "").strip():
+                errors.append(
+                    f"claim_cards[{index}].governance.contradictions[{contradiction_index}].topic is required"
+                )
+            if str(contradiction.get("severity", "") or "").strip().lower() not in {"warning", "error"}:
+                errors.append(
+                    f"claim_cards[{index}].governance.contradictions[{contradiction_index}].severity is invalid"
+                )
+            if not str(contradiction.get("note", "") or "").strip():
+                errors.append(
+                    f"claim_cards[{index}].governance.contradictions[{contradiction_index}].note is required"
+                )
+    return errors
+
+
 _DELIVERY_SUBJECT_KINDS = ("profile", "watch_mission", "story", "report")
 _DELIVERY_OUTPUT_KINDS = (
     "alert_event",

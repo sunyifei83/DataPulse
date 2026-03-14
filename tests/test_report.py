@@ -308,3 +308,83 @@ def test_report_assembly_blocks_export_on_contradiction_signals(tmp_path):
     assert assembled["quality"]["status"] == "blocked"
     assert assembled["quality"]["checks"]["contradictions"]["status"] == "blocked"
     assert assembled["quality"]["checks"]["contradictions"]["entries"]
+
+
+def test_ai_claim_draft_returns_bound_draft_without_persisting(tmp_path):
+    reader = _reader(tmp_path)
+    story = reader.create_story(
+        title="Edge Inference Demand",
+        summary="Demand for edge inference kits accelerated after launch week.",
+        status="active",
+        item_count=2,
+        confidence=0.82,
+        entities=["Acme", "Edge"],
+        primary_evidence=[
+            {
+                "item_id": "item-1",
+                "title": "Launch demand update",
+                "url": "https://example.com/item-1",
+                "source_name": "example",
+                "source_type": "generic",
+                "review_state": "verified",
+            }
+        ],
+        secondary_evidence=[
+            {
+                "item_id": "item-2",
+                "title": "Partner recap",
+                "url": "https://example.com/item-2",
+                "source_name": "example",
+                "source_type": "generic",
+                "review_state": "triaged",
+            }
+        ],
+        semantic_review={
+            "claim_candidates": [
+                "Demand for edge inference kits accelerated after launch week.",
+                "Channel partners reported higher attach rates for edge deployments.",
+            ]
+        },
+        contradictions=[],
+    )
+
+    payload = reader.ai_claim_draft(story["id"], mode="assist")
+
+    assert payload is not None
+    assert payload["output"]["contract_id"] == "datapulse_ai_claim_draft.v1"
+    draft = payload["output"]["payload"]
+    assert draft["claim_cards"]
+    assert draft["claim_cards"][0]["source_item_ids"] == ["item-1", "item-2"]
+    assert draft["claim_cards"][0]["governance"]["evidence_status"] == "bound"
+    assert payload["runtime_facts"]["source"] == "deterministic"
+    assert reader.list_claim_cards(limit=10) == []
+
+
+def test_ai_claim_draft_fails_closed_on_invalid_payload(monkeypatch, tmp_path):
+    reader = _reader(tmp_path)
+    story = reader.create_story(
+        title="Broken Story",
+        summary="This story exists only to exercise invalid AI draft output.",
+        status="active",
+        item_count=1,
+        confidence=0.4,
+        primary_evidence=[
+            {
+                "item_id": "item-1",
+                "title": "Only evidence row",
+                "url": "https://example.com/item-1",
+                "source_name": "example",
+                "source_type": "generic",
+                "review_state": "triaged",
+            }
+        ],
+    )
+    monkeypatch.setattr("datapulse.reader.build_claim_draft_from_story", lambda *args, **kwargs: {"summary": "bad", "claim_cards": []})
+
+    payload = reader.ai_claim_draft(story["id"], mode="assist")
+
+    assert payload is not None
+    assert payload["output"] is None
+    assert payload["runtime_facts"]["status"] == "invalid"
+    assert payload["runtime_facts"]["schema_valid"] is False
+    assert payload["runtime_facts"]["fallback_used"] is True

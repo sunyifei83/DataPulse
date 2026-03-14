@@ -9,6 +9,7 @@ import logging
 import os
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
 
@@ -33,7 +34,11 @@ from datapulse.core.entity_store import EntityStore
 from datapulse.core.jina_client import JinaSearchOptions
 from datapulse.core.models import DataPulseItem, SourceType
 from datapulse.core.ops import WatchStatusStore
-from datapulse.core.report import ReportStore
+from datapulse.core.report import (
+    ReportStore,
+    build_claim_draft_from_story,
+    validate_claim_draft_payload,
+)
 from datapulse.core.router import ParsePipeline
 from datapulse.core.scheduler import WatchDaemon, WatchScheduler, describe_schedule, is_watch_due, next_run_at
 from datapulse.core.scoring import rank_items
@@ -51,12 +56,22 @@ from datapulse.core.story import (
 )
 from datapulse.core.triage import (
     TriageQueue,
+    build_triage_assist_payload,
     is_digest_candidate,
     normalize_review_state,
     serialize_item_with_governance,
+    validate_triage_assist_payload,
 )
 from datapulse.core.utils import content_fingerprint, inbox_path_from_env, normalize_language
-from datapulse.core.watchlist import MissionIntent, MissionRun, TrendFeedInput, WatchlistStore, WatchMission
+from datapulse.core.watchlist import (
+    MissionIntent,
+    MissionRun,
+    TrendFeedInput,
+    WatchlistStore,
+    WatchMission,
+    build_watch_run_readiness,
+    validate_watch_suggestion_payload,
+)
 
 logger = logging.getLogger("datapulse.reader")
 
@@ -140,6 +155,35 @@ _REPORT_DELIVERY_OUTPUT_KINDS = (
     "report_sources",
     "report_watch_pack",
 )
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_AI_SURFACE_ADMISSION_PATH_ENV = "DATAPULSE_AI_SURFACE_ADMISSION_PATH"
+_DEFAULT_AI_SURFACE_ADMISSION_PATH = _REPO_ROOT / "out/governance/datapulse-ai-surface-admission.example.json"
+_AI_SURFACE_CONTRACTS: dict[str, dict[str, str]] = {
+    "mission_suggest": {
+        "contract_id": "datapulse_ai_watch_suggestion.v1",
+        "contract_path": str(_REPO_ROOT / "docs/contracts/datapulse_ai_watch_suggestion_contract.json"),
+        "subject_kind": "WatchMission",
+        "output_kind": "suggestion",
+    },
+    "triage_assist": {
+        "contract_id": "datapulse_ai_triage_explain.v1",
+        "contract_path": str(_REPO_ROOT / "docs/contracts/datapulse_ai_triage_explain_contract.json"),
+        "subject_kind": "DataPulseItem",
+        "output_kind": "explain",
+    },
+    "claim_draft": {
+        "contract_id": "datapulse_ai_claim_draft.v1",
+        "contract_path": str(_REPO_ROOT / "docs/contracts/datapulse_ai_claim_draft_contract.json"),
+        "subject_kind": "Story",
+        "output_kind": "draft",
+    },
+    "delivery_summary": {
+        "contract_id": "datapulse_ai_delivery_summary.v1",
+        "contract_path": str(_REPO_ROOT / "docs/contracts/datapulse_ai_delivery_summary_contract.json"),
+        "subject_kind": "AlertEvent",
+        "output_kind": "summary",
+    },
+}
 
 
 def _package_signature(payload: dict[str, Any]) -> str:
@@ -171,6 +215,221 @@ class DataPulseReader:
         if self._entity_store is None:
             self._entity_store = EntityStore()
         return self._entity_store
+
+    @staticmethod
+    def _normalize_ai_mode(mode: str | None) -> str:
+        normalized = str(mode or "assist").strip().lower() or "assist"
+        if normalized not in {"off", "assist", "review"}:
+            raise ValueError(f"Unsupported AI mode: {normalized}")
+        return normalized
+
+    @staticmethod
+    def _ai_request_id(surface: str, subject_id: str, mode: str) -> str:
+        seed = f"{surface}:{subject_id}:{mode}:{_utcnow_z()}"
+        return hashlib.sha1(seed.encode("utf-8")).hexdigest()[:12]
+
+    def _load_ai_surface_admissions(self) -> dict[str, Any]:
+        path = Path(os.getenv(_AI_SURFACE_ADMISSION_PATH_ENV, "") or _DEFAULT_AI_SURFACE_ADMISSION_PATH)
+        if not path.exists():
+            return {
+                "schema_version": "datapulse_ai_surface_admission.v1",
+                "surface_admissions": [],
+                "errors": [f"admission file missing: {path}"],
+            }
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            return {
+                "schema_version": "datapulse_ai_surface_admission.v1",
+                "surface_admissions": [],
+                "errors": [f"admission file invalid: {exc}"],
+            }
+
+    def _lookup_ai_surface_admission(self, surface: str) -> dict[str, Any]:
+        payload = self._load_ai_surface_admissions()
+        rows = payload.get("surface_admissions")
+        if not isinstance(rows, list):
+            rows = []
+        for row in rows:
+            if isinstance(row, dict) and str(row.get("surface", "")).strip() == surface:
+                return row
+        return {}
+
+    @staticmethod
+    def _surface_contract_meta(surface: str) -> dict[str, str]:
+        return dict(_AI_SURFACE_CONTRACTS.get(surface, {}))
+
+    @staticmethod
+    def _contract_available(contract_path: str) -> bool:
+        if not contract_path:
+            return False
+        path = Path(contract_path)
+        if not path.exists():
+            return False
+        try:
+            json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return False
+        return True
+
+    def ai_surface_precheck(self, surface: str, *, mode: str = "assist") -> dict[str, Any]:
+        if surface not in _AI_SURFACE_CONTRACTS and surface != "report_draft":
+            raise ValueError(f"Unsupported AI surface: {surface}")
+        normalized_mode = self._normalize_ai_mode(mode)
+        admission: dict[str, Any] = self._lookup_ai_surface_admission(surface)
+        mode_admission_raw = admission.get("mode_admission")
+        mode_admission = cast(dict[str, Any], mode_admission_raw) if isinstance(mode_admission_raw, dict) else {}
+        mode_status = "manual_only" if normalized_mode == "off" else str(
+            mode_admission.get(normalized_mode, "rejected") or "rejected"
+        ).strip().lower()
+        contract_meta = self._surface_contract_meta(surface)
+        contract_id = str(admission.get("required_schema_contract", "") or contract_meta.get("contract_id", "")).strip()
+        contract_path = str(contract_meta.get("contract_path", "")).strip()
+        contract_available = self._contract_available(contract_path) if contract_id else False
+        candidate_results_raw = admission.get("candidate_results")
+        candidate_results = cast(list[dict[str, Any]], candidate_results_raw) if isinstance(candidate_results_raw, list) else []
+        admitted_subscription_id = str(admission.get("admitted_subscription_id", "") or "").strip()
+        degraded_result_allowed = False
+        for row in candidate_results:
+            if not isinstance(row, dict):
+                continue
+            if str(row.get("subscription_id", "")).strip() == admitted_subscription_id:
+                degraded_result_allowed = bool(row.get("degraded_result_allowed", False))
+                break
+        admission_errors = self._load_ai_surface_admissions().get("errors", [])
+        rejectable_gaps = admission.get("rejectable_gaps") if isinstance(admission.get("rejectable_gaps"), list) else []
+        ok = normalized_mode == "off" or (mode_status == "admitted" and bool(contract_id) and contract_available)
+        return {
+            "ok": ok,
+            "surface": surface,
+            "mode": normalized_mode,
+            "mode_status": mode_status,
+            "admission_status": str(admission.get("admission_status", "rejected") or "rejected").strip().lower(),
+            "lifecycle_anchor": str(admission.get("lifecycle_anchor", "") or "").strip(),
+            "alias": str(admission.get("admitted_alias", "") or "").strip(),
+            "admitted_subscription_id": admitted_subscription_id,
+            "contract_id": contract_id,
+            "contract_path": contract_path,
+            "contract_available": contract_available,
+            "manual_fallback": str(admission.get("manual_fallback", "manual_or_deterministic_behavior") or "manual_or_deterministic_behavior").strip(),
+            "rejectable_gaps": rejectable_gaps,
+            "must_expose_runtime_facts": admission.get("must_expose_runtime_facts", []),
+            "degraded_result_allowed": degraded_result_allowed,
+            "bridge_configured": False,
+            "admission_errors": admission_errors if isinstance(admission_errors, list) else [],
+            "admission_path": str(Path(os.getenv(_AI_SURFACE_ADMISSION_PATH_ENV, "") or _DEFAULT_AI_SURFACE_ADMISSION_PATH)),
+        }
+
+    @staticmethod
+    def _build_ai_runtime_facts(
+        *,
+        precheck: dict[str, Any],
+        request_id: str,
+        status: str,
+        source: str,
+        fallback_used: bool,
+        degraded: bool,
+        schema_valid: bool,
+        errors: list[str] | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "status": status,
+            "source": source,
+            "fallback_used": fallback_used,
+            "degraded": degraded,
+            "schema_valid": schema_valid,
+            "manual_override_required": precheck.get("mode") in {"assist", "review"},
+            "served_by_alias": str(precheck.get("alias", "") or "").strip(),
+            "request_id": request_id,
+            "contract_id": str(precheck.get("contract_id", "") or "").strip(),
+            "errors": list(errors or []),
+        }
+
+    def _build_ai_bridge_request(
+        self,
+        *,
+        precheck: dict[str, Any],
+        subject: dict[str, Any],
+        input_payload: dict[str, Any],
+        request_id: str,
+    ) -> dict[str, Any] | None:
+        if precheck.get("mode") == "off":
+            return None
+        return {
+            "schema_version": "datapulse_modelbus_bridge_request.v1",
+            "surface": precheck.get("surface"),
+            "mode": precheck.get("mode"),
+            "alias": precheck.get("alias"),
+            "subject": subject,
+            "input": input_payload,
+            "governance": {
+                "allow_final_state_write": False,
+                "allow_degraded_result": bool(precheck.get("degraded_result_allowed", False)),
+                "schema_contract": precheck.get("contract_id"),
+            },
+            "runtime": {
+                "request_id": request_id,
+                "timeout_seconds": 20,
+            },
+        }
+
+    @staticmethod
+    def _validate_ai_payload(surface: str, payload: dict[str, Any]) -> list[str]:
+        if surface == "mission_suggest":
+            return validate_watch_suggestion_payload(payload)
+        if surface == "triage_assist":
+            return validate_triage_assist_payload(payload)
+        if surface == "claim_draft":
+            return validate_claim_draft_payload(payload)
+        return [f"no validator for surface: {surface}"]
+
+    def _route_status_by_name(self) -> dict[str, str]:
+        lookup: dict[str, str] = {}
+        for route in self.alert_route_health(limit=100):
+            if not isinstance(route, dict):
+                continue
+            name = str(route.get("name", "") or "").strip().lower()
+            status = str(route.get("status", "") or "").strip().lower()
+            if name:
+                lookup[name] = status
+        return lookup
+
+    def _build_watch_suggestion_payload(self, mission: WatchMission, *, mode: str) -> dict[str, Any]:
+        run_readiness = build_watch_run_readiness(
+            mission,
+            route_status_by_name=self._route_status_by_name(),
+        )
+        recent_results = self._watch_result_items(mission, min_confidence=0.0, apply_query_filter=False)
+        payload: dict[str, Any] = {
+            "summary": (
+                f"Mission `{mission.name}` has {len(recent_results)} persisted result items and "
+                f"run readiness `{run_readiness['status']}`."
+            ),
+            "proposed_query": mission.query,
+            "run_readiness": run_readiness,
+        }
+        if mission.sites:
+            payload["candidate_sites"] = list(mission.sites[:5])
+        if mission.mission_intent.scope_entities:
+            payload["scope_entities"] = list(mission.mission_intent.scope_entities[:5])
+        if mission.mission_intent.scope_topics:
+            payload["scope_topics"] = list(mission.mission_intent.scope_topics[:5])
+        if mission.mission_intent.scope_regions:
+            payload["scope_regions"] = list(mission.mission_intent.scope_regions[:5])
+
+        operator_notes: list[str] = []
+        retry_advice = self._watch_retry_advice(mission, self._latest_failed_run(mission)) or {}
+        if str(retry_advice.get("summary", "") or "").strip():
+            operator_notes.append(str(retry_advice["summary"]).strip())
+        for note in retry_advice.get("notes", []):
+            text = str(note or "").strip()
+            if text and text not in operator_notes:
+                operator_notes.append(text)
+        if mode == "review":
+            operator_notes.append("Review mode requires operator confirmation before applying any suggested mission edits.")
+        if operator_notes:
+            payload["operator_notes"] = operator_notes
+        return payload
 
     def _serialize_watch_mission(self, mission: WatchMission) -> dict[str, Any]:
         payload = mission.to_dict()
@@ -3168,6 +3427,222 @@ class DataPulseReader:
 
     def triage_explain(self, item_id: str, *, limit: int = 5) -> dict[str, Any] | None:
         return self.triage.explain_duplicate(item_id, limit=limit)
+
+    def _build_ai_service_response(
+        self,
+        *,
+        precheck: dict[str, Any],
+        subject: dict[str, Any],
+        input_payload: dict[str, Any],
+        output_payload: dict[str, Any] | None,
+        validation_errors: list[str] | None = None,
+    ) -> dict[str, Any]:
+        request_id = self._ai_request_id(
+            str(precheck.get("surface", "") or ""),
+            str(subject.get("id", "") or ""),
+            str(precheck.get("mode", "") or ""),
+        )
+        bridge_request = self._build_ai_bridge_request(
+            precheck=precheck,
+            subject=subject,
+            input_payload=input_payload,
+            request_id=request_id,
+        )
+        errors = list(validation_errors or [])
+        if precheck.get("mode") == "off":
+            runtime_facts = self._build_ai_runtime_facts(
+                precheck=precheck,
+                request_id=request_id,
+                status="manual_only",
+                source="manual",
+                fallback_used=False,
+                degraded=False,
+                schema_valid=False,
+            )
+            return {
+                "surface": precheck.get("surface"),
+                "mode": precheck.get("mode"),
+                "subject": subject,
+                "precheck": precheck,
+                "bridge_request": None,
+                "output": None,
+                "runtime_facts": runtime_facts,
+            }
+        if not precheck.get("ok"):
+            runtime_facts = self._build_ai_runtime_facts(
+                precheck=precheck,
+                request_id=request_id,
+                status="rejected",
+                source="manual",
+                fallback_used=True,
+                degraded=False,
+                schema_valid=False,
+                errors=errors or ["surface_precheck_failed"],
+            )
+            return {
+                "surface": precheck.get("surface"),
+                "mode": precheck.get("mode"),
+                "subject": subject,
+                "precheck": precheck,
+                "bridge_request": bridge_request,
+                "output": None,
+                "runtime_facts": runtime_facts,
+            }
+        if output_payload is None or errors:
+            runtime_facts = self._build_ai_runtime_facts(
+                precheck=precheck,
+                request_id=request_id,
+                status="invalid",
+                source="manual",
+                fallback_used=True,
+                degraded=False,
+                schema_valid=False,
+                errors=errors or ["no_payload_generated"],
+            )
+            return {
+                "surface": precheck.get("surface"),
+                "mode": precheck.get("mode"),
+                "subject": subject,
+                "precheck": precheck,
+                "bridge_request": bridge_request,
+                "output": None,
+                "runtime_facts": runtime_facts,
+            }
+        runtime_facts = self._build_ai_runtime_facts(
+            precheck=precheck,
+            request_id=request_id,
+            status="fallback_used",
+            source="deterministic",
+            fallback_used=True,
+            degraded=True,
+            schema_valid=True,
+        )
+        output = {
+            "contract_id": precheck.get("contract_id"),
+            "surface": precheck.get("surface"),
+            "output_kind": _AI_SURFACE_CONTRACTS.get(str(precheck.get("surface", "")), {}).get("output_kind", ""),
+            "subject": subject,
+            "payload": output_payload,
+        }
+        return {
+            "surface": precheck.get("surface"),
+            "mode": precheck.get("mode"),
+            "subject": subject,
+            "precheck": precheck,
+            "bridge_request": bridge_request,
+            "output": output,
+            "runtime_facts": runtime_facts,
+        }
+
+    def ai_mission_suggest(self, identifier: str, *, mode: str = "assist") -> dict[str, Any] | None:
+        mission = self.watchlist.get(identifier)
+        if mission is None:
+            return None
+        precheck = self.ai_surface_precheck("mission_suggest", mode=mode)
+        subject = {"kind": "WatchMission", "id": mission.id}
+        input_payload = {
+            "operator_prompt": "Generate bounded watch mission suggestions.",
+            "payload_ref": f"watch:{mission.id}",
+            "mission_snapshot": {
+                "name": mission.name,
+                "query": mission.query,
+                "schedule": mission.schedule,
+                "platforms": list(mission.platforms),
+                "sites": list(mission.sites),
+            },
+        }
+        if precheck.get("mode") == "off" or not precheck.get("ok"):
+            return self._build_ai_service_response(
+                precheck=precheck,
+                subject=subject,
+                input_payload=input_payload,
+                output_payload=None,
+                validation_errors=list(precheck.get("admission_errors", [])),
+            )
+        payload = self._build_watch_suggestion_payload(mission, mode=str(precheck.get("mode", "assist")))
+        errors = self._validate_ai_payload("mission_suggest", payload)
+        return self._build_ai_service_response(
+            precheck=precheck,
+            subject=subject,
+            input_payload=input_payload,
+            output_payload=payload,
+            validation_errors=errors,
+        )
+
+    def ai_triage_assist(
+        self,
+        item_id: str,
+        *,
+        mode: str = "assist",
+        limit: int = 5,
+    ) -> dict[str, Any] | None:
+        explain_payload = self.triage.explain_duplicate(item_id, limit=limit)
+        if explain_payload is None:
+            return None
+        item = next((candidate for candidate in self.inbox.items if candidate.id == item_id), None)
+        if item is None:
+            return None
+        precheck = self.ai_surface_precheck("triage_assist", mode=mode)
+        subject = {"kind": "DataPulseItem", "id": item.id}
+        input_payload = {
+            "operator_prompt": "Explain duplicate pressure and evidence gaps without changing final triage state.",
+            "payload_ref": f"triage:{item.id}",
+            "candidate_count": int(explain_payload.get("candidate_count", 0) or 0),
+            "returned_count": int(explain_payload.get("returned_count", 0) or 0),
+        }
+        if precheck.get("mode") == "off" or not precheck.get("ok"):
+            return self._build_ai_service_response(
+                precheck=precheck,
+                subject=subject,
+                input_payload=input_payload,
+                output_payload=None,
+                validation_errors=list(precheck.get("admission_errors", [])),
+            )
+        payload = build_triage_assist_payload(item, explain_payload)
+        errors = self._validate_ai_payload("triage_assist", payload)
+        return self._build_ai_service_response(
+            precheck=precheck,
+            subject=subject,
+            input_payload=input_payload,
+            output_payload=payload,
+            validation_errors=errors,
+        )
+
+    def ai_claim_draft(self, story_id: str, *, mode: str = "assist", brief_id: str = "") -> dict[str, Any] | None:
+        story = self.show_story(story_id)
+        if story is None:
+            return None
+        precheck = self.ai_surface_precheck("claim_draft", mode=mode)
+        subject = {"kind": "Story", "id": story_id}
+        semantic_review_raw = story.get("semantic_review")
+        semantic_review = cast(dict[str, Any], semantic_review_raw) if isinstance(semantic_review_raw, dict) else {}
+        input_payload = {
+            "operator_prompt": "Draft evidence-bound claim cards without writing final report state.",
+            "payload_ref": f"story:{story_id}",
+            "story_snapshot": {
+                "title": story.get("title", ""),
+                "summary": story.get("summary", ""),
+                "claim_candidate_count": len(semantic_review.get("claim_candidates", []) or []),
+                "item_count": int(story.get("item_count", 0) or 0),
+            },
+        }
+        if precheck.get("mode") == "off" or not precheck.get("ok"):
+            return self._build_ai_service_response(
+                precheck=precheck,
+                subject=subject,
+                input_payload=input_payload,
+                output_payload=None,
+                validation_errors=list(precheck.get("admission_errors", [])),
+            )
+        payload = build_claim_draft_from_story(story, brief_id=brief_id, mode=str(precheck.get("mode", "assist")))
+        errors = self._validate_ai_payload("claim_draft", payload)
+        return self._build_ai_service_response(
+            precheck=precheck,
+            subject=subject,
+            input_payload=input_payload,
+            output_payload=payload,
+            validation_errors=errors,
+        )
 
     def detect_platform(self, url: str) -> str:
         result, parser = self.router.route(url)

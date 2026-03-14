@@ -56,6 +56,12 @@ DELIVERY_RISK_PRIORITY = {
     "medium": 2,
     "high": 3,
 }
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
 GROUNDING_CLAIM_HINTS = (
     " is ",
     " are ",
@@ -165,6 +171,156 @@ def is_open_review_state(state: str | None) -> bool:
 
 def is_digest_candidate(item: "DataPulseItem") -> bool:
     return normalize_review_state(item.review_state, processed=item.processed) not in {"duplicate", "ignored"}
+
+
+def build_triage_assist_payload(
+    item: "DataPulseItem",
+    explain_payload: dict[str, Any],
+) -> dict[str, Any]:
+    item_row = _as_dict(explain_payload.get("item"))
+    item_governance = _as_dict(item_row.get("governance")) or build_item_governance(item)
+    grounding = _as_dict(item_governance.get("grounding"))
+    candidate_rows = explain_payload.get("candidates")
+    if not isinstance(candidate_rows, list):
+        candidate_rows = []
+
+    evidence_gap_flags: list[str] = []
+    if int(grounding.get("claim_count", 0) or 0) <= 0:
+        evidence_gap_flags.append("missing_grounded_claims")
+    if str(item_governance.get("evidence_grade", "working")).strip().lower() != "verified":
+        evidence_gap_flags.append("evidence_not_verified")
+    review_state = normalize_review_state(item.review_state, processed=item.processed)
+    if review_state in {"new", "triaged"}:
+        evidence_gap_flags.append("review_state_open")
+    if not candidate_rows:
+        evidence_gap_flags.append("no_duplicate_candidates")
+
+    candidates: list[dict[str, Any]] = []
+    for raw_candidate in candidate_rows:
+        if not isinstance(raw_candidate, dict):
+            continue
+        signals = [
+            str(signal or "").strip()
+            for signal in raw_candidate.get("signals", [])
+            if str(signal or "").strip()
+        ]
+        rationale_parts: list[str] = []
+        if signals:
+            rationale_parts.append("signals=" + ", ".join(signals))
+        similarity = float(raw_candidate.get("similarity", 0.0) or 0.0)
+        rationale_parts.append(f"similarity={similarity:.2f}")
+        if raw_candidate.get("same_domain"):
+            rationale_parts.append("same domain")
+        if raw_candidate.get("fingerprint_match"):
+            rationale_parts.append("matching content fingerprint")
+        candidates.append(
+            {
+                "id": str(raw_candidate.get("id", "") or "").strip(),
+                "title": str(raw_candidate.get("title", "") or "").strip(),
+                "url": str(raw_candidate.get("url", "") or "").strip(),
+                "review_state": str(raw_candidate.get("review_state", "") or "").strip(),
+                "similarity": round(similarity, 4),
+                "title_overlap": round(float(raw_candidate.get("title_overlap", 0.0) or 0.0), 4),
+                "content_overlap": round(float(raw_candidate.get("content_overlap", 0.0) or 0.0), 4),
+                "same_domain": bool(raw_candidate.get("same_domain", False)),
+                "fingerprint_match": bool(raw_candidate.get("fingerprint_match", False)),
+                "signals": signals or ["similarity_only"],
+                "suggested_primary_id": str(raw_candidate.get("suggested_primary_id", item.id) or item.id).strip() or item.id,
+                "rationale": "; ".join(rationale_parts),
+            }
+        )
+
+    top_candidate = candidates[0] if candidates else None
+    summary = (
+        f"Triage assist evaluated {len(candidates)} duplicate candidates for `{item.title}`."
+        if candidates
+        else f"Triage assist found no strong duplicate candidates for `{item.title}`."
+    )
+    review_rationale = "Keep manual review open until stronger evidence or a verified duplicate candidate appears."
+    if top_candidate is not None:
+        if top_candidate["suggested_primary_id"] == item.id:
+            review_rationale = (
+                f"Current item remains the suggested primary because the best candidate "
+                f"({top_candidate['id']}) does not outrank it."
+            )
+        else:
+            review_rationale = (
+                f"Candidate {top_candidate['id']} is the suggested primary because it carries the strongest overlap signals."
+            )
+
+    return {
+        "summary": summary,
+        "item": {
+            "id": item.id,
+            "title": item.title,
+            "url": item.url,
+            "review_state": review_state,
+        },
+        "candidate_count": int(explain_payload.get("candidate_count", len(candidates)) or 0),
+        "returned_count": int(explain_payload.get("returned_count", len(candidates)) or 0),
+        "limit": int(explain_payload.get("limit", len(candidates)) or 0),
+        "suggested_primary_id": str(explain_payload.get("suggested_primary_id", item.id) or item.id).strip() or item.id,
+        "review_rationale": review_rationale,
+        "evidence_gap_flags": _normalize_string_list(evidence_gap_flags),
+        "candidates": candidates,
+    }
+
+
+def validate_triage_assist_payload(payload: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(payload, dict):
+        return ["payload must be an object"]
+    if not str(payload.get("summary", "") or "").strip():
+        errors.append("summary is required")
+
+    item = payload.get("item")
+    if not isinstance(item, dict):
+        errors.append("item is required")
+    else:
+        if not str(item.get("id", "") or "").strip():
+            errors.append("item.id is required")
+        if not str(item.get("title", "") or "").strip():
+            errors.append("item.title is required")
+
+    try:
+        candidate_count = int(payload.get("candidate_count", 0) or 0)
+        returned_count = int(payload.get("returned_count", 0) or 0)
+        limit = int(payload.get("limit", 0) or 0)
+    except Exception:
+        errors.append("candidate_count/returned_count/limit must be integers")
+        candidate_count = returned_count = limit = 0
+    if candidate_count < 0 or returned_count < 0 or limit < 0:
+        errors.append("candidate_count/returned_count/limit cannot be negative")
+
+    if not str(payload.get("suggested_primary_id", "") or "").strip():
+        errors.append("suggested_primary_id is required")
+
+    candidates = payload.get("candidates")
+    if not isinstance(candidates, list):
+        errors.append("candidates must be a list")
+        candidates = []
+    for index, candidate in enumerate(candidates, start=1):
+        if not isinstance(candidate, dict):
+            errors.append(f"candidate[{index}] must be an object")
+            continue
+        if not str(candidate.get("id", "") or "").strip():
+            errors.append(f"candidate[{index}].id is required")
+        if not isinstance(candidate.get("signals"), list) or not any(
+            str(signal or "").strip() for signal in candidate.get("signals", [])
+        ):
+            errors.append(f"candidate[{index}].signals must contain at least one entry")
+        if not str(candidate.get("suggested_primary_id", "") or "").strip():
+            errors.append(f"candidate[{index}].suggested_primary_id is required")
+        if not str(candidate.get("rationale", "") or "").strip():
+            errors.append(f"candidate[{index}].rationale is required")
+        try:
+            similarity = float(candidate.get("similarity", 0.0) or 0.0)
+        except Exception:
+            errors.append(f"candidate[{index}].similarity must be numeric")
+            similarity = 0.0
+        if similarity < 0.0 or similarity > 1.0:
+            errors.append(f"candidate[{index}].similarity must be between 0 and 1")
+    return errors
 
 
 def build_review_note(

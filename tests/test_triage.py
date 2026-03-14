@@ -326,3 +326,46 @@ def test_triage_grounding_backend_falls_back_when_unavailable(monkeypatch, tmp_p
     assert grounding["backend"]["fallback_mode"] == "heuristic"
     assert grounding["backend"]["used_output"] is False
     assert grounding["backend"]["error_code"] == "backend_unavailable"
+
+
+def test_triage_ai_assist_returns_governed_explain_without_state_mutation(tmp_path):
+    reader = _reader(
+        tmp_path,
+        [
+            _make_item("item-1", title="OpenAI Launch Event", confidence=0.95),
+            _make_item("item-2", title="OpenAI Launch Event Recap", confidence=0.73),
+            _make_item("item-3", title="Unrelated Market Update", confidence=0.66),
+        ],
+    )
+
+    before = reader.list_memory(limit=10)
+    payload = reader.ai_triage_assist("item-1", mode="assist", limit=3)
+    after = reader.list_memory(limit=10)
+
+    assert payload is not None
+    assert payload["output"]["contract_id"] == "datapulse_ai_triage_explain.v1"
+    explain = payload["output"]["payload"]
+    assert explain["item"]["id"] == "item-1"
+    assert explain["candidate_count"] >= 1
+    assert explain["candidates"][0]["rationale"]
+    assert payload["runtime_facts"]["source"] == "deterministic"
+    assert payload["runtime_facts"]["schema_valid"] is True
+    assert before[0].review_state == after[0].review_state == "new"
+    assert before[0].review_notes == after[0].review_notes == []
+    assert before[0].review_actions == after[0].review_actions == []
+
+
+def test_triage_ai_assist_off_mode_short_circuits(tmp_path):
+    reader = _reader(
+        tmp_path,
+        [
+            _make_item("item-1", title="OpenAI Launch Event", confidence=0.95),
+            _make_item("item-2", title="OpenAI Launch Event Recap", confidence=0.73),
+        ],
+    )
+
+    payload = reader.ai_triage_assist("item-1", mode="off")
+
+    assert payload is not None
+    assert payload["output"] is None
+    assert payload["runtime_facts"]["status"] == "manual_only"

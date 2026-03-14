@@ -42,6 +42,134 @@ def _dedup_text(values: list[Any]) -> list[str]:
     return out
 
 
+def build_watch_run_readiness(
+    mission: "WatchMission",
+    *,
+    route_status_by_name: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    reasons: list[str] = []
+    blocking_facts: list[str] = []
+    route_status_lookup = {
+        str(name or "").strip().lower(): str(status or "").strip().lower()
+        for name, status in (route_status_by_name or {}).items()
+        if str(name or "").strip()
+    }
+
+    if not str(mission.query or "").strip():
+        blocking_facts.append("missing_query")
+        reasons.append("Mission query is empty, so no governed suggestion should be treated as runnable.")
+    if not mission.enabled:
+        blocking_facts.append("mission_disabled")
+        reasons.append("Mission is currently disabled and requires operator enablement before live execution.")
+    if str(mission.schedule or "manual").strip().lower() == "manual":
+        reasons.append("Mission is manual-only, so operator trigger remains required.")
+    if not mission.platforms and not mission.sites:
+        reasons.append("Mission has no explicit platform or site scope yet and should be reviewed before broadening.")
+    if mission.last_run_status and str(mission.last_run_status).strip().lower() != "success":
+        reasons.append("Latest mission run did not complete successfully and should be reviewed before trusting new suggestions.")
+
+    configured_routes: list[str] = []
+    for rule in mission.alert_rules:
+        if not isinstance(rule, dict):
+            continue
+        raw_values = rule.get("routes")
+        if raw_values is None:
+            raw_values = rule.get("route")
+        if isinstance(raw_values, str):
+            raw_values = [raw_values]
+        if not isinstance(raw_values, list):
+            continue
+        for raw_route in raw_values:
+            route_name = str(raw_route or "").strip().lower()
+            if route_name and route_name not in configured_routes:
+                configured_routes.append(route_name)
+
+    unhealthy_routes: list[str] = []
+    unknown_routes: list[str] = []
+    for route_name in configured_routes:
+        status = route_status_lookup.get(route_name, "")
+        if not status:
+            unknown_routes.append(route_name)
+            continue
+        if status not in {"healthy", "idle"}:
+            unhealthy_routes.append(route_name)
+    if unhealthy_routes:
+        reasons.append(
+            "Configured delivery routes are not currently healthy: "
+            + ", ".join(sorted(unhealthy_routes))
+            + "."
+        )
+    if unknown_routes:
+        reasons.append(
+            "Configured delivery routes have no observed health facts yet: "
+            + ", ".join(sorted(unknown_routes))
+            + "."
+        )
+
+    status = "ready"
+    if blocking_facts:
+        status = "blocked"
+    elif reasons:
+        status = "needs_review"
+    if not reasons:
+        reasons.append("Mission has query coverage and no blocking runtime facts.")
+
+    payload = {
+        "status": status,
+        "reasons": _dedup_text(reasons),
+    }
+    if blocking_facts:
+        payload["blocking_facts"] = _dedup_text(blocking_facts)
+    return payload
+
+
+def validate_watch_suggestion_payload(payload: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(payload, dict):
+        return ["payload must be an object"]
+
+    summary = str(payload.get("summary", "") or "").strip()
+    if not summary:
+        errors.append("summary is required")
+
+    run_readiness = payload.get("run_readiness")
+    if not isinstance(run_readiness, dict):
+        errors.append("run_readiness is required")
+    else:
+        status = str(run_readiness.get("status", "") or "").strip().lower()
+        reasons = run_readiness.get("reasons")
+        if status not in {"ready", "needs_review", "blocked"}:
+            errors.append("run_readiness.status must be ready/needs_review/blocked")
+        if not isinstance(reasons, list) or not any(str(item or "").strip() for item in reasons):
+            errors.append("run_readiness.reasons must contain at least one non-empty entry")
+
+    suggestion_fields = (
+        "proposed_query",
+        "candidate_sites",
+        "scope_entities",
+        "scope_topics",
+        "scope_regions",
+    )
+    if not any(payload.get(field) for field in suggestion_fields):
+        errors.append("at least one suggestion field is required")
+
+    proposed_query = payload.get("proposed_query")
+    if proposed_query is not None and not str(proposed_query or "").strip():
+        errors.append("proposed_query cannot be empty when present")
+
+    for payload_field in ("candidate_sites", "scope_entities", "scope_topics", "scope_regions", "operator_notes"):
+        value = payload.get(payload_field)
+        if value is None:
+            continue
+        if not isinstance(value, list):
+            errors.append(f"{payload_field} must be a list when present")
+            continue
+        normalized = [str(item or "").strip() for item in value if str(item or "").strip()]
+        if payload_field != "operator_notes" and not normalized:
+            errors.append(f"{payload_field} cannot be empty when present")
+    return errors
+
+
 @dataclass
 class MissionRun:
     mission_id: str

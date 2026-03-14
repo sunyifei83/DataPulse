@@ -2130,7 +2130,7 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "pytest"
           ],
@@ -2230,8 +2230,8 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L16.6",
-    "title": "Add Reader-backed AI assistance services for suggestions drafts and governed prechecks",
+    "id": "L16.7",
+    "title": "Project AI assistance surfaces through CLI MCP Console and ops scorecards",
     "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
@@ -2459,7 +2459,12 @@
       "at_utc": "2026-03-13T11:19:16Z",
       "slice_id": "L15.7",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-14T15:45:09Z",
+      "slice_id": "L16.6",
+      "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-14T15:09:04Z"
+  "last_updated_utc": "2026-03-14T15:45:09Z"
 }
