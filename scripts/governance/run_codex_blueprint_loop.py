@@ -126,10 +126,25 @@ def parse_args() -> argparse.Namespace:
         help="Optional Obsidian note or directory to expose via --add-dir during Codex execution.",
     )
     parser.add_argument(
+        "--continue-through-promotions",
+        action="store_true",
+        help="Accepted for compatibility. Automatic repo_landed/ci_proven continuation is controlled by --promotion-mode.",
+    )
+    parser.add_argument(
         "--promotion-mode",
         default=DEFAULT_PROMOTION_MODE,
         choices=("manual", "auto"),
         help="When set to auto, the runner may auto-resolve DataPulse's local repo_landed promotion and then drive the current ci_proven evidence path.",
+    )
+    parser.add_argument(
+        "--push-remote",
+        default="origin",
+        help="Remote used for auto ci_proven push steps. Defaults to origin.",
+    )
+    parser.add_argument(
+        "--release-tag-label",
+        default="",
+        help="Accepted for compatibility. The local blueprint loop does not create tags or releases.",
     )
     parser.add_argument(
         "--allow-existing-dirty-worktree",
@@ -312,16 +327,16 @@ def stage_and_commit_all(commit_message: str, *, dry_run: bool) -> dict[str, Any
     return payload
 
 
-def push_current_branch(branch: str, *, dry_run: bool) -> dict[str, Any]:
+def push_current_branch(remote: str, branch: str, *, dry_run: bool) -> dict[str, Any]:
     payload = {
-        "remote": "origin",
+        "remote": remote,
         "branch": branch,
         "head": git_output("rev-parse", "HEAD"),
     }
     if dry_run:
         payload["dry_run"] = True
         return payload
-    subprocess.run(["git", "push", "origin", branch], cwd=REPO_ROOT, check=True)
+    subprocess.run(["git", "push", remote, branch], cwd=REPO_ROOT, check=True)
     payload["upstream_head"] = git_output("rev-parse", "@{u}")
     return payload
 
@@ -566,6 +581,7 @@ def maybe_auto_promote(
     tracked_snapshots: bool,
     code_landing_status_output: Path | None,
     project_loop_state_output: Path | None,
+    push_remote: str,
     poll_interval_seconds: int,
     ci_timeout_seconds: int,
     pre_promotion_gate_command: str,
@@ -646,7 +662,7 @@ def maybe_auto_promote(
             push_payload = {
                 "promotion": "ci_proven",
                 "step": "push_head",
-                **push_current_branch(branch, dry_run=dry_run),
+                **push_current_branch(push_remote, branch, dry_run=dry_run),
             }
             promotions.append(push_payload)
             print(json.dumps({"status": "promotion_executed", **push_payload}, ensure_ascii=False))
@@ -875,6 +891,7 @@ def main() -> int:
                 tracked_snapshots=tracked_snapshots,
                 code_landing_status_output=code_landing_status_output,
                 project_loop_state_output=project_loop_state_output,
+                push_remote=str(args.push_remote),
                 poll_interval_seconds=int(args.poll_interval_seconds),
                 ci_timeout_seconds=int(args.ci_timeout_seconds),
                 pre_promotion_gate_command=str(args.pre_promotion_gate_command),
@@ -1015,14 +1032,15 @@ def main() -> int:
                     allow_existing_dirty_worktree=bool(args.allow_existing_dirty_worktree),
                     plan_path=args.plan,
                     catalog_path=args.catalog,
-                    bundle_dir=bundle_dir,
-                    tracked_snapshots=tracked_snapshots,
-                    code_landing_status_output=code_landing_status_output,
-                    project_loop_state_output=project_loop_state_output,
-                    poll_interval_seconds=int(args.poll_interval_seconds),
-                    ci_timeout_seconds=int(args.ci_timeout_seconds),
-                    pre_promotion_gate_command=str(args.pre_promotion_gate_command),
-                    dry_run=bool(args.dry_run),
+                        bundle_dir=bundle_dir,
+                        tracked_snapshots=tracked_snapshots,
+                        code_landing_status_output=code_landing_status_output,
+                        project_loop_state_output=project_loop_state_output,
+                        push_remote=str(args.push_remote),
+                        poll_interval_seconds=int(args.poll_interval_seconds),
+                        ci_timeout_seconds=int(args.ci_timeout_seconds),
+                        pre_promotion_gate_command=str(args.pre_promotion_gate_command),
+                        dry_run=bool(args.dry_run),
                 )
                 if promotions and promotion_snapshots:
                     snapshots = promotion_snapshots

@@ -57,7 +57,22 @@ python3 scripts/governance/promote_datapulse_working_slice_to_blueprint.py \
   --slice-id L6.1
 ```
 
-After promotion, ignite the local Codex loop and keep the external note mounted for reference:
+For the clean-baseline path, land that blueprint change as its own docs/governance commit, wait for `ci_proven`, and only then ignite the local Codex loop:
+
+```bash
+python3 scripts/governance/land_datapulse_blueprint_intake.py \
+  --working-plan /tmp/datapulse-blueprint-plan.working.json \
+  --slice-id L6.1
+```
+
+That wrapper:
+
+- previews whether the promoted slice becomes the current `next_slice`
+- commits only the declared blueprint landing paths
+- pushes and waits for the required `ci_proven` workflow
+- returns only when the repository is back to a clean baseline
+
+After that independent landing completes, ignite the local Codex loop and keep the external note mounted for reference:
 
 ```bash
 bash scripts/governance/ignite_datapulse_codex_loop.sh \

@@ -95,6 +95,13 @@ def test_normalized_delivery_subscriptions_are_persisted_for_multiple_subjects(t
     assert watch_sub["route_names"] == ["ops-webhook"]
     assert story_sub["status"] == "active"
     assert reader.update_delivery_subscription(report_sub["id"], status="paused", cursor_or_since="2026-03-01T00:00:00Z")["status"] == "paused"
+    updated_profile = reader.update_delivery_subscription(
+        profile_sub["id"],
+        route_names=["OPS-WEBHOOK", "ops-webhook", ""],
+        status="bogus",
+    )
+    assert updated_profile["route_names"] == ["ops-webhook"]
+    assert updated_profile["status"] == "active"
 
     report_filtered = reader.list_delivery_subscriptions(
         subject_kind="report",
@@ -195,3 +202,84 @@ def test_report_delivery_package_is_deterministic_and_dispatch_records_are_attri
     persisted = reader.list_delivery_dispatch_records(subscription_id=subscription["id"], status="delivered")
     assert len(persisted) == 1
     assert persisted[0]["route_label"] == "webhook:ops-webhook"
+
+
+def test_report_delivery_package_and_dispatch_reject_non_report_subscriptions(tmp_path):
+    reader = _reader(tmp_path)
+
+    story = reader.create_story(
+        title="Delivery Story",
+        summary="Used to validate report-only delivery helpers.",
+    )
+    subscription = reader.create_delivery_subscription(
+        subject_kind="story",
+        subject_ref=story["id"],
+        output_kind="story_json",
+        delivery_mode="pull",
+    )
+
+    with pytest.raises(ValueError, match="Only report subscriptions"):
+        reader.build_report_delivery_package(subscription["id"])
+
+    with pytest.raises(ValueError, match="Only report subscriptions"):
+        reader.dispatch_report_delivery(subscription["id"])
+
+
+def test_report_delivery_dispatch_records_capture_missing_routes_and_failures(tmp_path, monkeypatch):
+    reader = _reader(tmp_path)
+
+    report = reader.create_report(
+        title="Dispatch Audit Report",
+        summary="Validate missing-route and transport failure audit rows.",
+    )
+    claim = reader.create_claim_card(
+        statement="Route-backed dispatch must stay attributable even when delivery fails.",
+        source_item_ids=["item-route-audit"],
+        brief_id="",
+    )
+    section = reader.create_report_section(
+        report_id=report["id"],
+        title="Audit Section",
+        claim_card_ids=[claim["id"]],
+        position=1,
+    )
+    reader.update_report(report["id"], section_ids=[section["id"]], claim_card_ids=[claim["id"]])
+
+    reader.create_alert_route(name="ops-webhook", channel="webhook", webhook_url="https://example.com/report-audit")
+    subscription = reader.create_delivery_subscription(
+        subject_kind="report",
+        subject_ref=report["id"],
+        output_kind="report_full",
+        delivery_mode="push",
+        route_names=["OPS-WEBHOOK", "missing-route", "ops-webhook"],
+    )
+
+    def _fail_send(route_target: dict[str, object], payload: dict[str, object]) -> None:
+        raise RuntimeError(f"transport down for {route_target.get('label', route_target.get('channel', 'route'))}")
+
+    monkeypatch.setattr(reader, "_send_report_delivery_payload_to_route", _fail_send)
+    dispatch_rows = reader.dispatch_report_delivery(subscription["id"])
+
+    assert len(dispatch_rows) == 2
+    rows_by_route = {row["route_name"]: row for row in dispatch_rows}
+    assert set(rows_by_route) == {"ops-webhook", "missing-route"}
+
+    missing_route = rows_by_route["missing-route"]
+    assert missing_route["status"] == "missing_route"
+    assert missing_route["attempts"] == 0
+    assert missing_route["subscription_id"] == subscription["id"]
+    assert missing_route["subject_ref"] == report["id"]
+    assert missing_route["package_id"]
+
+    failed_route = rows_by_route["ops-webhook"]
+    assert failed_route["status"] == "failed"
+    assert failed_route["attempts"] == 1
+    assert failed_route["route_label"] == "webhook:ops-webhook"
+    assert "transport down" in failed_route["error"]
+
+    persisted_rows = reader.list_delivery_dispatch_records(subscription_id=subscription["id"])
+    persisted_by_route = {row["route_name"]: row for row in persisted_rows}
+    assert persisted_by_route["missing-route"]["status"] == "missing_route"
+    assert persisted_by_route["missing-route"]["package_signature"] == failed_route["package_signature"]
+    assert persisted_by_route["ops-webhook"]["status"] == "failed"
+    assert persisted_by_route["ops-webhook"]["attempts"] == 1

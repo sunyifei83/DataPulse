@@ -259,6 +259,8 @@ class _SmokeReader:
                 "status": "active",
             }
         ]
+        self.delivery_subscriptions: list[Row] = []
+        self.delivery_dispatch_records: list[Row] = []
 
     @staticmethod
     def _timestamp() -> str:
@@ -1447,6 +1449,204 @@ class _SmokeReader:
                 return _clone(profile)
         return None
 
+    @staticmethod
+    def _normalize_delivery_status(value: object) -> str:
+        normalized = str(value or "").strip().lower() or "active"
+        return normalized if normalized in {"active", "paused", "disabled"} else "active"
+
+    @staticmethod
+    def _normalize_delivery_mode(value: object) -> str:
+        normalized = str(value or "").strip().lower() or "pull"
+        return normalized if normalized in {"pull", "push"} else "pull"
+
+    @staticmethod
+    def _normalize_route_names(values: object) -> list[str]:
+        seen: list[str] = []
+        for value in _strings(values):
+            normalized = str(value or "").strip().lower()
+            if normalized and normalized not in seen:
+                seen.append(normalized)
+        return seen
+
+    def list_delivery_subscriptions(
+        self,
+        limit: int = 20,
+        status: str | None = None,
+        subject_kind: str | None = None,
+        subject_ref: str | None = None,
+        output_kind: str | None = None,
+        delivery_mode: str | None = None,
+        route_name: str | None = None,
+    ):
+        rows = self.delivery_subscriptions
+        if status:
+            rows = [row for row in rows if str(row.get("status") or "").strip().lower() == str(status).strip().lower()]
+        if subject_kind:
+            rows = [row for row in rows if str(row.get("subject_kind") or "").strip().lower() == str(subject_kind).strip().lower()]
+        if subject_ref:
+            rows = [row for row in rows if str(row.get("subject_ref") or "").strip() == str(subject_ref).strip()]
+        if output_kind:
+            rows = [row for row in rows if str(row.get("output_kind") or "").strip().lower() == str(output_kind).strip().lower()]
+        if delivery_mode:
+            rows = [row for row in rows if str(row.get("delivery_mode") or "").strip().lower() == str(delivery_mode).strip().lower()]
+        if route_name:
+            normalized_route_name = str(route_name or "").strip().lower()
+            rows = [row for row in rows if normalized_route_name in {name.lower() for name in _strings(row.get("route_names"))}]
+        return _clone(rows[:limit])
+
+    def create_delivery_subscription(self, **payload):
+        subject_kind = str(payload.get("subject_kind") or "").strip().lower()
+        subject_ref = str(payload.get("subject_ref") or "").strip()
+        output_kind = str(payload.get("output_kind") or "").strip().lower()
+        if subject_kind not in {"profile", "watch_mission", "story", "report"}:
+            raise ValueError(f"Unsupported subject_kind: {subject_kind}")
+        if output_kind not in {
+            "alert_event",
+            "feed_json",
+            "feed_rss",
+            "feed_atom",
+            "story_json",
+            "story_markdown",
+            "report_brief",
+            "report_full",
+            "report_sources",
+            "report_watch_pack",
+        }:
+            raise ValueError(f"Unsupported output_kind: {output_kind}")
+        row = {
+            "id": str(payload.get("id") or self._make_id("delivery-subscription", f"{subject_kind}-{subject_ref}-{output_kind}", self.delivery_subscriptions)),
+            "subject_kind": subject_kind,
+            "subject_ref": subject_ref,
+            "output_kind": output_kind,
+            "delivery_mode": self._normalize_delivery_mode(payload.get("delivery_mode")),
+            "status": self._normalize_delivery_status(payload.get("status")),
+            "route_names": self._normalize_route_names(payload.get("route_names")),
+            "cursor_or_since": str(payload.get("cursor_or_since") or "").strip(),
+            "created_at": self._timestamp(),
+            "updated_at": self._timestamp(),
+        }
+        self.delivery_subscriptions.insert(0, row)
+        return _clone(row)
+
+    def show_delivery_subscription(self, identifier):
+        for row in self.delivery_subscriptions:
+            if str(row.get("id") or "").strip() == str(identifier or "").strip():
+                return _clone(row)
+        return None
+
+    def update_delivery_subscription(self, identifier, **payload):
+        for row in self.delivery_subscriptions:
+            if str(row.get("id") or "").strip() != str(identifier or "").strip():
+                continue
+            if "subject_kind" in payload:
+                row["subject_kind"] = str(payload.get("subject_kind") or row.get("subject_kind") or "").strip().lower()
+            if "subject_ref" in payload:
+                row["subject_ref"] = str(payload.get("subject_ref") or "").strip()
+            if "output_kind" in payload:
+                row["output_kind"] = str(payload.get("output_kind") or row.get("output_kind") or "").strip().lower()
+            if "delivery_mode" in payload:
+                row["delivery_mode"] = self._normalize_delivery_mode(payload.get("delivery_mode"))
+            if "status" in payload:
+                row["status"] = self._normalize_delivery_status(payload.get("status"))
+            if "route_names" in payload:
+                row["route_names"] = self._normalize_route_names(payload.get("route_names"))
+            if "cursor_or_since" in payload:
+                row["cursor_or_since"] = str(payload.get("cursor_or_since") or "").strip()
+            row["updated_at"] = self._timestamp()
+            return _clone(row)
+        return None
+
+    def delete_delivery_subscription(self, identifier):
+        for index, row in enumerate(self.delivery_subscriptions):
+            if str(row.get("id") or "").strip() == str(identifier or "").strip():
+                return _clone(self.delivery_subscriptions.pop(index))
+        return None
+
+    def build_report_delivery_package(self, identifier, profile_id=None):
+        subscription = self.show_delivery_subscription(identifier)
+        if subscription is None:
+            raise ValueError(f"Delivery subscription not found: {identifier}")
+        if str(subscription.get("subject_kind") or "").strip().lower() != "report":
+            raise ValueError("Only report subscriptions can be used for report delivery packages")
+        report_id = str(subscription.get("subject_ref") or "").strip()
+        report_payload = self.compose_report(report_id, profile_id=profile_id)
+        if report_payload is None:
+            raise ValueError(f"Report not found: {report_id}")
+        normalized_profile_id = str(profile_id or "").strip()
+        signature_source = f"{report_id}-{subscription.get('output_kind')}-{normalized_profile_id or 'default'}"
+        signature = f"pkg-{self._slug(signature_source, 'delivery')}"
+        return {
+            "subscription_id": str(subscription.get("id") or "").strip(),
+            "subject_kind": "report",
+            "subject_ref": report_id,
+            "output_kind": str(subscription.get("output_kind") or "").strip().lower(),
+            "profile_id": normalized_profile_id,
+            "package_signature": signature,
+            "package_id": f"{report_id}:{subscription.get('output_kind')}:{signature}",
+            "payload": {
+                "kind": str(subscription.get("output_kind") or "").strip().lower(),
+                "report": report_payload,
+            },
+        }
+
+    def dispatch_report_delivery(self, identifier, profile_id=None):
+        subscription = self.show_delivery_subscription(identifier)
+        if subscription is None:
+            raise ValueError(f"Delivery subscription not found: {identifier}")
+        if str(subscription.get("subject_kind") or "").strip().lower() != "report":
+            raise ValueError("Only report subscriptions can be dispatched by this method")
+        package = self.build_report_delivery_package(identifier, profile_id=profile_id)
+        rows: list[Row] = []
+        for route_name in _strings(subscription.get("route_names")):
+            route = next((item for item in self.routes if str(item.get("name") or "").strip().lower() == route_name.lower()), None)
+            channel = str(route.get("channel") or "").strip().lower() if route else ""
+            row = {
+                "id": self._make_id("delivery-dispatch", f"{identifier}-{route_name}", self.delivery_dispatch_records),
+                "subscription_id": str(subscription.get("id") or "").strip(),
+                "subject_kind": "report",
+                "subject_ref": str(subscription.get("subject_ref") or "").strip(),
+                "output_kind": str(subscription.get("output_kind") or "").strip().lower(),
+                "route_name": route_name.lower(),
+                "route_label": f"{channel}:{route_name.lower()}" if route else f"route:{route_name.lower()}",
+                "route_channel": channel,
+                "package_id": str(package.get("package_id") or "").strip(),
+                "package_signature": str(package.get("package_signature") or "").strip(),
+                "package_profile_id": str(profile_id or "").strip(),
+                "status": "delivered" if route else "missing_route",
+                "error": "" if route else f"Missing route: {route_name.lower()}",
+                "attempts": 1 if route else 0,
+                "created_at": self._timestamp(),
+                "updated_at": self._timestamp(),
+            }
+            self.delivery_dispatch_records.insert(0, row)
+            rows.append(row)
+        return _clone(rows)
+
+    def list_delivery_dispatch_records(
+        self,
+        limit: int = 20,
+        status: str | None = None,
+        subscription_id: str | None = None,
+        subject_kind: str | None = None,
+        subject_ref: str | None = None,
+        output_kind: str | None = None,
+        route_name: str | None = None,
+    ):
+        rows = self.delivery_dispatch_records
+        if status:
+            rows = [row for row in rows if str(row.get("status") or "").strip().lower() == str(status).strip().lower()]
+        if subscription_id:
+            rows = [row for row in rows if str(row.get("subscription_id") or "").strip() == str(subscription_id).strip()]
+        if subject_kind:
+            rows = [row for row in rows if str(row.get("subject_kind") or "").strip().lower() == str(subject_kind).strip().lower()]
+        if subject_ref:
+            rows = [row for row in rows if str(row.get("subject_ref") or "").strip() == str(subject_ref).strip()]
+        if output_kind:
+            rows = [row for row in rows if str(row.get("output_kind") or "").strip().lower() == str(output_kind).strip().lower()]
+        if route_name:
+            rows = [row for row in rows if str(row.get("route_name") or "").strip().lower() == str(route_name).strip().lower()]
+        return _clone(rows[:limit])
+
 
 def _find_free_port() -> int:
     with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
@@ -1696,6 +1896,67 @@ def _wait_for_citation_bundle(page: Page, claim_id: str, url_fragment: str, *, t
     raise AssertionError(f"timed out waiting for citation bundle on claim {claim_id!r}: {last_payload}")
 
 
+def _wait_for_export_profile(page: Page, report_id: str, name: str, *, timeout_ms: int = 20000) -> Row:
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    last_payload: Row | None = None
+    while time.monotonic() < deadline:
+        payload = _fetch_json(page, "/api/export-profiles?limit=40")
+        last_payload = payload
+        if _as_int(payload.get("status")) == 200:
+            for row in _rows(payload.get("data")):
+                if str(row.get("report_id") or "").strip() != report_id:
+                    continue
+                if str(row.get("name") or "").strip().lower() != name.strip().lower():
+                    continue
+                return row
+        time.sleep(0.2)
+    raise AssertionError(f"timed out waiting for export profile {name!r} on {report_id!r}: {last_payload}")
+
+
+def _wait_for_delivery_subscription(page: Page, subject_ref: str, output_kind: str, *, timeout_ms: int = 20000) -> Row:
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    last_payload: Row | None = None
+    while time.monotonic() < deadline:
+        payload = _fetch_json(page, "/api/delivery-subscriptions?limit=40")
+        last_payload = payload
+        if _as_int(payload.get("status")) == 200:
+            for row in _rows(payload.get("data")):
+                if str(row.get("subject_ref") or "").strip() != subject_ref:
+                    continue
+                if str(row.get("output_kind") or "").strip().lower() != output_kind.strip().lower():
+                    continue
+                return row
+        time.sleep(0.2)
+    raise AssertionError(
+        f"timed out waiting for delivery subscription subject={subject_ref!r} output={output_kind!r}: {last_payload}"
+    )
+
+
+def _wait_for_delivery_dispatch_record(
+    page: Page,
+    subscription_id: str,
+    *,
+    status: str = "delivered",
+    timeout_ms: int = 20000,
+) -> Row:
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    last_payload: Row | None = None
+    while time.monotonic() < deadline:
+        payload = _fetch_json(
+            page,
+            f"/api/delivery-dispatch-records?subscription_id={subscription_id}&status={status}&limit=20",
+        )
+        last_payload = payload
+        if _as_int(payload.get("status")) == 200:
+            rows = _rows(payload.get("data"))
+            if rows:
+                return rows[0]
+        time.sleep(0.2)
+    raise AssertionError(
+        f"timed out waiting for delivery dispatch record subscription={subscription_id!r} status={status!r}: {last_payload}"
+    )
+
+
 def _wait_for_report_markdown(
     page: Page,
     report_id: str,
@@ -1820,7 +2081,7 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
     next_page.evaluate("jumpToSection('section-intake')")
     next_page.wait_for_function("() => window.location.hash === '#section-intake'", timeout=10000)
     _wait_for_active_rail(next_page, "nav-intake", "#section-intake")
-    _click(next_page, "[data-context-dock-open='0']")
+    next_page.evaluate("restoreContextSavedViewByName('Verified Queue')")
     next_page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
     next_page.wait_for_function("() => window.location.search.includes('triage_filter=verified')", timeout=10000)
     _wait_for_active_rail(next_page, "nav-review", "#section-triage")
@@ -1911,7 +2172,7 @@ def _exercise_triage_to_story(page: Page, base_url: str) -> None:
     )
 
 
-def _exercise_report_workspaces(page: Page) -> None:
+def _exercise_report_workspaces(page: Page) -> Row:
     _log("[console-browser-smoke] report workspaces")
     brief_list = _fetch_json(page, "/api/report-briefs")
     assert _as_int(brief_list.get("status")) == 200, f"report brief list failed: {brief_list}"
@@ -2099,6 +2360,101 @@ def _exercise_report_workspaces(page: Page) -> None:
         arg=watch_name,
         timeout=20000,
     )
+    return {
+        "report_id": report_id,
+        "report_title": report_title,
+        "watch_name": watch_name,
+    }
+
+
+def _exercise_delivery_workspace(page: Page, report_context: Row) -> None:
+    _log("[console-browser-smoke] delivery workspace")
+    report_id = str(report_context.get("report_id") or "").strip()
+    assert report_id, f"missing report context for delivery workspace: {report_context}"
+    brief_profile = _wait_for_export_profile(page, report_id, "brief")
+
+    page.evaluate("jumpToSection('section-ops')")
+    page.wait_for_function("() => window.location.hash === '#section-ops'", timeout=10000)
+    _wait_for_active_rail(page, "nav-delivery", "#section-ops")
+    page.wait_for_function(
+        "() => !!document.querySelector('#delivery-subscription-form')",
+        timeout=20000,
+    )
+    page.select_option("#delivery-subscription-form [name='subject_kind']", "report")
+    page.wait_for_function(
+        """(targetReportId) => {
+            const select = document.querySelector('#delivery-subscription-form [name="subject_ref"]');
+            return !!select && Array.from(select.options || []).some((option) => option.value === targetReportId);
+        }""",
+        arg=report_id,
+        timeout=20000,
+    )
+    page.select_option("#delivery-subscription-form [name='subject_ref']", report_id)
+    page.select_option("#delivery-subscription-form [name='output_kind']", "report_full")
+    page.select_option("#delivery-subscription-form [name='delivery_mode']", "push")
+    page.fill("#delivery-subscription-form [name='route_names']", "OPS-WEBHOOK, ops-webhook")
+    _submit_form(page, "#delivery-subscription-form")
+
+    created_subscription = _wait_for_delivery_subscription(page, report_id, "report_full")
+    subscription_id = str(created_subscription.get("id") or "").strip()
+    assert subscription_id, f"delivery create flow did not expose a subscription id: {created_subscription}"
+    assert _strings(created_subscription.get("route_names")) == ["ops-webhook"], (
+        f"delivery route normalization mismatch: {created_subscription}"
+    )
+
+    page.wait_for_function(
+        "(subscriptionId) => document.querySelector('#delivery-subscription-select')?.value === subscriptionId",
+        arg=subscription_id,
+        timeout=20000,
+    )
+    page.select_option("#delivery-package-profile-select", str(brief_profile.get("id") or ""))
+    page.wait_for_function(
+        "(profileId) => document.querySelector('#delivery-package-profile-select')?.value === profileId",
+        arg=str(brief_profile.get("id") or ""),
+        timeout=10000,
+    )
+
+    package_payload = _fetch_json(
+        page,
+        f"/api/delivery-subscriptions/{subscription_id}/package?profile_id={brief_profile.get('id')}",
+    )
+    assert _as_int(package_payload.get("status")) == 200, f"delivery package route failed: {package_payload}"
+    package = _row(package_payload.get("data"))
+    assert package is not None, f"unexpected delivery package payload: {package_payload}"
+    assert str(package.get("subscription_id") or "") == subscription_id, f"package subscription mismatch: {package}"
+    assert str(package.get("profile_id") or "") == str(brief_profile.get("id") or ""), f"package profile mismatch: {package}"
+
+    _click(page, f"[data-delivery-package-refresh='{subscription_id}']")
+    page.wait_for_timeout(500)
+    _click(page, f"[data-delivery-dispatch='{subscription_id}']")
+
+    dispatch_row = _wait_for_delivery_dispatch_record(page, subscription_id, status="delivered")
+    assert str(dispatch_row.get("package_profile_id") or "") == str(brief_profile.get("id") or ""), (
+        f"delivery dispatch profile mismatch: {dispatch_row}"
+    )
+    assert str(dispatch_row.get("route_label") or "") == "webhook:ops-webhook", f"delivery dispatch route mismatch: {dispatch_row}"
+
+    _click(page, f"[data-delivery-toggle-status='{subscription_id}'][data-next-status='paused']")
+    page.wait_for_function(
+        "(subscriptionId) => document.querySelector(`[data-delivery-toggle-status=\"${subscriptionId}\"][data-next-status=\"active\"]`)",
+        arg=subscription_id,
+        timeout=20000,
+    )
+    paused_subscription = _fetch_json(page, f"/api/delivery-subscriptions/{subscription_id}")
+    assert _as_int(paused_subscription.get("status")) == 200, f"delivery show after pause failed: {paused_subscription}"
+    assert _row(paused_subscription.get("data")) is not None
+    assert str(_row(paused_subscription.get("data")).get("status") or "") == "paused"
+
+    _click(page, f"[data-delivery-toggle-status='{subscription_id}'][data-next-status='active']")
+    page.wait_for_function(
+        "(subscriptionId) => document.querySelector(`[data-delivery-toggle-status=\"${subscriptionId}\"][data-next-status=\"paused\"]`)",
+        arg=subscription_id,
+        timeout=20000,
+    )
+    active_subscription = _fetch_json(page, f"/api/delivery-subscriptions/{subscription_id}")
+    assert _as_int(active_subscription.get("status")) == 200, f"delivery show after resume failed: {active_subscription}"
+    assert _row(active_subscription.get("data")) is not None
+    assert str(_row(active_subscription.get("data")).get("status") or "") == "active"
 
 
 def _exercise_responsive_interaction_safety(page: Page) -> None:
@@ -2203,7 +2559,8 @@ def main() -> int:
             second_page = _exercise_saved_views_and_dock(page, base_url, context)
             _exercise_route_crud(second_page)
             _exercise_triage_to_story(second_page, base_url)
-            _exercise_report_workspaces(second_page)
+            report_context = _exercise_report_workspaces(second_page)
+            _exercise_delivery_workspace(second_page, report_context)
             _exercise_responsive_interaction_safety(second_page)
             browser.close()
     finally:

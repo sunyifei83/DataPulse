@@ -1172,6 +1172,12 @@ def test_console_index_serves_shell():
     assert 'data-context-object-step="report"' in response.text
     assert "Claim Composer" in response.text
     assert "Report Studio" in response.text
+    assert "Delivery Workspace" in response.text
+    assert "delivery-workspace-shell" in response.text
+    assert "Subscription Intake" in response.text
+    assert "Report Package Audit" in response.text
+    assert "delivery-subscription-form" in response.text
+    assert "delivery-package-profile-select" in response.text
     assert 'data-workspace-mode="intake"' in response.text
     assert 'data-workspace-mode="missions"' in response.text
     assert 'data-workspace-mode="review"' in response.text
@@ -1833,6 +1839,32 @@ def test_console_delivery_routes():
     assert dispatch_records.json()[0]["route_label"] == "webhook:ops-webhook"
     assert delete_subscription.status_code == 200
     assert delete_subscription.json()["id"] == "delivery-subscription-report"
+
+
+def test_console_delivery_package_and_dispatch_require_report_subscription(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_STORIES_PATH", str(tmp_path / "stories.json"))
+    monkeypatch.setenv("DATAPULSE_REPORTS_PATH", str(tmp_path / "reports.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    story = reader.create_story(
+        title="Console Delivery Story",
+        summary="Used to validate report-only delivery API guards.",
+    )
+    subscription = reader.create_delivery_subscription(
+        subject_kind="story",
+        subject_ref=story["id"],
+        output_kind="story_json",
+        delivery_mode="pull",
+    )
+
+    client = TestClient(create_app(reader_factory=lambda: reader))
+    package_response = client.get(f"/api/delivery-subscriptions/{subscription['id']}/package")
+    dispatch_response = client.post(f"/api/delivery-subscriptions/{subscription['id']}/dispatch", json={})
+
+    assert package_response.status_code == 400
+    assert "Only report subscriptions" in package_response.json()["detail"]
+    assert dispatch_response.status_code == 400
+    assert "Only report subscriptions" in dispatch_response.json()["detail"]
 
 
 def test_console_ops_scorecard_with_real_reader(tmp_path, monkeypatch):

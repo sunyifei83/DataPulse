@@ -1,18 +1,52 @@
 {
   "schema_version": "datapulse_slice_execution_brief.v1",
   "project": "DataPulse",
-  "status": "stopped",
-  "reason": "promotion_gates_open",
-  "current_level": "repo_landed",
+  "status": "ready",
+  "reason": "awaiting_manual_slice_execution",
+  "current_level": "manual_only",
   "next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "category": "complete"
+    "id": "L16.1",
+    "title": "Land the ModelBus-backed AI assistance governance blueprint and ignition map",
+    "category": "manual",
+    "phase_id": "L16",
+    "execution_profile": "draft_only",
+    "promotion_scope": "none",
+    "closes_gates": []
   },
-  "slice_execution_brief": {},
+  "slice_execution_brief": {
+    "slice_id": "L16.1",
+    "phase_id": "L16",
+    "title": "Land the ModelBus-backed AI assistance governance blueprint and ignition map",
+    "category": "manual",
+    "execution_profile": "draft_only",
+    "adapter_type": "draft_only",
+    "execute_mode": "manual_edit",
+    "summary": "Land the ModelBus-backed AI assistance governance blueprint and ignition map",
+    "candidate_commands": [
+      "sed -n '1,220p' docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
+      "sed -n '1,220p' docs/governance/datapulse-blueprint-plan.draft.json"
+    ],
+    "verification_commands": [],
+    "target_artifacts": [
+      "docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
+      "docs/governance/datapulse-blueprint-plan.draft.json"
+    ],
+    "exit_condition": "",
+    "notes": [
+      "promotion_scope: none",
+      "source_note: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+      "fact_source: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+      "No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice."
+    ],
+    "source": {
+      "catalog_entry": false,
+      "plan_slice": true
+    }
+  },
   "blocking_facts": [],
   "remaining_promotion_gates": [
-    "head_not_pushed",
+    "workspace_dirty",
+    "repo_landed_false",
     "ci_run_not_proven"
   ]
 }

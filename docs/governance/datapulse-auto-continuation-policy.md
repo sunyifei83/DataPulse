@@ -19,6 +19,7 @@ Define the narrow repository-governance surface that closes `repo_auto_continuat
 - When the environment is healthy, the scheduled governance entrypoint re-evaluates the active loop state without requiring manual handoff.
 - When machine-decidable blockers are present, the entrypoint stops and emits governance facts instead of trying to push through them.
 - The workflow remains read-only. It refreshes governance snapshots and evidence bundles, but does not invoke business service entrypoints, publish releases, or rewrite tags.
+- The local companion ignition path now expects a clean baseline by default; explicit dirty-worktree takeover is a supervised recovery path, not the normal blueprint-execution mode.
 
 ## Why This Is The Minimal Active Cutover
 

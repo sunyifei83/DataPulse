@@ -61,7 +61,7 @@ After each Codex round, the runner now enforces four control-plane checks before
    - docs-only changes: `git push`, dispatch `.github/workflows/governance-evidence.yml`, and wait for that run to succeed for the current `HEAD`
 5. once the loop reaches a terminal `stopped` state, refresh the tracked repository governance snapshots so `out/governance` and `out/ha_latest_release_bundle` match the live terminal truth instead of leaving only ephemeral temp outputs behind
 
-That pre-promotion quick gate also covers the ignition-wrapper "take over an already dirty worktree" path, so operators do not need to remember a separate manual verification command before starting the local companion loop.
+That pre-promotion quick gate still covers explicit dirty-worktree takeover, but the normal ignition path now assumes the repo is already back at a clean baseline.
 
 Recommended trigger:
 
@@ -69,10 +69,10 @@ Recommended trigger:
 bash scripts/governance/ignite_datapulse_codex_loop.sh
 ```
 
-The ignition wrapper now enables `--allow-existing-dirty-worktree` by default so the local companion loop can take over `repo_landed` promotion for already-landed slice changes in the current worktree. To keep manual promotion review, run:
+The ignition wrapper now keeps clean-baseline ignition as the default. Only enable dirty-worktree takeover when you are intentionally recovering or supervising a pre-existing local change set:
 
 ```bash
-DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=0 bash scripts/governance/ignite_datapulse_codex_loop.sh
+DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=1 bash scripts/governance/ignite_datapulse_codex_loop.sh
 ```
 
 Equivalent expanded command:
@@ -80,10 +80,13 @@ Equivalent expanded command:
 ```bash
 SYSTEM_VERSION_COMPAT=1 uv run python scripts/governance/run_codex_blueprint_loop.py \
   --model gpt-5.4 \
-  --model-reasoning-effort xhigh \
+  --model-reasoning-effort high \
   --ask-for-approval never \
-  --dangerously-bypass-approvals-and-sandbox \
-  --promotion-mode auto
+  --sandbox danger-full-access \
+  --continue-through-promotions \
+  --promotion-mode auto \
+  --push-remote origin \
+  --release-tag-label loop
 ```
 
 ## Guardrails
@@ -96,7 +99,7 @@ SYSTEM_VERSION_COMPAT=1 uv run python scripts/governance/run_codex_blueprint_loo
 - If the slice catalog is missing an entry for the current slice, use the synthesized execution brief instead of inventing prose-only instructions.
 - `--promotion-mode auto` now means "allow local repo_landed auto-promotion, then auto-resolve the current `ci_proven` path by pushing and waiting for real GitHub workflow evidence". It still does not mean release/tag autopilot.
 - The local Codex loop now keeps in-round evaluation ephemeral, but on a terminal `stopped` result it refreshes the tracked governance snapshots back into the repository so local `out/` truth does not lag behind the last successful run.
-- The ignition wrapper allows existing dirty worktree promotion takeover by default; set `DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=0` when you want to keep a manual repo_landed review step.
+- The ignition wrapper now expects a clean baseline by default; use `DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=1` only as an explicit recovery path.
 - Hard-stop gates such as `workflow_dispatch_missing`, `structured_release_bundle_missing`, `ci_run_failed`, or `governance_evidence_failed` must stop the loop instead of being auto-overridden.
 
 ## Why This Matters

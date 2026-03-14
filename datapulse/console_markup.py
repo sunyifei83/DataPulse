@@ -2460,6 +2460,17 @@ def render_console_html(title: str) -> str:
         </div>
         <div class="stack" id="route-health"></div>
       </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title" id="delivery-workspace-title">Delivery Workspace</h2>
+            <div class="panel-sub" id="delivery-workspace-copy">Subscribe to persisted outputs, inspect one report package, and dispatch it through named routes without leaving the shell.</div>
+          </div>
+          <span class="chip ok" id="delivery-workspace-mode">Editable</span>
+        </div>
+        <div class="stack" id="delivery-workspace-shell"></div>
+      </article>
     </section>
     </div>
 
@@ -2520,6 +2531,13 @@ def render_console_html(title: str) -> str:
       routeEditingId: "",
       routeAdvancedOpen: null,
       routeHealth: [],
+      deliverySubscriptions: [],
+      deliveryDispatchRecords: [],
+      deliveryDraft: null,
+      selectedDeliverySubscriptionId: "",
+      deliveryPackageAudits: {{}},
+      deliveryPackageErrors: {{}},
+      deliveryPackageProfileIds: {{}},
       contextRouteName: "",
       contextRouteSection: "",
       status: null,
@@ -2851,14 +2869,21 @@ def render_console_html(title: str) -> str:
         ok: ["ok", "正常"],
         open: ["open", "开放"],
         pending: ["pending", "处理中"],
+        paused: ["paused", "已暂停"],
+        profile: ["profile", "配置"],
+        pull: ["pull", "拉取"],
+        push: ["push", "推送"],
         ready: ["ready", "就绪"],
+        report: ["report", "报告"],
         resolved: ["resolved", "已解决"],
+        rss: ["rss", "rss"],
         review_before_export: ["review before export", "导出前复核"],
         reviewed: ["reviewed", "已复核"],
         review_required: ["review required", "需要复核"],
         running: ["running", "运行中"],
         same: ["same", "相同"],
         sources: ["sources", "来源清单"],
+        story: ["story", "故事"],
         success: ["success", "成功"],
         synced: ["synced", "已同步"],
         telegram: ["telegram", "telegram"],
@@ -2868,6 +2893,7 @@ def render_console_html(title: str) -> str:
         waiting: ["waiting", "等待"],
         warn: ["warn", "警告"],
         warning: ["warning", "警告"],
+        watch_mission: ["watch mission", "监控任务"],
         webhook: ["webhook", "webhook"],
         markdown: ["markdown", "markdown"],
       }};
@@ -2978,6 +3004,15 @@ def render_console_html(title: str) -> str:
     const storyViewPresetOptions = ["desk", "fresh", "conflicts", "archive"];
     const scoreSuggestionOptions = ["40", "55", "68", "70", "80", "90"];
     const confidenceSuggestionOptions = ["0.6", "0.65", "0.75", "0.8", "0.88", "0.95"];
+    const deliverySubjectOptions = ["profile", "watch_mission", "story", "report"];
+    const deliveryModeOptions = ["pull", "push"];
+    const deliveryStatusOptions = ["active", "paused", "disabled"];
+    const deliveryOutputOptionsBySubject = {{
+      profile: ["feed_json", "feed_rss", "feed_atom"],
+      watch_mission: ["alert_event"],
+      story: ["story_json", "story_markdown"],
+      report: ["report_brief", "report_full", "report_sources", "report_watch_pack"],
+    }};
 
     function uniqueValues(values) {{
       return Array.from(new Set((Array.isArray(values) ? values : [values])
@@ -3933,6 +3968,228 @@ def render_console_html(title: str) -> str:
       }}
       state.reportMarkdown[normalized] = await apiText(`/api/reports/${{normalized}}/export?output_format=markdown`);
       renderReportStudio();
+    }}
+
+    function formatDeliverySubjectKind(value) {{
+      const normalized = String(value || "").trim().toLowerCase();
+      const labels = {{
+        profile: copy("Profile", "配置"),
+        watch_mission: copy("Mission", "任务"),
+        story: copy("Story", "故事"),
+        report: copy("Report", "报告"),
+      }};
+      return labels[normalized] || String(value || "").replace(/_/g, " ").trim();
+    }}
+
+    function formatDeliveryOutputKind(value) {{
+      const normalized = String(value || "").trim().toLowerCase();
+      const labels = {{
+        alert_event: copy("Alert Event", "告警事件"),
+        feed_json: copy("JSON Feed", "JSON 订阅"),
+        feed_rss: copy("RSS Feed", "RSS 订阅"),
+        feed_atom: copy("Atom Feed", "Atom 订阅"),
+        story_json: copy("Story JSON", "故事 JSON"),
+        story_markdown: copy("Story Markdown", "故事 Markdown"),
+        report_brief: copy("Report Brief", "报告摘要"),
+        report_full: copy("Report Full", "完整报告"),
+        report_sources: copy("Report Sources", "报告来源"),
+        report_watch_pack: copy("Report Watch Pack", "报告监控包"),
+      }};
+      return labels[normalized] || String(value || "").replace(/_/g, " ").trim();
+    }}
+
+    function defaultDeliveryDraft() {{
+      const selectedReport = getSelectedReportRecord();
+      const firstReport = Array.isArray(state.reports) && state.reports.length ? state.reports[0] : null;
+      const report = selectedReport || firstReport;
+      const firstRoute = Array.isArray(state.routes) && state.routes.length
+        ? normalizeRouteName(state.routes[0]?.name)
+        : "";
+      return {{
+        subject_kind: report ? "report" : "profile",
+        subject_ref: report ? String(report.id || "").trim() : "default",
+        output_kind: report ? "report_full" : "feed_json",
+        delivery_mode: firstRoute ? "push" : "pull",
+        status: "active",
+        route_names: firstRoute ? [firstRoute] : [],
+        cursor_or_since: "",
+      }};
+    }}
+
+    function getDeliverySubjectRefOptions(subjectKind) {{
+      const normalized = String(subjectKind || "").trim().toLowerCase();
+      if (normalized === "profile") {{
+        return [{{
+          value: "default",
+          label: copy("Default profile", "默认配置"),
+          detail: copy("Use the canonical feed subscription target.", "使用默认的订阅配置目标。"),
+        }}];
+      }}
+      if (normalized === "watch_mission") {{
+        return (Array.isArray(state.watches) ? state.watches : []).map((watch) => ({{
+          value: String(watch.id || "").trim(),
+          label: String(watch.name || watch.id || "").trim(),
+          detail: String(watch.query || "").trim(),
+        }}));
+      }}
+      if (normalized === "story") {{
+        return (Array.isArray(state.stories) ? state.stories : []).map((story) => ({{
+          value: String(story.id || "").trim(),
+          label: String(story.title || story.id || "").trim(),
+          detail: String(story.summary || "").trim(),
+        }}));
+      }}
+      if (normalized === "report") {{
+        return (Array.isArray(state.reports) ? state.reports : []).map((report) => ({{
+          value: String(report.id || "").trim(),
+          label: String(report.title || report.id || "").trim(),
+          detail: String(report.summary || "").trim(),
+        }}));
+      }}
+      return [];
+    }}
+
+    function getDeliveryOutputOptions(subjectKind) {{
+      const normalized = String(subjectKind || "").trim().toLowerCase();
+      return (deliveryOutputOptionsBySubject[normalized] || []).map((value) => ({{
+        value,
+        label: formatDeliveryOutputKind(value),
+      }}));
+    }}
+
+    function normalizeDeliveryDraft(draft) {{
+      const source = draft && typeof draft === "object" ? draft : defaultDeliveryDraft();
+      const subjectKind = deliverySubjectOptions.includes(String(source.subject_kind || "").trim().toLowerCase())
+        ? String(source.subject_kind || "").trim().toLowerCase()
+        : defaultDeliveryDraft().subject_kind;
+      const subjectOptions = getDeliverySubjectRefOptions(subjectKind);
+      const outputOptions = getDeliveryOutputOptions(subjectKind);
+      const subjectRef = subjectOptions.some((option) => option.value === String(source.subject_ref || "").trim())
+        ? String(source.subject_ref || "").trim()
+        : (subjectOptions[0]?.value || "");
+      const outputKind = outputOptions.some((option) => option.value === String(source.output_kind || "").trim())
+        ? String(source.output_kind || "").trim()
+        : (outputOptions[0]?.value || "");
+      const deliveryMode = deliveryModeOptions.includes(String(source.delivery_mode || "").trim().toLowerCase())
+        ? String(source.delivery_mode || "").trim().toLowerCase()
+        : "pull";
+      const status = deliveryStatusOptions.includes(String(source.status || "").trim().toLowerCase())
+        ? String(source.status || "").trim().toLowerCase()
+        : "active";
+      const routeNames = uniqueValues((Array.isArray(source.route_names) ? source.route_names : parseDelimitedInput(source.route_names))
+        .map((value) => normalizeRouteName(value))
+        .filter(Boolean));
+      return {{
+        subject_kind: subjectKind,
+        subject_ref: subjectRef,
+        output_kind: outputKind,
+        delivery_mode: deliveryMode,
+        status,
+        route_names: routeNames,
+        cursor_or_since: String(source.cursor_or_since || "").trim(),
+      }};
+    }}
+
+    function collectDeliveryDraft(form) {{
+      const formData = new FormData(form);
+      return normalizeDeliveryDraft({{
+        subject_kind: formData.get("subject_kind"),
+        subject_ref: formData.get("subject_ref"),
+        output_kind: formData.get("output_kind"),
+        delivery_mode: formData.get("delivery_mode"),
+        status: formData.get("status"),
+        route_names: parseDelimitedInput(formData.get("route_names")),
+        cursor_or_since: formData.get("cursor_or_since"),
+      }});
+    }}
+
+    function syncDeliveryDraft() {{
+      state.deliveryDraft = normalizeDeliveryDraft(state.deliveryDraft || defaultDeliveryDraft());
+    }}
+
+    function getDeliverySubscriptionRecord(identifier) {{
+      const normalized = String(identifier || "").trim();
+      if (!normalized) {{
+        return null;
+      }}
+      return (Array.isArray(state.deliverySubscriptions) ? state.deliverySubscriptions : [])
+        .find((row) => String(row.id || "").trim() === normalized) || null;
+    }}
+
+    function getSelectedDeliverySubscription() {{
+      return getDeliverySubscriptionRecord(state.selectedDeliverySubscriptionId);
+    }}
+
+    function syncDeliverySelectionState() {{
+      const rows = Array.isArray(state.deliverySubscriptions) ? state.deliverySubscriptions : [];
+      if (!rows.some((row) => String(row.id || "").trim() === String(state.selectedDeliverySubscriptionId || "").trim())) {{
+        state.selectedDeliverySubscriptionId = rows[0] ? String(rows[0].id || "").trim() : "";
+      }}
+      const selected = getSelectedDeliverySubscription();
+      if (!selected) {{
+        return;
+      }}
+      const subscriptionId = String(selected.id || "").trim();
+      const reportProfiles = String(selected.subject_kind || "").trim().toLowerCase() === "report"
+        ? state.exportProfiles.filter((profile) => String(profile.report_id || "").trim() === String(selected.subject_ref || "").trim())
+        : [];
+      const currentProfileId = String(state.deliveryPackageProfileIds[subscriptionId] || "").trim();
+      if (!reportProfiles.some((profile) => String(profile.id || "").trim() === currentProfileId)) {{
+        state.deliveryPackageProfileIds[subscriptionId] = reportProfiles[0] ? String(reportProfiles[0].id || "").trim() : "";
+      }}
+    }}
+
+    function summarizeDeliverySubject(subscription) {{
+      if (!subscription || typeof subscription !== "object") {{
+        return "";
+      }}
+      const subjectKind = String(subscription.subject_kind || "").trim().toLowerCase();
+      const subjectRef = String(subscription.subject_ref || "").trim();
+      if (subjectKind === "report") {{
+        return getReportRecord(subjectRef)?.title || subjectRef;
+      }}
+      if (subjectKind === "story") {{
+        return (Array.isArray(state.stories) ? state.stories : [])
+          .find((story) => String(story.id || "").trim() === subjectRef)?.title || subjectRef;
+      }}
+      if (subjectKind === "watch_mission") {{
+        return (Array.isArray(state.watches) ? state.watches : [])
+          .find((watch) => String(watch.id || "").trim() === subjectRef)?.name || subjectRef;
+      }}
+      return subjectRef || copy("Default profile", "默认配置");
+    }}
+
+    function getDeliveryDispatchRowsForSubscription(identifier) {{
+      const normalized = String(identifier || "").trim();
+      if (!normalized) {{
+        return [];
+      }}
+      return (Array.isArray(state.deliveryDispatchRecords) ? state.deliveryDispatchRecords : [])
+        .filter((row) => String(row.subscription_id || "").trim() === normalized);
+    }}
+
+    async function loadDeliveryPackageAudit(identifier, {{ profileId = "", render = true }} = {{}}) {{
+      const normalized = String(identifier || "").trim();
+      if (!normalized) {{
+        return null;
+      }}
+      const query = profileId ? `?profile_id=${{encodeURIComponent(profileId)}}` : "";
+      try {{
+        const payload = await api(`/api/delivery-subscriptions/${{normalized}}/package${{query}}`);
+        state.deliveryPackageAudits[normalized] = payload;
+        state.deliveryPackageErrors[normalized] = "";
+        state.deliveryPackageProfileIds[normalized] = String(payload.profile_id || profileId || "").trim();
+        if (render) {{
+          renderDeliveryWorkspace();
+        }}
+        return payload;
+      }} catch (error) {{
+        state.deliveryPackageErrors[normalized] = error.message;
+        if (render) {{
+          renderDeliveryWorkspace();
+        }}
+        throw error;
+      }}
     }}
 
     async function attachClaimToReport(claimId, reportId, sectionId = "", bundleId = "") {{
@@ -6514,6 +6771,9 @@ def render_console_html(title: str) -> str:
       setText("distribution-title", copy("Distribution Health", "分发健康"));
       setText("distribution-copy", copy("See whether named delivery routes are healthy and which upstream work is feeding them before they go silent.", "提前发现命名路由是否健康，以及哪些上游工作正在给它们供流，避免进入静默失败。"));
       setText("distribution-mode", copy("Read-only", "只读"));
+      setText("delivery-workspace-title", copy("Delivery Workspace", "交付工作区"));
+      setText("delivery-workspace-copy", copy("Subscribe to persisted outputs, inspect one report package, and dispatch it through named routes without leaving the shell.", "在不离开当前 shell 的前提下完成持久化订阅、报告输出包审计和命名路由 dispatch。"));
+      setText("delivery-workspace-mode", copy("Editable", "可编辑"));
       setText("triage-title", copy("Triage Queue", "分诊队列"));
       setText("triage-copy", copy("Review open items with one selected evidence workbench, keep analyst reasoning visible, and hand verified signal into stories without leaving the queue.", "通过一个选中证据工作台完成审阅，持续看到分析师推理，并在不离开队列的前提下把已核验信号交接给故事。"));
       setText("story-title", copy("Story Workspace", "故事工作台"));
@@ -9910,6 +10170,469 @@ def render_console_html(title: str) -> str:
       wireRouteSurfaceActions(root);
     }}
 
+    function renderDeliveryWorkspace() {{
+      const root = $("delivery-workspace-shell");
+      if (!root) {{
+        return;
+      }}
+      syncDeliveryDraft();
+      syncDeliverySelectionState();
+      if (state.loading.board && !state.deliverySubscriptions.length) {{
+        root.innerHTML = [skeletonCard(4), skeletonCard(4)].join("");
+        return;
+      }}
+
+      const draft = normalizeDeliveryDraft(state.deliveryDraft || defaultDeliveryDraft());
+      state.deliveryDraft = draft;
+      const subjectOptions = getDeliverySubjectRefOptions(draft.subject_kind);
+      const outputOptions = getDeliveryOutputOptions(draft.subject_kind);
+      const routeInputValue = draft.route_names.join(", ");
+      const selectedSubscription = getSelectedDeliverySubscription();
+      const selectedSubscriptionId = String(selectedSubscription?.id || "").trim();
+      const selectedPackage = selectedSubscriptionId ? state.deliveryPackageAudits[selectedSubscriptionId] || null : null;
+      const selectedPackageError = selectedSubscriptionId ? String(state.deliveryPackageErrors[selectedSubscriptionId] || "").trim() : "";
+      const selectedReportProfiles = selectedSubscription && String(selectedSubscription.subject_kind || "").trim().toLowerCase() === "report"
+        ? state.exportProfiles.filter((profile) => String(profile.report_id || "").trim() === String(selectedSubscription.subject_ref || "").trim())
+        : [];
+      const selectedProfileId = selectedSubscriptionId
+        ? String(state.deliveryPackageProfileIds[selectedSubscriptionId] || "").trim()
+        : "";
+      const selectedDispatchRows = selectedSubscription ? getDeliveryDispatchRowsForSubscription(selectedSubscription.id).slice(0, 8) : [];
+      const dispatchTimeline = selectedDispatchRows.length
+        ? selectedDispatchRows.map((row) => `
+            <div class="mini-item">${{row.route_label || row.route_name || "-"}} | ${{localizeWord(row.status || "pending")}} | ${{row.package_profile_id || copy("default", "默认")}}</div>
+            <div class="panel-sub">${{row.error || row.package_id || copy("No package audit detail.", "当前没有包审计详情。")}}</div>
+          `).join("")
+        : `<div class="empty">${{copy("No dispatch audit recorded for the current selection.", "当前选中的订阅还没有 dispatch 审计记录。")}}</div>`;
+      const inventoryRows = state.deliverySubscriptions.length
+        ? state.deliverySubscriptions.map((subscription) => {{
+            const subscriptionId = String(subscription.id || "").trim();
+            const isSelected = subscriptionId === selectedSubscriptionId;
+            const routeNames = Array.isArray(subscription.route_names) ? subscription.route_names : [];
+            const auditCount = getDeliveryDispatchRowsForSubscription(subscriptionId).length;
+            return `
+              <div class="card">
+                <div class="card-top">
+                  <div>
+                    <h3 class="card-title">${{escapeHtml(summarizeDeliverySubject(subscription) || subscriptionId)}}</h3>
+                    <div class="meta">
+                      <span>${{formatDeliverySubjectKind(subscription.subject_kind)}}</span>
+                      <span>${{formatDeliveryOutputKind(subscription.output_kind)}}</span>
+                      <span>${{localizeWord(subscription.delivery_mode || "pull")}}</span>
+                    </div>
+                  </div>
+                  <span class="chip ${{reportStatusTone(subscription.status)}}">${{escapeHtml(localizeWord(subscription.status || "active"))}}</span>
+                </div>
+                <div class="panel-sub">${{escapeHtml(subscription.subject_ref || copy("No subject ref.", "没有 subject ref。"))}}</div>
+                <div class="meta">
+                  <span>${{copy("routes", "路由")}}=${{routeNames.length ? routeNames.join(", ") : copy("none", "无")}}</span>
+                  <span>${{copy("cursor", "游标")}}=${{subscription.cursor_or_since || "-"}}</span>
+                  <span>${{copy("audit", "审计")}}=${{auditCount}}</span>
+                </div>
+                <div class="actions">
+                  <button class="btn-secondary" type="button" data-delivery-select="${{escapeHtml(subscriptionId)}}">${{isSelected ? copy("Inspecting", "查看中") : copy("Inspect", "查看")}}</button>
+                  <button class="btn-secondary" type="button" data-delivery-toggle-status="${{escapeHtml(subscriptionId)}}" data-next-status="${{subscription.status === "active" ? "paused" : "active"}}">${{subscription.status === "active" ? copy("Pause", "暂停") : copy("Resume", "恢复")}}</button>
+                  <button class="btn-secondary" type="button" data-delivery-delete="${{escapeHtml(subscriptionId)}}">${{copy("Delete", "删除")}}</button>
+                </div>
+              </div>
+            `;
+          }}).join("")
+        : `${{renderLifecycleGuideCard({{
+              title: copy("Create one persisted subscription before delivery turns into habit", "在交付进入常态前，先创建一个持久化订阅"),
+              summary: copy(
+                "Use the same Reader-backed delivery objects the API, CLI, and MCP already share. The browser should only project those persisted nouns.",
+                "直接复用 API、CLI 和 MCP 已共享的 Reader-backed 交付对象。浏览器只负责投影这些持久化名词。"
+              ),
+              steps: [
+                {{
+                  title: copy("Pick Subject", "选择主体"),
+                  copy: copy("Reports, stories, watch missions, and profile feeds all stay under one delivery contract.", "报告、故事、监控任务和配置订阅都共用同一套交付契约。"),
+                }},
+                {{
+                  title: copy("Bind Route", "绑定路由"),
+                  copy: copy("Push delivery stays attached to named routes instead of ad hoc browser state.", "推送交付继续绑定命名路由，而不是浏览器私有状态。"),
+                }},
+                {{
+                  title: copy("Inspect Package", "检查包"),
+                  copy: copy("Report subscriptions can preview the exact package before dispatch.", "报告订阅可以在 dispatch 前预览准确的输出包。"),
+                }},
+              ],
+              actions: [
+                {{ label: copy("Open Report Studio", "打开报告工作台"), section: "section-report-studio", primary: true }},
+                {{ label: copy("Focus Route Deck", "聚焦路由草稿"), focus: "route", field: "name" }},
+              ],
+            }})}}`;
+      const recentDispatchRows = state.deliveryDispatchRecords.length
+        ? state.deliveryDispatchRecords.slice(0, 8).map((row) => `
+            <div class="mini-item">${{row.route_label || row.route_name || "-"}} | ${{localizeWord(row.status || "pending")}} | ${{formatDeliveryOutputKind(row.output_kind)}}</div>
+            <div class="panel-sub">${{row.subject_ref || "-"}} | ${{row.package_id || copy("No package id.", "没有 package id。")}}</div>
+          `).join("")
+        : `<div class="empty">${{copy("No delivery dispatch audit recorded yet.", "当前还没有记录到交付 dispatch 审计。")}}</div>`;
+
+      root.innerHTML = `
+        <div class="story-columns">
+          <div class="stack">
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{copy("Subscription Intake", "订阅创建")}}</h3>
+                  <div class="panel-sub">${{copy("Create one persisted delivery subscription in the same shell. No browser-only delivery state is introduced here.", "直接在同一个 shell 里创建持久化交付订阅；这里不会引入浏览器私有状态。")}}</div>
+                </div>
+                <span class="chip ok">${{copy("persisted", "持久化")}}</span>
+              </div>
+              <form id="delivery-subscription-form" style="margin-top:12px;">
+                <div class="field-grid">
+                  <label>${{copy("Subject Kind", "主体类型")}}
+                    <select name="subject_kind">
+                      ${{deliverySubjectOptions.map((value) => `<option value="${{value}}" ${{draft.subject_kind === value ? "selected" : ""}}>${{escapeHtml(formatDeliverySubjectKind(value))}}</option>`).join("")}}
+                    </select>
+                  </label>
+                  <label>${{copy("Subject Ref", "主体对象")}}
+                    <select name="subject_ref">
+                      ${{subjectOptions.map((option) => `<option value="${{escapeHtml(option.value)}}" ${{draft.subject_ref === option.value ? "selected" : ""}}>${{escapeHtml(option.label || option.value)}}</option>`).join("")}}
+                    </select>
+                  </label>
+                </div>
+                <div class="field-grid">
+                  <label>${{copy("Output Kind", "输出类型")}}
+                    <select name="output_kind">
+                      ${{outputOptions.map((option) => `<option value="${{option.value}}" ${{draft.output_kind === option.value ? "selected" : ""}}>${{escapeHtml(option.label)}}</option>`).join("")}}
+                    </select>
+                  </label>
+                  <label>${{copy("Delivery Mode", "交付模式")}}
+                    <select name="delivery_mode">
+                      ${{deliveryModeOptions.map((value) => `<option value="${{value}}" ${{draft.delivery_mode === value ? "selected" : ""}}>${{escapeHtml(localizeWord(value))}}</option>`).join("")}}
+                    </select>
+                  </label>
+                </div>
+                <div class="field-grid">
+                  <label>${{copy("Status", "状态")}}
+                    <select name="status">
+                      ${{deliveryStatusOptions.map((value) => `<option value="${{value}}" ${{draft.status === value ? "selected" : ""}}>${{escapeHtml(localizeWord(value))}}</option>`).join("")}}
+                    </select>
+                  </label>
+                  <label>${{copy("Cursor Or Since", "游标或起点")}}<input name="cursor_or_since" placeholder="2026-03-01T00:00:00Z" value="${{escapeHtml(draft.cursor_or_since)}}"></label>
+                </div>
+                <label>${{copy("Route Names", "路由名称")}}<input name="route_names" placeholder="ops-webhook, exec-telegram" value="${{escapeHtml(routeInputValue)}}"><span class="field-hint">${{copy("Push delivery should reference one or more named routes. Pull delivery can leave this blank.", "推送交付应绑定一个或多个命名路由；拉取模式可以留空。")}}</span></label>
+                <div class="chip-row" style="margin-top:4px;">
+                  ${{state.routes.map((route) => {{
+                    const routeName = normalizeRouteName(route.name);
+                    const active = draft.route_names.includes(routeName);
+                    return `<button class="chip-btn ${{active ? "active" : ""}}" type="button" data-delivery-route-toggle="${{escapeHtml(routeName)}}">${{escapeHtml(routeName)}}</button>`;
+                  }}).join("") || `<span class="chip">${{copy("No route available yet", "当前还没有路由")}}</span>`}}
+                </div>
+                <div class="toolbar">
+                  <button class="btn-primary" type="submit">${{copy("Create Subscription", "创建订阅")}}</button>
+                  <button class="btn-secondary" type="button" data-delivery-reset>${{copy("Reset Draft", "重置草稿")}}</button>
+                  <button class="btn-secondary" type="button" data-delivery-jump-report>${{copy("Open Report Studio", "打开报告工作台")}}</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{copy("Report Package Audit", "报告包审计")}}</h3>
+                  <div class="panel-sub">${{copy("Inspect the exact Reader-backed package before dispatch. This stays tied to the selected persisted subscription.", "在 dispatch 前检查准确的 Reader-backed 输出包，并始终绑定到当前选中的持久化订阅。")}}</div>
+                </div>
+                <span class="chip ${{selectedSubscription ? "ok" : ""}}">${{selectedSubscription ? escapeHtml(formatDeliveryOutputKind(selectedSubscription.output_kind)) : copy("No selection", "未选择")}}</span>
+              </div>
+              ${{selectedSubscription
+                ? `
+                  <div class="field-grid" style="margin-top:12px;">
+                    <label>${{copy("Selected Subscription", "当前订阅")}}
+                      <select id="delivery-subscription-select">
+                        ${{state.deliverySubscriptions.map((subscription) => `<option value="${{escapeHtml(subscription.id)}}" ${{String(subscription.id || "").trim() === selectedSubscriptionId ? "selected" : ""}}>${{escapeHtml(summarizeDeliverySubject(subscription) || subscription.id)}}</option>`).join("")}}
+                      </select>
+                    </label>
+                    <label>${{copy("Package Profile", "包配置")}}
+                      <select id="delivery-package-profile-select" ${{String(selectedSubscription.subject_kind || "").trim().toLowerCase() === "report" ? "" : "disabled"}}>
+                        <option value="">${{copy("Default package", "默认包")}}</option>
+                        ${{selectedReportProfiles.map((profile) => `<option value="${{escapeHtml(profile.id)}}" ${{String(profile.id || "").trim() === selectedProfileId ? "selected" : ""}}>${{escapeHtml(profile.name || profile.id)}}</option>`).join("")}}
+                      </select>
+                    </label>
+                  </div>
+                  <div class="meta">
+                    <span>${{formatDeliverySubjectKind(selectedSubscription.subject_kind)}}</span>
+                    <span>${{escapeHtml(summarizeDeliverySubject(selectedSubscription))}}</span>
+                    <span>${{copy("routes", "路由")}}=${{(selectedSubscription.route_names || []).join(", ") || copy("none", "无")}}</span>
+                  </div>
+                  ${{String(selectedSubscription.subject_kind || "").trim().toLowerCase() === "report"
+                    ? `
+                      <div class="actions">
+                        <button class="btn-secondary" type="button" data-delivery-package-refresh="${{escapeHtml(selectedSubscriptionId)}}">${{copy("Refresh Package", "刷新输出包")}}</button>
+                        <button class="btn-primary" type="button" data-delivery-dispatch="${{escapeHtml(selectedSubscriptionId)}}">${{copy("Dispatch Now", "立即 dispatch")}}</button>
+                        <button class="btn-secondary" type="button" data-delivery-open-report="${{escapeHtml(selectedSubscription.subject_ref || "")}}">${{copy("Open Report Studio", "打开报告工作台")}}</button>
+                      </div>
+                      ${{
+                        selectedPackage
+                          ? `
+                            <div class="meta">
+                              <span>${{copy("package", "输出包")}}=${{escapeHtml(selectedPackage.package_id || "-")}}</span>
+                              <span>${{copy("signature", "签名")}}=${{escapeHtml(selectedPackage.package_signature || "-")}}</span>
+                              <span>${{copy("profile", "配置")}}=${{escapeHtml(selectedPackage.profile_id || copy("default", "默认"))}}</span>
+                            </div>
+                            <pre class="text-block">${{escapeHtml(JSON.stringify(selectedPackage.payload || {{}}, null, 2))}}</pre>
+                          `
+                          : selectedPackageError
+                            ? `<div class="empty">${{escapeHtml(selectedPackageError)}}</div>`
+                            : `<div class="empty">${{copy("Load one report-backed package to inspect the payload before dispatch.", "先加载一次报告输出包，再在 dispatch 前检查具体载荷。")}}</div>`
+                      }}
+                    `
+                    : `
+                      <div class="empty">${{copy("Package audit is only available for report subscriptions. The selected subscription remains persisted and auditable through dispatch records below.", "当前只有报告订阅支持 package 审计；已选中的其他订阅仍会通过下方 dispatch 记录保持可审计。")}}</div>
+                    `}}
+                `
+                : `<div class="empty">${{copy("Select one subscription from the inventory on the right to inspect its package and dispatch audit.", "先从右侧库存里选中一个订阅，再查看它的输出包和 dispatch 审计。")}}</div>`}}
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="meta">
+              <span class="mono">${{copy("subscription inventory", "订阅库存")}}</span>
+              <span class="chip ok">${{copy("count", "数量")}}=${{state.deliverySubscriptions.length}}</span>
+              <span class="chip">${{copy("dispatch", "dispatch")}}=${{state.deliveryDispatchRecords.length}}</span>
+            </div>
+            ${{inventoryRows}}
+            <div class="card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{copy("Dispatch Audit", "Dispatch 审计")}}</h3>
+                  <div class="panel-sub">${{copy("Route-backed dispatch stays attributable to one subscription and one package signature.", "路由驱动的 dispatch 会继续精确归因到具体订阅和具体包签名。")}}</div>
+                </div>
+                <span class="chip">${{selectedSubscription ? copy("selected focus", "当前聚焦") : copy("recent", "最近记录")}}</span>
+              </div>
+              <div class="mini-list">${{selectedSubscription ? dispatchTimeline : recentDispatchRows}}</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      wireLifecycleGuideActions(root);
+      const form = root.querySelector("#delivery-subscription-form");
+      form?.addEventListener("input", () => {{
+        state.deliveryDraft = collectDeliveryDraft(form);
+      }});
+      form?.addEventListener("change", (event) => {{
+        state.deliveryDraft = collectDeliveryDraft(form);
+        const fieldName = String(event.target?.name || "").trim();
+        if (fieldName === "subject_kind" || fieldName === "subject_ref" || fieldName === "delivery_mode") {{
+          renderDeliveryWorkspace();
+        }}
+      }});
+      form?.addEventListener("submit", async (event) => {{
+        event.preventDefault();
+        const submitButton = form.querySelector("button[type='submit']");
+        const nextDraft = collectDeliveryDraft(form);
+        state.deliveryDraft = nextDraft;
+        if (!nextDraft.subject_ref) {{
+          showToast(copy("Pick one subject before saving the subscription.", "保存订阅前请先选择一个主体对象。"), "error");
+          return;
+        }}
+        if (nextDraft.delivery_mode === "push" && !nextDraft.route_names.length) {{
+          showToast(copy("Push delivery needs at least one named route.", "推送交付至少需要绑定一个命名路由。"), "error");
+          return;
+        }}
+        if (submitButton) {{
+          submitButton.disabled = true;
+        }}
+        try {{
+          const created = await api("/api/delivery-subscriptions", {{
+            method: "POST",
+            headers: jsonHeaders,
+            body: JSON.stringify(nextDraft),
+          }});
+          state.selectedDeliverySubscriptionId = String(created.id || "").trim();
+          state.deliveryDraft = defaultDeliveryDraft();
+          pushActionEntry({{
+            kind: copy("delivery create", "交付创建"),
+            label: state.language === "zh"
+              ? `已创建订阅：${{summarizeDeliverySubject(created) || created.id}}`
+              : `Created subscription: ${{summarizeDeliverySubject(created) || created.id}}`,
+            detail: state.language === "zh"
+              ? `输出：${{formatDeliveryOutputKind(created.output_kind)}}`
+              : `Output: ${{formatDeliveryOutputKind(created.output_kind)}}`,
+          }});
+          await refreshBoard();
+          showToast(copy("Delivery subscription created.", "交付订阅已创建。"), "success");
+        }} catch (error) {{
+          reportError(error, copy("Create delivery subscription", "创建交付订阅"));
+        }} finally {{
+          if (submitButton) {{
+            submitButton.disabled = false;
+          }}
+        }}
+      }});
+      root.querySelectorAll("[data-delivery-route-toggle]").forEach((button) => {{
+        button.addEventListener("click", () => {{
+          const routeName = normalizeRouteName(button.dataset.deliveryRouteToggle || "");
+          const draftRoutes = state.deliveryDraft?.route_names || [];
+          state.deliveryDraft = normalizeDeliveryDraft({{
+            ...(state.deliveryDraft || draft),
+            route_names: draftRoutes.includes(routeName)
+              ? draftRoutes.filter((value) => value !== routeName)
+              : [...draftRoutes, routeName],
+          }});
+          renderDeliveryWorkspace();
+        }});
+      }});
+      root.querySelector("[data-delivery-reset]")?.addEventListener("click", () => {{
+        state.deliveryDraft = defaultDeliveryDraft();
+        renderDeliveryWorkspace();
+        showToast(copy("Delivery draft reset.", "交付草稿已重置。"), "success");
+      }});
+      root.querySelector("[data-delivery-jump-report]")?.addEventListener("click", () => {{
+        jumpToSection("section-report-studio");
+      }});
+      root.querySelector("#delivery-subscription-select")?.addEventListener("change", async (event) => {{
+        state.selectedDeliverySubscriptionId = String(event.target.value || "").trim();
+        renderDeliveryWorkspace();
+        const subscription = getSelectedDeliverySubscription();
+        if (subscription && String(subscription.subject_kind || "").trim().toLowerCase() === "report") {{
+          try {{
+            await loadDeliveryPackageAudit(subscription.id, {{
+              profileId: String(state.deliveryPackageProfileIds[subscription.id] || "").trim(),
+            }});
+          }} catch (error) {{
+            reportError(error, copy("Load report package", "加载报告输出包"));
+          }}
+        }}
+      }});
+      root.querySelector("#delivery-package-profile-select")?.addEventListener("change", async (event) => {{
+        const subscription = getSelectedDeliverySubscription();
+        if (!subscription) {{
+          return;
+        }}
+        const profileId = String(event.target.value || "").trim();
+        state.deliveryPackageProfileIds[String(subscription.id || "").trim()] = profileId;
+        try {{
+          await loadDeliveryPackageAudit(subscription.id, {{ profileId }});
+        }} catch (error) {{
+          reportError(error, copy("Load report package", "加载报告输出包"));
+        }}
+      }});
+      root.querySelector("[data-delivery-package-refresh]")?.addEventListener("click", async (event) => {{
+        const subscriptionId = String(event.currentTarget.dataset.deliveryPackageRefresh || "").trim();
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {{
+          await loadDeliveryPackageAudit(subscriptionId, {{
+            profileId: String(state.deliveryPackageProfileIds[subscriptionId] || "").trim(),
+          }});
+          showToast(copy("Report package refreshed.", "报告输出包已刷新。"), "success");
+        }} catch (error) {{
+          reportError(error, copy("Refresh report package", "刷新报告输出包"));
+        }} finally {{
+          button.disabled = false;
+        }}
+      }});
+      root.querySelector("[data-delivery-dispatch]")?.addEventListener("click", async (event) => {{
+        const subscriptionId = String(event.currentTarget.dataset.deliveryDispatch || "").trim();
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {{
+          const profileId = String(state.deliveryPackageProfileIds[subscriptionId] || "").trim();
+          await api(`/api/delivery-subscriptions/${{subscriptionId}}/dispatch`, {{
+            method: "POST",
+            headers: jsonHeaders,
+            body: JSON.stringify({{ profile_id: profileId || null }}),
+          }});
+          pushActionEntry({{
+            kind: copy("delivery dispatch", "交付执行"),
+            label: state.language === "zh"
+              ? `已执行 dispatch：${{subscriptionId}}`
+              : `Dispatched subscription: ${{subscriptionId}}`,
+            detail: state.language === "zh"
+              ? `配置：${{profileId || "default"}}`
+              : `Profile: ${{profileId || "default"}}`,
+          }});
+          await refreshBoard();
+          showToast(copy("Delivery dispatch completed.", "交付 dispatch 已完成。"), "success");
+        }} catch (error) {{
+          reportError(error, copy("Dispatch delivery subscription", "执行交付订阅"));
+        }} finally {{
+          button.disabled = false;
+        }}
+      }});
+      root.querySelector("[data-delivery-open-report]")?.addEventListener("click", async (event) => {{
+        const reportId = String(event.currentTarget.dataset.deliveryOpenReport || "").trim();
+        if (reportId) {{
+          await selectReport(reportId);
+        }}
+        jumpToSection("section-report-studio");
+      }});
+      root.querySelectorAll("[data-delivery-select]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          const subscriptionId = String(button.dataset.deliverySelect || "").trim();
+          state.selectedDeliverySubscriptionId = subscriptionId;
+          renderDeliveryWorkspace();
+          const subscription = getDeliverySubscriptionRecord(subscriptionId);
+          if (subscription && String(subscription.subject_kind || "").trim().toLowerCase() === "report") {{
+            try {{
+              await loadDeliveryPackageAudit(subscriptionId, {{
+                profileId: String(state.deliveryPackageProfileIds[subscriptionId] || "").trim(),
+              }});
+            }} catch (error) {{
+              reportError(error, copy("Load report package", "加载报告输出包"));
+            }}
+          }}
+        }});
+      }});
+      root.querySelectorAll("[data-delivery-toggle-status]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          const subscriptionId = String(button.dataset.deliveryToggleStatus || "").trim();
+          const nextStatus = String(button.dataset.nextStatus || "active").trim().toLowerCase();
+          button.disabled = true;
+          try {{
+            await api(`/api/delivery-subscriptions/${{subscriptionId}}`, {{
+              method: "PUT",
+              headers: jsonHeaders,
+              body: JSON.stringify({{ status: nextStatus }}),
+            }});
+            await refreshBoard();
+            showToast(
+              nextStatus === "paused"
+                ? copy("Delivery subscription paused.", "交付订阅已暂停。")
+                : copy("Delivery subscription resumed.", "交付订阅已恢复。"),
+              "success",
+            );
+          }} catch (error) {{
+            reportError(error, copy("Update delivery subscription", "更新交付订阅"));
+          }} finally {{
+            button.disabled = false;
+          }}
+        }});
+      }});
+      root.querySelectorAll("[data-delivery-delete]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          const subscriptionId = String(button.dataset.deliveryDelete || "").trim();
+          if (!subscriptionId) {{
+            return;
+          }}
+          const confirmed = window.confirm(copy(
+            `Delete delivery subscription ${{subscriptionId}}?`,
+            `确认删除交付订阅 ${{subscriptionId}}？`,
+          ));
+          if (!confirmed) {{
+            return;
+          }}
+          button.disabled = true;
+          try {{
+            await api(`/api/delivery-subscriptions/${{subscriptionId}}`, {{ method: "DELETE" }});
+            if (state.selectedDeliverySubscriptionId === subscriptionId) {{
+              state.selectedDeliverySubscriptionId = "";
+            }}
+            await refreshBoard();
+            showToast(copy("Delivery subscription deleted.", "交付订阅已删除。"), "success");
+          }} catch (error) {{
+            reportError(error, copy("Delete delivery subscription", "删除交付订阅"));
+          }} finally {{
+            button.disabled = false;
+          }}
+        }});
+      }});
+    }}
+
     function renderStatus() {{
       const root = $("status-card");
       if (state.loading.board && !state.status && !state.ops) {{
@@ -12809,18 +13532,21 @@ def render_console_html(title: str) -> str:
       renderAlerts();
       renderRoutes();
       renderRouteHealth();
+      renderDeliveryWorkspace();
       renderStatus();
       renderTriage();
       renderStories();
       renderClaimsWorkspace();
       renderReportStudio();
       try {{
-        const [overview, watches, alerts, routes, routeHealth, status, ops, triage, triageStats, stories, reportBriefs, claimCards, citationBundles, reportSections, reports, exportProfiles] = await Promise.all([
+        const [overview, watches, alerts, routes, routeHealth, deliverySubscriptions, deliveryDispatchRecords, status, ops, triage, triageStats, stories, reportBriefs, claimCards, citationBundles, reportSections, reports, exportProfiles] = await Promise.all([
           api("/api/overview"),
           api("/api/watches?include_disabled=true"),
           api("/api/alerts?limit=8"),
           api("/api/alert-routes"),
           api("/api/alert-routes/health?limit=60"),
+          api("/api/delivery-subscriptions?limit=40"),
+          api("/api/delivery-dispatch-records?limit=40"),
           api("/api/watch-status"),
           api("/api/ops"),
           api("/api/triage?limit=12&include_closed=true"),
@@ -12838,6 +13564,8 @@ def render_console_html(title: str) -> str:
         state.alerts = alerts;
         state.routes = routes;
         state.routeHealth = routeHealth;
+        state.deliverySubscriptions = deliverySubscriptions;
+        state.deliveryDispatchRecords = deliveryDispatchRecords;
         state.status = status;
         state.ops = ops;
         state.triage = triage;
@@ -12878,8 +13606,20 @@ def render_console_html(title: str) -> str:
           state.selectedStoryId = "";
         }}
         syncReportSelectionState();
+        syncDeliverySelectionState();
         if (state.selectedReportId) {{
           state.reportCompositions[state.selectedReportId] = await api(`/api/reports/${{state.selectedReportId}}/compose`);
+        }}
+        const selectedDelivery = getSelectedDeliverySubscription();
+        if (selectedDelivery && String(selectedDelivery.subject_kind || "").trim().toLowerCase() === "report") {{
+          try {{
+            await loadDeliveryPackageAudit(String(selectedDelivery.id || "").trim(), {{
+              profileId: String(state.deliveryPackageProfileIds[selectedDelivery.id] || "").trim(),
+              render: false,
+            }});
+          }} catch (error) {{
+            state.deliveryPackageErrors[String(selectedDelivery.id || "").trim()] = error.message;
+          }}
         }}
       }} finally {{
         state.loading.board = false;
@@ -12890,6 +13630,7 @@ def render_console_html(title: str) -> str:
       renderAlerts();
       renderRoutes();
       renderRouteHealth();
+      renderDeliveryWorkspace();
       renderStatus();
       renderTriage();
       renderStories();

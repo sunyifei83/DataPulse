@@ -8,7 +8,7 @@ export SYSTEM_VERSION_COMPAT="${SYSTEM_VERSION_COMPAT:-1}"
 cd "$ROOT_DIR"
 
 EXTRA_ARGS=()
-if [[ "${DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE:-1}" != "0" ]]; then
+if [[ "${DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE:-0}" == "1" ]]; then
   EXTRA_ARGS+=(--allow-existing-dirty-worktree)
 fi
 

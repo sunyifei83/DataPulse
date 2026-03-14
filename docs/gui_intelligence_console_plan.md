@@ -230,6 +230,7 @@ Current implementation status:
 - the Reader-backed ops surface now also exports an intelligence governance scorecard for coverage, freshness, alert yield, triage throughput, and story conversion through both `GET /api/ops` and `GET /api/ops/scorecard`
 - current parity outside the browser: `datapulse --ops-overview` and `ops_overview(...)`
 - current ops scope now also includes route delivery timeline, so recent route attempts can be inspected without leaving the shell
+- the delivery lane now also includes a browser delivery workspace for persisted subscriptions, report package audit, and route-backed dispatch records without introducing a second frontend or browser-only delivery state
 
 Dependency:
 
@@ -1010,7 +1011,7 @@ Recommended stage preview:
 
 Current blueprint reopening target:
 
-- `L15.5` `Expose delivery-subscription CRUD and report-backed dispatch through Reader, CLI, MCP, and HTTP API surfaces`
+- `L15.7` `Harden verification for route-backed report delivery, subscription normalization, and delivery audit flows`
 
 The repository is now positioned on a manual ignition target beyond the completed report-production wave, with delivery/subscription follow-up documentation landing in `docs/governance/datapulse-report-delivery-subscription-blueprint.md`.
 
@@ -1018,5 +1019,6 @@ Current browser landing for `R5`:
 
 - the review rail now projects persisted report objects into `Claim Composer` and `Report Studio` inside the existing console shell
 - operators can create claim cards, bind them to reports and sections, inspect quality guardrails, and preview Markdown without introducing browser-only report state
+- the delivery rail now also projects persisted delivery subscriptions, report package audit, and route-backed dispatch attempts inside the same console shell
 
 With the report-production wave now landed, the next repo-relevant extension is not a richer report editor. The next wave is route-backed delivery and normalized subscriptions for authoritative report outputs. That promoted follow-up blueprint now lives in `docs/governance/datapulse-report-delivery-subscription-blueprint.md`.
