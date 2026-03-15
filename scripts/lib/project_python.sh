@@ -46,12 +46,6 @@ datapulse_resolve_python_cmd() {
     return 0
   fi
 
-  if command -v uv >/dev/null 2>&1; then
-    DATAPULSE_PYTHON_CMD=(uv run python)
-    DATAPULSE_PYTHON_DESC="uv run python"
-    return 0
-  fi
-
   local candidate
   for candidate in python3.12 python3.11 python3.10 python3 python; do
     if command -v "$candidate" >/dev/null 2>&1 && datapulse_python_supports_cmd "$candidate"; then
@@ -60,6 +54,12 @@ datapulse_resolve_python_cmd() {
       return 0
     fi
   done
+
+  if command -v uv >/dev/null 2>&1 && datapulse_python_supports_cmd uv run python; then
+    DATAPULSE_PYTHON_CMD=(uv run python)
+    DATAPULSE_PYTHON_DESC="uv run python"
+    return 0
+  fi
 
   if command -v python3 >/dev/null 2>&1; then
     datapulse_report_python_requirement_error \

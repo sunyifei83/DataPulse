@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -18,6 +20,7 @@ def _cleanup_env():
     os.environ.pop("DATAPULSE_STORIES_PATH", None)
     os.environ.pop("DATAPULSE_REPORTS_PATH", None)
     os.environ.pop("DATAPULSE_MEMORY_DIR", None)
+    os.environ.pop("DATAPULSE_AI_SURFACE_ADMISSION_PATH", None)
     os.environ.pop("DATAPULSE_ALERT_ROUTING_PATH", None)
     os.environ.pop("DATAPULSE_WATCHLIST_PATH", None)
     os.environ.pop("DATAPULSE_GROUNDING_BACKEND_CMD", None)
@@ -148,6 +151,47 @@ def test_delivery_subscription_rejects_unknown_subject_and_output_kind(tmp_path)
             output_kind="unsupported_output",
             delivery_mode="pull",
         )
+
+
+def test_ai_surface_admission_export_captures_runtime_semantics_and_rejections(tmp_path):
+    script_path = Path(__file__).resolve().parents[1] / "scripts/governance/export_datapulse_ai_surface_admission_example.py"
+    output_path = tmp_path / "datapulse-ai-surface-admission.example.json"
+
+    subprocess.run(
+        [sys.executable, str(script_path), "--output", str(output_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    surfaces = {row["surface"]: row for row in payload["surface_admissions"]}
+
+    mission = surfaces["mission_suggest"]
+    assert mission["mode_admission"] == {"off": "manual_only", "assist": "admitted", "review": "admitted"}
+    assert set(mission["must_expose_runtime_facts"]) >= {
+        "served_by_alias",
+        "fallback_used",
+        "degraded",
+        "schema_valid",
+        "manual_override_required",
+    }
+    assert mission["candidate_results"][0]["status"] == "admitted"
+
+    report = surfaces["report_draft"]
+    assert report["admission_status"] == "rejected"
+    assert report["mode_admission"] == {"off": "manual_only", "assist": "rejected", "review": "rejected"}
+    assert report["manual_fallback"] == "manual_or_deterministic_behavior"
+    assert set(report["must_expose_runtime_facts"]) >= {
+        "served_by_alias",
+        "fallback_used",
+        "degraded",
+        "schema_valid",
+        "manual_override_required",
+    }
+    gap_ids = {gap["gap_id"] for gap in report["rejectable_gaps"]}
+    assert "missing_required_schema_contract" in gap_ids
+    assert "report_draft.experimental:missing_contract_binding" in gap_ids
 
 
 def test_report_delivery_package_is_deterministic_and_dispatch_records_are_attributable(tmp_path, monkeypatch):

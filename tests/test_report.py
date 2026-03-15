@@ -36,6 +36,7 @@ def _cleanup_env():
     os.environ.pop("DATAPULSE_STORIES_PATH", None)
     os.environ.pop("DATAPULSE_REPORTS_PATH", None)
     os.environ.pop("DATAPULSE_MEMORY_DIR", None)
+    os.environ.pop("DATAPULSE_AI_SURFACE_ADMISSION_PATH", None)
     os.environ.pop("DATAPULSE_GROUNDING_BACKEND_CMD", None)
     os.environ.pop("DATAPULSE_GROUNDING_BACKEND_CALLABLE", None)
     os.environ.pop("DATAPULSE_GROUNDING_BACKEND_WORKDIR", None)
@@ -351,6 +352,16 @@ def test_ai_claim_draft_returns_bound_draft_without_persisting(tmp_path):
     payload = reader.ai_claim_draft(story["id"], mode="assist")
 
     assert payload is not None
+    assert payload["precheck"]["mode_status"] == "admitted"
+    assert set(payload["precheck"]["must_expose_runtime_facts"]) >= {
+        "served_by_alias",
+        "fallback_used",
+        "degraded",
+        "schema_valid",
+        "manual_override_required",
+    }
+    assert payload["bridge_request"]["governance"]["allow_final_state_write"] is False
+    assert payload["bridge_request"]["governance"]["allow_degraded_result"] is False
     assert payload["output"]["contract_id"] == "datapulse_ai_claim_draft.v1"
     draft = payload["output"]["payload"]
     assert draft["claim_cards"]
@@ -358,6 +369,44 @@ def test_ai_claim_draft_returns_bound_draft_without_persisting(tmp_path):
     assert draft["claim_cards"][0]["governance"]["evidence_status"] == "bound"
     assert payload["runtime_facts"]["source"] == "deterministic"
     assert reader.list_claim_cards(limit=10) == []
+    assert payload["runtime_facts"]["manual_override_required"] is True
+    assert payload["runtime_facts"]["served_by_alias"] == payload["precheck"]["alias"]
+
+
+def test_ai_claim_draft_rejects_when_admission_facts_are_missing(monkeypatch, tmp_path):
+    reader = _reader(tmp_path)
+    story = reader.create_story(
+        title="Admission Missing Story",
+        summary="Exercise fail-closed behavior when admission facts are unavailable.",
+        status="active",
+        item_count=1,
+        confidence=0.6,
+        primary_evidence=[
+            {
+                "item_id": "item-1",
+                "title": "Only evidence row",
+                "url": "https://example.com/item-1",
+                "source_name": "example",
+                "source_type": "generic",
+                "review_state": "verified",
+            }
+        ],
+    )
+    missing_path = tmp_path / "missing-ai-surface-admission.json"
+    monkeypatch.setenv("DATAPULSE_AI_SURFACE_ADMISSION_PATH", str(missing_path))
+
+    payload = reader.ai_claim_draft(story["id"], mode="review")
+
+    assert payload is not None
+    assert payload["precheck"]["ok"] is False
+    assert payload["precheck"]["mode"] == "review"
+    assert payload["precheck"]["mode_status"] == "rejected"
+    assert payload["precheck"]["admission_errors"]
+    assert "admission file missing:" in payload["precheck"]["admission_errors"][0]
+    assert payload["output"] is None
+    assert payload["runtime_facts"]["status"] == "rejected"
+    assert payload["runtime_facts"]["fallback_used"] is True
+    assert payload["runtime_facts"]["manual_override_required"] is True
 
 
 def test_ai_claim_draft_fails_closed_on_invalid_payload(monkeypatch, tmp_path):
@@ -388,3 +437,5 @@ def test_ai_claim_draft_fails_closed_on_invalid_payload(monkeypatch, tmp_path):
     assert payload["runtime_facts"]["status"] == "invalid"
     assert payload["runtime_facts"]["schema_valid"] is False
     assert payload["runtime_facts"]["fallback_used"] is True
+    assert payload["runtime_facts"]["manual_override_required"] is True
+    assert payload["runtime_facts"]["served_by_alias"] == payload["precheck"]["alias"]

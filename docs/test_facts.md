@@ -268,6 +268,12 @@ title: Test Facts
   - `uv run pytest tests/ -q` → `656 passed in 22.11s`
   - 当前测试文件数：`41`
 
+## Fact 3.12: v0.8.1 AI runtime semantics verification hard化
+
+- **验证门禁事实**：`tests/test_story.py`、`tests/test_report.py` 与 `tests/test_delivery.py` 现已把 `off / assist / review` 模式切换、schema fail-closed、admission miss、alias-bound fallback/degraded 以及 `manual_override_required` 纳入断言。
+- **治理导出事实**：`out/governance/datapulse-ai-surface-admission.example.json` 的 `must_expose_runtime_facts` 现在以运行时字段名固化 `served_by_alias / fallback_used / degraded / schema_valid / manual_override_required`。
+- **阻断事实**：`report_draft` 仍保持 `rejected`，并继续因为缺少 admitted structured contract 而 fail-closed 到 `manual_or_deterministic_behavior`；该状态是治理真相，不是假完成。
+
 ## Fact 4: 来源与订阅能力增强
 
 - 已形成统一落地清单：`docs/source_feed_enhancement_plan.md`。

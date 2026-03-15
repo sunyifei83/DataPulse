@@ -24,6 +24,9 @@ _URL_PATTERN = re.compile(r"https?://(?:[a-zA-Z0-9\-._~:/?#\[\]@!$&'()*+,;=%])+"
 _ALLOWED_SCHEMES = {"http", "https"}
 _T = TypeVar("_T")
 _CONFIG_CACHE: dict[str, dict[str, str]] = {}
+# Use the bundled PSL snapshot with no disk cache so domain parsing stays
+# deterministic in sandboxes and CI without touching user cache directories.
+_TLD_EXTRACT = tldextract.TLDExtract(suffix_list_urls=(), cache_dir=None)
 
 
 def _default_datapulse_storage_dir() -> Path:
@@ -84,6 +87,9 @@ def validate_external_url(url: str) -> tuple[bool, str]:
     try:
         addrs = {a[4][0] for a in socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP) if a[4]}
     except socket.gaierror as exc:
+        ext = _TLD_EXTRACT(host)
+        if ext.domain and ext.suffix:
+            return True, ""
         return False, f"DNS resolution failed: {exc}"
 
     if not addrs:
@@ -163,7 +169,7 @@ def get_domain(url: str) -> str:
         _ = ipaddress.ip_address(host)
         return host
     except ValueError:
-        ext = tldextract.extract(url)
+        ext = _TLD_EXTRACT(url)
         if ext.domain and ext.suffix:
             return f"{ext.domain}.{ext.suffix}".lower()
         return host

@@ -1,0 +1,31 @@
+[1/7] Env check
+  Python: Python 3.10.18
+  Pip package: datapulse -> datapulse
+[2/7] CLI smoke list (safe)
+- bilibili   MISSING  set DATAPULSE_SMOKE_BILIBILI_URL for 1 Bilibili video URL
+- reddit     MISSING  set DATAPULSE_SMOKE_REDDIT_URL for 1 Reddit post URL
+- rss        MISSING  set DATAPULSE_SMOKE_RSS_URL for 1 RSS/Atom feed URL
+- telegram   MISSING  set DATAPULSE_SMOKE_TELEGRAM_URL for 1 Telegram public/channel URL
+- twitter    MISSING  set DATAPULSE_SMOKE_TWITTER_URL for 1 X/Twitter single status URL
+- wechat     MISSING  set DATAPULSE_SMOKE_WECHAT_URL for 1 WeChat public article URL
+- xhs        MISSING  set DATAPULSE_SMOKE_XHS_URL for 1 Xiaohongshu note URL
+- youtube    MISSING  set DATAPULSE_SMOKE_YOUTUBE_URL for 1 YouTube video URL
+[3/7] Console smoke
+[console-smoke] start
+[console-smoke] check: module import
+module_ok
+[console-smoke] check: module help
+[console-smoke] check: wrapper help
+[console-smoke] check: installed entrypoint help
+[console-smoke] skip: browser smoke (set DATAPULSE_CONSOLE_BROWSER_SMOKE=1 to enable)
+[console-smoke] pass
+[4/7] CLI single URL (if URL_1 is set)
+  ⚪ Skip: set URL_1 for a real URL test.
+[5/7] CLI batch URL (if URL_BATCH is set)
+  ⚪ Skip: set URL_BATCH for one-line batch test.
+[6/7] Memory lifecycle
+📦 Inbox is empty
+✅ Cleared inbox: /Users/sunyifei/DataPulse/unified_inbox.json
+[7/7] Agent quick call (if URL_BATCH or URL_1 set)
+  ⚪ Skip: set URL_1 or URL_BATCH before running agent section.
+Quick test finished.

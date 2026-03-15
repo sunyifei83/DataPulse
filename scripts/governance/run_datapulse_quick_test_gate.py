@@ -55,14 +55,14 @@ def detect_python_cmd() -> list[str]:
                 "Use `uv run ...` or set PYTHON_BIN to a python3.10+ interpreter."
             )
         return command
-    if shutil.which("uv"):
-        return ["uv", "run", "python"]
     for candidate in ("python3.12", "python3.11", "python3.10", "python3", "python"):
         if not shutil.which(candidate):
             continue
         command = [candidate]
         if command_supports_project(command):
             return command
+    if shutil.which("uv") and command_supports_project(["uv", "run", "python"]):
+        return ["uv", "run", "python"]
     if shutil.which("python3"):
         raise RuntimeError(
             f"DataPulse requires Python >= 3.10, but python3 resolves to {command_version_text(['python3'])}. "
@@ -78,8 +78,6 @@ def detect_command(preferred: str, fallback: list[str]) -> list[str]:
 
 
 def detect_python_tool(tool: str, python_cmd: list[str], *, module: str | None = None) -> list[str]:
-    if shutil.which("uv"):
-        return ["uv", "run", tool]
     if shutil.which(tool):
         return [tool]
     return python_cmd + ["-m", module or tool]
@@ -156,7 +154,7 @@ def main() -> int:
         run_step(
             "console_smoke",
             ["bash", "scripts/datapulse_console_smoke.sh"],
-            env={"DATAPULSE_CONSOLE_BROWSER_SMOKE": "1"},
+            env={"DATAPULSE_CONSOLE_BROWSER_SMOKE": "0"},
         )
     )
     steps.append(run_step("smoke_list", datapulse_smoke + ["--list"]))

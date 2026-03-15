@@ -20,7 +20,7 @@
         "bounded_scope_suggestions"
       ],
       "must_expose_runtime_facts": [
-        "alias",
+        "served_by_alias",
         "fallback_used",
         "degraded",
         "schema_valid",
@@ -81,7 +81,7 @@
         "evidence_gap_flags"
       ],
       "must_expose_runtime_facts": [
-        "alias",
+        "served_by_alias",
         "fallback_used",
         "degraded",
         "schema_valid",
@@ -142,7 +142,7 @@
         "evidence_binding"
       ],
       "must_expose_runtime_facts": [
-        "alias",
+        "served_by_alias",
         "fallback_used",
         "degraded",
         "schema_valid",
@@ -203,7 +203,7 @@
         "provenance_preserving_rewrite"
       ],
       "must_expose_runtime_facts": [
-        "alias",
+        "served_by_alias",
         "fallback_used",
         "degraded",
         "schema_valid",
@@ -251,7 +251,7 @@
         "route_health_summary"
       ],
       "must_expose_runtime_facts": [
-        "alias",
+        "served_by_alias",
         "fallback_used",
         "degraded",
         "schema_valid",

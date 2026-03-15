@@ -1,7 +1,7 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-14T15:25:06Z",
+  "generated_at_utc": "2026-03-15T04:18:13Z",
   "status_kind": "draft_export",
   "wired": false,
   "headline_summary": {
@@ -17,27 +17,34 @@
       "observed": true,
       "current_head_match": true,
       "ok": true,
-      "generated_at_utc": "2026-03-14T15:18:36Z",
-      "head": "c6bbbdf2b313f8fe9d8ba67c5a0e86a7a3dd610f",
+      "generated_at_utc": "2026-03-15T04:17:58Z",
+      "head": "98c759301f4ee1eb84e4838e01f477ae291df0e0",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
   },
   "git": {
-    "head": "c6bbbdf2b313f8fe9d8ba67c5a0e86a7a3dd610f",
+    "head": "98c759301f4ee1eb84e4838e01f477ae291df0e0",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "c6bbbdf2b313f8fe9d8ba67c5a0e86a7a3dd610f",
+    "upstream_head": "98c759301f4ee1eb84e4838e01f477ae291df0e0",
     "head_published_to_upstream": true
   },
   "workspace": {
     "clean": false,
     "dirty_entries": [
-      "M docs/governance/datapulse-blueprint-plan.draft.json",
-      "?? docs/governance/datapulse-ai-surface-admission-contract.md",
-      "?? docs/governance/datapulse-ai-surface-subscriptions.example.json",
-      "?? out/governance/datapulse-ai-surface-admission.example.json",
-      "?? scripts/governance/export_datapulse_ai_surface_admission_example.py"
+      "M datapulse/core/utils.py",
+      " M docs/governance/datapulse-ai-surface-subscriptions.example.json",
+      " M docs/governance/datapulse-blueprint-plan.draft.json",
+      " M docs/test_facts.md",
+      " M out/governance/datapulse-ai-surface-admission.example.json",
+      " M scripts/datapulse_console.sh",
+      " M scripts/governance/run_datapulse_quick_test_gate.py",
+      " M scripts/lib/project_python.sh",
+      " M tests/test_delivery.py",
+      " M tests/test_report.py",
+      " M tests/test_story.py",
+      "?? out/codex_blueprint_loop/"
     ],
     "reason": "git status reported local modifications."
   },
@@ -57,20 +64,18 @@
       "latest_observation": {
         "path": "artifacts/governance/quick_test_gate.draft.json",
         "schema_version": "quick_test_gate.v1",
-        "generated_at_utc": "2026-03-14T15:18:36Z",
+        "generated_at_utc": "2026-03-15T04:17:58Z",
         "ok": true,
         "read_only": true,
         "git": {
-          "head": "c6bbbdf2b313f8fe9d8ba67c5a0e86a7a3dd610f",
+          "head": "98c759301f4ee1eb84e4838e01f477ae291df0e0",
           "branch": "main"
         },
         "steps": [
           {
             "name": "python_import",
             "command": [
-              "uv",
-              "run",
-              "python",
+              "python3.10",
               "-c",
               "import datapulse; print(datapulse.__name__)"
             ],
@@ -84,8 +89,6 @@
           {
             "name": "lint_datapulse",
             "command": [
-              "uv",
-              "run",
               "ruff",
               "check",
               "datapulse/"
@@ -100,15 +103,13 @@
           {
             "name": "typecheck_datapulse",
             "command": [
-              "uv",
-              "run",
               "mypy",
               "datapulse/"
             ],
             "rc": 0,
             "ok": true,
             "stdout_tail": [
-              "datapulse/cli.py:315: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
+              "datapulse/cli.py:319: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
               "Success: no issues found in 59 source files"
             ],
             "stderr_tail": []
@@ -122,10 +123,10 @@
             "rc": 0,
             "ok": true,
             "stdout_tail": [
-              "[console-browser-smoke] report workspaces",
-              "[console-browser-smoke] delivery workspace",
-              "[console-browser-smoke] responsive interaction safety",
-              "[console-browser-smoke] pass",
+              "[console-smoke] check: module help",
+              "[console-smoke] check: wrapper help",
+              "[console-smoke] check: installed entrypoint help",
+              "[console-smoke] skip: browser smoke (set DATAPULSE_CONSOLE_BROWSER_SMOKE=1 to enable)",
               "[console-smoke] pass"
             ],
             "stderr_tail": []
@@ -160,11 +161,7 @@
             "rc": 0,
             "ok": true,
             "stdout_tail": [
-              "    https://x.com/QQ_Timmy/status/1934942210426118243",
-              " 4. [twitter] Tweet by @grok (Mon Mar 02 14:26:45 +0000 2026) - 0.990",
-              "    https://x.com/grok/status/2028477112630341824",
-              " 5. [twitter] Tweet by @KUGQS172 (Thu Jan 08 10:09:37 +0000 2026) - 0.990",
-              "    https://x.com/KUGQS172/status/2009205845897457873"
+              "\ud83d\udce6 Inbox is empty"
             ],
             "stderr_tail": []
           }
@@ -232,11 +229,18 @@
     "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
-        "docs/governance/datapulse-blueprint-plan.draft.json",
-        "docs/governance/datapulse-ai-surface-admission-contract.md",
+        "datapulse/core/utils.py",
         "docs/governance/datapulse-ai-surface-subscriptions.example.json",
+        "docs/governance/datapulse-blueprint-plan.draft.json",
+        "docs/test_facts.md",
         "out/governance/datapulse-ai-surface-admission.example.json",
-        "scripts/governance/export_datapulse_ai_surface_admission_example.py"
+        "scripts/datapulse_console.sh",
+        "scripts/governance/run_datapulse_quick_test_gate.py",
+        "scripts/lib/project_python.sh",
+        "tests/test_delivery.py",
+        "tests/test_report.py",
+        "tests/test_story.py",
+        "out/codex_blueprint_loop/"
       ],
       "docs_only": false
     }
@@ -285,20 +289,18 @@
     "latest_quick_test_gate": {
       "path": "artifacts/governance/quick_test_gate.draft.json",
       "schema_version": "quick_test_gate.v1",
-      "generated_at_utc": "2026-03-14T15:18:36Z",
+      "generated_at_utc": "2026-03-15T04:17:58Z",
       "ok": true,
       "read_only": true,
       "git": {
-        "head": "c6bbbdf2b313f8fe9d8ba67c5a0e86a7a3dd610f",
+        "head": "98c759301f4ee1eb84e4838e01f477ae291df0e0",
         "branch": "main"
       },
       "steps": [
         {
           "name": "python_import",
           "command": [
-            "uv",
-            "run",
-            "python",
+            "python3.10",
             "-c",
             "import datapulse; print(datapulse.__name__)"
           ],
@@ -312,8 +314,6 @@
         {
           "name": "lint_datapulse",
           "command": [
-            "uv",
-            "run",
             "ruff",
             "check",
             "datapulse/"
@@ -328,15 +328,13 @@
         {
           "name": "typecheck_datapulse",
           "command": [
-            "uv",
-            "run",
             "mypy",
             "datapulse/"
           ],
           "rc": 0,
           "ok": true,
           "stdout_tail": [
-            "datapulse/cli.py:315: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
+            "datapulse/cli.py:319: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
             "Success: no issues found in 59 source files"
           ],
           "stderr_tail": []
@@ -350,10 +348,10 @@
           "rc": 0,
           "ok": true,
           "stdout_tail": [
-            "[console-browser-smoke] report workspaces",
-            "[console-browser-smoke] delivery workspace",
-            "[console-browser-smoke] responsive interaction safety",
-            "[console-browser-smoke] pass",
+            "[console-smoke] check: module help",
+            "[console-smoke] check: wrapper help",
+            "[console-smoke] check: installed entrypoint help",
+            "[console-smoke] skip: browser smoke (set DATAPULSE_CONSOLE_BROWSER_SMOKE=1 to enable)",
             "[console-smoke] pass"
           ],
           "stderr_tail": []
@@ -388,11 +386,7 @@
           "rc": 0,
           "ok": true,
           "stdout_tail": [
-            "    https://x.com/QQ_Timmy/status/1934942210426118243",
-            " 4. [twitter] Tweet by @grok (Mon Mar 02 14:26:45 +0000 2026) - 0.990",
-            "    https://x.com/grok/status/2028477112630341824",
-            " 5. [twitter] Tweet by @KUGQS172 (Thu Jan 08 10:09:37 +0000 2026) - 0.990",
-            "    https://x.com/KUGQS172/status/2009205845897457873"
+            "\ud83d\udce6 Inbox is empty"
           ],
           "stderr_tail": []
         }

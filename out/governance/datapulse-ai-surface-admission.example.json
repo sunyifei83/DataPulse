@@ -1,6 +1,6 @@
 {
   "schema_version": "datapulse_ai_surface_admission.v1",
-  "generated_at_utc": "2026-03-14T15:24:58Z",
+  "generated_at_utc": "2026-03-15T04:13:09Z",
   "governance_phase": "L16.5",
   "source_subscription_contract": "docs/governance/datapulse-ai-surface-subscriptions.example.json",
   "surface_admissions": [
@@ -25,7 +25,7 @@
         "structured_output"
       ],
       "must_expose_runtime_facts": [
-        "alias",
+        "served_by_alias",
         "fallback_used",
         "degraded",
         "schema_valid",
@@ -77,7 +77,7 @@
         "structured_output"
       ],
       "must_expose_runtime_facts": [
-        "alias",
+        "served_by_alias",
         "fallback_used",
         "degraded",
         "schema_valid",
@@ -129,7 +129,7 @@
         "structured_output"
       ],
       "must_expose_runtime_facts": [
-        "alias",
+        "served_by_alias",
         "fallback_used",
         "degraded",
         "schema_valid",
@@ -175,7 +175,7 @@
       "admitted_alias": "",
       "admitted_capabilities": [],
       "must_expose_runtime_facts": [
-        "alias",
+        "served_by_alias",
         "fallback_used",
         "degraded",
         "schema_valid",
@@ -235,7 +235,7 @@
         "structured_output"
       ],
       "must_expose_runtime_facts": [
-        "alias",
+        "served_by_alias",
         "fallback_used",
         "degraded",
         "schema_valid",

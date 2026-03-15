@@ -9,10 +9,6 @@ if command -v datapulse-console >/dev/null 2>&1; then
   exec datapulse-console "$@"
 fi
 
-if command -v uv >/dev/null 2>&1; then
-  exec uv run datapulse-console "$@"
-fi
-
 if ! datapulse_resolve_python_cmd; then
   exit 1
 fi

@@ -1,0 +1,50 @@
+自动推进 DataPulse 蓝图
+
+当前任务是推进 DataPulse blueprint loop 的当前 next_slice，并在本轮结束后让 loop 重新评估。
+
+当前 loop 事实：
+- plan_id: datapulse-loop-bootstrap-2026-03-07
+- current_level: ci_proven
+- next_slice: L16.8 / L16 / Harden verification gates and governance scorecards for AI assistance runtime semantics
+- execution_profile: runtime_validation
+- current_status: ready
+- current_reason: awaiting_manual_slice_execution
+- promotion_mode: auto
+
+蓝图与治理约束：
+- blueprint edit target: docs/governance/datapulse-blueprint-plan.draft.json
+- confirmed targets must remain structured as phase + slices + status
+- do not introduce Future Track or future_* prose-only planning state
+- only land the current next_slice unless the current slice cannot be completed without a tightly-scoped prerequisite
+- keep scheduled governance workflow read-only; do not turn .github/workflows/governance-loop-auto.yml into a business executor
+- do not hand-edit out/governance or out/*release_bundle snapshots unless a generated exporter requires regeneration
+
+当前 slice adapter：
+- execute_mode: manual_validation
+- adapter_type: runtime_validation
+- summary: Harden verification gates and governance scorecards for AI assistance runtime semantics
+- candidate_commands:
+- pytest
+- bash scripts/quick_test.sh
+- verification_commands:
+- pytest
+- bash scripts/quick_test.sh
+- target_artifacts:
+- tests/test_delivery.py
+- tests/test_report.py
+- tests/test_story.py
+- docs/test_facts.md
+- out/governance/datapulse-ai-surface-admission.example.json
+- notes:
+- exit_condition: Verification gates and scorecards cover switch modes, schema fail-closed behavior, admission misses, route fallback, and manual override observability for AI assistance runtime semantics.
+- promotion_scope: none
+- source_note: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_ModelBusProject能力接入与AI治理升维投料计划_2026-03-14.md
+- fact_source: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_ModelBusProject能力接入与AI治理升维投料计划_2026-03-14.md
+- No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice.
+- exit_condition: Verification gates and scorecards cover switch modes, schema fail-closed behavior, admission misses, route fallback, and manual override observability for AI assistance runtime semantics.
+
+完成标准：
+- the repo should reflect the landing of L16.8
+- update the structured blueprint slice status to match reality
+- if the slice lands, re-run or leave enough changes so the governance exporters can reflect the new state
+- if the slice cannot land safely, leave the repo in a truthful blocked state rather than faking completion

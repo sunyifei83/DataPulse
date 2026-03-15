@@ -8,7 +8,9 @@ import subprocess
 from pathlib import Path
 
 import pytest
+import tldextract
 
+from datapulse.core import utils as core_utils
 from datapulse.core.entities import Entity, EntityType, Relation
 from datapulse.core.entity_store import EntityStore
 from datapulse.core.models import DataPulseItem, SourceType
@@ -59,6 +61,11 @@ def _reader(
     os.environ["DATAPULSE_SOURCE_CATALOG"] = str(catalog_path)
     os.environ["DATAPULSE_STORIES_PATH"] = str(stories_path)
     os.environ["DATAPULSE_ENTITY_STORE"] = str(entity_store_path)
+    os.environ["TLDEXTRACT_CACHE"] = str(tmp_path / "tldextract-cache")
+    core_utils.tldextract.extract = tldextract.TLDExtract(
+        suffix_list_urls=(),
+        cache_dir=str(tmp_path / "tldextract-cache"),
+    )
     if entities or relations:
         store = EntityStore(path=str(entity_store_path))
         for entity in entities or []:
@@ -74,6 +81,10 @@ def _cleanup_env():
     os.environ.pop("DATAPULSE_SOURCE_CATALOG", None)
     os.environ.pop("DATAPULSE_STORIES_PATH", None)
     os.environ.pop("DATAPULSE_ENTITY_STORE", None)
+    os.environ.pop("DATAPULSE_MEMORY_DIR", None)
+    os.environ.pop("DATAPULSE_WATCHLIST_PATH", None)
+    os.environ.pop("DATAPULSE_AI_SURFACE_ADMISSION_PATH", None)
+    os.environ.pop("TLDEXTRACT_CACHE", None)
     os.environ.pop("DATAPULSE_GROUNDING_BACKEND_CMD", None)
     os.environ.pop("DATAPULSE_GROUNDING_BACKEND_CALLABLE", None)
     os.environ.pop("DATAPULSE_GROUNDING_BACKEND_WORKDIR", None)
@@ -233,6 +244,50 @@ def test_story_create_and_delete_roundtrip(tmp_path):
     assert deleted is not None
     assert deleted["id"] == created["id"]
     assert reader.list_stories(limit=10, min_items=0) == []
+
+
+def test_ai_mission_suggest_runtime_semantics_cover_switch_modes_and_fallback_visibility(tmp_path):
+    os.environ["DATAPULSE_MEMORY_DIR"] = str(tmp_path)
+    reader = _reader(tmp_path, [])
+    mission = reader.create_watch(
+        name="AI Runtime Watch",
+        query="edge inference launch",
+        mission_intent={
+            "scope_topics": ["launch"],
+            "freshness_expectation": "daily",
+        },
+        schedule="@daily",
+    )
+
+    off_payload = reader.ai_mission_suggest(mission["id"], mode="off")
+    review_payload = reader.ai_mission_suggest(mission["id"], mode="review")
+
+    assert off_payload is not None
+    assert off_payload["precheck"]["mode"] == "off"
+    assert off_payload["precheck"]["mode_status"] == "manual_only"
+    assert off_payload["bridge_request"] is None
+    assert off_payload["output"] is None
+    assert off_payload["runtime_facts"]["status"] == "manual_only"
+    assert off_payload["runtime_facts"]["manual_override_required"] is False
+
+    assert review_payload is not None
+    assert review_payload["precheck"]["mode"] == "review"
+    assert review_payload["precheck"]["mode_status"] == "admitted"
+    assert set(review_payload["precheck"]["must_expose_runtime_facts"]) >= {
+        "served_by_alias",
+        "fallback_used",
+        "degraded",
+        "schema_valid",
+        "manual_override_required",
+    }
+    assert review_payload["bridge_request"]["governance"]["allow_final_state_write"] is False
+    assert review_payload["bridge_request"]["governance"]["allow_degraded_result"] is True
+    assert review_payload["runtime_facts"]["status"] == "fallback_used"
+    assert review_payload["runtime_facts"]["fallback_used"] is True
+    assert review_payload["runtime_facts"]["degraded"] is True
+    assert review_payload["runtime_facts"]["schema_valid"] is True
+    assert review_payload["runtime_facts"]["manual_override_required"] is True
+    assert review_payload["runtime_facts"]["served_by_alias"] == review_payload["precheck"]["alias"]
 
 
 def test_story_create_from_triage_items(tmp_path):

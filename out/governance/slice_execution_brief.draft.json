@@ -1,58 +1,16 @@
 {
   "schema_version": "datapulse_slice_execution_brief.v1",
   "project": "DataPulse",
-  "status": "blocked",
-  "reason": "next_slice_blocked",
+  "status": "stopped",
+  "reason": "promotion_gates_open",
   "current_level": "manual_only",
   "next_slice": {
-    "id": "L16.6",
-    "title": "Add Reader-backed AI assistance services for suggestions drafts and governed prechecks",
-    "category": "manual",
-    "phase_id": "L16",
-    "execution_profile": "workflow_change",
-    "promotion_scope": "none",
-    "closes_gates": []
+    "id": "no-open-slice",
+    "title": "No open slice",
+    "category": "complete"
   },
-  "slice_execution_brief": {
-    "slice_id": "L16.6",
-    "phase_id": "L16",
-    "title": "Add Reader-backed AI assistance services for suggestions drafts and governed prechecks",
-    "category": "manual",
-    "execution_profile": "workflow_change",
-    "adapter_type": "workflow_change",
-    "execute_mode": "manual_edit",
-    "summary": "Add Reader-backed AI assistance services for suggestions drafts and governed prechecks",
-    "candidate_commands": [
-      "pytest"
-    ],
-    "verification_commands": [
-      "pytest"
-    ],
-    "target_artifacts": [
-      "datapulse/reader.py",
-      "datapulse/core/watchlist.py",
-      "datapulse/core/triage.py",
-      "datapulse/core/report.py",
-      "tests/test_reader.py",
-      "tests/test_triage.py",
-      "tests/test_report.py"
-    ],
-    "exit_condition": "Reader-backed AI assist services can generate governed suggestions and drafts under off/assist/review policy without writing final operational states directly.",
-    "notes": [
-      "exit_condition: Reader-backed AI assist services can generate governed suggestions and drafts under off/assist/review policy without writing final operational states directly.",
-      "promotion_scope: none",
-      "source_note: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
-      "fact_source: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
-      "No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice."
-    ],
-    "source": {
-      "catalog_entry": false,
-      "plan_slice": true
-    }
-  },
-  "blocking_facts": [
-    "workspace_dirty"
-  ],
+  "slice_execution_brief": {},
+  "blocking_facts": [],
   "remaining_promotion_gates": [
     "workspace_dirty",
     "repo_landed_false",
