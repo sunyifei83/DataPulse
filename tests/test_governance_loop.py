@@ -438,6 +438,7 @@ def test_maybe_auto_promote_persists_repair_request_on_pre_promotion_gate_failur
             False,
         ),
     )
+    monkeypatch.setattr(governance_loop, "workspace_status_lines", lambda: [" M datapulse/reader.py"])
 
     runtime = {
         "status": "blocked",
