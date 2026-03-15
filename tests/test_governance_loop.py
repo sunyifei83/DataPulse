@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 from pathlib import Path
 
@@ -216,3 +217,266 @@ def test_supports_auto_ci_proven_rejects_hard_stop_gates(governance_loop) -> Non
     }
 
     assert governance_loop.supports_auto_ci_proven(runtime) is False
+
+
+def test_build_subprocess_env_sets_uv_cache_dir(governance_loop, monkeypatch) -> None:
+    monkeypatch.delenv("UV_CACHE_DIR", raising=False)
+
+    env = governance_loop.build_subprocess_env()
+
+    assert env["UV_CACHE_DIR"] == str(governance_loop.DEFAULT_UV_CACHE_DIR)
+
+
+def test_verification_command_argv_normalizes_uv_pytest(governance_loop, monkeypatch, tmp_path: Path) -> None:
+    venv_python = tmp_path / ".venv" / "bin" / "python"
+    venv_python.parent.mkdir(parents=True, exist_ok=True)
+    venv_python.write_text("", encoding="utf-8")
+    monkeypatch.setattr(governance_loop, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(governance_loop.sys, "executable", str(tmp_path / "fallback-python"))
+    monkeypatch.setattr(governance_loop.sys, "prefix", str(tmp_path / "fallback-prefix"))
+
+    env_updates, argv = governance_loop._verification_command_argv(
+        "UV_CACHE_DIR=/tmp/custom uv run pytest tests/test_governance_loop.py -q"
+    )
+
+    assert env_updates == {"UV_CACHE_DIR": "/tmp/custom"}
+    assert argv == [str(venv_python), "-m", "pytest", "tests/test_governance_loop.py", "-q"]
+
+
+def test_run_verification_commands_retries_pytest_after_negative_signal(governance_loop, monkeypatch, tmp_path: Path) -> None:
+    calls: list[list[str]] = []
+    outputs = [
+        governance_loop.subprocess.CompletedProcess(
+            [str(tmp_path / "python"), "-m", "pytest", "-q"],
+            -9,
+            stdout="============================= 2 passed in 0.12s =============================\n",
+            stderr="",
+        ),
+        governance_loop.subprocess.CompletedProcess(
+            [str(tmp_path / "python"), "-m", "pytest", "-q"],
+            0,
+            stdout="============================= 2 passed in 0.10s =============================\n",
+            stderr="",
+        ),
+    ]
+
+    monkeypatch.setattr(governance_loop, "_verification_command_argv", lambda command: ({}, [str(tmp_path / "python"), "-m", "pytest", "-q"]))
+
+    def _fake_run(argv, **kwargs):
+        calls.append(list(argv))
+        return outputs.pop(0)
+
+    monkeypatch.setattr(governance_loop.subprocess, "run", _fake_run)
+
+    results, ok = governance_loop.run_verification_commands(
+        commands=["uv run pytest -q"],
+        round_dir=tmp_path / "round",
+        dry_run=False,
+    )
+
+    assert ok is True
+    assert len(calls) == 2
+    assert results[0]["exit_code"] == 0
+
+
+def test_persist_and_load_promotion_auto_repair_request(governance_loop, monkeypatch, tmp_path: Path) -> None:
+    request_path = tmp_path / "promotion_auto_repair_request.json"
+    stdout_path = tmp_path / "gate.stdout.log"
+    stderr_path = tmp_path / "gate.stderr.log"
+    stdout_path.write_text("gate stdout\n", encoding="utf-8")
+    stderr_path.write_text("gate stderr\n", encoding="utf-8")
+    monkeypatch.setenv(governance_loop.PROMOTION_AUTO_REPAIR_ENV_VAR, str(request_path))
+
+    persisted_path = governance_loop._persist_promotion_auto_repair_request(
+        reason="pre_promotion_gate_failed",
+        detail="pre_promotion_gate_failed",
+        round_index=3,
+        runtime={
+            "current_level": "manual_only",
+            "remaining_promotion_gates": ["repo_landed_false", "head_not_pushed"],
+            "next_slice": {
+                "id": "L16.4",
+                "title": "Structured contracts",
+                "phase_id": "L16",
+                "category": "manual",
+                "execution_profile": "workflow_change",
+            },
+        },
+        slice_execution_brief={"id": "L16.4"},
+        verification_results=[
+            {
+                "command": "uv run python scripts/governance/run_datapulse_quick_test_gate.py",
+                "stdout_path": str(stdout_path),
+                "stderr_path": str(stderr_path),
+                "exit_code": 1,
+            }
+        ],
+        local_verification_commands=["uv run python scripts/governance/run_datapulse_quick_test_gate.py"],
+    )
+
+    assert persisted_path == request_path.resolve()
+    payload = governance_loop.load_promotion_auto_repair_request()
+    assert payload is not None
+    assert payload["schema_version"] == governance_loop.PROMOTION_AUTO_REPAIR_REQUEST_SCHEMA
+    assert payload["failed_command"] == "uv run python scripts/governance/run_datapulse_quick_test_gate.py"
+    assert payload["round"] == 3
+    assert payload["original_next_slice"]["id"] == "L16.4"
+    assert "gate stdout" in payload["stdout_tail"]
+    assert "gate stderr" in payload["stderr_tail"]
+
+    governance_loop.clear_promotion_auto_repair_request()
+    assert request_path.exists() is False
+
+
+def test_resume_promotion_auto_repair_clears_request_on_success(governance_loop, monkeypatch, tmp_path: Path) -> None:
+    request_path = tmp_path / "promotion_auto_repair_request.json"
+    monkeypatch.setenv(governance_loop.PROMOTION_AUTO_REPAIR_ENV_VAR, str(request_path))
+    request_path.write_text(
+        json.dumps(
+            {
+                "schema_version": governance_loop.PROMOTION_AUTO_REPAIR_REQUEST_SCHEMA,
+                "generated_at_utc": "2026-03-15T00:00:00Z",
+                "reason": "pre_promotion_gate_failed",
+                "detail": "pre_promotion_gate_failed",
+                "round": 1,
+                "failed_command": "uv run python scripts/governance/run_datapulse_quick_test_gate.py",
+                "local_verification_commands": ["uv run python scripts/governance/run_datapulse_quick_test_gate.py"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    def _fake_run_verification_commands(*, commands, round_dir, dry_run):
+        assert commands == ["uv run python scripts/governance/run_datapulse_quick_test_gate.py"]
+        assert round_dir == tmp_path / "out" / "promotion-auto-repair-resume"
+        assert dry_run is False
+        return ([{"command": commands[0], "stdout_path": "stdout.log", "stderr_path": "stderr.log", "exit_code": 0}], True)
+
+    monkeypatch.setattr(governance_loop, "run_verification_commands", _fake_run_verification_commands)
+
+    ok = governance_loop.resume_promotion_auto_repair(output_dir=tmp_path / "out", dry_run=False)
+
+    assert ok is True
+    assert request_path.exists() is False
+
+
+def test_resume_promotion_auto_repair_keeps_request_on_failure(governance_loop, monkeypatch, tmp_path: Path) -> None:
+    request_path = tmp_path / "promotion_auto_repair_request.json"
+    stdout_path = tmp_path / "resume.stdout.log"
+    stderr_path = tmp_path / "resume.stderr.log"
+    stdout_path.write_text("resume stdout\n", encoding="utf-8")
+    stderr_path.write_text("resume stderr\n", encoding="utf-8")
+    monkeypatch.setenv(governance_loop.PROMOTION_AUTO_REPAIR_ENV_VAR, str(request_path))
+    request_path.write_text(
+        json.dumps(
+            {
+                "schema_version": governance_loop.PROMOTION_AUTO_REPAIR_REQUEST_SCHEMA,
+                "generated_at_utc": "2026-03-15T00:00:00Z",
+                "reason": "pre_promotion_gate_failed",
+                "detail": "pre_promotion_gate_failed",
+                "round": 1,
+                "failed_command": "uv run python scripts/governance/run_datapulse_quick_test_gate.py",
+                "local_verification_commands": ["uv run python scripts/governance/run_datapulse_quick_test_gate.py"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    def _fake_run_verification_commands(*, commands, round_dir, dry_run):
+        assert dry_run is False
+        return (
+            [
+                {
+                    "command": commands[0],
+                    "stdout_path": str(stdout_path),
+                    "stderr_path": str(stderr_path),
+                    "exit_code": 1,
+                }
+            ],
+            False,
+        )
+
+    monkeypatch.setattr(governance_loop, "run_verification_commands", _fake_run_verification_commands)
+
+    ok = governance_loop.resume_promotion_auto_repair(output_dir=tmp_path / "out", dry_run=False)
+
+    assert ok is False
+    payload = json.loads(request_path.read_text(encoding="utf-8"))
+    assert payload["reason"] == "promotion_auto_repair_resume_failed"
+    assert payload["failed_command"] == "uv run python scripts/governance/run_datapulse_quick_test_gate.py"
+    assert "resume stdout" in payload["stdout_tail"]
+
+
+def test_maybe_auto_promote_persists_repair_request_on_pre_promotion_gate_failure(
+    governance_loop, monkeypatch, tmp_path: Path
+) -> None:
+    request_path = tmp_path / "promotion_auto_repair_request.json"
+    monkeypatch.setenv(governance_loop.PROMOTION_AUTO_REPAIR_ENV_VAR, str(request_path))
+    stdout_path = tmp_path / "gate.stdout.log"
+    stderr_path = tmp_path / "gate.stderr.log"
+    stdout_path.write_text("gate stdout\n", encoding="utf-8")
+    stderr_path.write_text("gate stderr\n", encoding="utf-8")
+    monkeypatch.setattr(governance_loop, "load_plan", lambda path: {})
+    monkeypatch.setattr(
+        governance_loop,
+        "run_pre_promotion_gate",
+        lambda **kwargs: (
+            [
+                {
+                    "command": "uv run python scripts/governance/run_datapulse_quick_test_gate.py",
+                    "stdout_path": str(stdout_path),
+                    "stderr_path": str(stderr_path),
+                    "exit_code": 1,
+                }
+            ],
+            False,
+        ),
+    )
+
+    runtime = {
+        "status": "blocked",
+        "reason": "next_slice_blocked",
+        "effective_blocking_facts": ["workspace_dirty"],
+        "remaining_promotion_gates": ["workspace_dirty", "repo_landed_false", "head_not_pushed"],
+        "current_level": "manual_only",
+        "next_slice": {
+            "id": "L16.4",
+            "title": "Structured contracts",
+            "phase_id": "L16",
+            "category": "manual",
+            "execution_profile": "workflow_change",
+        },
+    }
+
+    with pytest.raises(governance_loop.PromotionExecutionError) as exc_info:
+        governance_loop.maybe_auto_promote(
+            runtime=runtime,
+            slice_execution_brief={"id": "L16.4"},
+            round_index=1,
+            output_dir=tmp_path / "out",
+            baseline_dirty_paths=["datapulse/reader.py"],
+            promotion_mode="auto",
+            allow_existing_dirty_worktree=True,
+            plan_path=tmp_path / "plan.json",
+            catalog_path=tmp_path / "catalog.json",
+            bundle_dir=tmp_path / "bundle",
+            tracked_snapshots=False,
+            code_landing_status_output=tmp_path / "code_landing_status.json",
+            project_loop_state_output=tmp_path / "project_loop_state.json",
+            push_remote="origin",
+            poll_interval_seconds=1,
+            ci_timeout_seconds=1,
+            pre_promotion_gate_command="uv run python scripts/governance/run_datapulse_quick_test_gate.py",
+            dry_run=False,
+        )
+
+    assert exc_info.value.reason == "pre_promotion_gate_failed"
+    payload = json.loads(request_path.read_text(encoding="utf-8"))
+    assert payload["failed_command"] == "uv run python scripts/governance/run_datapulse_quick_test_gate.py"
+    assert payload["original_next_slice"]["id"] == "L16.4"

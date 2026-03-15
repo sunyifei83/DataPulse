@@ -4,6 +4,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -18,11 +20,14 @@ from datapulse_loop_contracts import (
     build_code_landing_status,
     display_path,
     load_plan,
+    utc_now,
 )
 from run_datapulse_auto_continuation import refresh_governance_snapshots, refresh_governance_snapshots_to_targets
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "out" / "codex_blueprint_loop"
 DEFAULT_BUNDLE_DIR = REPO_ROOT / "out" / "ha_latest_release_bundle"
+DEFAULT_UV_CACHE_DIR = Path(tempfile.gettempdir()) / "datapulse-uv-cache"
+DEFAULT_PROMOTION_AUTO_REPAIR_REQUEST = DEFAULT_OUTPUT_DIR / "promotion_auto_repair_request.json"
 DEFAULT_PROMPT = "自动推进 DataPulse 蓝图"
 DEFAULT_MODEL = "gpt-5.4"
 DEFAULT_MODEL_REASONING_EFFORT = "xhigh"
@@ -59,6 +64,10 @@ WORKFLOW_RUN_FIELDS = [
     "updatedAt",
     "url",
 ]
+PYTEST_PASSED_SUMMARY_PATTERN = re.compile(r"\b\d+\s+passed\b")
+ENV_ASSIGNMENT_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=.*$")
+PROMOTION_AUTO_REPAIR_ENV_VAR = "DATAPULSE_PROMOTION_AUTO_REPAIR_PATH"
+PROMOTION_AUTO_REPAIR_REQUEST_SCHEMA = "datapulse.promotion_auto_repair_request.v1"
 
 
 def _to_text(value: Any) -> str:
@@ -69,7 +78,16 @@ def build_subprocess_env() -> dict[str, str]:
     env = os.environ.copy()
     if sys.platform == "darwin":
         env.setdefault("SYSTEM_VERSION_COMPAT", "1")
+    env.setdefault("UV_CACHE_DIR", str(DEFAULT_UV_CACHE_DIR))
     return env
+
+
+class PromotionExecutionError(RuntimeError):
+    def __init__(self, reason: str, detail: str = "", payload: dict[str, Any] | None = None) -> None:
+        super().__init__(detail or reason)
+        self.reason = _to_text(reason) or "promotion_blocked"
+        self.detail = _to_text(detail) or self.reason
+        self.payload = dict(payload or {})
 
 
 def parse_args() -> argparse.Namespace:
@@ -117,8 +135,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=None,
-        help="Directory for per-round prompts and Codex last-message outputs. Defaults to an ephemeral temp directory.",
+        default=DEFAULT_OUTPUT_DIR,
+        help="Directory for per-round prompts and Codex last-message outputs. Defaults to out/codex_blueprint_loop.",
     )
     parser.add_argument(
         "--obsidian-source",
@@ -313,7 +331,7 @@ def changed_paths_from_status_lines(status_lines: list[str]) -> list[str]:
 
 def stage_and_commit_all(commit_message: str, *, dry_run: bool) -> dict[str, Any]:
     status_lines = workspace_status_lines()
-    payload = {
+    payload: dict[str, Any] = {
         "commit_message": commit_message,
         "changed_paths": changed_paths_from_status_lines(status_lines),
     }
@@ -328,7 +346,7 @@ def stage_and_commit_all(commit_message: str, *, dry_run: bool) -> dict[str, Any
 
 
 def push_current_branch(remote: str, branch: str, *, dry_run: bool) -> dict[str, Any]:
-    payload = {
+    payload: dict[str, Any] = {
         "remote": remote,
         "branch": branch,
         "head": git_output("rev-parse", "HEAD"),
@@ -342,7 +360,7 @@ def push_current_branch(remote: str, branch: str, *, dry_run: bool) -> dict[str,
 
 
 def dispatch_workflow(workflow: str, branch: str, *, dry_run: bool) -> dict[str, Any]:
-    payload = {
+    payload: dict[str, Any] = {
         "workflow": workflow,
         "branch": branch,
     }
@@ -446,6 +464,277 @@ def find_plan_slice(plan: dict[str, Any], slice_id: str) -> dict[str, Any]:
     return {}
 
 
+def _minimal_slice_payload(slice_payload: dict[str, Any] | None) -> dict[str, Any]:
+    payload = dict(slice_payload or {})
+    slice_id = _to_text(payload.get("id")) or _to_text(payload.get("slice_id"))
+    if not slice_id:
+        return {}
+    normalized = {"id": slice_id}
+    for key in ("title", "phase_id", "category", "execution_profile", "promotion_scope", "status"):
+        value = _to_text(payload.get(key))
+        if value:
+            normalized[key] = value
+    return normalized
+
+
+def _repo_python_executable() -> str:
+    candidates: list[Path] = [
+        REPO_ROOT / ".venv" / "bin" / "python",
+        REPO_ROOT / ".venv" / "bin" / "python3",
+    ]
+    if _to_text(sys.executable):
+        candidates.append(Path(sys.executable).expanduser())
+    if _to_text(sys.prefix):
+        candidates.extend(
+            [
+                Path(sys.prefix).expanduser() / "bin" / "python",
+                Path(sys.prefix).expanduser() / "bin" / "python3",
+            ]
+        )
+    seen: set[str] = set()
+    for candidate in candidates:
+        candidate_text = str(candidate)
+        if not candidate_text or candidate_text in seen:
+            continue
+        seen.add(candidate_text)
+        if candidate.exists():
+            return candidate_text
+    return _to_text(sys.executable) or "python3"
+
+
+def _parse_shell_style_command(command_text: str) -> tuple[dict[str, str], list[str]]:
+    tokens = shlex.split(command_text)
+    env_updates: dict[str, str] = {}
+    while tokens and ENV_ASSIGNMENT_PATTERN.match(tokens[0]):
+        key, value = tokens.pop(0).split("=", 1)
+        env_updates[key] = value
+    return env_updates, tokens
+
+
+def _verification_command_argv(command_text: str) -> tuple[dict[str, str], list[str]]:
+    env_updates, argv = _parse_shell_style_command(command_text)
+    if not argv:
+        raise ValueError(f"verification command is empty: {command_text}")
+    python_exec = _repo_python_executable()
+    if argv[:5] == ["uv", "run", "python", "-m", "pytest"]:
+        return env_updates, [python_exec, "-m", "pytest", *argv[5:]]
+    if argv[:3] == ["uv", "run", "pytest"]:
+        return env_updates, [python_exec, "-m", "pytest", *argv[3:]]
+    return env_updates, argv
+
+
+def _looks_like_pytest_command(argv: list[str]) -> bool:
+    if len(argv) >= 3 and argv[1:3] == ["-m", "pytest"]:
+        return True
+    return Path(argv[0]).name == "pytest" if argv else False
+
+
+def _should_retry_verification_command(*, argv: list[str], completed: subprocess.CompletedProcess[str]) -> bool:
+    if completed.returncode >= 0 or not _looks_like_pytest_command(argv):
+        return False
+    stdout = _to_text(completed.stdout)
+    if not stdout or not PYTEST_PASSED_SUMMARY_PATTERN.search(stdout):
+        return False
+    lowered = stdout.lower()
+    return "failed" not in lowered and "error" not in lowered
+
+
+def _active_promotion_auto_repair_path() -> Path:
+    path_text = _to_text(os.environ.get(PROMOTION_AUTO_REPAIR_ENV_VAR))
+    candidate = Path(path_text).expanduser() if path_text else DEFAULT_PROMOTION_AUTO_REPAIR_REQUEST
+    return candidate.resolve()
+
+
+def _read_log_tail(path_text: str, *, limit_chars: int = 4000) -> str:
+    text = _to_text(path_text)
+    if not text:
+        return ""
+    path = Path(text).expanduser()
+    if not path.exists():
+        return ""
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")[-limit_chars:]
+    except OSError:
+        return ""
+
+
+def _failed_verification_result(verification_results: list[dict[str, Any]]) -> dict[str, Any]:
+    for result in verification_results:
+        if int(result.get("exit_code", 0) or 0) != 0:
+            return dict(result)
+    return dict(verification_results[-1]) if verification_results else {}
+
+
+def load_promotion_auto_repair_request() -> dict[str, Any] | None:
+    path = _active_promotion_auto_repair_path()
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if _to_text(payload.get("schema_version")) != PROMOTION_AUTO_REPAIR_REQUEST_SCHEMA:
+        return None
+    payload["path"] = display_path(path)
+    return payload
+
+
+def clear_promotion_auto_repair_request() -> None:
+    path = _active_promotion_auto_repair_path()
+    os.environ.pop(PROMOTION_AUTO_REPAIR_ENV_VAR, None)
+    if path.exists():
+        path.unlink()
+
+
+def _persist_promotion_auto_repair_request(
+    *,
+    reason: str,
+    detail: str,
+    round_index: int | None,
+    runtime: dict[str, Any],
+    slice_execution_brief: dict[str, Any],
+    verification_results: list[dict[str, Any]],
+    local_verification_commands: list[str],
+) -> Path:
+    path = _active_promotion_auto_repair_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    failed_result = _failed_verification_result(verification_results)
+    failed_stdout_path = _to_text(failed_result.get("stdout_path"))
+    failed_stderr_path = _to_text(failed_result.get("stderr_path"))
+    payload = {
+        "schema_version": PROMOTION_AUTO_REPAIR_REQUEST_SCHEMA,
+        "generated_at_utc": utc_now(),
+        "reason": _to_text(reason),
+        "detail": _to_text(detail),
+        "round": round_index,
+        "current_level": _to_text(runtime.get("current_level")),
+        "remaining_promotion_gates": [
+            _to_text(item) for item in runtime.get("remaining_promotion_gates", []) if _to_text(item)
+        ],
+        "original_next_slice": _minimal_slice_payload(dict(runtime.get("next_slice") or {}))
+        or _minimal_slice_payload(slice_execution_brief),
+        "local_verification_commands": [
+            _to_text(item) for item in local_verification_commands if _to_text(item)
+        ]
+        or [_to_text(failed_result.get("command"))],
+        "failed_command": _to_text(failed_result.get("command")),
+        "exit_code": int(failed_result.get("exit_code", 0) or 0),
+        "stdout_path": failed_stdout_path,
+        "stderr_path": failed_stderr_path,
+        "stdout_tail": _read_log_tail(failed_stdout_path),
+        "stderr_tail": _read_log_tail(failed_stderr_path),
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.environ[PROMOTION_AUTO_REPAIR_ENV_VAR] = str(path)
+    return path
+
+
+def _refresh_promotion_auto_repair_request(
+    *,
+    request: dict[str, Any],
+    reason: str,
+    detail: str,
+    verification_results: list[dict[str, Any]],
+) -> Path:
+    path = _active_promotion_auto_repair_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    failed_result = _failed_verification_result(verification_results)
+    failed_stdout_path = _to_text(failed_result.get("stdout_path"))
+    failed_stderr_path = _to_text(failed_result.get("stderr_path"))
+    payload = dict(request)
+    payload.update(
+        {
+            "schema_version": PROMOTION_AUTO_REPAIR_REQUEST_SCHEMA,
+            "generated_at_utc": utc_now(),
+            "reason": _to_text(reason),
+            "detail": _to_text(detail),
+            "failed_command": _to_text(failed_result.get("command")) or _to_text(payload.get("failed_command")),
+            "exit_code": int(failed_result.get("exit_code", 0) or 0),
+            "stdout_path": failed_stdout_path,
+            "stderr_path": failed_stderr_path,
+            "stdout_tail": _read_log_tail(failed_stdout_path),
+            "stderr_tail": _read_log_tail(failed_stderr_path),
+        }
+    )
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.environ[PROMOTION_AUTO_REPAIR_ENV_VAR] = str(path)
+    return path
+
+
+def resume_promotion_auto_repair(*, output_dir: Path, dry_run: bool) -> bool:
+    request = load_promotion_auto_repair_request()
+    if request is None:
+        return True
+    request_path = _active_promotion_auto_repair_path()
+    commands = [
+        _to_text(item) for item in request.get("local_verification_commands", []) if _to_text(item)
+    ] or [_to_text(request.get("failed_command"))]
+    if not any(commands):
+        if not dry_run:
+            clear_promotion_auto_repair_request()
+        print(
+            json.dumps(
+                {
+                    "status": "promotion_auto_repair_cleared",
+                    "repair_request_path": display_path(request_path),
+                    "failed_command": _to_text(request.get("failed_command")),
+                },
+                ensure_ascii=False,
+            )
+        )
+        return True
+    results, ok = run_verification_commands(
+        commands=commands,
+        round_dir=output_dir / "promotion-auto-repair-resume",
+        dry_run=dry_run,
+    )
+    print(
+        json.dumps(
+            {
+                "status": "promotion_auto_repair_resume_completed",
+                "ok": ok,
+                "results": results,
+                "repair_request_path": display_path(request_path),
+            },
+            ensure_ascii=False,
+        )
+    )
+    if not ok:
+        refreshed_path = _refresh_promotion_auto_repair_request(
+            request=request,
+            reason="promotion_auto_repair_resume_failed",
+            detail="promotion_auto_repair_resume_failed",
+            verification_results=results,
+        )
+        print(
+            json.dumps(
+                {
+                    "status": "promotion_auto_repair_pending",
+                    "repair_request_path": display_path(refreshed_path),
+                    "failed_command": _to_text(_failed_verification_result(results).get("command")),
+                },
+                ensure_ascii=False,
+            )
+        )
+        return False
+    if not dry_run:
+        clear_promotion_auto_repair_request()
+    print(
+        json.dumps(
+            {
+                "status": "promotion_auto_repair_cleared",
+                "repair_request_path": display_path(request_path),
+                "failed_command": _to_text(request.get("failed_command")),
+                "dry_run": bool(dry_run),
+            },
+            ensure_ascii=False,
+        )
+    )
+    return True
+
+
 def run_verification_commands(
     *,
     commands: list[str],
@@ -455,11 +744,12 @@ def run_verification_commands(
     results: list[dict[str, Any]] = []
     if not commands:
         return results, True
+    round_dir.mkdir(parents=True, exist_ok=True)
 
     for index, command_text in enumerate(commands, start=1):
         stdout_path = round_dir / f"verify-{index:02d}.stdout.log"
         stderr_path = round_dir / f"verify-{index:02d}.stderr.log"
-        result = {
+        result: dict[str, Any] = {
             "command": command_text,
             "stdout_path": str(stdout_path),
             "stderr_path": str(stderr_path),
@@ -470,14 +760,25 @@ def run_verification_commands(
             results.append(result)
             continue
 
-        completed = subprocess.run(
-            ["/bin/zsh", "-lc", command_text],
-            cwd=REPO_ROOT,
-            check=False,
-            env=build_subprocess_env(),
-            capture_output=True,
-            text=True,
-        )
+        env = build_subprocess_env()
+        env_updates, argv = _verification_command_argv(command_text)
+        env.update(env_updates)
+        retryable = True
+        while True:
+            completed = subprocess.run(
+                argv,
+                cwd=REPO_ROOT,
+                check=False,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            if completed.returncode == 0:
+                break
+            if retryable and _should_retry_verification_command(argv=argv, completed=completed):
+                retryable = False
+                continue
+            break
         stdout_path.write_text(completed.stdout or "", encoding="utf-8")
         stderr_path.write_text(completed.stderr or "", encoding="utf-8")
         result["exit_code"] = int(completed.returncode)
@@ -622,7 +923,31 @@ def maybe_auto_promote(
                 )
             )
         if not gate_ok:
-            raise RuntimeError("pre_promotion_gate_failed")
+            request_path = _persist_promotion_auto_repair_request(
+                reason="pre_promotion_gate_failed",
+                detail="pre_promotion_gate_failed",
+                round_index=round_index,
+                runtime=current_runtime,
+                slice_execution_brief=slice_execution_brief,
+                verification_results=gate_results,
+                local_verification_commands=[pre_promotion_gate_command],
+            )
+            payload: dict[str, Any] = {
+                "status": "promotion_auto_repair_requested",
+                "repair_request_path": display_path(request_path),
+                "failed_command": _to_text(_failed_verification_result(gate_results).get("command")),
+            }
+            if round_index is not None:
+                payload["round"] = round_index
+            print(json.dumps(payload, ensure_ascii=False))
+            raise PromotionExecutionError(
+                "pre_promotion_gate_failed",
+                "pre_promotion_gate_failed",
+                {
+                    "repair_request_path": display_path(request_path),
+                    "failed_command": _to_text(_failed_verification_result(gate_results).get("command")),
+                },
+            )
 
         commit_message = build_auto_commit_message(slice_execution_brief, round_index)
         promotion_payload = {
@@ -678,7 +1003,7 @@ def maybe_auto_promote(
             )
             continue
 
-        promotion_payload: dict[str, Any] = {
+        workflow_payload: dict[str, Any] = {
             "promotion": "ci_proven",
             "step": "await_required_workflow",
             "proof_mode": proof_mode,
@@ -687,10 +1012,10 @@ def maybe_auto_promote(
             "head_sha": head_sha,
         }
         if proof_mode == "governance_evidence_dispatch":
-            promotion_payload["dispatch"] = dispatch_workflow(required_workflow, branch, dry_run=dry_run)
+            workflow_payload["dispatch"] = dispatch_workflow(required_workflow, branch, dry_run=dry_run)
         if dry_run:
-            promotions.append(promotion_payload)
-            print(json.dumps({"status": "promotion_executed", **promotion_payload}, ensure_ascii=False))
+            promotions.append(workflow_payload)
+            print(json.dumps({"status": "promotion_executed", **workflow_payload}, ensure_ascii=False))
             break
 
         observed_run = wait_for_head_workflow_run(
@@ -700,9 +1025,9 @@ def maybe_auto_promote(
             timeout_seconds=ci_timeout_seconds,
             poll_interval_seconds=poll_interval_seconds,
         )
-        promotion_payload["observed_run"] = observed_run
-        promotions.append(promotion_payload)
-        print(json.dumps({"status": "promotion_executed", **promotion_payload}, ensure_ascii=False))
+        workflow_payload["observed_run"] = observed_run
+        promotions.append(workflow_payload)
+        print(json.dumps({"status": "promotion_executed", **workflow_payload}, ensure_ascii=False))
 
         snapshots, current_runtime, plan = refresh_runtime(
             plan_path=plan_path,
@@ -850,20 +1175,23 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="datapulse_codex_loop_") as temp_dir:
         temp_root = Path(temp_dir)
-        tracked_snapshots = False
+        tracked_snapshots_enabled = False
         code_landing_status_output = temp_root / "governance" / "code_landing_status.draft.json"
         project_loop_state_output = temp_root / "governance" / "project_specific_loop_state.draft.json"
         bundle_dir = temp_root / "bundle"
         tracked_bundle_dir = args.bundle_dir.expanduser().resolve()
-        output_dir = args.output_dir.expanduser().resolve() if args.output_dir is not None else temp_root / "rounds"
+        output_dir = args.output_dir.expanduser().resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
+        if _to_text(args.promotion_mode).lower() == "auto":
+            if not resume_promotion_auto_repair(output_dir=output_dir, dry_run=bool(args.dry_run)):
+                return BLOCKED_EXIT_CODE
 
         baseline_dirty_paths = changed_paths_from_status_lines(workspace_status_lines())
         snapshots, runtime, plan = refresh_runtime(
             plan_path=args.plan,
             catalog_path=args.catalog,
             bundle_dir=bundle_dir,
-            tracked_snapshots=tracked_snapshots,
+            tracked_snapshots=tracked_snapshots_enabled,
             code_landing_status_output=code_landing_status_output,
             project_loop_state_output=project_loop_state_output,
         )
@@ -888,7 +1216,7 @@ def main() -> int:
                 plan_path=args.plan,
                 catalog_path=args.catalog,
                 bundle_dir=bundle_dir,
-                tracked_snapshots=tracked_snapshots,
+                tracked_snapshots=tracked_snapshots_enabled,
                 code_landing_status_output=code_landing_status_output,
                 project_loop_state_output=project_loop_state_output,
                 push_remote=str(args.push_remote),
@@ -899,6 +1227,19 @@ def main() -> int:
             )
             if promotion_snapshots:
                 snapshots = promotion_snapshots
+        except PromotionExecutionError as exc:
+            print(
+                json.dumps(
+                    {
+                        "status": "blocked",
+                        "reason": "auto_promotion_blocked",
+                        "detail": exc.detail,
+                        **exc.payload,
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return BLOCKED_EXIT_CODE
         except RuntimeError as exc:
             print(json.dumps({"status": "blocked", "reason": "auto_promotion_blocked", "detail": str(exc)}, ensure_ascii=False))
             return BLOCKED_EXIT_CODE
@@ -993,7 +1334,7 @@ def main() -> int:
                 plan_path=args.plan,
                 catalog_path=args.catalog,
                 bundle_dir=bundle_dir,
-                tracked_snapshots=tracked_snapshots,
+                tracked_snapshots=tracked_snapshots_enabled,
                 code_landing_status_output=code_landing_status_output,
                 project_loop_state_output=project_loop_state_output,
             )
@@ -1033,7 +1374,7 @@ def main() -> int:
                     plan_path=args.plan,
                     catalog_path=args.catalog,
                         bundle_dir=bundle_dir,
-                        tracked_snapshots=tracked_snapshots,
+                        tracked_snapshots=tracked_snapshots_enabled,
                         code_landing_status_output=code_landing_status_output,
                         project_loop_state_output=project_loop_state_output,
                         push_remote=str(args.push_remote),
@@ -1044,6 +1385,16 @@ def main() -> int:
                 )
                 if promotions and promotion_snapshots:
                     snapshots = promotion_snapshots
+            except PromotionExecutionError as exc:
+                payload = {
+                    "status": "blocked",
+                    "reason": "auto_promotion_blocked",
+                    "round": round_index,
+                    "detail": exc.detail,
+                    **exc.payload,
+                }
+                print(json.dumps(payload, ensure_ascii=False))
+                return BLOCKED_EXIT_CODE
             except RuntimeError as exc:
                 print(
                     json.dumps(
