@@ -2431,6 +2431,17 @@ def render_console_html(title: str) -> str:
       <article class="panel">
         <div class="panel-head">
           <div>
+            <h2 class="panel-title" id="ai-surface-title">AI Assistance Surfaces</h2>
+            <div class="panel-sub" id="ai-surface-copy">Inspect the same governed AI projection facts that CLI and MCP expose, without creating browser-only AI state.</div>
+          </div>
+          <span class="chip" id="ai-surface-mode">Read-only</span>
+        </div>
+        <div class="stack" id="ai-surface-shell"></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
             <h2 class="panel-title" id="alert-stream-title">Alert Stream</h2>
             <div class="panel-sub" id="alert-stream-copy">Read alert events beside route editing and health, not in a detached feed.</div>
           </div>
@@ -2542,6 +2553,8 @@ def render_console_html(title: str) -> str:
       contextRouteSection: "",
       status: null,
       ops: null,
+      aiSurfacePrechecks: {{}},
+      aiSurfaceProjections: {{}},
       overview: null,
       activeSectionId: "section-intake",
       activeWorkspaceMode: "intake",
@@ -6766,6 +6779,9 @@ def render_console_html(title: str) -> str:
       setText("route-manager-mode", copy("Editable", "可编辑"));
       setText("ops-title", copy("Ops Snapshot", "运行状态"));
       setText("ops-copy", copy("Watch alerting missions, story readiness, route delivery, and recent failures in one delivery slice.", "把触发告警的任务、故事就绪度、路由投递和近期失败集中到一个交付视图。"));
+      setText("ai-surface-title", copy("AI Assistance Surfaces", "AI 辅助面"));
+      setText("ai-surface-copy", copy("Inspect the same governed AI projection facts that CLI and MCP expose, without creating browser-only AI state.", "查看与 CLI 和 MCP 同源的 AI 投影治理事实，不在浏览器里制造私有 AI 状态。"));
+      setText("ai-surface-mode", copy("Read-only", "只读"));
       setText("cockpit-title", copy("Mission Cockpit", "任务详情"));
       setText("cockpit-copy", copy("Open one mission to inspect runs, review continuity, follow-up actions, and route-backed delivery without losing the cockpit context.", "打开单个任务后，可以在不离开任务详情的前提下查看执行记录、审阅连续性、后续动作和路由交付。"));
       setText("distribution-title", copy("Distribution Health", "分发健康"));
@@ -8356,6 +8372,51 @@ def render_console_html(title: str) -> str:
     function getGovernanceSignal(signalId) {{
       const signal = getGovernanceSignals()[signalId];
       return signal && typeof signal === "object" ? signal : {{}};
+    }}
+
+    function getAiSurfacePrecheck(surfaceId) {{
+      const payload = state.aiSurfacePrechecks?.[surfaceId];
+      return payload && typeof payload === "object" ? payload : {{}};
+    }}
+
+    function getAiSurfaceProjection(surfaceId) {{
+      const payload = state.aiSurfaceProjections?.[surfaceId];
+      return payload && typeof payload === "object" ? payload : null;
+    }}
+
+    function summarizeAiSurfaceProjection(surfaceId, projection) {{
+      if (!projection || typeof projection !== "object") {{
+        return copy("No selected subject is loaded for this surface yet.", "这个 surface 还没有加载选中的对象。");
+      }}
+      const runtime = projection.runtime_facts && typeof projection.runtime_facts === "object" ? projection.runtime_facts : {{}};
+      const output = projection.output && typeof projection.output === "object" ? projection.output : null;
+      const payload = output && output.payload && typeof output.payload === "object" ? output.payload : {{}};
+      if (surfaceId === "mission_suggest" && payload.summary) {{
+        return String(payload.summary);
+      }}
+      if (surfaceId === "triage_assist") {{
+        const candidateCount = payload.candidate_count ?? payload.returned_count;
+        if (candidateCount !== undefined) {{
+          return state.language === "zh"
+            ? `重复解释候选数：${{candidateCount}}。`
+            : `Duplicate explain candidates: ${{candidateCount}}.`;
+        }}
+      }}
+      if (surfaceId === "claim_draft") {{
+        if (payload.summary) {{
+          return String(payload.summary);
+        }}
+        const claimCount = Array.isArray(payload.claim_cards) ? payload.claim_cards.length : 0;
+        return state.language === "zh"
+          ? `待审核主张卡：${{claimCount}} 条。`
+          : `Claim cards ready for review: ${{claimCount}}.`;
+      }}
+      if (runtime.status) {{
+        return state.language === "zh"
+          ? `运行状态：${{localizeWord(runtime.status)}}。`
+          : `Runtime status: ${{runtime.status}}.`;
+      }}
+      return copy("Governed projection loaded.", "治理投影已加载。");
     }}
 
     function getStoryEvidenceIds(story) {{
@@ -10631,6 +10692,79 @@ def render_console_html(title: str) -> str:
           }}
         }});
       }});
+    }}
+
+    function renderAiSurfaces() {{
+      const root = $("ai-surface-shell");
+      if (!root) {{
+        return;
+      }}
+      const hasPrechecks = Object.keys(state.aiSurfacePrechecks || {{}}).length > 0;
+      if (state.loading.board && !hasPrechecks) {{
+        root.innerHTML = [skeletonCard(4), skeletonCard(4), skeletonCard(4)].join("");
+        return;
+      }}
+      const surfaces = [
+        {{
+          id: "mission_suggest",
+          title: copy("Mission Suggest", "任务建议"),
+          subjectLabel: copy("watch", "任务"),
+          section: "section-board",
+        }},
+        {{
+          id: "triage_assist",
+          title: copy("Triage Assist", "分诊辅助"),
+          subjectLabel: copy("evidence", "证据"),
+          section: "section-triage",
+        }},
+        {{
+          id: "claim_draft",
+          title: copy("Claim Draft", "主张草稿"),
+          subjectLabel: copy("story", "故事"),
+          section: "section-story",
+        }},
+      ];
+      root.innerHTML = surfaces.map((surface) => {{
+        const precheck = getAiSurfacePrecheck(surface.id);
+        const projection = getAiSurfaceProjection(surface.id);
+        const runtime = projection?.runtime_facts && typeof projection.runtime_facts === "object" ? projection.runtime_facts : {{}};
+        const subject = projection?.subject && typeof projection.subject === "object" ? projection.subject : {{}};
+        const rejectableGaps = Array.isArray(precheck.rejectable_gaps) ? precheck.rejectable_gaps : [];
+        const mustExposeFacts = Array.isArray(precheck.must_expose_runtime_facts) ? precheck.must_expose_runtime_facts : [];
+        const tone = runtime.status === "invalid" || precheck.mode_status === "rejected"
+          ? "hot"
+          : runtime.status === "fallback_used" || precheck.mode_status === "admitted"
+            ? "ok"
+            : "";
+        return `
+          <div class="card">
+            <div class="card-top">
+              <div>
+                <div class="mono">${{escapeHtml(surface.id)}}</div>
+                <h3 class="card-title" style="margin-top:10px;">${{escapeHtml(surface.title)}}</h3>
+              </div>
+              <span class="chip ${{tone}}">${{escapeHtml(localizeWord(runtime.status || precheck.mode_status || "pending"))}}</span>
+            </div>
+            <div class="meta">
+              <span>${{copy("mode", "模式")}}=${{escapeHtml(precheck.mode || "assist")}}</span>
+              <span>${{copy("subject", "对象")}}=${{escapeHtml(subject.id || "-")}}</span>
+              <span>${{copy("contract", "契约")}}=${{escapeHtml(precheck.contract_id || "-")}}</span>
+            </div>
+            <div class="panel-sub">${{escapeHtml(summarizeAiSurfaceProjection(surface.id, projection))}}</div>
+            <div class="meta" style="margin-top:10px;">
+              <span>${{copy("alias", "别名")}}=${{escapeHtml(precheck.alias || "-")}}</span>
+              <span>${{copy("fallback", "回退")}}=${{escapeHtml(localizeWord(precheck.manual_fallback || "-"))}}</span>
+              <span>${{copy("gaps", "缺口")}}=${{rejectableGaps.length}}</span>
+              <span>${{copy("runtime facts", "运行事实")}}=${{mustExposeFacts.length}}</span>
+            </div>
+            <div class="panel-sub">${{escapeHtml(runtime.request_id || copy("No runtime request id yet.", "当前还没有运行请求 ID。"))}}</div>
+            <div class="actions" style="margin-top:12px;">
+              <button class="btn-secondary" type="button" data-empty-jump="${{escapeHtml(surface.section)}}">${{copy("Open Surface", "打开对应界面")}}</button>
+            </div>
+          </div>
+        `;
+      }}).join("");
+      wireLifecycleGuideActions(root);
     }}
 
     function renderStatus() {{
@@ -13533,13 +13667,14 @@ def render_console_html(title: str) -> str:
       renderRoutes();
       renderRouteHealth();
       renderDeliveryWorkspace();
+      renderAiSurfaces();
       renderStatus();
       renderTriage();
       renderStories();
       renderClaimsWorkspace();
       renderReportStudio();
       try {{
-        const [overview, watches, alerts, routes, routeHealth, deliverySubscriptions, deliveryDispatchRecords, status, ops, triage, triageStats, stories, reportBriefs, claimCards, citationBundles, reportSections, reports, exportProfiles] = await Promise.all([
+        const [overview, watches, alerts, routes, routeHealth, deliverySubscriptions, deliveryDispatchRecords, status, ops, triage, triageStats, stories, reportBriefs, claimCards, citationBundles, reportSections, reports, exportProfiles, missionSuggestPrecheck, triageAssistPrecheck, claimDraftPrecheck] = await Promise.all([
           api("/api/overview"),
           api("/api/watches?include_disabled=true"),
           api("/api/alerts?limit=8"),
@@ -13558,6 +13693,9 @@ def render_console_html(title: str) -> str:
           api("/api/report-sections?limit=40"),
           api("/api/reports?limit=20"),
           api("/api/export-profiles?limit=40"),
+          api("/api/ai/surfaces/mission_suggest/precheck?mode=assist"),
+          api("/api/ai/surfaces/triage_assist/precheck?mode=assist"),
+          api("/api/ai/surfaces/claim_draft/precheck?mode=assist"),
         ]);
         state.overview = overview;
         state.watches = watches;
@@ -13577,6 +13715,11 @@ def render_console_html(title: str) -> str:
         state.reportSections = reportSections;
         state.reports = reports;
         state.exportProfiles = exportProfiles;
+        state.aiSurfacePrechecks = {{
+          mission_suggest: missionSuggestPrecheck,
+          triage_assist: triageAssistPrecheck,
+          claim_draft: claimDraftPrecheck,
+        }};
         if (state.watches.length) {{
           const selectedWatch = state.watches.some((watch) => watch.id === state.selectedWatchId)
             ? state.selectedWatchId
@@ -13605,11 +13748,33 @@ def render_console_html(title: str) -> str:
         }} else {{
           state.selectedStoryId = "";
         }}
+        if (state.triage.length && !state.triage.some((item) => item.id === state.selectedTriageId)) {{
+          state.selectedTriageId = state.triage[0].id;
+        }}
+        if (!state.triage.length) {{
+          state.selectedTriageId = "";
+        }}
         syncReportSelectionState();
         syncDeliverySelectionState();
         if (state.selectedReportId) {{
           state.reportCompositions[state.selectedReportId] = await api(`/api/reports/${{state.selectedReportId}}/compose`);
         }}
+        const [missionSuggest, triageAssist, claimDraft] = await Promise.all([
+          state.selectedWatchId
+            ? api(`/api/watches/${{state.selectedWatchId}}/ai/mission-suggest?mode=assist`)
+            : Promise.resolve(null),
+          state.selectedTriageId
+            ? api(`/api/triage/${{state.selectedTriageId}}/ai/assist?mode=assist&limit=5`)
+            : Promise.resolve(null),
+          state.selectedStoryId
+            ? api(`/api/stories/${{state.selectedStoryId}}/ai/claim-draft?mode=assist`)
+            : Promise.resolve(null),
+        ]);
+        state.aiSurfaceProjections = {{
+          mission_suggest: missionSuggest,
+          triage_assist: triageAssist,
+          claim_draft: claimDraft,
+        }};
         const selectedDelivery = getSelectedDeliverySubscription();
         if (selectedDelivery && String(selectedDelivery.subject_kind || "").trim().toLowerCase() === "report") {{
           try {{
@@ -13631,6 +13796,7 @@ def render_console_html(title: str) -> str:
       renderRoutes();
       renderRouteHealth();
       renderDeliveryWorkspace();
+      renderAiSurfaces();
       renderStatus();
       renderTriage();
       renderStories();

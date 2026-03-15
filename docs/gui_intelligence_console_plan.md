@@ -228,6 +228,10 @@ Current implementation status:
 - the read-only ops board now surfaces collector tier breakdown, aggregate watch success metrics, and a watch health board alongside route delivery health
 - the ops board now also includes collector drill-down and route drill-down slices so operators can see remediation hints, mission counts, rule counts, and latest route failure detail without leaving the shell
 - the Reader-backed ops surface now also exports an intelligence governance scorecard for coverage, freshness, alert yield, triage throughput, and story conversion through both `GET /api/ops` and `GET /api/ops/scorecard`
+- governed AI assistance surfaces now project through all three control planes instead of stopping at Reader internals:
+  - CLI: `datapulse --ai-surface-precheck`, `--ai-mission-suggest`, `--ai-triage-assist`, `--ai-claim-draft`, `--ops-scorecard`
+  - MCP: `ai_surface_precheck`, `ai_mission_suggest`, `ai_triage_assist`, `ai_claim_draft`, `ops_scorecard`
+  - Console HTTP/UI: `/api/ai/surfaces/{surface}/precheck`, `/api/watches/{id}/ai/mission-suggest`, `/api/triage/{id}/ai/assist`, `/api/stories/{id}/ai/claim-draft`, plus a read-only AI surfaces panel inside the delivery workspace
 - current parity outside the browser: `datapulse --ops-overview` and `ops_overview(...)`
 - current ops scope now also includes route delivery timeline, so recent route attempts can be inspected without leaving the shell
 - the delivery lane now also includes a browser delivery workspace for persisted subscriptions, report package audit, and route-backed dispatch records without introducing a second frontend or browser-only delivery state

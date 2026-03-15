@@ -211,6 +211,62 @@ class _WatchMCPReader:
             "metrics": {"cycles_total": 3},
         }
 
+    def governance_scorecard_snapshot(self):
+        return {
+            "generated_at": "2026-03-06T00:00:30+00:00",
+            "summary": {"signal_count": 5, "ok": 4, "watch": 1, "missing": 0},
+            "signals": {
+                "coverage": {"covered_targets_total": 3},
+                "story_conversion": {"converted_item_count": 1},
+            },
+        }
+
+    def ai_surface_precheck(self, surface, *, mode="assist"):
+        return {
+            "ok": True,
+            "surface": surface,
+            "mode": mode,
+            "mode_status": "admitted",
+            "contract_id": f"{surface}.v1",
+            "alias": f"{surface}-alias",
+        }
+
+    def ai_mission_suggest(self, identifier, *, mode="assist"):
+        if identifier != "ai-radar":
+            return None
+        return {
+            "surface": "mission_suggest",
+            "mode": mode,
+            "subject": {"kind": "WatchMission", "id": identifier},
+            "precheck": self.ai_surface_precheck("mission_suggest", mode=mode),
+            "output": {"contract_id": "datapulse_ai_watch_suggestion.v1", "payload": {"proposed_query": "OpenAI agents"}},
+            "runtime_facts": {"status": "fallback_used", "request_id": "mission-123"},
+        }
+
+    def ai_triage_assist(self, item_id, *, mode="assist", limit=5):
+        if item_id != "item-1":
+            return None
+        return {
+            "surface": "triage_assist",
+            "mode": mode,
+            "subject": {"kind": "DataPulseItem", "id": item_id},
+            "precheck": self.ai_surface_precheck("triage_assist", mode=mode),
+            "output": {"contract_id": "datapulse_ai_triage_explain.v1", "payload": {"candidate_count": 1, "returned_count": min(limit, 1)}},
+            "runtime_facts": {"status": "fallback_used", "request_id": "triage-123"},
+        }
+
+    def ai_claim_draft(self, story_id, *, mode="assist", brief_id=""):
+        if story_id != "story-openai-launch":
+            return None
+        return {
+            "surface": "claim_draft",
+            "mode": mode,
+            "subject": {"kind": "Story", "id": story_id},
+            "precheck": self.ai_surface_precheck("claim_draft", mode=mode),
+            "output": {"contract_id": "datapulse_ai_claim_draft.v1", "payload": {"claim_cards": [{"id": "claim-1"}]}},
+            "runtime_facts": {"status": "fallback_used", "request_id": "claim-123"},
+        }
+
     def ops_snapshot(self, **kwargs):
         return {
             "collector_summary": {"total": 4, "ok": 2, "warn": 1, "error": 1, "available": 3, "unavailable": 1},
@@ -416,6 +472,11 @@ def test_mcp_registers_watch_tools():
         "alert_route_health",
         "watch_status",
         "ops_overview",
+        "ops_scorecard",
+        "ai_surface_precheck",
+        "ai_mission_suggest",
+        "ai_triage_assist",
+        "ai_claim_draft",
         "triage_list",
         "triage_explain",
         "triage_update",
@@ -599,6 +660,54 @@ async def test_mcp_ops_overview_tool(monkeypatch):
     assert payload["watch_summary"]["degraded"] == 1
     assert payload["watch_health"][0]["id"] == "ai-radar"
     assert payload["recent_failures"][0]["mission_name"] == "AI Radar"
+
+
+@pytest.mark.asyncio
+async def test_mcp_ops_scorecard_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool("ops_scorecard", {})
+    payload = json.loads(raw)
+
+    assert payload["summary"]["signal_count"] == 5
+    assert payload["signals"]["story_conversion"]["converted_item_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_mcp_ai_surface_precheck_tool(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    raw = await app._run_tool("ai_surface_precheck", {"surface": "mission_suggest", "mode": "review"})
+    payload = json.loads(raw)
+
+    assert payload["surface"] == "mission_suggest"
+    assert payload["mode"] == "review"
+    assert payload["mode_status"] == "admitted"
+
+
+@pytest.mark.asyncio
+async def test_mcp_ai_projection_tools(monkeypatch):
+    monkeypatch.setattr(mcp_server, "DataPulseReader", lambda: _WatchMCPReader())
+    app = _make_app()
+
+    mission_raw = await app._run_tool("ai_mission_suggest", {"identifier": "ai-radar"})
+    mission_payload = json.loads(mission_raw)
+    assert mission_payload["ok"] is True
+    assert mission_payload["projection"]["output"]["contract_id"] == "datapulse_ai_watch_suggestion.v1"
+
+    triage_raw = await app._run_tool("ai_triage_assist", {"item_id": "item-1", "limit": 3})
+    triage_payload = json.loads(triage_raw)
+    assert triage_payload["ok"] is True
+    assert triage_payload["projection"]["output"]["contract_id"] == "datapulse_ai_triage_explain.v1"
+    assert triage_payload["projection"]["output"]["payload"]["returned_count"] == 1
+
+    claim_raw = await app._run_tool("ai_claim_draft", {"story_id": "story-openai-launch", "brief_id": "brief-1"})
+    claim_payload = json.loads(claim_raw)
+    assert claim_payload["ok"] is True
+    assert claim_payload["projection"]["output"]["contract_id"] == "datapulse_ai_claim_draft.v1"
+    assert claim_payload["projection"]["runtime_facts"]["request_id"] == "claim-123"
 
 
 @pytest.mark.asyncio

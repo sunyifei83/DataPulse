@@ -179,6 +179,29 @@ async def _run_story_export(identifier: str, output_format: str = "json") -> str
     return payload
 
 
+async def _run_ai_surface_precheck(surface: str, mode: str = "assist") -> str:
+    reader = DataPulseReader()
+    return json.dumps(reader.ai_surface_precheck(surface, mode=mode), ensure_ascii=False, indent=2)
+
+
+async def _run_ai_mission_suggest(identifier: str, mode: str = "assist") -> str:
+    reader = DataPulseReader()
+    payload = reader.ai_mission_suggest(identifier, mode=mode)
+    return json.dumps({"ok": payload is not None, "projection": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_ai_triage_assist(item_id: str, mode: str = "assist", limit: int = 5) -> str:
+    reader = DataPulseReader()
+    payload = reader.ai_triage_assist(item_id, mode=mode, limit=limit)
+    return json.dumps({"ok": payload is not None, "projection": payload}, ensure_ascii=False, indent=2)
+
+
+async def _run_ai_claim_draft(story_id: str, mode: str = "assist", brief_id: str = "") -> str:
+    reader = DataPulseReader()
+    payload = reader.ai_claim_draft(story_id, mode=mode, brief_id=brief_id)
+    return json.dumps({"ok": payload is not None, "projection": payload}, ensure_ascii=False, indent=2)
+
+
 async def _run_build_atom_feed(
     profile: str = "default",
     source_ids: list[str] | None = None,
@@ -848,6 +871,11 @@ async def _run_ops_overview(alert_limit: int = 8, route_limit: int = 100, recent
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
+async def _run_ops_scorecard() -> str:
+    reader = DataPulseReader()
+    return json.dumps(reader.governance_scorecard_snapshot(), ensure_ascii=False, indent=2)
+
+
 class _LocalMCP:
     """Minimal stdlib MCP-compatible runtime fallback."""
 
@@ -1213,6 +1241,31 @@ def _register_tools(app: Any) -> None:
             route_limit=route_limit,
             recent_failure_limit=recent_failure_limit,
         )
+
+    @app.tool()
+    async def ops_scorecard() -> str:
+        """Show the intelligence governance scorecard used across CLI, MCP, and console surfaces."""
+        return await _run_ops_scorecard()
+
+    @app.tool()
+    async def ai_surface_precheck(surface: str, mode: str = "assist") -> str:
+        """Show admission and contract facts for one governed AI assistance surface."""
+        return await _run_ai_surface_precheck(surface=surface, mode=mode)
+
+    @app.tool()
+    async def ai_mission_suggest(identifier: str, mode: str = "assist") -> str:
+        """Project the governed mission_suggest AI surface for one watch mission."""
+        return await _run_ai_mission_suggest(identifier=identifier, mode=mode)
+
+    @app.tool()
+    async def ai_triage_assist(item_id: str, mode: str = "assist", limit: int = 5) -> str:
+        """Project the governed triage_assist AI surface for one inbox item."""
+        return await _run_ai_triage_assist(item_id=item_id, mode=mode, limit=limit)
+
+    @app.tool()
+    async def ai_claim_draft(story_id: str, mode: str = "assist", brief_id: str = "") -> str:
+        """Project the governed claim_draft AI surface for one story."""
+        return await _run_ai_claim_draft(story_id=story_id, mode=mode, brief_id=brief_id)
 
     @app.tool()
     async def query_feed(profile: str = "default", source_ids: list[str] | None = None,

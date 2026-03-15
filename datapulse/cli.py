@@ -123,6 +123,10 @@ def _print_watch_status(payload):
     print(f"alerts_total: {metrics.get('alerts_total', 0)}")
 
 
+def _print_json_payload(payload: Any) -> None:
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
 def _print_ops_overview(payload):
     collector_summary = payload.get("collector_summary", {}) if isinstance(payload, dict) else {}
     collector_tiers = payload.get("collector_tiers", {}) if isinstance(payload, dict) else {}
@@ -996,6 +1000,13 @@ def _print_skill_contract() -> None:
                 "--alert-route-health",
                 "--watch-status",
                 "--ops-overview",
+                "--ops-scorecard",
+                "--ai-mission-suggest",
+                "--ai-triage-assist",
+                "--ai-claim-draft",
+                "--ai-surface-precheck",
+                "--ai-mode",
+                "--ai-brief-id",
                 "--triage-list",
                 "--triage-explain",
                 "--triage-update",
@@ -1043,6 +1054,7 @@ def _print_skill_contract() -> None:
                 "DATAPULSE_WATCH_STATUS_HTML": "Daemon HTML status page",
                 "DATAPULSE_STORIES_PATH": "Story workspace storage file",
                 "DATAPULSE_REPORTS_PATH": "Report workspace storage file",
+                "DATAPULSE_AI_SURFACE_ADMISSION_PATH": "AI surface admission snapshot path",
             },
         },
         "mcp_tools": mcp_tools,
@@ -1055,7 +1067,8 @@ def _print_skill_contract() -> None:
             "for daemon polling: --watch-daemon --watch-daemon-once",
             "for alert review: --alert-list",
             "for route audit: --alert-route-list",
-            "for daemon status: --watch-status",
+            "for daemon status: --watch-status / --ops-scorecard",
+            "for AI assistance surfaces: --ai-mission-suggest / --ai-triage-assist / --ai-claim-draft / --ai-surface-precheck",
             "for analyst queue operations: --triage-list/--triage-explain/--triage-update/--triage-note/--triage-stats",
             "for report workspace: --report-object=brief/claim/section/citation-bundle/report/export-profile + --report-list/show/create/update/compose/quality/export",
             "for source governance: --list-sources/--list-packs/--query-feed",
@@ -1131,9 +1144,10 @@ def main() -> None:
             "G) Watch cockpit:           datapulse --watch-show <watch_id>\n"
             "H) Watch scheduler:         datapulse --watch-run-due\n"
             "I) Watch daemon:            datapulse --watch-daemon --watch-daemon-once\n"
-            "J) Watch status:            datapulse --watch-status / --alert-route-health / --ops-overview\n"
-            "K) Triage queue:            datapulse --triage-list / --triage-update <item_id> --triage-state verified\n"
-            "L) Story workspace:         datapulse --story-build / --story-list / --story-show <story_id> / --story-update <story_id>\n"
+            "J) Ops scorecard:           datapulse --watch-status / --alert-route-health / --ops-overview / --ops-scorecard\n"
+            "K) AI assistance:           datapulse --ai-mission-suggest <watch_id> / --ai-triage-assist <item_id> / --ai-claim-draft <story_id>\n"
+            "L) Triage queue:            datapulse --triage-list / --triage-update <item_id> --triage-state verified\n"
+            "M) Story workspace:         datapulse --story-build / --story-list / --story-show <story_id> / --story-update <story_id>\n"
             "Diagnostics: datapulse --config-check / --doctor / --troubleshoot / --skill-contract / --check-update / --self-update / --version"
         ),
     )
@@ -1310,6 +1324,13 @@ def main() -> None:
     management_group.add_argument("--alert-route-health-limit", type=int, default=100, help="Max alert events to aggregate for route health")
     management_group.add_argument("--alert-mission", help="Filter alert list by mission id")
     management_group.add_argument("--ops-overview", action="store_true", help="Show unified ops snapshot across collectors, watches, and route delivery")
+    management_group.add_argument("--ops-scorecard", action="store_true", help="Show the intelligence governance scorecard")
+    management_group.add_argument("--ai-surface-precheck", choices=["mission_suggest", "triage_assist", "claim_draft"], help="Show governance admission facts for one AI surface")
+    management_group.add_argument("--ai-mission-suggest", metavar="WATCH", help="Project the governed mission_suggest AI surface for one watch mission")
+    management_group.add_argument("--ai-triage-assist", metavar="ITEM_ID", help="Project the governed triage_assist AI surface for one triage item")
+    management_group.add_argument("--ai-claim-draft", metavar="STORY", help="Project the governed claim_draft AI surface for one story")
+    management_group.add_argument("--ai-mode", default="assist", choices=["off", "assist", "review"], help="Governance mode for AI surface projections")
+    management_group.add_argument("--ai-brief-id", default="", help="Optional brief id for --ai-claim-draft")
     management_group.add_argument("--watch-daemon-poll-seconds", type=float, default=60.0, help="Daemon poll interval in seconds")
     management_group.add_argument("--watch-daemon-cycles", type=int, default=0, help="Stop daemon after N cycles (0 = run forever)")
     management_group.add_argument("--watch-daemon-retry-attempts", type=int, default=1, help="Retry attempts per scheduled mission")
@@ -1670,6 +1691,46 @@ def main() -> None:
 
     if args.ops_overview:
         _print_ops_overview(reader.ops_snapshot())
+        return
+
+    if args.ops_scorecard:
+        _print_json_payload(reader.governance_scorecard_snapshot())
+        return
+
+    if args.ai_surface_precheck:
+        _print_json_payload(reader.ai_surface_precheck(args.ai_surface_precheck, mode=args.ai_mode))
+        return
+
+    if args.ai_mission_suggest:
+        payload = reader.ai_mission_suggest(args.ai_mission_suggest, mode=args.ai_mode)
+        if payload is None:
+            print(f"⚠️ watch mission not found: {args.ai_mission_suggest}")
+        else:
+            _print_json_payload(payload)
+        return
+
+    if args.ai_triage_assist:
+        payload = reader.ai_triage_assist(
+            args.ai_triage_assist,
+            mode=args.ai_mode,
+            limit=max(0, args.triage_explain_limit),
+        )
+        if payload is None:
+            print(f"⚠️ triage item not found: {args.ai_triage_assist}")
+        else:
+            _print_json_payload(payload)
+        return
+
+    if args.ai_claim_draft:
+        payload = reader.ai_claim_draft(
+            args.ai_claim_draft,
+            mode=args.ai_mode,
+            brief_id=args.ai_brief_id,
+        )
+        if payload is None:
+            print(f"⚠️ story not found: {args.ai_claim_draft}")
+        else:
+            _print_json_payload(payload)
         return
 
     if args.triage_list:

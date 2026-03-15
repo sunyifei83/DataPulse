@@ -405,6 +405,75 @@ class _ConsoleReader:
             "summary": {"signal_count": 5, "ok": 4, "watch": 1, "missing": 0},
         }
 
+    def ai_surface_precheck(self, surface, *, mode="assist"):
+        return {
+            "ok": True,
+            "surface": surface,
+            "mode": mode,
+            "mode_status": "admitted",
+            "admission_status": "admitted",
+            "alias": f"{surface}-alias",
+            "contract_id": f"{surface}.v1",
+            "manual_fallback": "manual_or_deterministic_behavior",
+            "rejectable_gaps": [],
+            "must_expose_runtime_facts": ["status", "request_id"],
+        }
+
+    def ai_mission_suggest(self, identifier, *, mode="assist"):
+        if identifier != "launch-ops":
+            return None
+        return {
+            "surface": "mission_suggest",
+            "mode": mode,
+            "subject": {"kind": "WatchMission", "id": identifier},
+            "precheck": self.ai_surface_precheck("mission_suggest", mode=mode),
+            "output": {
+                "contract_id": "datapulse_ai_watch_suggestion.v1",
+                "payload": {
+                    "summary": "Mission `Launch Ops` has 2 persisted result items and run readiness `ready`.",
+                    "proposed_query": "OpenAI launch",
+                },
+            },
+            "runtime_facts": {"status": "fallback_used", "request_id": "mission-123"},
+        }
+
+    def ai_triage_assist(self, item_id, *, mode="assist", limit=5):
+        if item_id != "item-1":
+            return None
+        return {
+            "surface": "triage_assist",
+            "mode": mode,
+            "subject": {"kind": "DataPulseItem", "id": item_id},
+            "precheck": self.ai_surface_precheck("triage_assist", mode=mode),
+            "output": {
+                "contract_id": "datapulse_ai_triage_explain.v1",
+                "payload": {
+                    "item": {"id": item_id, "title": "OpenAI launch post"},
+                    "candidate_count": 1,
+                    "returned_count": min(limit, 1),
+                },
+            },
+            "runtime_facts": {"status": "fallback_used", "request_id": "triage-123"},
+        }
+
+    def ai_claim_draft(self, story_id, *, mode="assist", brief_id=""):
+        if story_id != "story-openai-launch":
+            return None
+        return {
+            "surface": "claim_draft",
+            "mode": mode,
+            "subject": {"kind": "Story", "id": story_id},
+            "precheck": self.ai_surface_precheck("claim_draft", mode=mode),
+            "output": {
+                "contract_id": "datapulse_ai_claim_draft.v1",
+                "payload": {
+                    "summary": "Draft evidence-bound claim cards without writing final report state.",
+                    "claim_cards": [{"id": "claim-1", "statement": "Demand remains elevated."}],
+                },
+            },
+            "runtime_facts": {"status": "fallback_used", "request_id": "claim-123"},
+        }
+
     def ops_snapshot(self):
         return {
             "collector_summary": {
@@ -1255,6 +1324,9 @@ def test_console_index_serves_shell():
     assert "collector drill-down" in response.text
     assert "route drill-down" in response.text
     assert "route timeline" in response.text
+    assert "AI Assistance Surfaces" in response.text
+    assert "ai-surface-shell" in response.text
+    assert "Inspect the same governed AI projection facts that CLI and MCP expose" in response.text
     assert "Distribution Health" in response.text
     assert "data-route-edit" in response.text
     assert "data-route-attach" in response.text
@@ -1486,6 +1558,27 @@ def test_console_routes_and_status():
     assert scorecard.status_code == 200
     assert scorecard.json()["summary"]["signal_count"] == 5
     assert scorecard.json()["signals"]["story_conversion"]["converted_item_count"] == 1
+
+
+def test_console_ai_surface_routes():
+    client = _client()
+
+    mission_precheck = client.get("/api/ai/surfaces/mission_suggest/precheck?mode=review")
+    mission_projection = client.get("/api/watches/launch-ops/ai/mission-suggest?mode=assist")
+    triage_projection = client.get("/api/triage/item-1/ai/assist?mode=assist&limit=3")
+    claim_projection = client.get("/api/stories/story-openai-launch/ai/claim-draft?mode=assist&brief_id=brief-1")
+
+    assert mission_precheck.status_code == 200
+    assert mission_precheck.json()["surface"] == "mission_suggest"
+    assert mission_precheck.json()["mode"] == "review"
+    assert mission_projection.status_code == 200
+    assert mission_projection.json()["output"]["contract_id"] == "datapulse_ai_watch_suggestion.v1"
+    assert triage_projection.status_code == 200
+    assert triage_projection.json()["output"]["contract_id"] == "datapulse_ai_triage_explain.v1"
+    assert triage_projection.json()["output"]["payload"]["returned_count"] == 1
+    assert claim_projection.status_code == 200
+    assert claim_projection.json()["output"]["contract_id"] == "datapulse_ai_claim_draft.v1"
+    assert claim_projection.json()["runtime_facts"]["request_id"] == "claim-123"
 
 
 def test_console_alert_route_crud_routes():

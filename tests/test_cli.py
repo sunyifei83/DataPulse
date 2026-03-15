@@ -507,6 +507,104 @@ class _WatchReader:
             ],
         }
 
+    def governance_scorecard_snapshot(self):
+        return {
+            "generated_at": "2026-03-06T00:00:30+00:00",
+            "mission_scope": {"total": 2, "enabled": 1, "disabled": 1, "items": 3, "stories": 1},
+            "signals": {
+                "coverage": {"status": "ok", "covered_targets_total": 3},
+                "freshness": {"status": "watch", "fresh_missions": 1},
+                "alert_yield": {"status": "ok", "alert_count": 1},
+                "triage_throughput": {"status": "ok", "acted_on_items": 2},
+                "story_conversion": {"status": "ok", "converted_item_count": 1},
+            },
+            "summary": {"signal_count": 5, "ok": 4, "watch": 1, "missing": 0},
+        }
+
+    def ai_surface_precheck(self, surface, *, mode="assist"):
+        return {
+            "ok": True,
+            "surface": surface,
+            "mode": mode,
+            "mode_status": "admitted",
+            "admission_status": "admitted",
+            "alias": f"{surface}-alias",
+            "contract_id": f"{surface}.v1",
+            "manual_fallback": "manual_or_deterministic_behavior",
+            "rejectable_gaps": [],
+            "must_expose_runtime_facts": ["status", "request_id"],
+        }
+
+    def ai_mission_suggest(self, identifier, *, mode="assist"):
+        if identifier != "ai-radar":
+            return None
+        return {
+            "surface": "mission_suggest",
+            "mode": mode,
+            "subject": {"kind": "WatchMission", "id": identifier},
+            "precheck": self.ai_surface_precheck("mission_suggest", mode=mode),
+            "output": {
+                "contract_id": "datapulse_ai_watch_suggestion.v1",
+                "payload": {
+                    "summary": "Mission `AI Radar` has 1 persisted result items and run readiness `ready`.",
+                    "proposed_query": "OpenAI agents",
+                },
+            },
+            "runtime_facts": {
+                "status": "fallback_used",
+                "source": "deterministic",
+                "schema_valid": True,
+                "request_id": "mission-123",
+            },
+        }
+
+    def ai_triage_assist(self, item_id, *, mode="assist", limit=5):
+        if item_id != "item-1":
+            return None
+        return {
+            "surface": "triage_assist",
+            "mode": mode,
+            "subject": {"kind": "DataPulseItem", "id": item_id},
+            "precheck": self.ai_surface_precheck("triage_assist", mode=mode),
+            "output": {
+                "contract_id": "datapulse_ai_triage_explain.v1",
+                "payload": {
+                    "item": {"id": item_id, "title": "OpenAI launch post"},
+                    "candidate_count": 1,
+                    "returned_count": min(limit, 1),
+                },
+            },
+            "runtime_facts": {
+                "status": "fallback_used",
+                "source": "deterministic",
+                "schema_valid": True,
+                "request_id": "triage-123",
+            },
+        }
+
+    def ai_claim_draft(self, story_id, *, mode="assist", brief_id=""):
+        if story_id != "story-openai-launch":
+            return None
+        return {
+            "surface": "claim_draft",
+            "mode": mode,
+            "subject": {"kind": "Story", "id": story_id},
+            "precheck": self.ai_surface_precheck("claim_draft", mode=mode),
+            "output": {
+                "contract_id": "datapulse_ai_claim_draft.v1",
+                "payload": {
+                    "summary": "Draft evidence-bound claim cards without writing final report state.",
+                    "claim_cards": [{"id": "claim-1", "statement": "Demand remains elevated."}],
+                },
+            },
+            "runtime_facts": {
+                "status": "fallback_used",
+                "source": "deterministic",
+                "schema_valid": True,
+                "request_id": "claim-123",
+            },
+        }
+
     def triage_list(self, **kwargs):
         return [
             {
@@ -990,6 +1088,65 @@ def test_ops_overview_prints_summary(monkeypatch, capsys):
     assert "ops-webhook | failed | mission=AI Radar" in out
     assert "recent_failures:" in out
     assert "temporary failure" in out
+
+
+def test_ops_scorecard_prints_json(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--ops-scorecard"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert '"signal_count": 5' in out
+    assert '"converted_item_count": 1' in out
+
+
+def test_ai_surface_precheck_prints_json(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--ai-surface-precheck", "mission_suggest", "--ai-mode", "review"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert '"surface": "mission_suggest"' in out
+    assert '"mode": "review"' in out
+    assert '"mode_status": "admitted"' in out
+
+
+def test_ai_mission_suggest_prints_projection(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--ai-mission-suggest", "ai-radar"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert '"surface": "mission_suggest"' in out
+    assert '"contract_id": "datapulse_ai_watch_suggestion.v1"' in out
+    assert '"request_id": "mission-123"' in out
+
+
+def test_ai_triage_assist_prints_projection(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--ai-triage-assist", "item-1", "--triage-explain-limit", "3"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert '"surface": "triage_assist"' in out
+    assert '"contract_id": "datapulse_ai_triage_explain.v1"' in out
+    assert '"returned_count": 1' in out
+
+
+def test_ai_claim_draft_prints_projection(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--ai-claim-draft", "story-openai-launch", "--ai-brief-id", "brief-1"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert '"surface": "claim_draft"' in out
+    assert '"contract_id": "datapulse_ai_claim_draft.v1"' in out
+    assert '"statement": "Demand remains elevated."' in out
 
 
 def test_triage_list_prints_rows(monkeypatch, capsys):

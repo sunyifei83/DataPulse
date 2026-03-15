@@ -372,6 +372,23 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     def ops_scorecard() -> dict[str, Any]:
         return reader_factory().governance_scorecard_snapshot()
 
+    @app.get("/api/ai/surfaces/{surface}/precheck")
+    def ai_surface_precheck(surface: str, mode: str = "assist") -> dict[str, Any]:
+        try:
+            return reader_factory().ai_surface_precheck(surface, mode=mode)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/watches/{identifier}/ai/mission-suggest")
+    def ai_mission_suggest(identifier: str, mode: str = "assist") -> dict[str, Any]:
+        try:
+            payload = reader_factory().ai_mission_suggest(identifier, mode=mode)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if payload is None:
+            raise HTTPException(status_code=404, detail=f"Watch mission not found: {identifier}")
+        return payload
+
     @app.get("/api/stories")
     def list_stories(limit: int = 8, min_items: int = 0) -> list[dict[str, Any]]:
         return reader_factory().list_stories(limit=limit, min_items=min_items)
@@ -424,6 +441,16 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
         if graph is None:
             raise HTTPException(status_code=404, detail=f"Story not found: {identifier}")
         return graph
+
+    @app.get("/api/stories/{identifier}/ai/claim-draft")
+    def ai_claim_draft(identifier: str, mode: str = "assist", brief_id: str = "") -> dict[str, Any]:
+        try:
+            payload = reader_factory().ai_claim_draft(identifier, mode=mode, brief_id=brief_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if payload is None:
+            raise HTTPException(status_code=404, detail=f"Story not found: {identifier}")
+        return payload
 
     @app.get("/api/stories/{identifier}/export")
     def export_story(identifier: str, format: str = "markdown") -> Response:
@@ -832,6 +859,16 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     @app.get("/api/triage/{item_id}/explain")
     def triage_explain(item_id: str, limit: int = 5) -> dict[str, Any]:
         payload = reader_factory().triage_explain(item_id, limit=limit)
+        if payload is None:
+            raise HTTPException(status_code=404, detail=f"Triage item not found: {item_id}")
+        return payload
+
+    @app.get("/api/triage/{item_id}/ai/assist")
+    def ai_triage_assist(item_id: str, mode: str = "assist", limit: int = 5) -> dict[str, Any]:
+        try:
+            payload = reader_factory().ai_triage_assist(item_id, mode=mode, limit=limit)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         if payload is None:
             raise HTTPException(status_code=404, detail=f"Triage item not found: {item_id}")
         return payload
