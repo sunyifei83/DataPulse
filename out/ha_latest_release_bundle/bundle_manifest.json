@@ -1,0 +1,17 @@
+{
+  "schema": "modelbus.consumer_bundle_manifest.v1",
+  "generated_at_utc": "2026-03-16T12:29:52Z",
+  "bundle_id": "datapulse.ai_surface_bus",
+  "consumer_id": "datapulse",
+  "artifacts": {
+    "surface_admission": {
+      "path": "surface_admission.json"
+    },
+    "bridge_config": {
+      "path": "bridge_config.json"
+    },
+    "release_status": {
+      "path": "release_status.json"
+    }
+  }
+}

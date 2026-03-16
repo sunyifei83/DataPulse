@@ -592,7 +592,7 @@ def test_ai_surface_precheck_uses_canonical_bundle_when_env_is_not_set(tmp_path,
     assert payload["admission_errors"] == []
 
 
-def test_ai_surface_precheck_falls_back_to_local_snapshot_when_bundle_is_invalid(tmp_path, monkeypatch):
+def test_ai_surface_precheck_rejects_when_bundle_is_invalid_and_local_snapshot_is_diagnostic_only(tmp_path, monkeypatch):
     from pathlib import Path
 
     inbox_path = str(tmp_path / "inbox.json")
@@ -605,6 +605,7 @@ def test_ai_surface_precheck_falls_back_to_local_snapshot_when_bundle_is_invalid
     bundle_dir = tmp_path / "broken-modelbus-bundle"
     bundle_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("DATAPULSE_MODELBUS_BUNDLE_DIR", str(bundle_dir))
+    monkeypatch.setattr(reader_module, "_CANONICAL_MODELBUS_BUNDLE_DIR", tmp_path / "missing-canonical-bundle")
 
     admission_path = tmp_path / "local-ai-surface-admission.json"
     _write_local_ai_surface_admission(
@@ -642,16 +643,20 @@ def test_ai_surface_precheck_falls_back_to_local_snapshot_when_bundle_is_invalid
     reader = DataPulseReader(inbox_path=inbox_path)
     payload = reader.ai_surface_precheck("mission_suggest", mode="assist")
 
-    assert payload["ok"] is True
-    assert payload["alias"] == "dp.local.mission.suggest"
+    assert payload["ok"] is False
+    assert payload["alias"] == ""
     assert payload["bridge_configured"] is False
-    assert payload["admission_source"] == "local_snapshot"
-    assert payload["admission_path"] == str(admission_path)
+    assert payload["admission_source"] == "modelbus_bundle_required"
+    assert payload["admission_path"].endswith("bundle_manifest.json")
     assert payload["admission_errors"]
-    assert "modelbus bundle manifest missing:" in payload["admission_errors"][0]
+    assert payload["admission_errors"][0].startswith("explicit env bundle failed: modelbus bundle manifest missing:")
+    assert any(
+        "local snapshot available but disabled under bundle-first default:" in error
+        for error in payload["admission_errors"]
+    )
 
 
-def test_ai_surface_precheck_falls_back_to_local_snapshot_when_canonical_bundle_is_invalid(tmp_path, monkeypatch):
+def test_ai_surface_precheck_rejects_when_canonical_bundle_is_invalid_even_if_local_snapshot_exists(tmp_path, monkeypatch):
     from pathlib import Path
 
     inbox_path = str(tmp_path / "inbox.json")
@@ -690,12 +695,16 @@ def test_ai_surface_precheck_falls_back_to_local_snapshot_when_canonical_bundle_
     reader = DataPulseReader(inbox_path=inbox_path)
     payload = reader.ai_surface_precheck("mission_suggest", mode="assist")
 
-    assert payload["ok"] is True
-    assert payload["alias"] == "dp.local.mission.suggest"
-    assert payload["admission_source"] == "local_snapshot"
+    assert payload["ok"] is False
+    assert payload["alias"] == ""
+    assert payload["admission_source"] == "modelbus_bundle_required"
     assert payload["bundle_selection"] == "canonical_default"
     assert payload["admission_errors"]
     assert payload["admission_errors"][0].startswith("canonical bundle failed:")
+    assert any(
+        "local snapshot available but disabled under bundle-first default:" in error
+        for error in payload["admission_errors"]
+    )
 
 
 def test_ai_surface_precheck_keeps_report_draft_fail_closed_under_modelbus_bundle(tmp_path, monkeypatch):
@@ -748,6 +757,8 @@ def test_ai_surface_precheck_keeps_report_draft_fail_closed_under_modelbus_bundl
     assert payload["admission_status"] == "rejected"
     assert payload["bridge_configured"] is True
     assert payload["admission_source"] == "modelbus_bundle"
+    assert payload["alias"] == "dp.report.draft"
+    assert payload["requested_alias"] == "dp.report.draft"
     assert payload["contract_id"] == ""
     assert payload["contract_available"] is False
     assert payload["manual_fallback"] == "manual_or_deterministic_behavior"

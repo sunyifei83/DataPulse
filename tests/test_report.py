@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+import datapulse.reader as reader_module
 from datapulse.reader import DataPulseReader
 
 
@@ -27,6 +28,87 @@ def _reader(
     os.environ["DATAPULSE_STORIES_PATH"] = str(stories_path)
     os.environ["DATAPULSE_REPORTS_PATH"] = str(reports_path)
     return DataPulseReader(inbox_path=str(inbox_path))
+
+
+def _write_modelbus_bundle(bundle_dir: Path, rows: list[dict[str, object]]) -> None:
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    alias_by_surface: dict[str, str] = {}
+    for row in rows:
+        surface_id = str(row.get("surface_id", "") or "").strip()
+        alias = str(row.get("requested_alias", "") or row.get("admitted_alias", "") or "").strip()
+        if surface_id and alias:
+            alias_by_surface[surface_id] = alias
+    (bundle_dir / "bundle_manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "modelbus.consumer_bundle_manifest.v1",
+                "generated_at_utc": "2026-03-16T12:10:00Z",
+                "bundle_id": "datapulse.ai_surface_bus",
+                "consumer_id": "datapulse",
+                "artifacts": {
+                    "surface_admission": {"path": "surface_admission.json"},
+                    "bridge_config": {"path": "bridge_config.json"},
+                    "release_status": {"path": "release_status.json"},
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "surface_admission.json").write_text(
+        json.dumps(
+            {
+                "schema": "modelbus.consumer_surface_admission.v1",
+                "generated_at_utc": "2026-03-16T12:11:00Z",
+                "consumer_id": "datapulse",
+                "release_window": {
+                    "generated_at_utc": "2026-03-16T12:09:00Z",
+                    "release_level": "ci_proven",
+                    "assured_verdict": "pass",
+                    "constitutional_semantics": "BUNDLE-FIRST-REQUIRED",
+                },
+                "surface_admissions": rows,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "bridge_config.json").write_text(
+        json.dumps(
+            {
+                "schema": "modelbus.consumer_bridge_config.v1",
+                "generated_at_utc": "2026-03-16T12:12:00Z",
+                "consumer_id": "datapulse",
+                "bundle_id": "datapulse.ai_surface_bus",
+                "base_url": "https://modelbus.example.com",
+                "request_protocol": "responses",
+                "endpoint": "/v1/responses",
+                "bus_key_env": "DATAPULSE_MODELBUS_BUS_KEY",
+                "tenant_env": "DATAPULSE_MODELBUS_TENANT",
+                "tenant_header": "X-ModelBus-Tenant",
+                "alias_by_surface": alias_by_surface,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "release_status.json").write_text(
+        json.dumps(
+            {
+                "schema": "modelbus.release_status.v1",
+                "generated_at_utc": "2026-03-16T12:09:00Z",
+                "release_level": "ci_proven",
+                "assured_verdict": "pass",
+                "runtime": {"base_url": "https://modelbus.example.com"},
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -394,6 +476,7 @@ def test_ai_claim_draft_rejects_when_admission_facts_are_missing(monkeypatch, tm
         ],
     )
     missing_path = tmp_path / "missing-ai-surface-admission.json"
+    monkeypatch.setattr(reader_module, "_CANONICAL_MODELBUS_BUNDLE_DIR", tmp_path / "missing-canonical-bundle")
     monkeypatch.setenv("DATAPULSE_AI_SURFACE_ADMISSION_PATH", str(missing_path))
 
     payload = reader.ai_claim_draft(story["id"], mode="review")
@@ -403,7 +486,11 @@ def test_ai_claim_draft_rejects_when_admission_facts_are_missing(monkeypatch, tm
     assert payload["precheck"]["mode"] == "review"
     assert payload["precheck"]["mode_status"] == "rejected"
     assert payload["precheck"]["admission_errors"]
-    assert "admission file missing:" in payload["precheck"]["admission_errors"][0]
+    assert payload["precheck"]["admission_errors"][0].startswith("canonical bundle failed:")
+    assert any(
+        "local snapshot diagnostic: admission file missing:" in error
+        for error in payload["precheck"]["admission_errors"]
+    )
     assert payload["output"] is None
     assert payload["runtime_facts"]["status"] == "rejected"
     assert payload["runtime_facts"]["fallback_used"] is True
@@ -440,3 +527,70 @@ def test_ai_claim_draft_fails_closed_on_invalid_payload(monkeypatch, tmp_path):
     assert payload["runtime_facts"]["fallback_used"] is True
     assert payload["runtime_facts"]["manual_override_required"] is True
     assert payload["runtime_facts"]["served_by_alias"] == payload["precheck"]["alias"]
+
+
+def test_ai_report_draft_returns_fail_closed_runtime_projection_when_contract_is_missing(monkeypatch, tmp_path):
+    reader = _reader(tmp_path)
+    report = reader.create_report(
+        title="Runtime Closure Report",
+        summary="Exercise report_draft fail-closed runtime projection under bundle-first admission.",
+    )
+    claim = reader.create_claim_card(
+        statement="Fail-closed runtime surfaces must stay attributable and replayable.",
+        brief_id="",
+    )
+    section = reader.create_report_section(
+        report_id=report["id"],
+        title="Runtime Closure",
+        claim_card_ids=[claim["id"]],
+        position=1,
+    )
+    reader.update_report(report["id"], section_ids=[section["id"]], claim_card_ids=[claim["id"]])
+
+    bundle_dir = tmp_path / "modelbus-bundle"
+    _write_modelbus_bundle(
+        bundle_dir,
+        [
+            {
+                "surface_id": "report_draft",
+                "requested_alias": "dp.report.draft",
+                "admission_status": "rejected",
+                "admitted_alias": "",
+                "mode_admission": {"off": "manual_only", "assist": "rejected", "review": "rejected"},
+                "schema_contract": "",
+                "manual_fallback": "manual_or_deterministic_behavior",
+                "degraded_result_allowed": False,
+                "must_expose_runtime_facts": [
+                    "served_by_alias",
+                    "fallback_used",
+                    "degraded",
+                    "schema_valid",
+                    "manual_override_required",
+                    "request_id",
+                ],
+                "rejectable_gaps": [
+                    {
+                        "gap_id": "missing_structured_contract",
+                        "blocking": True,
+                        "reason": "report_draft remains blocked until an admitted structured contract lands.",
+                    }
+                ],
+            }
+        ],
+    )
+    monkeypatch.setenv("DATAPULSE_MODELBUS_BUNDLE_DIR", str(bundle_dir))
+    monkeypatch.setattr(reader_module, "_CANONICAL_MODELBUS_BUNDLE_DIR", tmp_path / "missing-canonical-bundle")
+
+    payload = reader.ai_report_draft(report["id"], mode="review")
+
+    assert payload is not None
+    assert payload["surface"] == "report_draft"
+    assert payload["precheck"]["ok"] is False
+    assert payload["precheck"]["alias"] == "dp.report.draft"
+    assert payload["bridge_request"]["alias"] == "dp.report.draft"
+    assert payload["output"] is None
+    assert payload["runtime_facts"]["status"] == "rejected"
+    assert payload["runtime_facts"]["request_id"]
+    assert payload["runtime_facts"]["schema_valid"] is False
+    assert payload["runtime_facts"]["served_by_alias"] == "dp.report.draft"
+    assert "missing_structured_contract" in payload["runtime_facts"]["errors"]

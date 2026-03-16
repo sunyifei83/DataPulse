@@ -202,6 +202,12 @@ async def _run_ai_claim_draft(story_id: str, mode: str = "assist", brief_id: str
     return json.dumps({"ok": payload is not None, "projection": payload}, ensure_ascii=False, indent=2)
 
 
+async def _run_ai_report_draft(report_id: str, mode: str = "assist", profile_id: str = "") -> str:
+    reader = DataPulseReader()
+    payload = reader.ai_report_draft(report_id, mode=mode, profile_id=profile_id or None)
+    return json.dumps({"ok": payload is not None, "projection": payload}, ensure_ascii=False, indent=2)
+
+
 async def _run_ai_delivery_summary(identifier: str, mode: str = "assist") -> str:
     reader = DataPulseReader()
     payload = reader.ai_delivery_summary(identifier, mode=mode)
@@ -1272,6 +1278,11 @@ def _register_tools(app: Any) -> None:
     async def ai_claim_draft(story_id: str, mode: str = "assist", brief_id: str = "") -> str:
         """Project the governed claim_draft AI surface for one story."""
         return await _run_ai_claim_draft(story_id=story_id, mode=mode, brief_id=brief_id)
+
+    @app.tool()
+    async def ai_report_draft(report_id: str, mode: str = "assist", profile_id: str = "") -> str:
+        """Project the governed report_draft AI surface for one report."""
+        return await _run_ai_report_draft(report_id=report_id, mode=mode, profile_id=profile_id)
 
     @app.tool()
     async def ai_delivery_summary(identifier: str, mode: str = "assist") -> str:

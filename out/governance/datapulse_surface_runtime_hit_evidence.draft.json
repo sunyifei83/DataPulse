@@ -1,0 +1,98 @@
+{
+  "schema_version": "datapulse_surface_runtime_hit_evidence.v1",
+  "project": "DataPulse",
+  "generated_at_utc": "2026-03-16T12:30:24Z",
+  "bundle_default": {
+    "strategy": "bundle_first",
+    "canonical_bundle_path": "out/ha_latest_release_bundle",
+    "runtime_bundle_dir": "out/ha_latest_release_bundle",
+    "local_snapshot_parallel_primary_disabled": true
+  },
+  "surfaces": [
+    {
+      "surface": "delivery_summary",
+      "mode": "review",
+      "subject": {
+        "kind": "AlertEvent",
+        "id": "0371a8b6fd0f"
+      },
+      "admission_source": "modelbus_bundle",
+      "bundle_selection": "explicit_env",
+      "precheck_ok": true,
+      "mode_status": "admitted",
+      "admission_status": "admitted",
+      "served_by_alias": "dp.delivery.summary",
+      "requested_alias": "dp.delivery.summary",
+      "request_id": "d0274c1f3341",
+      "schema_valid": true,
+      "runtime_status": "fallback_used",
+      "output_present": true,
+      "contract_id": "datapulse_ai_delivery_summary.v1",
+      "fail_closed": false,
+      "bridge_request_present": true,
+      "rejectable_gap_ids": [],
+      "errors": [],
+      "evidence_status": "verified"
+    },
+    {
+      "surface": "report_draft",
+      "mode": "review",
+      "subject": {
+        "kind": "Report",
+        "id": "ai-runtime-closure-report"
+      },
+      "admission_source": "modelbus_bundle",
+      "bundle_selection": "explicit_env",
+      "precheck_ok": false,
+      "mode_status": "rejected",
+      "admission_status": "rejected",
+      "served_by_alias": "dp.report.draft",
+      "requested_alias": "dp.report.draft",
+      "request_id": "b547771b5a26",
+      "schema_valid": false,
+      "runtime_status": "rejected",
+      "output_present": false,
+      "contract_id": "",
+      "fail_closed": true,
+      "bridge_request_present": true,
+      "rejectable_gap_ids": [
+        "missing_structured_contract",
+        "missing_required_schema_contract",
+        "report_draft.experimental:missing_contract_binding"
+      ],
+      "errors": [
+        "missing_structured_contract",
+        "missing_required_schema_contract",
+        "report_draft.experimental:missing_contract_binding",
+        "mode_status:rejected"
+      ],
+      "evidence_status": "verified_fail_closed"
+    }
+  ],
+  "release_level_prerequisites": {
+    "bundle_first_default_ready": true,
+    "shadow_change_prerequisites_met": true,
+    "required_change_prerequisites_met": true,
+    "promotion_discussion_allowed": true
+  },
+  "closure": {
+    "required_runtime_hit_targets": [
+      {
+        "surface": "delivery_summary",
+        "expected_evidence_status": "verified",
+        "release_scope": "shadow"
+      },
+      {
+        "surface": "report_draft",
+        "expected_evidence_status": "verified_fail_closed",
+        "release_scope": "required"
+      }
+    ],
+    "verified_surfaces": [
+      "delivery_summary",
+      "report_draft"
+    ],
+    "blocking_reasons": [],
+    "replay_entrypoint": "python3 scripts/governance/export_datapulse_surface_runtime_hit_evidence.py --bundle-dir out/ha_latest_release_bundle"
+  }
+}

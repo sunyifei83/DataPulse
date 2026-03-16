@@ -271,8 +271,14 @@ title: Test Facts
 ## Fact 3.12: v0.8.1 AI runtime semantics verification hard化
 
 - **验证门禁事实**：`tests/test_story.py`、`tests/test_report.py` 与 `tests/test_delivery.py` 现已把 `off / assist / review` 模式切换、schema fail-closed、admission miss、alias-bound fallback/degraded 以及 `manual_override_required` 纳入断言。
-- **治理导出事实**：`out/governance/datapulse-ai-surface-admission.example.json` 的 `must_expose_runtime_facts` 现在以运行时字段名固化 `served_by_alias / fallback_used / degraded / schema_valid / manual_override_required`。
+- **治理导出事实**：`out/governance/datapulse-ai-surface-admission.example.json` 的 `must_expose_runtime_facts` 现在以运行时字段名固化 `served_by_alias / fallback_used / degraded / schema_valid / manual_override_required / request_id`。
 - **阻断事实**：`report_draft` 仍保持 `rejected`，并继续因为缺少 admitted structured contract 而 fail-closed 到 `manual_or_deterministic_behavior`；该状态是治理真相，不是假完成。
+
+## Fact 3.13: bundle-first default 与 required runtime-hit 闭环
+
+- **默认入口事实**：`datapulse/reader.py` 现在将 ModelBus consumer bundle 视为 AI surface admission 的唯一默认主路径；`out/ha_latest_release_bundle` 是 canonical bundle-first 入口，本地 snapshot 只保留为诊断告警，不再作为并行主命中源。
+- **运行时命中事实**：`report_draft` 现已拥有 Reader/CLI/MCP/console 一致的 runtime surface，但在缺少 admitted structured contract 时保持 fail-closed；同窗命中仍会稳定产出 `served_by_alias / request_id / schema_valid=false`。
+- **证据闭环事实**：`out/governance/datapulse_surface_runtime_hit_evidence.draft.json` 与 release bundle 中的同名证据文件会同时记录 `delivery_summary=verified` 与 `report_draft=verified_fail_closed`，用于 shadow/required 变更前提核验，而不是伪装成“成功草稿”。
 
 ## Fact 4: 来源与订阅能力增强
 

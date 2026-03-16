@@ -1,12 +1,12 @@
 {
   "schema_version": "project_specific_loop_state.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-15T04:22:38Z",
+  "generated_at_utc": "2026-03-16T12:29:57Z",
   "state_kind": "draft_export",
   "source_plan": "docs/governance/datapulse-blueprint-plan.json",
   "wired": true,
-  "current_level": "ci_proven",
-  "workspace_clean": true,
+  "current_level": "manual_only",
+  "workspace_clean": false,
   "completed_slices": [
     "L0.1",
     "L0.2",
@@ -100,7 +100,12 @@
     "title": "No open slice",
     "category": "complete"
   },
-  "remaining_promotion_gates": [],
+  "remaining_promotion_gates": [
+    "workspace_dirty",
+    "repo_landed_false",
+    "head_not_pushed",
+    "ci_run_not_proven"
+  ],
   "blocking_facts": [],
   "pipeline_contract": {
     "objective": "trusted_delivery_pipeline",
@@ -117,7 +122,7 @@
     "stop_truth": {
       "source": "blocking_facts_and_flow_control",
       "status_if_run_now": "stopped",
-      "reason_if_run_now": "loop_complete",
+      "reason_if_run_now": "promotion_gates_open",
       "machine_decidable": true,
       "expected_terminal_stop_on_complete": true
     },
@@ -154,7 +159,7 @@
   },
   "flow_control": {
     "status_if_run_now": "stopped",
-    "reason_if_run_now": "loop_complete",
+    "reason_if_run_now": "promotion_gates_open",
     "machine_decidable_blockers": true,
     "auto_continuation_enabled": false,
     "readiness_gaps": [
@@ -162,12 +167,12 @@
     ]
   },
   "promotion_mode": "manual_only",
-  "stop_reason_if_run_now": "loop_complete",
+  "stop_reason_if_run_now": "promotion_gates_open",
   "local_verification": {
     "quick_test_gate": {
-      "status": "passed",
+      "status": "stale_head",
       "observed": true,
-      "current_head_match": true,
+      "current_head_match": false,
       "ok": true,
       "generated_at_utc": "2026-03-15T04:22:23Z",
       "head": "3934add049129538a1d166fe405275e70ac8f7b1",
@@ -176,16 +181,16 @@
     }
   },
   "headline_summary": {
-    "current_level": "ci_proven",
-    "workspace_clean": true,
+    "current_level": "manual_only",
+    "workspace_clean": false,
     "next_slice_id": "no-open-slice",
     "next_slice_title": "No open slice",
     "status_if_run_now": "stopped",
-    "reason_if_run_now": "loop_complete",
+    "reason_if_run_now": "promotion_gates_open",
     "quick_test_gate": {
-      "status": "passed",
+      "status": "stale_head",
       "observed": true,
-      "current_head_match": true,
+      "current_head_match": false,
       "ok": true,
       "generated_at_utc": "2026-03-15T04:22:23Z",
       "head": "3934add049129538a1d166fe405275e70ac8f7b1",

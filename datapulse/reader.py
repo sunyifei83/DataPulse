@@ -437,6 +437,7 @@ class DataPulseReader:
             if not surface:
                 continue
             required_schema_contract = str(raw_row.get("schema_contract") or "").strip()
+            requested_alias = str(raw_row.get("requested_alias") or raw_row.get("admitted_alias") or "").strip()
             admitted_alias = str(raw_row.get("admitted_alias") or "").strip()
             projected_rows.append(
                 {
@@ -448,6 +449,7 @@ class DataPulseReader:
                     "mode_admission": dict(raw_row.get("mode_admission") or {})
                     if isinstance(raw_row.get("mode_admission"), dict)
                     else {"off": "manual_only", "assist": "rejected", "review": "rejected"},
+                    "requested_alias": requested_alias,
                     "admitted_subscription_id": admitted_alias,
                     "admitted_alias": admitted_alias,
                     "admitted_capabilities": [],
@@ -531,27 +533,55 @@ class DataPulseReader:
             return {"enabled": True, "errors": errors, **last_context}
         return {"enabled": bool(errors), "errors": errors}
 
+    def _bundle_first_disabled_local_snapshot_warning(self) -> tuple[str, str]:
+        path = self._resolve_runtime_path(
+            os.getenv(_AI_SURFACE_ADMISSION_PATH_ENV, "") or str(_DEFAULT_AI_SURFACE_ADMISSION_PATH)
+        )
+        payload, error = self._read_json_object(path, label="admission file")
+        if error is None and isinstance(payload, dict):
+            return (
+                f"local snapshot available but disabled under bundle-first default: {path}",
+                str(path),
+            )
+        return (
+            f"local snapshot diagnostic: {error}" if error else f"local snapshot unavailable: {path}",
+            str(path),
+        )
+
+    def _bundle_required_admission_payload(self, bundle: dict[str, Any]) -> dict[str, Any]:
+        errors: list[str] = []
+        bundle_errors = bundle.get("errors")
+        if isinstance(bundle_errors, list):
+            errors.extend(str(item).strip() for item in bundle_errors if str(item).strip())
+        local_warning, local_snapshot_path = self._bundle_first_disabled_local_snapshot_warning()
+        if local_warning:
+            errors.append(local_warning)
+
+        bundle_manifest_path = str(bundle.get("bundle_manifest_path") or "").strip()
+        bundle_dir = str(bundle.get("bundle_dir") or "").strip()
+        admission_path = bundle_manifest_path
+        if not admission_path and bundle_dir:
+            admission_path = str((Path(bundle_dir) / "bundle_manifest.json").resolve())
+
+        return {
+            "schema_version": "datapulse_ai_surface_admission.v1",
+            "generated_at_utc": _utcnow_z(),
+            "surface_admissions": [],
+            "errors": errors,
+            "bridge_configured": False,
+            "admission_source": "modelbus_bundle_required",
+            "admission_path": admission_path,
+            "bundle_selection": str(bundle.get("bundle_selection") or "").strip(),
+            "bundle_dir": bundle_dir,
+            "bundle_manifest_path": bundle_manifest_path,
+            "local_snapshot_path": local_snapshot_path,
+        }
+
     def _load_ai_surface_admissions(self) -> dict[str, Any]:
         bundle = self._load_modelbus_bundle_surface_admissions()
         if isinstance(bundle.get("payload"), dict):
             return dict(bundle["payload"])
-
-        payload = self._load_local_ai_surface_admissions()
-        errors: list[str] = []
-        bundle_errors = bundle.get("errors")
-        if isinstance(bundle_errors, list):
-            errors.extend(str(item) for item in bundle_errors if str(item).strip())
-        local_errors = payload.get("errors")
-        if isinstance(local_errors, list):
-            errors.extend(str(item) for item in local_errors if str(item).strip())
-        payload["errors"] = errors
-        if bundle.get("bundle_dir"):
-            payload["bundle_dir"] = str(bundle.get("bundle_dir") or "").strip()
-        if bundle.get("bundle_manifest_path"):
-            payload["bundle_manifest_path"] = str(bundle.get("bundle_manifest_path") or "").strip()
-        if bundle.get("bundle_selection"):
-            payload["bundle_selection"] = str(bundle.get("bundle_selection") or "").strip()
-        return payload
+        return self._bundle_required_admission_payload(bundle)
 
     def _lookup_ai_surface_admission(self, surface: str, *, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         payload = payload if isinstance(payload, dict) else self._load_ai_surface_admissions()
@@ -598,6 +628,13 @@ class DataPulseReader:
         candidate_results_raw = admission.get("candidate_results")
         candidate_results = cast(list[dict[str, Any]], candidate_results_raw) if isinstance(candidate_results_raw, list) else []
         admitted_subscription_id = str(admission.get("admitted_subscription_id", "") or "").strip()
+        must_expose_runtime_facts = [
+            str(item).strip()
+            for item in admission.get("must_expose_runtime_facts", [])
+            if str(item).strip()
+        ]
+        if "request_id" not in must_expose_runtime_facts:
+            must_expose_runtime_facts.append("request_id")
         degraded_result_allowed = bool(admission.get("degraded_result_allowed", False))
         if not degraded_result_allowed:
             for row in candidate_results:
@@ -616,14 +653,15 @@ class DataPulseReader:
             "mode_status": mode_status,
             "admission_status": str(admission.get("admission_status", "rejected") or "rejected").strip().lower(),
             "lifecycle_anchor": str(admission.get("lifecycle_anchor", "") or "").strip(),
-            "alias": str(admission.get("admitted_alias", "") or "").strip(),
+            "alias": str(admission.get("admitted_alias", "") or admission.get("requested_alias", "") or "").strip(),
+            "requested_alias": str(admission.get("requested_alias", "") or "").strip(),
             "admitted_subscription_id": admitted_subscription_id,
             "contract_id": contract_id,
             "contract_path": contract_path,
             "contract_available": contract_available,
             "manual_fallback": str(admission.get("manual_fallback", "manual_or_deterministic_behavior") or "manual_or_deterministic_behavior").strip(),
             "rejectable_gaps": rejectable_gaps,
-            "must_expose_runtime_facts": admission.get("must_expose_runtime_facts", []),
+            "must_expose_runtime_facts": must_expose_runtime_facts,
             "degraded_result_allowed": degraded_result_allowed,
             "bridge_configured": bool(payload.get("bridge_configured", False)),
             "admission_source": str(payload.get("admission_source", "local_snapshot") or "local_snapshot").strip(),
@@ -633,6 +671,38 @@ class DataPulseReader:
                 os.getenv(_AI_SURFACE_ADMISSION_PATH_ENV, "") or str(_DEFAULT_AI_SURFACE_ADMISSION_PATH)
             )),
         }
+
+    @staticmethod
+    def _ai_failure_reasons(precheck: dict[str, Any]) -> list[str]:
+        reasons: list[str] = []
+
+        admission_errors = precheck.get("admission_errors")
+        if isinstance(admission_errors, list):
+            reasons.extend(str(item).strip() for item in admission_errors if str(item).strip())
+
+        rejectable_gaps = precheck.get("rejectable_gaps")
+        if isinstance(rejectable_gaps, list):
+            for gap in rejectable_gaps:
+                if not isinstance(gap, dict):
+                    continue
+                gap_id = str(gap.get("gap_id") or "").strip()
+                if gap_id:
+                    reasons.append(gap_id)
+
+        mode_status = str(precheck.get("mode_status", "") or "").strip().lower()
+        if mode_status and mode_status not in {"admitted", "manual_only"}:
+            reasons.append(f"mode_status:{mode_status}")
+        if not str(precheck.get("contract_id", "") or "").strip():
+            reasons.append("missing_required_schema_contract")
+
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for reason in reasons:
+            if not reason or reason in seen:
+                continue
+            seen.add(reason)
+            deduped.append(reason)
+        return deduped or ["surface_precheck_failed"]
 
     @staticmethod
     def _build_ai_runtime_facts(
@@ -4141,7 +4211,7 @@ class DataPulseReader:
                 subject=subject,
                 input_payload=input_payload,
                 output_payload=None,
-                validation_errors=list(precheck.get("admission_errors", [])),
+                validation_errors=self._ai_failure_reasons(precheck),
             )
         payload = self._build_watch_suggestion_payload(mission, mode=str(precheck.get("mode", "assist")))
         errors = self._validate_ai_payload("mission_suggest", payload)
@@ -4180,7 +4250,7 @@ class DataPulseReader:
                 subject=subject,
                 input_payload=input_payload,
                 output_payload=None,
-                validation_errors=list(precheck.get("admission_errors", [])),
+                validation_errors=self._ai_failure_reasons(precheck),
             )
         payload = build_triage_assist_payload(item, explain_payload)
         errors = self._validate_ai_payload("triage_assist", payload)
@@ -4216,7 +4286,7 @@ class DataPulseReader:
                 subject=subject,
                 input_payload=input_payload,
                 output_payload=None,
-                validation_errors=list(precheck.get("admission_errors", [])),
+                validation_errors=self._ai_failure_reasons(precheck),
             )
         payload = build_claim_draft_from_story(story, brief_id=brief_id, mode=str(precheck.get("mode", "assist")))
         errors = self._validate_ai_payload("claim_draft", payload)
@@ -4226,6 +4296,56 @@ class DataPulseReader:
             input_payload=input_payload,
             output_payload=payload,
             validation_errors=errors,
+        )
+
+    def ai_report_draft(self, report_id: str, *, mode: str = "assist", profile_id: str | None = None) -> dict[str, Any] | None:
+        report_payload = self.show_report(report_id)
+        if report_payload is None:
+            return None
+        composed_payload = self.compose_report(report_id, profile_id=profile_id)
+        composed_payload = dict(composed_payload or {})
+        sections = composed_payload.get("sections")
+        sections = sections if isinstance(sections, list) else []
+        claim_cards = composed_payload.get("claim_cards")
+        claim_cards = claim_cards if isinstance(claim_cards, list) else []
+        export_profiles = composed_payload.get("export_profiles")
+        export_profiles = export_profiles if isinstance(export_profiles, list) else []
+        quality = composed_payload.get("quality")
+        quality = quality if isinstance(quality, dict) else {}
+
+        precheck = self.ai_surface_precheck("report_draft", mode=mode)
+        subject = {"kind": "Report", "id": report_payload["id"]}
+        input_payload = {
+            "operator_prompt": "Prepare a report composition draft without mutating final export or provenance truth.",
+            "payload_ref": f"report:{report_payload['id']}",
+            "report_snapshot": {
+                "title": str(report_payload.get("title", "") or "").strip(),
+                "status": str(report_payload.get("status", "") or "").strip(),
+                "section_count": len(sections),
+                "claim_card_count": len(claim_cards),
+                "export_profile_count": len(export_profiles),
+                "quality_status": str(quality.get("status", "") or "").strip(),
+                "quality_score": float(quality.get("score", 0.0) or 0.0),
+                "can_export": bool(quality.get("can_export", False)),
+            },
+        }
+        if profile_id:
+            input_payload["profile_id"] = str(profile_id)
+
+        if precheck.get("mode") == "off" or not precheck.get("ok"):
+            return self._build_ai_service_response(
+                precheck=precheck,
+                subject=subject,
+                input_payload=input_payload,
+                output_payload=None,
+                validation_errors=self._ai_failure_reasons(precheck),
+            )
+        return self._build_ai_service_response(
+            precheck=precheck,
+            subject=subject,
+            input_payload=input_payload,
+            output_payload=None,
+            validation_errors=["report_draft_runtime_requires_admitted_structured_contract"],
         )
 
     def ai_delivery_summary(self, alert_id: str, *, mode: str = "assist") -> dict[str, Any] | None:
@@ -4259,7 +4379,7 @@ class DataPulseReader:
                 subject=subject,
                 input_payload=input_payload,
                 output_payload=None,
-                validation_errors=list(precheck.get("admission_errors", [])),
+                validation_errors=self._ai_failure_reasons(precheck),
             )
         payload = self._build_delivery_summary_payload(event)
         errors = self._validate_ai_payload("delivery_summary", payload)

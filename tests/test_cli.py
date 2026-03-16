@@ -605,6 +605,31 @@ class _WatchReader:
             },
         }
 
+    def ai_report_draft(self, report_id, *, mode="assist", profile_id=None):
+        if report_id != "report-runtime-closure":
+            return None
+        return {
+            "surface": "report_draft",
+            "mode": mode,
+            "subject": {"kind": "Report", "id": report_id},
+            "precheck": {
+                **self.ai_surface_precheck("report_draft", mode=mode),
+                "ok": False,
+                "mode_status": "rejected",
+                "admission_status": "rejected",
+                "alias": "dp.report.draft",
+            },
+            "output": None,
+            "runtime_facts": {
+                "status": "rejected",
+                "source": "manual",
+                "schema_valid": False,
+                "served_by_alias": "dp.report.draft",
+                "request_id": "report-123",
+                "errors": ["missing_structured_contract"],
+            },
+        }
+
     def ai_delivery_summary(self, identifier, *, mode="assist"):
         if identifier != "alert-1":
             return None
@@ -1217,6 +1242,20 @@ def test_ai_delivery_summary_prints_projection(monkeypatch, capsys):
     assert '"mode": "review"' in out
     assert '"contract_id": "datapulse_ai_delivery_summary.v1"' in out
     assert '"request_id": "delivery-123"' in out
+
+
+def test_ai_report_draft_prints_fail_closed_projection(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--ai-report-draft", "report-runtime-closure", "--ai-mode", "review"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert '"surface": "report_draft"' in out
+    assert '"mode": "review"' in out
+    assert '"served_by_alias": "dp.report.draft"' in out
+    assert '"request_id": "report-123"' in out
+    assert '"schema_valid": false' in out
 
 
 def test_triage_list_prints_rows(monkeypatch, capsys):

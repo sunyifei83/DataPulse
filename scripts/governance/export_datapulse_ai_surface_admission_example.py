@@ -91,6 +91,12 @@ def build_surface_admission(surface_payload: dict[str, Any]) -> dict[str, Any]:
 
     eligible_results.sort(key=lambda item: (item.get("selection_rank", 0), item.get("subscription_id", "")))
     admitted = eligible_results[0] if eligible_results else None
+    requested_alias = ""
+    for candidate in sorted(candidates, key=lambda item: (int(item.get("selection_rank", 0) or 0), str(item.get("subscription_id", "")))):
+        alias = str(candidate.get("alias", "")).strip()
+        if alias:
+            requested_alias = alias
+            break
 
     candidate_results: list[dict[str, Any]] = []
     for result in sorted(results, key=lambda item: (item.get("selection_rank", 0), item.get("subscription_id", ""))):
@@ -168,9 +174,11 @@ def build_surface_admission(surface_payload: dict[str, Any]) -> dict[str, Any]:
             "assist": "admitted" if admitted else "rejected",
             "review": "admitted" if admitted else "rejected",
         },
+        "requested_alias": admitted["alias"] if admitted else requested_alias,
         "admitted_subscription_id": admitted["subscription_id"] if admitted else "",
         "admitted_alias": admitted["alias"] if admitted else "",
         "admitted_capabilities": sorted(required_capabilities) if admitted else [],
+        "degraded_result_allowed": bool(admitted["degraded_result_allowed"]) if admitted else False,
         "must_expose_runtime_facts": list(surface_payload.get("must_expose_runtime_facts", [])),
         "candidate_results": candidate_results,
         "rejectable_gaps": deduped_gaps,

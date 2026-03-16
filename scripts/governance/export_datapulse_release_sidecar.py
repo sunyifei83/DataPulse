@@ -14,6 +14,7 @@ from datapulse_loop_contracts import (
     parse_emergency_state,
     parse_local_report,
     parse_remote_report,
+    read_json,
     read_text,
     repo_workspace_clean,
     structured_release_bundle_available,
@@ -21,6 +22,8 @@ from datapulse_loop_contracts import (
     workflow_dispatch_available,
     write_json,
 )
+
+RUNTIME_HIT_EVIDENCE_PATH = DEFAULT_OUT_DIR / "datapulse_surface_runtime_hit_evidence.draft.json"
 
 
 def project_version() -> str:
@@ -111,6 +114,13 @@ def main() -> int:
         if path
     ]
     workflow_dispatch = bool(dispatch_entrypoints)
+    runtime_hit_evidence = read_json(RUNTIME_HIT_EVIDENCE_PATH) if RUNTIME_HIT_EVIDENCE_PATH.exists() else {}
+    runtime_prereqs = (
+        runtime_hit_evidence.get("release_level_prerequisites", {})
+        if isinstance(runtime_hit_evidence, dict)
+        else {}
+    )
+    runtime_surfaces = runtime_hit_evidence.get("surfaces", []) if isinstance(runtime_hit_evidence, dict) else []
 
     payload = {
         "schema_version": "release_sidecar.v1",
@@ -138,12 +148,32 @@ def main() -> int:
             "latest_remote_report": remote_report,
             "latest_emergency_state": emergency_state,
             "latest_local_report": local_report,
+            "ai_runtime_hit_evidence_path": str(RUNTIME_HIT_EVIDENCE_PATH.relative_to(REPO_ROOT))
+            if RUNTIME_HIT_EVIDENCE_PATH.exists()
+            else "",
         },
         "workflow": {
             "draft_workflow_path": "docs/governance/datapulse-evidence-workflow.draft.yml",
             "workflow_dispatch_available_in_active_release_workflow": workflow_dispatch,
             "workflow_dispatch_entrypoints": dispatch_entrypoints,
             "active_release_workflow": dispatch_entrypoints[0] if dispatch_entrypoints else ".github/workflows/release.yml",
+        },
+        "governed_ai_release_readiness": {
+            "runtime_hit_evidence_available": bool(runtime_hit_evidence),
+            "bundle_first_default_ready": bool(runtime_prereqs.get("bundle_first_default_ready", False)),
+            "shadow_change_prerequisites_met": bool(runtime_prereqs.get("shadow_change_prerequisites_met", False)),
+            "required_change_prerequisites_met": bool(runtime_prereqs.get("required_change_prerequisites_met", False)),
+            "promotion_discussion_allowed": bool(runtime_prereqs.get("promotion_discussion_allowed", False)),
+            "surfaces": [
+                {
+                    "surface": str(row.get("surface", "") or ""),
+                    "evidence_status": str(row.get("evidence_status", "") or ""),
+                    "served_by_alias": str(row.get("served_by_alias", "") or ""),
+                    "schema_valid": bool(row.get("schema_valid", False)),
+                }
+                for row in runtime_surfaces
+                if isinstance(row, dict)
+            ],
         },
         "promotion_readiness": {
             "structured_release_bundle_available": structured_release_bundle_available(),
@@ -154,6 +184,9 @@ def main() -> int:
                     "" if structured_release_bundle_available() else "structured_release_bundle_missing",
                     "" if notes_found else "release_notes_section_missing",
                     "" if workspace_clean else "workspace_dirty",
+                    "" if runtime_hit_evidence else "ai_runtime_hit_evidence_missing",
+                    "" if runtime_prereqs.get("bundle_first_default_ready", False) else "bundle_first_default_not_ready",
+                    "" if runtime_prereqs.get("required_change_prerequisites_met", False) else "required_runtime_surface_not_ready",
                 ]
                 if reason
             ],

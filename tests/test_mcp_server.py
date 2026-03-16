@@ -267,6 +267,30 @@ class _WatchMCPReader:
             "runtime_facts": {"status": "fallback_used", "request_id": "claim-123"},
         }
 
+    def ai_report_draft(self, report_id, *, mode="assist", profile_id=""):
+        if report_id != "report-runtime-closure":
+            return None
+        return {
+            "surface": "report_draft",
+            "mode": mode,
+            "subject": {"kind": "Report", "id": report_id},
+            "precheck": {
+                **self.ai_surface_precheck("report_draft", mode=mode),
+                "ok": False,
+                "mode_status": "rejected",
+                "admission_status": "rejected",
+                "alias": "dp.report.draft",
+            },
+            "output": None,
+            "runtime_facts": {
+                "status": "rejected",
+                "request_id": "report-123",
+                "served_by_alias": "dp.report.draft",
+                "schema_valid": False,
+                "errors": ["missing_structured_contract"],
+            },
+        }
+
     def ai_delivery_summary(self, identifier, *, mode="assist"):
         if identifier != "alert-1":
             return None
@@ -505,6 +529,7 @@ def test_mcp_registers_watch_tools():
         "ai_mission_suggest",
         "ai_triage_assist",
         "ai_claim_draft",
+        "ai_report_draft",
         "ai_delivery_summary",
         "triage_list",
         "triage_explain",
@@ -737,6 +762,13 @@ async def test_mcp_ai_projection_tools(monkeypatch):
     assert claim_payload["ok"] is True
     assert claim_payload["projection"]["output"]["contract_id"] == "datapulse_ai_claim_draft.v1"
     assert claim_payload["projection"]["runtime_facts"]["request_id"] == "claim-123"
+
+    report_raw = await app._run_tool("ai_report_draft", {"report_id": "report-runtime-closure", "mode": "review"})
+    report_payload = json.loads(report_raw)
+    assert report_payload["ok"] is True
+    assert report_payload["projection"]["output"] is None
+    assert report_payload["projection"]["runtime_facts"]["request_id"] == "report-123"
+    assert report_payload["projection"]["runtime_facts"]["served_by_alias"] == "dp.report.draft"
 
     delivery_raw = await app._run_tool("ai_delivery_summary", {"identifier": "alert-1", "mode": "review"})
     delivery_payload = json.loads(delivery_raw)

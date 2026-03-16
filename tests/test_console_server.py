@@ -474,6 +474,30 @@ class _ConsoleReader:
             "runtime_facts": {"status": "fallback_used", "request_id": "claim-123"},
         }
 
+    def ai_report_draft(self, report_id, *, mode="assist", profile_id=None):
+        if report_id != "report-runtime-closure":
+            return None
+        return {
+            "surface": "report_draft",
+            "mode": mode,
+            "subject": {"kind": "Report", "id": report_id},
+            "precheck": {
+                **self.ai_surface_precheck("report_draft", mode=mode),
+                "ok": False,
+                "mode_status": "rejected",
+                "admission_status": "rejected",
+                "alias": "dp.report.draft",
+            },
+            "output": None,
+            "runtime_facts": {
+                "status": "rejected",
+                "request_id": "report-123",
+                "served_by_alias": "dp.report.draft",
+                "schema_valid": False,
+                "errors": ["missing_structured_contract"],
+            },
+        }
+
     def ai_delivery_summary(self, identifier, *, mode="assist"):
         if identifier != "alert-1":
             return None
@@ -1593,6 +1617,7 @@ def test_console_ai_surface_routes():
 
     mission_precheck = client.get("/api/ai/surfaces/mission_suggest/precheck?mode=review")
     delivery_projection = client.get("/api/alerts/alert-1/ai/delivery-summary?mode=review")
+    report_projection = client.get("/api/reports/report-runtime-closure/ai/report-draft?mode=review")
     mission_projection = client.get("/api/watches/launch-ops/ai/mission-suggest?mode=assist")
     triage_projection = client.get("/api/triage/item-1/ai/assist?mode=assist&limit=3")
     claim_projection = client.get("/api/stories/story-openai-launch/ai/claim-draft?mode=assist&brief_id=brief-1")
@@ -1603,6 +1628,10 @@ def test_console_ai_surface_routes():
     assert delivery_projection.status_code == 200
     assert delivery_projection.json()["output"]["contract_id"] == "datapulse_ai_delivery_summary.v1"
     assert delivery_projection.json()["runtime_facts"]["request_id"] == "delivery-123"
+    assert report_projection.status_code == 200
+    assert report_projection.json()["output"] is None
+    assert report_projection.json()["runtime_facts"]["request_id"] == "report-123"
+    assert report_projection.json()["runtime_facts"]["served_by_alias"] == "dp.report.draft"
     assert mission_projection.status_code == 200
     assert mission_projection.json()["output"]["contract_id"] == "datapulse_ai_watch_suggestion.v1"
     assert triage_projection.status_code == 200

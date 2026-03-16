@@ -10,6 +10,7 @@ from pathlib import Path
 from datapulse_loop_contracts import (
     DEFAULT_OUT_DIR,
     DEFAULT_PLAN_PATH,
+    REPO_ROOT,
     build_code_landing_status,
     build_project_loop_state,
     load_plan,
@@ -51,6 +52,12 @@ def parse_args() -> argparse.Namespace:
         help="Output directory for the draft evidence bundle.",
     )
     parser.add_argument(
+        "--bundle-dir",
+        type=Path,
+        default=REPO_ROOT / "out/ha_latest_release_bundle",
+        help="Bundle directory used to validate bundle-first runtime-hit evidence.",
+    )
+    parser.add_argument(
         "--probe-ha-readiness",
         action="store_true",
         help="Opt in to probing release_readiness when exporting HA delivery facts.",
@@ -66,6 +73,8 @@ def parse_args() -> argparse.Namespace:
 def build_manifest(plan_path: Path, notes_file: Path, tag: str, probe_ha_readiness: bool) -> dict[str, object]:
     files = [
         "code_landing_status.draft.json",
+        "datapulse-ai-surface-admission.example.json",
+        "datapulse_surface_runtime_hit_evidence.draft.json",
         "ha_delivery_facts.draft.json",
         "ha_delivery_landing.draft.json",
         "ha_recovery_preset.draft.json",
@@ -110,6 +119,26 @@ def main() -> int:
 
     out_dir = args.out_dir
     write_json(out_dir / "code_landing_status.draft.json", code_landing_status)
+    subprocess.run(
+        [
+            *current_python_command(),
+            "scripts/governance/export_datapulse_ai_surface_admission_example.py",
+            "--output",
+            str(out_dir / "datapulse-ai-surface-admission.example.json"),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            *current_python_command(),
+            "scripts/governance/export_datapulse_surface_runtime_hit_evidence.py",
+            "--bundle-dir",
+            str(args.bundle_dir.resolve()),
+            "--output",
+            str(out_dir / "datapulse_surface_runtime_hit_evidence.draft.json"),
+        ],
+        check=True,
+    )
     release_readiness_fact_args: list[str] = []
     if args.probe_ha_readiness:
         subprocess.run(

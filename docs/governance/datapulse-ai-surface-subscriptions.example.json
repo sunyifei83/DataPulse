@@ -24,7 +24,8 @@
         "fallback_used",
         "degraded",
         "schema_valid",
-        "manual_override_required"
+        "manual_override_required",
+        "request_id"
       ],
       "candidate_subscriptions": [
         {
@@ -85,7 +86,8 @@
         "fallback_used",
         "degraded",
         "schema_valid",
-        "manual_override_required"
+        "manual_override_required",
+        "request_id"
       ],
       "candidate_subscriptions": [
         {
@@ -146,7 +148,8 @@
         "fallback_used",
         "degraded",
         "schema_valid",
-        "manual_override_required"
+        "manual_override_required",
+        "request_id"
       ],
       "candidate_subscriptions": [
         {
@@ -207,7 +210,8 @@
         "fallback_used",
         "degraded",
         "schema_valid",
-        "manual_override_required"
+        "manual_override_required",
+        "request_id"
       ],
       "candidate_subscriptions": [
         {
@@ -255,7 +259,8 @@
         "fallback_used",
         "degraded",
         "schema_valid",
-        "manual_override_required"
+        "manual_override_required",
+        "request_id"
       ],
       "candidate_subscriptions": [
         {

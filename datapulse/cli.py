@@ -1342,6 +1342,7 @@ def main() -> None:
     management_group.add_argument("--ai-mission-suggest", metavar="WATCH", help="Project the governed mission_suggest AI surface for one watch mission")
     management_group.add_argument("--ai-triage-assist", metavar="ITEM_ID", help="Project the governed triage_assist AI surface for one triage item")
     management_group.add_argument("--ai-claim-draft", metavar="STORY", help="Project the governed claim_draft AI surface for one story")
+    management_group.add_argument("--ai-report-draft", metavar="REPORT", help="Project the governed report_draft AI surface for one report")
     management_group.add_argument("--ai-delivery-summary", metavar="ALERT", help="Project the governed delivery_summary AI surface for one alert event")
     management_group.add_argument("--ai-mode", default="assist", choices=["off", "assist", "review"], help="Governance mode for AI surface projections")
     management_group.add_argument("--ai-brief-id", default="", help="Optional brief id for --ai-claim-draft")
@@ -1743,6 +1744,18 @@ def main() -> None:
         )
         if payload is None:
             print(f"⚠️ story not found: {args.ai_claim_draft}")
+        else:
+            _print_json_payload(payload)
+        return
+
+    if args.ai_report_draft:
+        payload = reader.ai_report_draft(
+            args.ai_report_draft,
+            mode=args.ai_mode,
+            profile_id=args.report_profile_id or None,
+        )
+        if payload is None:
+            print(f"⚠️ report not found: {args.ai_report_draft}")
         else:
             _print_json_payload(payload)
         return

@@ -52,6 +52,87 @@ def _reader(tmp_path: Path) -> DataPulseReader:
     return DataPulseReader(inbox_path=str(inbox_path))
 
 
+def _write_modelbus_bundle(bundle_dir: Path, rows: list[dict[str, object]]) -> None:
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    alias_by_surface: dict[str, str] = {}
+    for row in rows:
+        surface_id = str(row.get("surface_id", "") or "").strip()
+        alias = str(row.get("requested_alias", "") or row.get("admitted_alias", "") or "").strip()
+        if surface_id and alias:
+            alias_by_surface[surface_id] = alias
+    (bundle_dir / "bundle_manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "modelbus.consumer_bundle_manifest.v1",
+                "generated_at_utc": "2026-03-16T12:10:00Z",
+                "bundle_id": "datapulse.ai_surface_bus",
+                "consumer_id": "datapulse",
+                "artifacts": {
+                    "surface_admission": {"path": "surface_admission.json"},
+                    "bridge_config": {"path": "bridge_config.json"},
+                    "release_status": {"path": "release_status.json"},
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "surface_admission.json").write_text(
+        json.dumps(
+            {
+                "schema": "modelbus.consumer_surface_admission.v1",
+                "generated_at_utc": "2026-03-16T12:11:00Z",
+                "consumer_id": "datapulse",
+                "release_window": {
+                    "generated_at_utc": "2026-03-16T12:09:00Z",
+                    "release_level": "ci_proven",
+                    "assured_verdict": "pass",
+                    "constitutional_semantics": "BUNDLE-FIRST-REQUIRED",
+                },
+                "surface_admissions": rows,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "bridge_config.json").write_text(
+        json.dumps(
+            {
+                "schema": "modelbus.consumer_bridge_config.v1",
+                "generated_at_utc": "2026-03-16T12:12:00Z",
+                "consumer_id": "datapulse",
+                "bundle_id": "datapulse.ai_surface_bus",
+                "base_url": "https://modelbus.example.com",
+                "request_protocol": "responses",
+                "endpoint": "/v1/responses",
+                "bus_key_env": "DATAPULSE_MODELBUS_BUS_KEY",
+                "tenant_env": "DATAPULSE_MODELBUS_TENANT",
+                "tenant_header": "X-ModelBus-Tenant",
+                "alias_by_surface": alias_by_surface,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "release_status.json").write_text(
+        json.dumps(
+            {
+                "schema": "modelbus.release_status.v1",
+                "generated_at_utc": "2026-03-16T12:09:00Z",
+                "release_level": "ci_proven",
+                "assured_verdict": "pass",
+                "runtime": {"base_url": "https://modelbus.example.com"},
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
 def test_normalized_delivery_subscriptions_are_persisted_for_multiple_subjects(tmp_path):
     reader = _reader(tmp_path)
 
@@ -177,6 +258,7 @@ def test_ai_surface_admission_export_captures_runtime_semantics_and_rejections(t
         "degraded",
         "schema_valid",
         "manual_override_required",
+        "request_id",
     }
     assert mission["candidate_results"][0]["status"] == "admitted"
 
@@ -190,10 +272,12 @@ def test_ai_surface_admission_export_captures_runtime_semantics_and_rejections(t
         "degraded",
         "schema_valid",
         "manual_override_required",
+        "request_id",
     }
     gap_ids = {gap["gap_id"] for gap in report["rejectable_gaps"]}
     assert "missing_required_schema_contract" in gap_ids
     assert "report_draft.experimental:missing_contract_binding" in gap_ids
+    assert report["requested_alias"] == "dp.report.draft"
 
 
 def test_ai_delivery_summary_returns_contract_bound_alert_event_payload(tmp_path):
@@ -235,6 +319,95 @@ def test_ai_delivery_summary_returns_contract_bound_alert_event_payload(tmp_path
     assert routes["ops-webhook"]["status"] == "healthy"
     assert routes["ops-webhook"]["delivered_count"] >= 1
     assert "dispatch_explanation" in payload["output"]["payload"]
+
+
+def test_runtime_hit_evidence_export_verifies_delivery_and_report_fail_closed(tmp_path):
+    script_path = Path(__file__).resolve().parents[1] / "scripts/governance/export_datapulse_surface_runtime_hit_evidence.py"
+    output_path = tmp_path / "datapulse_surface_runtime_hit_evidence.draft.json"
+    bundle_dir = tmp_path / "modelbus-bundle"
+    _write_modelbus_bundle(
+        bundle_dir,
+        [
+            {
+                "surface_id": "delivery_summary",
+                "requested_alias": "dp.delivery.summary",
+                "admission_status": "admitted",
+                "admitted_alias": "dp.delivery.summary",
+                "mode_admission": {"off": "manual_only", "assist": "admitted", "review": "admitted"},
+                "schema_contract": "datapulse_ai_delivery_summary.v1",
+                "manual_fallback": "manual_or_deterministic_behavior",
+                "degraded_result_allowed": True,
+                "must_expose_runtime_facts": [
+                    "served_by_alias",
+                    "fallback_used",
+                    "degraded",
+                    "schema_valid",
+                    "manual_override_required",
+                    "request_id",
+                ],
+                "rejectable_gaps": [],
+            },
+            {
+                "surface_id": "report_draft",
+                "requested_alias": "dp.report.draft",
+                "admission_status": "rejected",
+                "admitted_alias": "",
+                "mode_admission": {"off": "manual_only", "assist": "rejected", "review": "rejected"},
+                "schema_contract": "",
+                "manual_fallback": "manual_or_deterministic_behavior",
+                "degraded_result_allowed": False,
+                "must_expose_runtime_facts": [
+                    "served_by_alias",
+                    "fallback_used",
+                    "degraded",
+                    "schema_valid",
+                    "manual_override_required",
+                    "request_id",
+                ],
+                "rejectable_gaps": [
+                    {
+                        "gap_id": "missing_structured_contract",
+                        "blocking": True,
+                        "reason": "report_draft remains blocked until an admitted structured contract lands.",
+                    }
+                ],
+            },
+        ],
+    )
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(script_path),
+            "--bundle-dir",
+            str(bundle_dir),
+            "--output",
+            str(output_path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    surfaces = {row["surface"]: row for row in payload["surfaces"]}
+
+    assert payload["release_level_prerequisites"]["bundle_first_default_ready"] is True
+    assert payload["release_level_prerequisites"]["shadow_change_prerequisites_met"] is True
+    assert payload["release_level_prerequisites"]["required_change_prerequisites_met"] is True
+
+    delivery = surfaces["delivery_summary"]
+    assert delivery["evidence_status"] == "verified"
+    assert delivery["schema_valid"] is True
+    assert delivery["served_by_alias"] == "dp.delivery.summary"
+    assert delivery["request_id"]
+
+    report = surfaces["report_draft"]
+    assert report["evidence_status"] == "verified_fail_closed"
+    assert report["schema_valid"] is False
+    assert report["fail_closed"] is True
+    assert report["served_by_alias"] == "dp.report.draft"
+    assert report["request_id"]
 
 
 def test_report_delivery_package_is_deterministic_and_dispatch_records_are_attributable(tmp_path, monkeypatch):

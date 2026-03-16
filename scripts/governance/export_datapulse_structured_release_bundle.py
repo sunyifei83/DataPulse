@@ -62,9 +62,15 @@ def build_manifest(
 ) -> dict[str, object]:
     files = [
         "adapter_bundle_manifest.draft.json",
+        "bundle_manifest.json",
+        "surface_admission.json",
+        "bridge_config.json",
+        "release_status.json",
         "blueprint_plan.snapshot.json",
         "slice_adapter_catalog.snapshot.json",
         "code_landing_status.snapshot.json",
+        "datapulse-ai-surface-admission.example.json",
+        "datapulse_surface_runtime_hit_evidence.draft.json",
         "evidence_bundle_manifest.draft.json",
         "code_landing_status.draft.json",
         "ha_delivery_facts.draft.json",
@@ -126,10 +132,22 @@ def main() -> int:
     subprocess.run(
         [
             *current_python_command(),
+            "scripts/governance/export_datapulse_modelbus_consumer_bundle.py",
+            "--output-dir",
+            str(bundle_dir),
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+    )
+    subprocess.run(
+        [
+            *current_python_command(),
             "scripts/governance/export_datapulse_evidence_bundle.py",
             "--plan",
             str(args.plan.resolve()),
             "--out-dir",
+            str(bundle_dir),
+            "--bundle-dir",
             str(bundle_dir),
             *(["--tag", args.tag.strip()] if args.tag.strip() else []),
             "--notes-file",

@@ -2,12 +2,12 @@
   "valid": true,
   "schema_version": "datapulse_ha_delivery_landing.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T10:57:25Z",
+  "generated_at_utc": "2026-03-16T12:30:35Z",
   "wired": false,
   "source_adapter_bundle": {
     "source_kind": "derived_temp_bundle",
-    "bundle_dir": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpz6oehuv4/adapter_bundle",
-    "manifest_path": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpz6oehuv4/adapter_bundle/adapter_bundle_manifest.draft.json",
+    "bundle_dir": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpiala72p_/adapter_bundle",
+    "manifest_path": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpiala72p_/adapter_bundle/adapter_bundle_manifest.draft.json",
     "ephemeral": true
   },
   "source_ha_delivery_facts": {
@@ -19,14 +19,35 @@
     "target_level": "ha_release_structured",
     "target_pipeline_class": "trusted_delivery_pipeline"
   },
+  "repo_loop_summary": {
+    "current_level": "manual_only",
+    "workspace_clean": false,
+    "head_published_to_upstream": false,
+    "repo_landed": false,
+    "ci_proven": false,
+    "ci_proof_mode": "push_ci_workflow",
+    "required_workflow": "CI",
+    "quick_test_gate": {
+      "status": "stale_head",
+      "observed": true,
+      "current_head_match": false,
+      "ok": true,
+      "generated_at_utc": "2026-03-15T04:22:23Z",
+      "head": "3934add049129538a1d166fe405275e70ac8f7b1",
+      "branch": "main",
+      "path": "artifacts/governance/quick_test_gate.draft.json"
+    }
+  },
   "delivery_status": {
-    "status": "waiting_high_ha_runtime_facts",
+    "status": "repo_cutover_defined_waiting_runtime_and_ha_facts",
     "reason_codes": [
-      "activation_preview:no_open_repo_targets",
-      "runtime_cutover_window_open"
+      "activation_preview:runtime_cutover_window_open",
+      "repo_governance_cutover_pending",
+      "runtime_cutover_window_open",
+      "target_pipeline_class_not_reached"
     ],
-    "preview_status": "no_repo_governance_cutover_required",
-    "preview_reason": "no_open_repo_targets",
+    "preview_status": "repo_cutover_defined_waiting_runtime_window",
+    "preview_reason": "runtime_cutover_window_open",
     "current_level": "ha_release_structured",
     "next_missing_level": "ha_release_structured",
     "next_level_blockers": [],
@@ -36,7 +57,7 @@
     "recovery_selected_route": "",
     "recovery_entrypoint_supported": false,
     "recovery_primary_action": "",
-    "current_pipeline_class": "trusted_delivery_pipeline",
+    "current_pipeline_class": "bootstrap_loop",
     "target_pipeline_class": "trusted_delivery_pipeline",
     "ready_for_repo_cutover": true,
     "repo_cutover_now_recommended": false,
@@ -45,24 +66,58 @@
   },
   "landing_bar": {
     "project_adapter_clear": true,
-    "repo_governance_targets_open": false,
+    "repo_governance_targets_open": true,
     "runtime_cutover_window_clear": false,
     "ha_runtime_clear": true,
     "release_structuring_clear": true,
     "target_ha_level_reached": true,
-    "target_pipeline_class_reached": true,
+    "target_pipeline_class_reached": false,
     "landed_now": false
   },
   "delivery_tracks": [
     {
       "track_id": "repo_governance_cutover",
-      "status": "clear",
-      "items": []
+      "status": "open",
+      "items": [
+        {
+          "surface_id": "repo_auto_continuation_policy",
+          "binding_status": "pending_design",
+          "binding_kind": "auto_continuation_policy",
+          "suggested_binding": "scheduler_or_followup_dispatch",
+          "required_for": [
+            "continuous_when_healthy",
+            "trusted_delivery_pipeline"
+          ],
+          "from_signals": [
+            "auto_continuation_not_enabled",
+            "manual_handoff_still_required"
+          ],
+          "suggested_artifacts": [
+            "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmpiala72p_/adapter_bundle/blueprint_plan.snapshot.json",
+            "scripts/governance/run_governance_loop_bundle_draft.py",
+            "repository workflow, scheduler, or explicit loop trigger entrypoint"
+          ],
+          "notes": [
+            "Auto-continuation should react only after machine blockers clear.",
+            "Manual relay should remain explicit until the repo-governance cutover is approved."
+          ]
+        }
+      ]
     },
     {
       "track_id": "runtime_cutover_window",
       "status": "open",
       "items": [
+        {
+          "fact": "ci_run_not_proven",
+          "category": "machine_blocker",
+          "summary": "This is a machine-decidable operating blocker and should not be promoted into reusable-core coupling."
+        },
+        {
+          "fact": "head_not_pushed",
+          "category": "machine_blocker",
+          "summary": "This is a machine-decidable operating blocker and should not be promoted into reusable-core coupling."
+        },
         {
           "fact": "repo_landed_false",
           "category": "derived_promotion_gate",
@@ -92,8 +147,12 @@
     }
   ],
   "fact_projection": {
-    "repo_governance_surface_ids": [],
+    "repo_governance_surface_ids": [
+      "repo_auto_continuation_policy"
+    ],
     "runtime_cutover_window_facts": [
+      "ci_run_not_proven",
+      "head_not_pushed",
       "repo_landed_false",
       "workspace_dirty"
     ],
@@ -103,6 +162,8 @@
     "release_structuring_facts": [],
     "release_structuring_projection": [],
     "machine_blockers": [
+      "ci_run_not_proven",
+      "head_not_pushed",
       "repo_landed_false",
       "workspace_dirty"
     ]
@@ -112,21 +173,27 @@
     "project_specific": true,
     "not_part_of_reusable_core": true,
     "continue_conditions": {
-      "repo_governance_targets_clear": true,
+      "repo_governance_targets_clear": false,
       "runtime_cutover_window_clear": false,
       "ha_runtime_clear": true,
       "release_structuring_clear": true,
       "target_ha_level_reached": true,
-      "target_pipeline_class_reached": true
+      "target_pipeline_class_reached": false
     },
     "stop_on_machine_blockers": [
+      "ci_run_not_proven",
+      "head_not_pushed",
       "repo_landed_false",
       "workspace_dirty"
     ],
     "reopen_truth": {
       "next_missing_level": "ha_release_structured",
-      "repo_governance_surfaces": [],
+      "repo_governance_surfaces": [
+        "repo_auto_continuation_policy"
+      ],
       "runtime_facts": [
+        "ci_run_not_proven",
+        "head_not_pushed",
         "repo_landed_false",
         "workspace_dirty"
       ],
@@ -134,6 +201,7 @@
     }
   },
   "recommended_actions": [
-    "Resolve runtime cutover window facts separately from architecture work: repo_landed_false, workspace_dirty"
+    "Keep repo-governance cutover limited to the declared surfaces: repo_auto_continuation_policy",
+    "Resolve runtime cutover window facts separately from architecture work: ci_run_not_proven, head_not_pushed, repo_landed_false, workspace_dirty"
   ]
 }

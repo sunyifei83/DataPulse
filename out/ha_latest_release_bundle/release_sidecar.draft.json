@@ -1,7 +1,7 @@
 {
   "schema_version": "release_sidecar.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-15T04:22:48Z",
+  "generated_at_utc": "2026-03-16T12:30:09Z",
   "sidecar_kind": "draft_export",
   "wired": false,
   "release": {
@@ -21,9 +21,9 @@
     ]
   },
   "git": {
-    "head": "3934add049129538a1d166fe405275e70ac8f7b1",
+    "head": "3d2a6a91e892bb6f8c0dfdc493359bdf0c30965b",
     "branch": "main",
-    "workspace_clean": true
+    "workspace_clean": false
   },
   "build_artifacts": {
     "dist_exists": true,
@@ -73,7 +73,8 @@
       "pass_count": 14,
       "fail_count": 0,
       "log": "./artifacts/openclaw_datapulse_20260307_185520/local_test.log"
-    }
+    },
+    "ai_runtime_hit_evidence_path": "out/governance/datapulse_surface_runtime_hit_evidence.draft.json"
   },
   "workflow": {
     "draft_workflow_path": "docs/governance/datapulse-evidence-workflow.draft.yml",
@@ -84,8 +85,31 @@
     ],
     "active_release_workflow": ".github/workflows/release.yml"
   },
+  "governed_ai_release_readiness": {
+    "runtime_hit_evidence_available": true,
+    "bundle_first_default_ready": true,
+    "shadow_change_prerequisites_met": true,
+    "required_change_prerequisites_met": true,
+    "promotion_discussion_allowed": true,
+    "surfaces": [
+      {
+        "surface": "delivery_summary",
+        "evidence_status": "verified",
+        "served_by_alias": "dp.delivery.summary",
+        "schema_valid": true
+      },
+      {
+        "surface": "report_draft",
+        "evidence_status": "verified_fail_closed",
+        "served_by_alias": "dp.report.draft",
+        "schema_valid": false
+      }
+    ]
+  },
   "promotion_readiness": {
     "structured_release_bundle_available": true,
-    "reasons": []
+    "reasons": [
+      "workspace_dirty"
+    ]
   }
 }

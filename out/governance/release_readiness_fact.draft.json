@@ -1,7 +1,7 @@
 {
   "schema_version": "release_readiness_fact.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T10:57:29Z",
+  "generated_at_utc": "2026-03-16T12:30:30Z",
   "fact_kind": "draft_export",
   "wired": false,
   "source_emergency_state": {
@@ -25,13 +25,14 @@
     "status": "passed",
     "gate_passed": true,
     "returncode": 0,
-    "pass_count": 23,
+    "pass_count": 24,
     "fail_count": 0,
     "passed_checks": [
       "git repository detected",
-      "command available: python3",
       "command available: jq",
       "command available: gh",
+      "release python runtime available: python3.10",
+      "release build path available: uv run --python 3.10 --with build python -m build",
       ".claude/ \u5df2\u5199\u5165 .gitignore",
       "required file exists: pyproject.toml",
       "required file exists: README.md",
@@ -72,7 +73,7 @@
       "EMERGENCY_NEW_RUN_REQUIRED=false",
       "EMERGENCY_CONCLUSION=GREEN",
       "[PASS] emergency gate passed",
-      "release readiness: pass=23 fail=0",
+      "release readiness: pass=24 fail=0",
       "[OK] release readiness check passed"
     ],
     "stderr_tail": [],

@@ -88,6 +88,7 @@ Per-surface rules:
 - `admission_status` is `admitted` when at least one candidate satisfies all mandatory checks; otherwise it is `rejected`.
 - `mode_admission.off` must always be `manual_only`.
 - `mode_admission.assist` and `mode_admission.review` may only be `admitted` when the surface has a structured contract and a qualifying candidate subscription.
+- `requested_alias` must remain visible even for rejected surfaces so fail-closed runtime evidence can still attribute which governed alias was evaluated.
 - `candidate_results` must show the evaluated outcome for each candidate rather than hiding standby or rejected options.
 - `rejectable_gaps` must stay non-empty when a surface is rejected.
 - `manual_fallback` must describe the governed non-AI behavior when admission is not available.
@@ -99,6 +100,7 @@ Per-candidate evaluation rules:
 3. the candidate must satisfy every entry in `required_capabilities`
 4. the candidate must keep `provider_assumptions` empty
 5. the admitted surface must preserve operator-visible runtime facts such as alias identity, degradation, fallback, schema validation, and manual override requirement
+6. runtime-hit evidence must also preserve `request_id` so the same fail-closed or verified call can be attributed and replayed
 
 If any rule fails, the candidate is rejected and the missing facts must be recorded.
 
