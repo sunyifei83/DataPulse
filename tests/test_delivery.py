@@ -21,6 +21,7 @@ def _cleanup_env():
     os.environ.pop("DATAPULSE_REPORTS_PATH", None)
     os.environ.pop("DATAPULSE_MEMORY_DIR", None)
     os.environ.pop("DATAPULSE_AI_SURFACE_ADMISSION_PATH", None)
+    os.environ.pop("DATAPULSE_MODELBUS_BUNDLE_DIR", None)
     os.environ.pop("DATAPULSE_ALERT_ROUTING_PATH", None)
     os.environ.pop("DATAPULSE_WATCHLIST_PATH", None)
     os.environ.pop("DATAPULSE_GROUNDING_BACKEND_CMD", None)

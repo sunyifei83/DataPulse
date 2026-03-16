@@ -11,12 +11,123 @@ from datapulse.core.models import DataPulseItem, SourceType
 from datapulse.reader import DataPulseReader
 
 
+@pytest.fixture(autouse=True)
+def _cleanup_env():
+    import os
+
+    yield
+    os.environ.pop("DATAPULSE_SOURCE_CATALOG", None)
+    os.environ.pop("DATAPULSE_STORIES_PATH", None)
+    os.environ.pop("DATAPULSE_REPORTS_PATH", None)
+    os.environ.pop("DATAPULSE_MEMORY_DIR", None)
+    os.environ.pop("DATAPULSE_AI_SURFACE_ADMISSION_PATH", None)
+    os.environ.pop("DATAPULSE_MODELBUS_BUNDLE_DIR", None)
+
+
 def _populate_inbox(inbox_path: str, items: list[DataPulseItem]) -> None:
     """Write items to an inbox file."""
     from pathlib import Path
 
     payload = [item.to_dict() for item in items]
     Path(inbox_path).write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+
+def _write_local_ai_surface_admission(path, rows):
+    from pathlib import Path
+
+    Path(path).write_text(
+        json.dumps(
+            {
+                "schema_version": "datapulse_ai_surface_admission.v1",
+                "generated_at_utc": "2026-03-16T12:00:00Z",
+                "surface_admissions": rows,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_modelbus_bundle(bundle_dir, rows):
+    from pathlib import Path
+
+    bundle_dir = Path(bundle_dir)
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    (bundle_dir / "bundle_manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "modelbus.consumer_bundle_manifest.v1",
+                "generated_at_utc": "2026-03-16T12:10:00Z",
+                "bundle_id": "datapulse.ai_surface_bus",
+                "consumer_id": "datapulse",
+                "artifacts": {
+                    "surface_admission": {"path": "surface_admission.json"},
+                    "bridge_config": {"path": "bridge_config.json"},
+                    "release_status": {"path": "release_status.json"},
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "surface_admission.json").write_text(
+        json.dumps(
+            {
+                "schema": "modelbus.consumer_surface_admission.v1",
+                "generated_at_utc": "2026-03-16T12:11:00Z",
+                "consumer_id": "datapulse",
+                "release_window": {
+                    "generated_at_utc": "2026-03-16T12:09:00Z",
+                    "release_level": "inescapable",
+                    "assured_verdict": "pass",
+                    "constitutional_semantics": "CONSTRAINED-DEPLOYED",
+                },
+                "surface_admissions": rows,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "bridge_config.json").write_text(
+        json.dumps(
+            {
+                "schema": "modelbus.consumer_bridge_config.v1",
+                "generated_at_utc": "2026-03-16T12:12:00Z",
+                "consumer_id": "datapulse",
+                "bundle_id": "datapulse.ai_surface_bus",
+                "base_url": "https://modelbus.example.com",
+                "request_protocol": "responses",
+                "endpoint": "/v1/responses",
+                "bus_key_env": "DATAPULSE_MODELBUS_BUS_KEY",
+                "tenant_env": "DATAPULSE_MODELBUS_TENANT",
+                "tenant_header": "X-ModelBus-Tenant",
+                "alias_by_surface": {
+                    "mission_suggest": "dp.mission.suggest",
+                    "report_draft": "dp.report.draft",
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (bundle_dir / "release_status.json").write_text(
+        json.dumps(
+            {
+                "schema": "modelbus.release_status.v1",
+                "generated_at_utc": "2026-03-16T12:09:00Z",
+                "release_level": "inescapable",
+                "assured_verdict": "pass",
+                "runtime": {"base_url": "https://modelbus.example.com"},
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
 
 class TestBuildJsonFeed:
@@ -310,6 +421,171 @@ def test_ai_surface_precheck_rejects_report_draft_without_contract(tmp_path, mon
     assert payload["contract_id"] == ""
     assert payload["contract_available"] is False
     assert payload["manual_fallback"] == "manual_or_deterministic_behavior"
+
+
+def test_ai_surface_precheck_prefers_modelbus_bundle_when_present(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    inbox_path = str(tmp_path / "inbox.json")
+    catalog_path = str(tmp_path / "catalog.json")
+    Path(catalog_path).write_text(json.dumps({
+        "version": 1, "sources": [], "subscriptions": {}, "packs": [],
+    }), encoding="utf-8")
+    monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+
+    bundle_dir = tmp_path / "modelbus-bundle"
+    _write_modelbus_bundle(
+        bundle_dir,
+        [
+            {
+                "surface_id": "mission_suggest",
+                "requested_alias": "dp.mission.suggest",
+                "admission_status": "admitted",
+                "admitted_alias": "dp.mission.suggest",
+                "mode_admission": {"off": "manual_only", "assist": "admitted", "review": "admitted"},
+                "schema_contract": "datapulse_ai_watch_suggestion.v1",
+                "manual_fallback": "manual_or_deterministic_behavior",
+                "degraded_result_allowed": True,
+                "must_expose_runtime_facts": [
+                    "served_by_alias",
+                    "fallback_used",
+                    "degraded",
+                    "schema_valid",
+                    "manual_override_required",
+                ],
+                "rejectable_gaps": [],
+            }
+        ],
+    )
+    monkeypatch.setenv("DATAPULSE_MODELBUS_BUNDLE_DIR", str(bundle_dir))
+
+    reader = DataPulseReader(inbox_path=inbox_path)
+    payload = reader.ai_surface_precheck("mission_suggest", mode="review")
+
+    assert payload["ok"] is True
+    assert payload["mode_status"] == "admitted"
+    assert payload["alias"] == "dp.mission.suggest"
+    assert payload["bridge_configured"] is True
+    assert payload["admission_source"] == "modelbus_bundle"
+    assert payload["admission_path"].endswith("surface_admission.json")
+    assert payload["contract_id"] == "datapulse_ai_watch_suggestion.v1"
+    assert payload["degraded_result_allowed"] is True
+    assert payload["admission_errors"] == []
+
+
+def test_ai_surface_precheck_falls_back_to_local_snapshot_when_bundle_is_invalid(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    inbox_path = str(tmp_path / "inbox.json")
+    catalog_path = str(tmp_path / "catalog.json")
+    Path(catalog_path).write_text(json.dumps({
+        "version": 1, "sources": [], "subscriptions": {}, "packs": [],
+    }), encoding="utf-8")
+    monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+
+    bundle_dir = tmp_path / "broken-modelbus-bundle"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("DATAPULSE_MODELBUS_BUNDLE_DIR", str(bundle_dir))
+
+    admission_path = tmp_path / "local-ai-surface-admission.json"
+    _write_local_ai_surface_admission(
+        admission_path,
+        [
+            {
+                "surface": "mission_suggest",
+                "lifecycle_anchor": "WatchMission",
+                "required_output_kind": "suggestion",
+                "required_schema_contract": "datapulse_ai_watch_suggestion.v1",
+                "admission_status": "admitted",
+                "mode_admission": {"off": "manual_only", "assist": "admitted", "review": "admitted"},
+                "admitted_subscription_id": "mission_suggest.local",
+                "admitted_alias": "dp.local.mission.suggest",
+                "must_expose_runtime_facts": [
+                    "served_by_alias",
+                    "fallback_used",
+                    "degraded",
+                    "schema_valid",
+                    "manual_override_required",
+                ],
+                "candidate_results": [
+                    {
+                        "subscription_id": "mission_suggest.local",
+                        "degraded_result_allowed": False,
+                    }
+                ],
+                "rejectable_gaps": [],
+                "manual_fallback": "manual_or_deterministic_behavior",
+            }
+        ],
+    )
+    monkeypatch.setenv("DATAPULSE_AI_SURFACE_ADMISSION_PATH", str(admission_path))
+
+    reader = DataPulseReader(inbox_path=inbox_path)
+    payload = reader.ai_surface_precheck("mission_suggest", mode="assist")
+
+    assert payload["ok"] is True
+    assert payload["alias"] == "dp.local.mission.suggest"
+    assert payload["bridge_configured"] is False
+    assert payload["admission_source"] == "local_snapshot"
+    assert payload["admission_path"] == str(admission_path)
+    assert payload["admission_errors"]
+    assert "modelbus bundle manifest missing:" in payload["admission_errors"][0]
+
+
+def test_ai_surface_precheck_keeps_report_draft_fail_closed_under_modelbus_bundle(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    inbox_path = str(tmp_path / "inbox.json")
+    catalog_path = str(tmp_path / "catalog.json")
+    Path(catalog_path).write_text(json.dumps({
+        "version": 1, "sources": [], "subscriptions": {}, "packs": [],
+    }), encoding="utf-8")
+    monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+
+    bundle_dir = tmp_path / "modelbus-bundle"
+    _write_modelbus_bundle(
+        bundle_dir,
+        [
+            {
+                "surface_id": "report_draft",
+                "requested_alias": "dp.report.draft",
+                "admission_status": "rejected",
+                "admitted_alias": "",
+                "mode_admission": {"off": "manual_only", "assist": "rejected", "review": "rejected"},
+                "schema_contract": None,
+                "manual_fallback": "manual_or_deterministic_behavior",
+                "degraded_result_allowed": False,
+                "must_expose_runtime_facts": [
+                    "served_by_alias",
+                    "fallback_used",
+                    "degraded",
+                    "schema_valid",
+                    "manual_override_required",
+                ],
+                "rejectable_gaps": [
+                    {
+                        "gap_id": "missing_structured_contract",
+                        "blocking": True,
+                        "reason": "surface is blocked_until_contract and has no admitted structured contract",
+                    }
+                ],
+            }
+        ],
+    )
+    monkeypatch.setenv("DATAPULSE_MODELBUS_BUNDLE_DIR", str(bundle_dir))
+
+    reader = DataPulseReader(inbox_path=inbox_path)
+    payload = reader.ai_surface_precheck("report_draft", mode="assist")
+
+    assert payload["ok"] is False
+    assert payload["mode_status"] == "rejected"
+    assert payload["admission_status"] == "rejected"
+    assert payload["bridge_configured"] is True
+    assert payload["admission_source"] == "modelbus_bundle"
+    assert payload["contract_id"] == ""
+    assert payload["contract_available"] is False
+    assert payload["manual_fallback"] == "manual_or_deterministic_behavior"
+    assert payload["rejectable_gaps"][0]["gap_id"] == "missing_structured_contract"
 
 
 def test_ai_mission_suggest_returns_governed_payload_without_mutation(tmp_path, monkeypatch):

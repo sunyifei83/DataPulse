@@ -1055,6 +1055,7 @@ def _print_skill_contract() -> None:
                 "DATAPULSE_STORIES_PATH": "Story workspace storage file",
                 "DATAPULSE_REPORTS_PATH": "Report workspace storage file",
                 "DATAPULSE_AI_SURFACE_ADMISSION_PATH": "AI surface admission snapshot path",
+                "DATAPULSE_MODELBUS_BUNDLE_DIR": "ModelBus consumer bundle directory for AI surface precheck",
             },
         },
         "mcp_tools": mcp_tools,

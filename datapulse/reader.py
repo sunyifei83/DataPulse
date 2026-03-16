@@ -157,7 +157,22 @@ _REPORT_DELIVERY_OUTPUT_KINDS = (
 )
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _AI_SURFACE_ADMISSION_PATH_ENV = "DATAPULSE_AI_SURFACE_ADMISSION_PATH"
+_MODELBUS_BUNDLE_DIR_ENV = "DATAPULSE_MODELBUS_BUNDLE_DIR"
 _DEFAULT_AI_SURFACE_ADMISSION_PATH = _REPO_ROOT / "out/governance/datapulse-ai-surface-admission.example.json"
+_AI_SURFACE_LIFECYCLE_ANCHORS: dict[str, str] = {
+    "mission_suggest": "WatchMission",
+    "triage_assist": "DataPulseItem",
+    "claim_draft": "Story",
+    "report_draft": "Report",
+    "delivery_summary": "AlertEvent",
+}
+_AI_SURFACE_OUTPUT_KINDS: dict[str, str] = {
+    "mission_suggest": "suggestion",
+    "triage_assist": "explain",
+    "claim_draft": "draft",
+    "report_draft": "draft",
+    "delivery_summary": "summary",
+}
 _AI_SURFACE_CONTRACTS: dict[str, dict[str, str]] = {
     "mission_suggest": {
         "contract_id": "datapulse_ai_watch_suggestion.v1",
@@ -228,30 +243,239 @@ class DataPulseReader:
         seed = f"{surface}:{subject_id}:{mode}:{_utcnow_z()}"
         return hashlib.sha1(seed.encode("utf-8")).hexdigest()[:12]
 
-    def _load_ai_surface_admissions(self) -> dict[str, Any]:
-        path = Path(os.getenv(_AI_SURFACE_ADMISSION_PATH_ENV, "") or _DEFAULT_AI_SURFACE_ADMISSION_PATH)
+    @staticmethod
+    def _surface_lifecycle_anchor(surface: str) -> str:
+        return str(_AI_SURFACE_LIFECYCLE_ANCHORS.get(surface, "")).strip()
+
+    @staticmethod
+    def _surface_output_kind(surface: str) -> str:
+        return str(_AI_SURFACE_OUTPUT_KINDS.get(surface, "")).strip()
+
+    @staticmethod
+    def _resolve_runtime_path(raw_path: str) -> Path:
+        path = Path(str(raw_path or "").strip()).expanduser()
+        if path.is_absolute():
+            return path.resolve()
+        return (_REPO_ROOT / path).resolve()
+
+    @staticmethod
+    def _read_json_object(path: Path, *, label: str) -> tuple[dict[str, Any] | None, str | None]:
         if not path.exists():
-            return {
-                "schema_version": "datapulse_ai_surface_admission.v1",
-                "surface_admissions": [],
-                "errors": [f"admission file missing: {path}"],
-            }
+            return None, f"{label} missing: {path}"
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            payload = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
+            return None, f"{label} invalid: {exc}"
+        if not isinstance(payload, dict):
+            return None, f"{label} invalid: root must be object"
+        return payload, None
+
+    @staticmethod
+    def _bundle_artifact_path(bundle_dir: Path, manifest: dict[str, Any], artifact_key: str) -> tuple[Path | None, str | None]:
+        artifacts = manifest.get("artifacts")
+        if not isinstance(artifacts, dict):
+            return None, "modelbus bundle manifest invalid: artifacts missing"
+        artifact = artifacts.get(artifact_key)
+        if not isinstance(artifact, dict):
+            return None, f"modelbus bundle manifest invalid: artifacts.{artifact_key} missing"
+        raw_path = str(artifact.get("path") or "").strip()
+        if not raw_path:
+            return None, f"modelbus bundle manifest invalid: artifacts.{artifact_key}.path missing"
+        path = Path(raw_path).expanduser()
+        if not path.is_absolute():
+            path = (bundle_dir / path).resolve()
+        else:
+            path = path.resolve()
+        return path, None
+
+    def _load_local_ai_surface_admissions(self) -> dict[str, Any]:
+        path = self._resolve_runtime_path(
+            os.getenv(_AI_SURFACE_ADMISSION_PATH_ENV, "") or str(_DEFAULT_AI_SURFACE_ADMISSION_PATH)
+        )
+        payload, error = self._read_json_object(path, label="admission file")
+        if error is not None:
             return {
                 "schema_version": "datapulse_ai_surface_admission.v1",
                 "surface_admissions": [],
-                "errors": [f"admission file invalid: {exc}"],
+                "errors": [error],
+                "bridge_configured": False,
+                "admission_source": "local_snapshot",
+                "admission_path": str(path),
+            }
+        payload = dict(payload or {})
+        errors = payload.get("errors")
+        payload["errors"] = list(errors) if isinstance(errors, list) else []
+        payload["bridge_configured"] = False
+        payload["admission_source"] = "local_snapshot"
+        payload["admission_path"] = str(path)
+        return payload
+
+    def _load_modelbus_bundle_surface_admissions(self) -> dict[str, Any]:
+        bundle_dir_raw = str(os.getenv(_MODELBUS_BUNDLE_DIR_ENV, "") or "").strip()
+        if not bundle_dir_raw:
+            return {"enabled": False, "errors": []}
+
+        bundle_dir = self._resolve_runtime_path(bundle_dir_raw)
+        bundle_manifest_path = bundle_dir / "bundle_manifest.json"
+        errors: list[str] = []
+
+        bundle_manifest, error = self._read_json_object(bundle_manifest_path, label="modelbus bundle manifest")
+        if error is not None:
+            return {"enabled": True, "errors": [error], "bundle_dir": str(bundle_dir)}
+        bundle_manifest = dict(bundle_manifest or {})
+
+        if str(bundle_manifest.get("schema") or "").strip() != "modelbus.consumer_bundle_manifest.v1":
+            errors.append("modelbus bundle manifest invalid: schema mismatch")
+        if str(bundle_manifest.get("consumer_id") or "").strip() != "datapulse":
+            errors.append("modelbus bundle manifest invalid: consumer_id must equal datapulse")
+
+        surface_admission_path, surface_path_error = self._bundle_artifact_path(bundle_dir, bundle_manifest, "surface_admission")
+        if surface_path_error is not None:
+            errors.append(surface_path_error)
+            surface_admission_path = None
+        bridge_config_path, bridge_path_error = self._bundle_artifact_path(bundle_dir, bundle_manifest, "bridge_config")
+        if bridge_path_error is not None:
+            errors.append(bridge_path_error)
+            bridge_config_path = None
+        release_status_path, release_path_error = self._bundle_artifact_path(bundle_dir, bundle_manifest, "release_status")
+        if release_path_error is not None:
+            errors.append(release_path_error)
+            release_status_path = None
+
+        surface_admission_payload: dict[str, Any] | None = None
+        if surface_admission_path is not None:
+            surface_admission_payload, error = self._read_json_object(
+                surface_admission_path,
+                label="modelbus surface admission",
+            )
+            if error is not None:
+                errors.append(error)
+
+        bridge_config_payload: dict[str, Any] | None = None
+        if bridge_config_path is not None:
+            bridge_config_payload, error = self._read_json_object(
+                bridge_config_path,
+                label="modelbus bridge config",
+            )
+            if error is not None:
+                errors.append(error)
+
+        release_status_payload: dict[str, Any] | None = None
+        if release_status_path is not None:
+            release_status_payload, error = self._read_json_object(
+                release_status_path,
+                label="modelbus release status",
+            )
+            if error is not None:
+                errors.append(error)
+
+        surface_admission_payload = dict(surface_admission_payload or {})
+        bridge_config_payload = dict(bridge_config_payload or {})
+        release_status_payload = dict(release_status_payload or {})
+
+        if surface_admission_payload and str(surface_admission_payload.get("schema") or "").strip() != "modelbus.consumer_surface_admission.v1":
+            errors.append("modelbus surface admission invalid: schema mismatch")
+        if surface_admission_payload and str(surface_admission_payload.get("consumer_id") or "").strip() != "datapulse":
+            errors.append("modelbus surface admission invalid: consumer_id must equal datapulse")
+        if bridge_config_payload and str(bridge_config_payload.get("schema") or "").strip() != "modelbus.consumer_bridge_config.v1":
+            errors.append("modelbus bridge config invalid: schema mismatch")
+        if bridge_config_payload and str(bridge_config_payload.get("consumer_id") or "").strip() != "datapulse":
+            errors.append("modelbus bridge config invalid: consumer_id must equal datapulse")
+        if release_status_payload and str(release_status_payload.get("schema") or "").strip() != "modelbus.release_status.v1":
+            errors.append("modelbus release status invalid: schema mismatch")
+
+        rows = surface_admission_payload.get("surface_admissions")
+        if surface_admission_payload and not isinstance(rows, list):
+            errors.append("modelbus surface admission invalid: surface_admissions must be array")
+            rows = []
+        if errors:
+            return {
+                "enabled": True,
+                "errors": errors,
+                "bundle_dir": str(bundle_dir),
+                "bundle_manifest_path": str(bundle_manifest_path),
             }
 
-    def _lookup_ai_surface_admission(self, surface: str) -> dict[str, Any]:
-        payload = self._load_ai_surface_admissions()
+        projected_rows: list[dict[str, Any]] = []
+        for raw_row in rows or []:
+            if not isinstance(raw_row, dict):
+                continue
+            surface = str(raw_row.get("surface_id") or "").strip()
+            if not surface:
+                continue
+            required_schema_contract = str(raw_row.get("schema_contract") or "").strip()
+            admitted_alias = str(raw_row.get("admitted_alias") or "").strip()
+            projected_rows.append(
+                {
+                    "surface": surface,
+                    "lifecycle_anchor": self._surface_lifecycle_anchor(surface),
+                    "required_output_kind": self._surface_output_kind(surface),
+                    "required_schema_contract": required_schema_contract,
+                    "admission_status": str(raw_row.get("admission_status") or "").strip().lower() or "rejected",
+                    "mode_admission": dict(raw_row.get("mode_admission") or {})
+                    if isinstance(raw_row.get("mode_admission"), dict)
+                    else {"off": "manual_only", "assist": "rejected", "review": "rejected"},
+                    "admitted_subscription_id": admitted_alias,
+                    "admitted_alias": admitted_alias,
+                    "admitted_capabilities": [],
+                    "must_expose_runtime_facts": list(raw_row.get("must_expose_runtime_facts") or []),
+                    "candidate_results": [],
+                    "rejectable_gaps": list(raw_row.get("rejectable_gaps") or []),
+                    "manual_fallback": str(raw_row.get("manual_fallback") or "").strip(),
+                    "degraded_result_allowed": bool(raw_row.get("degraded_result_allowed", False)),
+                }
+            )
+
+        release_window = surface_admission_payload.get("release_window")
+        release_window = dict(release_window) if isinstance(release_window, dict) else {}
+        return {
+            "enabled": True,
+            "errors": [],
+            "payload": {
+                "schema_version": "datapulse_ai_surface_admission.v1",
+                "generated_at_utc": str(surface_admission_payload.get("generated_at_utc") or _utcnow_z()).strip(),
+                "surface_admissions": projected_rows,
+                "errors": [],
+                "bridge_configured": True,
+                "admission_source": "modelbus_bundle",
+                "admission_path": str(surface_admission_path),
+                "bundle_dir": str(bundle_dir),
+                "bundle_manifest_path": str(bundle_manifest_path),
+                "bridge_config_path": str(bridge_config_path),
+                "release_status_path": str(release_status_path),
+                "release_level": str(release_status_payload.get("release_level") or "").strip(),
+                "constitutional_semantics": str(release_window.get("constitutional_semantics") or "").strip(),
+                "bridge_config": bridge_config_payload,
+            },
+        }
+
+    def _load_ai_surface_admissions(self) -> dict[str, Any]:
+        bundle = self._load_modelbus_bundle_surface_admissions()
+        if isinstance(bundle.get("payload"), dict):
+            return dict(bundle["payload"])
+
+        payload = self._load_local_ai_surface_admissions()
+        errors: list[str] = []
+        bundle_errors = bundle.get("errors")
+        if isinstance(bundle_errors, list):
+            errors.extend(str(item) for item in bundle_errors if str(item).strip())
+        local_errors = payload.get("errors")
+        if isinstance(local_errors, list):
+            errors.extend(str(item) for item in local_errors if str(item).strip())
+        payload["errors"] = errors
+        if bundle.get("bundle_dir"):
+            payload["bundle_dir"] = str(bundle.get("bundle_dir") or "").strip()
+        if bundle.get("bundle_manifest_path"):
+            payload["bundle_manifest_path"] = str(bundle.get("bundle_manifest_path") or "").strip()
+        return payload
+
+    def _lookup_ai_surface_admission(self, surface: str, *, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        payload = payload if isinstance(payload, dict) else self._load_ai_surface_admissions()
         rows = payload.get("surface_admissions")
         if not isinstance(rows, list):
             rows = []
         for row in rows:
-            if isinstance(row, dict) and str(row.get("surface", "")).strip() == surface:
+            if isinstance(row, dict) and str(row.get("surface", "") or row.get("surface_id", "")).strip() == surface:
                 return row
         return {}
 
@@ -276,7 +500,8 @@ class DataPulseReader:
         if surface not in _AI_SURFACE_CONTRACTS and surface != "report_draft":
             raise ValueError(f"Unsupported AI surface: {surface}")
         normalized_mode = self._normalize_ai_mode(mode)
-        admission: dict[str, Any] = self._lookup_ai_surface_admission(surface)
+        payload = self._load_ai_surface_admissions()
+        admission: dict[str, Any] = self._lookup_ai_surface_admission(surface, payload=payload)
         mode_admission_raw = admission.get("mode_admission")
         mode_admission = cast(dict[str, Any], mode_admission_raw) if isinstance(mode_admission_raw, dict) else {}
         mode_status = "manual_only" if normalized_mode == "off" else str(
@@ -289,14 +514,15 @@ class DataPulseReader:
         candidate_results_raw = admission.get("candidate_results")
         candidate_results = cast(list[dict[str, Any]], candidate_results_raw) if isinstance(candidate_results_raw, list) else []
         admitted_subscription_id = str(admission.get("admitted_subscription_id", "") or "").strip()
-        degraded_result_allowed = False
-        for row in candidate_results:
-            if not isinstance(row, dict):
-                continue
-            if str(row.get("subscription_id", "")).strip() == admitted_subscription_id:
-                degraded_result_allowed = bool(row.get("degraded_result_allowed", False))
-                break
-        admission_errors = self._load_ai_surface_admissions().get("errors", [])
+        degraded_result_allowed = bool(admission.get("degraded_result_allowed", False))
+        if not degraded_result_allowed:
+            for row in candidate_results:
+                if not isinstance(row, dict):
+                    continue
+                if str(row.get("subscription_id", "")).strip() == admitted_subscription_id:
+                    degraded_result_allowed = bool(row.get("degraded_result_allowed", False))
+                    break
+        admission_errors = payload.get("errors", [])
         rejectable_gaps = admission.get("rejectable_gaps") if isinstance(admission.get("rejectable_gaps"), list) else []
         ok = normalized_mode == "off" or (mode_status == "admitted" and bool(contract_id) and contract_available)
         return {
@@ -315,9 +541,12 @@ class DataPulseReader:
             "rejectable_gaps": rejectable_gaps,
             "must_expose_runtime_facts": admission.get("must_expose_runtime_facts", []),
             "degraded_result_allowed": degraded_result_allowed,
-            "bridge_configured": False,
+            "bridge_configured": bool(payload.get("bridge_configured", False)),
+            "admission_source": str(payload.get("admission_source", "local_snapshot") or "local_snapshot").strip(),
             "admission_errors": admission_errors if isinstance(admission_errors, list) else [],
-            "admission_path": str(Path(os.getenv(_AI_SURFACE_ADMISSION_PATH_ENV, "") or _DEFAULT_AI_SURFACE_ADMISSION_PATH)),
+            "admission_path": str(payload.get("admission_path") or self._resolve_runtime_path(
+                os.getenv(_AI_SURFACE_ADMISSION_PATH_ENV, "") or str(_DEFAULT_AI_SURFACE_ADMISSION_PATH)
+            )),
         }
 
     @staticmethod

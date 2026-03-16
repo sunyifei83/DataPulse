@@ -47,6 +47,8 @@ def _reader(tmp_path: Path, items: list[DataPulseItem]) -> DataPulseReader:
 def _cleanup_env():
     yield
     os.environ.pop("DATAPULSE_SOURCE_CATALOG", None)
+    os.environ.pop("DATAPULSE_AI_SURFACE_ADMISSION_PATH", None)
+    os.environ.pop("DATAPULSE_MODELBUS_BUNDLE_DIR", None)
     os.environ.pop("DATAPULSE_GROUNDING_BACKEND_CMD", None)
     os.environ.pop("DATAPULSE_GROUNDING_BACKEND_CALLABLE", None)
     os.environ.pop("DATAPULSE_GROUNDING_BACKEND_WORKDIR", None)
