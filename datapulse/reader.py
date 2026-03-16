@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 from datapulse.collectors.trending import TrendingCollector, build_trending_url
 from datapulse.core.alerts import (
+    AlertEvent,
     AlertRouteStore,
     AlertStore,
     _coerce_timeout_seconds,
@@ -26,6 +27,7 @@ from datapulse.core.alerts import (
     dispatch_alert_event,
     evaluate_watch_alerts,
     resolve_delivery_targets,
+    validate_delivery_summary_payload,
 )
 from datapulse.core.confidence import compute_confidence
 from datapulse.core.entities import Entity, Relation
@@ -158,6 +160,7 @@ _REPORT_DELIVERY_OUTPUT_KINDS = (
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _AI_SURFACE_ADMISSION_PATH_ENV = "DATAPULSE_AI_SURFACE_ADMISSION_PATH"
 _MODELBUS_BUNDLE_DIR_ENV = "DATAPULSE_MODELBUS_BUNDLE_DIR"
+_CANONICAL_MODELBUS_BUNDLE_DIR = _REPO_ROOT / "out/ha_latest_release_bundle"
 _DEFAULT_AI_SURFACE_ADMISSION_PATH = _REPO_ROOT / "out/governance/datapulse-ai-surface-admission.example.json"
 _AI_SURFACE_LIFECYCLE_ANCHORS: dict[str, str] = {
     "mission_suggest": "WatchMission",
@@ -310,18 +313,47 @@ class DataPulseReader:
         payload["admission_path"] = str(path)
         return payload
 
-    def _load_modelbus_bundle_surface_admissions(self) -> dict[str, Any]:
-        bundle_dir_raw = str(os.getenv(_MODELBUS_BUNDLE_DIR_ENV, "") or "").strip()
-        if not bundle_dir_raw:
-            return {"enabled": False, "errors": []}
+    @staticmethod
+    def _bundle_selection_label(selection: str) -> str:
+        if selection == "explicit_env":
+            return "explicit env bundle"
+        if selection == "canonical_default":
+            return "canonical bundle"
+        return "modelbus bundle"
 
-        bundle_dir = self._resolve_runtime_path(bundle_dir_raw)
+    def _modelbus_bundle_candidates(self) -> list[dict[str, Any]]:
+        candidates: list[dict[str, Any]] = []
+        seen: set[str] = set()
+
+        bundle_dir_raw = str(os.getenv(_MODELBUS_BUNDLE_DIR_ENV, "") or "").strip()
+        if bundle_dir_raw:
+            bundle_dir = self._resolve_runtime_path(bundle_dir_raw)
+            seen.add(str(bundle_dir))
+            candidates.append({"bundle_dir": bundle_dir, "bundle_selection": "explicit_env"})
+
+        canonical_dir = _CANONICAL_MODELBUS_BUNDLE_DIR.resolve()
+        if str(canonical_dir) not in seen:
+            candidates.append({"bundle_dir": canonical_dir, "bundle_selection": "canonical_default"})
+        return candidates
+
+    def _load_modelbus_bundle_surface_admissions_from_dir(
+        self,
+        bundle_dir: Path,
+        *,
+        bundle_selection: str,
+    ) -> dict[str, Any]:
         bundle_manifest_path = bundle_dir / "bundle_manifest.json"
         errors: list[str] = []
 
         bundle_manifest, error = self._read_json_object(bundle_manifest_path, label="modelbus bundle manifest")
         if error is not None:
-            return {"enabled": True, "errors": [error], "bundle_dir": str(bundle_dir)}
+            return {
+                "enabled": True,
+                "errors": [error],
+                "bundle_dir": str(bundle_dir),
+                "bundle_manifest_path": str(bundle_manifest_path),
+                "bundle_selection": bundle_selection,
+            }
         bundle_manifest = dict(bundle_manifest or {})
 
         if str(bundle_manifest.get("schema") or "").strip() != "modelbus.consumer_bundle_manifest.v1":
@@ -394,6 +426,7 @@ class DataPulseReader:
                 "errors": errors,
                 "bundle_dir": str(bundle_dir),
                 "bundle_manifest_path": str(bundle_manifest_path),
+                "bundle_selection": bundle_selection,
             }
 
         projected_rows: list[dict[str, Any]] = []
@@ -439,6 +472,7 @@ class DataPulseReader:
                 "bridge_configured": True,
                 "admission_source": "modelbus_bundle",
                 "admission_path": str(surface_admission_path),
+                "bundle_selection": bundle_selection,
                 "bundle_dir": str(bundle_dir),
                 "bundle_manifest_path": str(bundle_manifest_path),
                 "bridge_config_path": str(bridge_config_path),
@@ -448,6 +482,54 @@ class DataPulseReader:
                 "bridge_config": bridge_config_payload,
             },
         }
+
+    def _load_modelbus_bundle_surface_admissions(self) -> dict[str, Any]:
+        candidates = self._modelbus_bundle_candidates()
+        if not candidates:
+            return {"enabled": False, "errors": []}
+
+        errors: list[str] = []
+        last_context: dict[str, Any] = {}
+        for candidate in candidates:
+            bundle_dir = candidate["bundle_dir"]
+            bundle_selection = str(candidate.get("bundle_selection", "") or "").strip()
+            result = self._load_modelbus_bundle_surface_admissions_from_dir(
+                bundle_dir,
+                bundle_selection=bundle_selection,
+            )
+            result_errors = result.get("errors")
+            if isinstance(result_errors, list):
+                label = self._bundle_selection_label(bundle_selection)
+                errors.extend(
+                    f"{label} failed: {str(item).strip()}"
+                    for item in result_errors
+                    if str(item).strip()
+                )
+            if isinstance(result.get("payload"), dict):
+                payload = dict(result["payload"])
+                payload_errors = payload.get("errors")
+                payload["errors"] = (
+                    list(payload_errors)
+                    if isinstance(payload_errors, list)
+                    else []
+                )
+                if errors:
+                    payload["errors"] = [*errors, *payload["errors"]]
+                return {
+                    "enabled": True,
+                    "errors": list(payload["errors"]),
+                    "payload": payload,
+                }
+            if result.get("bundle_dir"):
+                last_context["bundle_dir"] = str(result.get("bundle_dir") or "").strip()
+            if result.get("bundle_manifest_path"):
+                last_context["bundle_manifest_path"] = str(result.get("bundle_manifest_path") or "").strip()
+            if result.get("bundle_selection"):
+                last_context["bundle_selection"] = str(result.get("bundle_selection") or "").strip()
+
+        if last_context:
+            return {"enabled": True, "errors": errors, **last_context}
+        return {"enabled": bool(errors), "errors": errors}
 
     def _load_ai_surface_admissions(self) -> dict[str, Any]:
         bundle = self._load_modelbus_bundle_surface_admissions()
@@ -467,6 +549,8 @@ class DataPulseReader:
             payload["bundle_dir"] = str(bundle.get("bundle_dir") or "").strip()
         if bundle.get("bundle_manifest_path"):
             payload["bundle_manifest_path"] = str(bundle.get("bundle_manifest_path") or "").strip()
+        if bundle.get("bundle_selection"):
+            payload["bundle_selection"] = str(bundle.get("bundle_selection") or "").strip()
         return payload
 
     def _lookup_ai_surface_admission(self, surface: str, *, payload: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -543,6 +627,7 @@ class DataPulseReader:
             "degraded_result_allowed": degraded_result_allowed,
             "bridge_configured": bool(payload.get("bridge_configured", False)),
             "admission_source": str(payload.get("admission_source", "local_snapshot") or "local_snapshot").strip(),
+            "bundle_selection": str(payload.get("bundle_selection", "") or "").strip(),
             "admission_errors": admission_errors if isinstance(admission_errors, list) else [],
             "admission_path": str(payload.get("admission_path") or self._resolve_runtime_path(
                 os.getenv(_AI_SURFACE_ADMISSION_PATH_ENV, "") or str(_DEFAULT_AI_SURFACE_ADMISSION_PATH)
@@ -610,6 +695,8 @@ class DataPulseReader:
             return validate_triage_assist_payload(payload)
         if surface == "claim_draft":
             return validate_claim_draft_payload(payload)
+        if surface == "delivery_summary":
+            return validate_delivery_summary_payload(payload)
         return [f"no validator for surface: {surface}"]
 
     def _route_status_by_name(self) -> dict[str, str]:
@@ -622,6 +709,274 @@ class DataPulseReader:
             if name:
                 lookup[name] = status
         return lookup
+
+    def _find_alert_event(self, identifier: str) -> AlertEvent | None:
+        target = str(identifier or "").strip()
+        if not target:
+            return None
+        for event in self.alert_store.list_events(limit=self.alert_store.max_items):
+            if event.id == target:
+                return event
+        return None
+
+    @staticmethod
+    def _delivery_summary_route_status(observation_status: str) -> str:
+        normalized = str(observation_status or "").strip().lower()
+        if normalized == "missing":
+            return "missing"
+        if normalized == "failed":
+            return "degraded"
+        if normalized in {"held", "pending"}:
+            return "idle"
+        return "healthy"
+
+    @staticmethod
+    def _delivery_summary_overall_status(route_rows: list[dict[str, Any]]) -> str:
+        statuses = {str(row.get("status", "idle") or "idle").strip().lower() for row in route_rows}
+        if "missing" in statuses:
+            return "missing"
+        if "degraded" in statuses or ("healthy" in statuses and "idle" in statuses):
+            return "degraded"
+        if "idle" in statuses:
+            return "idle"
+        return "healthy"
+
+    def _build_delivery_summary_route_rows(self, event: AlertEvent) -> list[dict[str, Any]]:
+        route_health = self.alert_route_health(limit=100)
+        route_health_by_name = {
+            str(row.get("name", "") or "").strip().lower(): dict(row)
+            for row in route_health
+            if isinstance(row, dict) and str(row.get("name", "") or "").strip()
+        }
+        delivered_channels = {
+            str(label or "").strip().lower()
+            for label in event.delivered_channels
+            if str(label or "").strip()
+        }
+        governance = dict(event.governance or {}) if isinstance(event.governance, dict) else {}
+        delivery_risk = (
+            dict(governance.get("delivery_risk") or {})
+            if isinstance(governance.get("delivery_risk"), dict)
+            else {}
+        )
+        observations = delivery_risk.get("route_observations")
+        observation_rows = observations if isinstance(observations, list) else []
+        delivery_errors = event.extra.get("delivery_errors", {}) if isinstance(event.extra, dict) else {}
+        if not isinstance(delivery_errors, dict):
+            delivery_errors = {}
+
+        rows: list[dict[str, Any]] = []
+        seen: set[tuple[str, str]] = set()
+
+        def _append_row(
+            *,
+            name: str,
+            channel: str,
+            status: str,
+            error: str = "",
+            health: dict[str, Any] | None = None,
+        ) -> None:
+            normalized_name = str(name or "").strip().lower()
+            normalized_channel = str(channel or "").strip().lower() or "unknown"
+            if not normalized_name:
+                return
+            key = (normalized_name, normalized_channel)
+            if key in seen:
+                return
+            seen.add(key)
+
+            health_row = dict(health or {})
+            event_count = int(health_row.get("event_count", 1) or 0)
+            delivered_count = int(
+                health_row.get(
+                    "delivered_count",
+                    1 if status == "healthy" else 0,
+                )
+                or 0
+            )
+            failure_count = int(
+                health_row.get(
+                    "failure_count",
+                    1 if status in {"degraded", "missing"} else 0,
+                )
+                or 0
+            )
+            success_rate = health_row.get("success_rate")
+            if success_rate is None:
+                attempts = delivered_count + failure_count
+                success_rate = round(delivered_count / attempts, 3) if attempts > 0 else None
+            rows.append(
+                {
+                    "name": normalized_name,
+                    "channel": normalized_channel,
+                    "status": status,
+                    "event_count": max(0, event_count),
+                    "delivered_count": max(0, delivered_count),
+                    "failure_count": max(0, failure_count),
+                    "success_rate": success_rate,
+                    "last_event_at": str(health_row.get("last_event_at") or event.created_at).strip(),
+                    "last_delivered_at": str(
+                        health_row.get("last_delivered_at")
+                        or (event.created_at if delivered_count > 0 else "")
+                    ).strip(),
+                    "last_failed_at": str(
+                        health_row.get("last_failed_at")
+                        or (event.created_at if failure_count > 0 else "")
+                    ).strip(),
+                    "last_error": str(health_row.get("last_error") or error or "").strip(),
+                }
+            )
+
+        for observation in observation_rows:
+            if not isinstance(observation, dict):
+                continue
+            name = str(observation.get("route_name", "") or observation.get("label", "") or "").strip().lower()
+            channel = str(observation.get("channel", "") or "").strip().lower()
+            status = self._delivery_summary_route_status(observation.get("status", ""))
+            error = str(observation.get("error", "") or "").strip()
+            if observation.get("route_name"):
+                health = route_health_by_name.get(name, {})
+                _append_row(name=name, channel=channel or str(health.get("channel", "") or "").strip().lower(), status=status, error=error, health=health)
+                continue
+            fallback_name = name or channel or "json"
+            _append_row(name=fallback_name, channel=channel or fallback_name, status=status, error=error)
+
+        rule = event.extra.get("rule", {}) if isinstance(event.extra, dict) else {}
+        if not isinstance(rule, dict):
+            rule = {}
+        for route_name in _normalize_route_names(rule):
+            health = route_health_by_name.get(route_name, {})
+            route = self.alert_routes.get(route_name)
+            channel = str(
+                (route.get("channel") if isinstance(route, dict) else "")
+                or health.get("channel", "")
+                or "unknown"
+            ).strip().lower()
+            route_label = f"{channel}:{route_name}" if channel and channel != "unknown" else f"route:{route_name}"
+            error = str(
+                delivery_errors.get(route_label)
+                or delivery_errors.get(f"route:{route_name}")
+                or ""
+            ).strip()
+            status = str(health.get("status", "idle") or "idle").strip().lower()
+            if route is None and not health:
+                status = "missing"
+            elif route_label in delivered_channels and status == "idle":
+                status = "healthy"
+            if error and status not in {"missing", "degraded"}:
+                status = "degraded"
+            _append_row(name=route_name, channel=channel, status=status, error=error, health=health)
+
+        if not rows:
+            delivered_labels = [
+                str(label or "").strip().lower()
+                for label in event.delivered_channels
+                if str(label or "").strip()
+            ]
+            fallback_labels = delivered_labels or [
+                str(channel or "").strip().lower()
+                for channel in (event.channels or ["json"])
+                if str(channel or "").strip()
+            ] or ["json"]
+            for label in fallback_labels:
+                name = label
+                channel = label
+                if ":" in label:
+                    channel, name = label.split(":", 1)
+                error = str(
+                    delivery_errors.get(label)
+                    or delivery_errors.get(f"route:{name}")
+                    or ""
+                ).strip()
+                status = "healthy" if label in delivered_labels or channel == "json" else "idle"
+                if error:
+                    status = "degraded"
+                _append_row(name=name, channel=channel, status=status, error=error)
+        return rows
+
+    def _build_delivery_summary_payload(self, event: AlertEvent) -> dict[str, Any]:
+        governance = dict(event.governance or {}) if isinstance(event.governance, dict) else {}
+        delivery_risk = (
+            dict(governance.get("delivery_risk") or {})
+            if isinstance(governance.get("delivery_risk"), dict)
+            else {}
+        )
+        route_rows = self._build_delivery_summary_route_rows(event)
+        overall_status = self._delivery_summary_overall_status(route_rows)
+        healthy_count = sum(1 for row in route_rows if row.get("status") == "healthy")
+        idle_count = sum(1 for row in route_rows if row.get("status") == "idle")
+        degraded_count = sum(1 for row in route_rows if row.get("status") == "degraded")
+        missing_count = sum(1 for row in route_rows if row.get("status") == "missing")
+        dispatch_explanation = (
+            f"Alert {event.id} covers {len(route_rows)} delivery target(s): "
+            f"{healthy_count} healthy, {idle_count} idle, {degraded_count} degraded, {missing_count} missing."
+        )
+        payload: dict[str, Any] = {
+            "summary": (
+                f"Alert `{event.rule_name}` for mission `{event.mission_name}` is "
+                f"`{overall_status}` across {len(route_rows)} delivery target(s)."
+            ),
+            "overall_status": overall_status,
+            "dispatch_explanation": dispatch_explanation,
+            "routes": route_rows,
+        }
+
+        incident_notes: list[dict[str, str]] = []
+        seen_notes: set[tuple[str, str, str]] = set()
+
+        def _append_note(title: str, detail: str, severity: str) -> None:
+            normalized = (title.strip(), detail.strip(), severity.strip().lower())
+            if not normalized[0] or not normalized[1] or normalized in seen_notes:
+                return
+            seen_notes.add(normalized)
+            incident_notes.append(
+                {
+                    "title": normalized[0],
+                    "detail": normalized[1],
+                    "severity": normalized[2],
+                }
+            )
+
+        for row in route_rows:
+            route_name = str(row.get("name", "") or "").strip()
+            status = str(row.get("status", "idle") or "idle").strip().lower()
+            last_error = str(row.get("last_error", "") or "").strip()
+            if status == "missing":
+                _append_note(
+                    f"Missing delivery target: {route_name}",
+                    f"Alert routing references `{route_name}` but no configured target is available.",
+                    "error",
+                )
+            elif status == "degraded" and last_error:
+                _append_note(
+                    f"Delivery error on {route_name}",
+                    last_error,
+                    "error",
+                )
+            elif status == "idle":
+                _append_note(
+                    f"Delivery not confirmed for {route_name}",
+                    f"Alert `{event.id}` has not recorded a successful delivery to `{route_name}` yet.",
+                    "warning",
+                )
+
+        for reason in delivery_risk.get("reasons", []) if isinstance(delivery_risk.get("reasons"), list) else []:
+            text = str(reason or "").strip()
+            if not text:
+                continue
+            severity = "warning"
+            lowered = text.lower()
+            if "failed" in lowered or "missing" in lowered:
+                severity = "error"
+            elif "held" in lowered or "review" in lowered or "pending" in lowered:
+                severity = "warning"
+            else:
+                severity = "info"
+            _append_note("Delivery governance note", text, severity)
+
+        if incident_notes:
+            payload["incident_notes"] = incident_notes[:6]
+        return payload
 
     def _build_watch_suggestion_payload(self, mission: WatchMission, *, mode: str) -> dict[str, Any]:
         run_readiness = build_watch_run_readiness(
@@ -3865,6 +4220,49 @@ class DataPulseReader:
             )
         payload = build_claim_draft_from_story(story, brief_id=brief_id, mode=str(precheck.get("mode", "assist")))
         errors = self._validate_ai_payload("claim_draft", payload)
+        return self._build_ai_service_response(
+            precheck=precheck,
+            subject=subject,
+            input_payload=input_payload,
+            output_payload=payload,
+            validation_errors=errors,
+        )
+
+    def ai_delivery_summary(self, alert_id: str, *, mode: str = "assist") -> dict[str, Any] | None:
+        event = self._find_alert_event(alert_id)
+        if event is None:
+            return None
+        precheck = self.ai_surface_precheck("delivery_summary", mode=mode)
+        subject = {"kind": "AlertEvent", "id": event.id}
+        route_rows = self._build_delivery_summary_route_rows(event)
+        governance = dict(event.governance or {}) if isinstance(event.governance, dict) else {}
+        delivery_risk = (
+            dict(governance.get("delivery_risk") or {})
+            if isinstance(governance.get("delivery_risk"), dict)
+            else {}
+        )
+        input_payload = {
+            "operator_prompt": "Summarize attributable AlertEvent delivery facts without mutating route or dispatch truth.",
+            "payload_ref": f"alert:{event.id}",
+            "event_snapshot": {
+                "mission_id": event.mission_id,
+                "mission_name": event.mission_name,
+                "rule_name": event.rule_name,
+                "created_at": event.created_at,
+                "route_count": len(route_rows),
+                "delivery_status": str(delivery_risk.get("status", "") or "").strip(),
+            },
+        }
+        if precheck.get("mode") == "off" or not precheck.get("ok"):
+            return self._build_ai_service_response(
+                precheck=precheck,
+                subject=subject,
+                input_payload=input_payload,
+                output_payload=None,
+                validation_errors=list(precheck.get("admission_errors", [])),
+            )
+        payload = self._build_delivery_summary_payload(event)
+        errors = self._validate_ai_payload("delivery_summary", payload)
         return self._build_ai_service_response(
             precheck=precheck,
             subject=subject,

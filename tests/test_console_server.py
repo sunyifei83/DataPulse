@@ -474,6 +474,34 @@ class _ConsoleReader:
             "runtime_facts": {"status": "fallback_used", "request_id": "claim-123"},
         }
 
+    def ai_delivery_summary(self, identifier, *, mode="assist"):
+        if identifier != "alert-1":
+            return None
+        return {
+            "surface": "delivery_summary",
+            "mode": mode,
+            "subject": {"kind": "AlertEvent", "id": identifier},
+            "precheck": self.ai_surface_precheck("delivery_summary", mode=mode),
+            "output": {
+                "contract_id": "datapulse_ai_delivery_summary.v1",
+                "payload": {
+                    "summary": "Alert `console-threshold` is `healthy` across 1 delivery target.",
+                    "overall_status": "healthy",
+                    "routes": [
+                        {
+                            "name": "ops-webhook",
+                            "channel": "webhook",
+                            "status": "healthy",
+                            "event_count": 1,
+                            "delivered_count": 1,
+                            "failure_count": 0,
+                        }
+                    ],
+                },
+            },
+            "runtime_facts": {"status": "fallback_used", "request_id": "delivery-123"},
+        }
+
     def ops_snapshot(self):
         return {
             "collector_summary": {
@@ -1564,6 +1592,7 @@ def test_console_ai_surface_routes():
     client = _client()
 
     mission_precheck = client.get("/api/ai/surfaces/mission_suggest/precheck?mode=review")
+    delivery_projection = client.get("/api/alerts/alert-1/ai/delivery-summary?mode=review")
     mission_projection = client.get("/api/watches/launch-ops/ai/mission-suggest?mode=assist")
     triage_projection = client.get("/api/triage/item-1/ai/assist?mode=assist&limit=3")
     claim_projection = client.get("/api/stories/story-openai-launch/ai/claim-draft?mode=assist&brief_id=brief-1")
@@ -1571,6 +1600,9 @@ def test_console_ai_surface_routes():
     assert mission_precheck.status_code == 200
     assert mission_precheck.json()["surface"] == "mission_suggest"
     assert mission_precheck.json()["mode"] == "review"
+    assert delivery_projection.status_code == 200
+    assert delivery_projection.json()["output"]["contract_id"] == "datapulse_ai_delivery_summary.v1"
+    assert delivery_projection.json()["runtime_facts"]["request_id"] == "delivery-123"
     assert mission_projection.status_code == 200
     assert mission_projection.json()["output"]["contract_id"] == "datapulse_ai_watch_suggestion.v1"
     assert triage_projection.status_code == 200

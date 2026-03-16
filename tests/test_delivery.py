@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from datapulse.core.alerts import AlertEvent
 from datapulse.reader import DataPulseReader
 
 
@@ -193,6 +194,47 @@ def test_ai_surface_admission_export_captures_runtime_semantics_and_rejections(t
     gap_ids = {gap["gap_id"] for gap in report["rejectable_gaps"]}
     assert "missing_required_schema_contract" in gap_ids
     assert "report_draft.experimental:missing_contract_binding" in gap_ids
+
+
+def test_ai_delivery_summary_returns_contract_bound_alert_event_payload(tmp_path):
+    reader = _reader(tmp_path)
+    reader.create_alert_route(name="ops-webhook", channel="webhook", webhook_url="https://example.com/alert")
+
+    event = AlertEvent(
+        mission_id="watch-delivery",
+        mission_name="Delivery Watch",
+        rule_name="ops-threshold",
+        channels=["json"],
+        item_ids=["item-1"],
+        summary="Delivery Watch triggered ops-threshold",
+        delivered_channels=["json", "webhook:ops-webhook"],
+        extra={
+            "rule": {
+                "name": "ops-threshold",
+                "routes": ["ops-webhook"],
+                "channels": ["json"],
+            },
+            "delivery_errors": {},
+        },
+    )
+    reader.alert_store.add(event, cooldown_seconds=0)
+
+    payload = reader.ai_delivery_summary(event.id, mode="assist")
+
+    assert payload is not None
+    assert payload["surface"] == "delivery_summary"
+    assert payload["subject"] == {"kind": "AlertEvent", "id": event.id}
+    assert payload["output"]["contract_id"] == "datapulse_ai_delivery_summary.v1"
+    assert payload["output"]["output_kind"] == "summary"
+    assert payload["runtime_facts"]["source"] == "deterministic"
+    assert payload["runtime_facts"]["schema_valid"] is True
+    assert payload["output"]["payload"]["overall_status"] == "healthy"
+
+    routes = {row["name"]: row for row in payload["output"]["payload"]["routes"]}
+    assert "ops-webhook" in routes
+    assert routes["ops-webhook"]["status"] == "healthy"
+    assert routes["ops-webhook"]["delivered_count"] >= 1
+    assert "dispatch_explanation" in payload["output"]["payload"]
 
 
 def test_report_delivery_package_is_deterministic_and_dispatch_records_are_attributable(tmp_path, monkeypatch):

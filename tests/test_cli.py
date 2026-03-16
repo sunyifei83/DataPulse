@@ -605,6 +605,39 @@ class _WatchReader:
             },
         }
 
+    def ai_delivery_summary(self, identifier, *, mode="assist"):
+        if identifier != "alert-1":
+            return None
+        return {
+            "surface": "delivery_summary",
+            "mode": mode,
+            "subject": {"kind": "AlertEvent", "id": identifier},
+            "precheck": self.ai_surface_precheck("delivery_summary", mode=mode),
+            "output": {
+                "contract_id": "datapulse_ai_delivery_summary.v1",
+                "payload": {
+                    "summary": "Alert `ops-threshold` is `healthy` across 1 delivery target.",
+                    "overall_status": "healthy",
+                    "routes": [
+                        {
+                            "name": "ops-webhook",
+                            "channel": "webhook",
+                            "status": "healthy",
+                            "event_count": 1,
+                            "delivered_count": 1,
+                            "failure_count": 0,
+                        }
+                    ],
+                },
+            },
+            "runtime_facts": {
+                "status": "fallback_used",
+                "source": "deterministic",
+                "schema_valid": True,
+                "request_id": "delivery-123",
+            },
+        }
+
     def triage_list(self, **kwargs):
         return [
             {
@@ -1113,6 +1146,30 @@ def test_ai_surface_precheck_prints_json(monkeypatch, capsys):
     assert '"mode_status": "admitted"' in out
 
 
+def test_ai_surface_precheck_accepts_report_draft(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--ai-surface-precheck", "report_draft", "--ai-mode", "review"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert '"surface": "report_draft"' in out
+    assert '"mode": "review"' in out
+    assert '"alias": "report_draft-alias"' in out
+
+
+def test_ai_surface_precheck_accepts_delivery_summary(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--ai-surface-precheck", "delivery_summary", "--ai-mode", "review"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert '"surface": "delivery_summary"' in out
+    assert '"mode": "review"' in out
+    assert '"alias": "delivery_summary-alias"' in out
+
+
 def test_ai_mission_suggest_prints_projection(monkeypatch, capsys):
     monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
     monkeypatch.setattr(sys, "argv", ["datapulse", "--ai-mission-suggest", "ai-radar"])
@@ -1147,6 +1204,19 @@ def test_ai_claim_draft_prints_projection(monkeypatch, capsys):
     assert '"surface": "claim_draft"' in out
     assert '"contract_id": "datapulse_ai_claim_draft.v1"' in out
     assert '"statement": "Demand remains elevated."' in out
+
+
+def test_ai_delivery_summary_prints_projection(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--ai-delivery-summary", "alert-1", "--ai-mode", "review"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert '"surface": "delivery_summary"' in out
+    assert '"mode": "review"' in out
+    assert '"contract_id": "datapulse_ai_delivery_summary.v1"' in out
+    assert '"request_id": "delivery-123"' in out
 
 
 def test_triage_list_prints_rows(monkeypatch, capsys):

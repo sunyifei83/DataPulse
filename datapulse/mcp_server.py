@@ -202,6 +202,12 @@ async def _run_ai_claim_draft(story_id: str, mode: str = "assist", brief_id: str
     return json.dumps({"ok": payload is not None, "projection": payload}, ensure_ascii=False, indent=2)
 
 
+async def _run_ai_delivery_summary(identifier: str, mode: str = "assist") -> str:
+    reader = DataPulseReader()
+    payload = reader.ai_delivery_summary(identifier, mode=mode)
+    return json.dumps({"ok": payload is not None, "projection": payload}, ensure_ascii=False, indent=2)
+
+
 async def _run_build_atom_feed(
     profile: str = "default",
     source_ids: list[str] | None = None,
@@ -1266,6 +1272,11 @@ def _register_tools(app: Any) -> None:
     async def ai_claim_draft(story_id: str, mode: str = "assist", brief_id: str = "") -> str:
         """Project the governed claim_draft AI surface for one story."""
         return await _run_ai_claim_draft(story_id=story_id, mode=mode, brief_id=brief_id)
+
+    @app.tool()
+    async def ai_delivery_summary(identifier: str, mode: str = "assist") -> str:
+        """Project the governed delivery_summary AI surface for one alert event."""
+        return await _run_ai_delivery_summary(identifier=identifier, mode=mode)
 
     @app.tool()
     async def query_feed(profile: str = "default", source_ids: list[str] | None = None,

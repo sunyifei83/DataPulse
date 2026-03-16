@@ -379,6 +379,16 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    @app.get("/api/alerts/{identifier}/ai/delivery-summary")
+    def ai_delivery_summary(identifier: str, mode: str = "assist") -> dict[str, Any]:
+        try:
+            payload = reader_factory().ai_delivery_summary(identifier, mode=mode)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if payload is None:
+            raise HTTPException(status_code=404, detail=f"Alert event not found: {identifier}")
+        return payload
+
     @app.get("/api/watches/{identifier}/ai/mission-suggest")
     def ai_mission_suggest(identifier: str, mode: str = "assist") -> dict[str, Any]:
         try:

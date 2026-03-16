@@ -22,6 +22,13 @@ from datapulse.tools.session import login_platform, supported_platforms
 
 _GITHUB_RELEASES_API = "https://api.github.com/repos/sunyifei83/DataPulse/releases/latest"
 _GITHUB_REPO = "https://github.com/sunyifei83/DataPulse"
+_AI_SURFACE_PRECHECK_CHOICES = (
+    "mission_suggest",
+    "triage_assist",
+    "claim_draft",
+    "report_draft",
+    "delivery_summary",
+)
 
 
 def _print_list(items, limit: int = 20):
@@ -1004,6 +1011,7 @@ def _print_skill_contract() -> None:
                 "--ai-mission-suggest",
                 "--ai-triage-assist",
                 "--ai-claim-draft",
+                "--ai-delivery-summary",
                 "--ai-surface-precheck",
                 "--ai-mode",
                 "--ai-brief-id",
@@ -1069,7 +1077,7 @@ def _print_skill_contract() -> None:
             "for alert review: --alert-list",
             "for route audit: --alert-route-list",
             "for daemon status: --watch-status / --ops-scorecard",
-            "for AI assistance surfaces: --ai-mission-suggest / --ai-triage-assist / --ai-claim-draft / --ai-surface-precheck",
+            "for AI assistance surfaces: --ai-mission-suggest / --ai-triage-assist / --ai-claim-draft / --ai-delivery-summary / --ai-surface-precheck <surface>",
             "for analyst queue operations: --triage-list/--triage-explain/--triage-update/--triage-note/--triage-stats",
             "for report workspace: --report-object=brief/claim/section/citation-bundle/report/export-profile + --report-list/show/create/update/compose/quality/export",
             "for source governance: --list-sources/--list-packs/--query-feed",
@@ -1146,7 +1154,7 @@ def main() -> None:
             "H) Watch scheduler:         datapulse --watch-run-due\n"
             "I) Watch daemon:            datapulse --watch-daemon --watch-daemon-once\n"
             "J) Ops scorecard:           datapulse --watch-status / --alert-route-health / --ops-overview / --ops-scorecard\n"
-            "K) AI assistance:           datapulse --ai-mission-suggest <watch_id> / --ai-triage-assist <item_id> / --ai-claim-draft <story_id>\n"
+            "K) AI assistance:           datapulse --ai-mission-suggest <watch_id> / --ai-triage-assist <item_id> / --ai-claim-draft <story_id> / --ai-delivery-summary <alert_id> / --ai-surface-precheck <surface>\n"
             "L) Triage queue:            datapulse --triage-list / --triage-update <item_id> --triage-state verified\n"
             "M) Story workspace:         datapulse --story-build / --story-list / --story-show <story_id> / --story-update <story_id>\n"
             "Diagnostics: datapulse --config-check / --doctor / --troubleshoot / --skill-contract / --check-update / --self-update / --version"
@@ -1326,10 +1334,15 @@ def main() -> None:
     management_group.add_argument("--alert-mission", help="Filter alert list by mission id")
     management_group.add_argument("--ops-overview", action="store_true", help="Show unified ops snapshot across collectors, watches, and route delivery")
     management_group.add_argument("--ops-scorecard", action="store_true", help="Show the intelligence governance scorecard")
-    management_group.add_argument("--ai-surface-precheck", choices=["mission_suggest", "triage_assist", "claim_draft"], help="Show governance admission facts for one AI surface")
+    management_group.add_argument(
+        "--ai-surface-precheck",
+        choices=list(_AI_SURFACE_PRECHECK_CHOICES),
+        help="Show governance admission facts for one AI surface",
+    )
     management_group.add_argument("--ai-mission-suggest", metavar="WATCH", help="Project the governed mission_suggest AI surface for one watch mission")
     management_group.add_argument("--ai-triage-assist", metavar="ITEM_ID", help="Project the governed triage_assist AI surface for one triage item")
     management_group.add_argument("--ai-claim-draft", metavar="STORY", help="Project the governed claim_draft AI surface for one story")
+    management_group.add_argument("--ai-delivery-summary", metavar="ALERT", help="Project the governed delivery_summary AI surface for one alert event")
     management_group.add_argument("--ai-mode", default="assist", choices=["off", "assist", "review"], help="Governance mode for AI surface projections")
     management_group.add_argument("--ai-brief-id", default="", help="Optional brief id for --ai-claim-draft")
     management_group.add_argument("--watch-daemon-poll-seconds", type=float, default=60.0, help="Daemon poll interval in seconds")
@@ -1730,6 +1743,14 @@ def main() -> None:
         )
         if payload is None:
             print(f"⚠️ story not found: {args.ai_claim_draft}")
+        else:
+            _print_json_payload(payload)
+        return
+
+    if args.ai_delivery_summary:
+        payload = reader.ai_delivery_summary(args.ai_delivery_summary, mode=args.ai_mode)
+        if payload is None:
+            print(f"⚠️ alert event not found: {args.ai_delivery_summary}")
         else:
             _print_json_payload(payload)
         return

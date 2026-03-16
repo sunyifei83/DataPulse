@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
+import datapulse.reader as reader_module
 from datapulse.core.models import DataPulseItem, SourceType
 from datapulse.reader import DataPulseReader
 
@@ -473,6 +474,124 @@ def test_ai_surface_precheck_prefers_modelbus_bundle_when_present(tmp_path, monk
     assert payload["admission_errors"] == []
 
 
+def test_ai_surface_precheck_prefers_explicit_env_bundle_over_canonical_default(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    inbox_path = str(tmp_path / "inbox.json")
+    catalog_path = str(tmp_path / "catalog.json")
+    Path(catalog_path).write_text(json.dumps({
+        "version": 1, "sources": [], "subscriptions": {}, "packs": [],
+    }), encoding="utf-8")
+    monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+
+    canonical_dir = tmp_path / "ha_latest_release_bundle"
+    env_dir = tmp_path / "explicit-modelbus-bundle"
+    _write_modelbus_bundle(
+        canonical_dir,
+        [
+            {
+                "surface_id": "mission_suggest",
+                "admission_status": "admitted",
+                "admitted_alias": "dp.canonical.mission.suggest",
+                "mode_admission": {"off": "manual_only", "assist": "admitted", "review": "admitted"},
+                "schema_contract": "datapulse_ai_watch_suggestion.v1",
+                "manual_fallback": "manual_or_deterministic_behavior",
+                "degraded_result_allowed": True,
+                "must_expose_runtime_facts": ["served_by_alias", "fallback_used", "degraded", "schema_valid", "manual_override_required"],
+                "rejectable_gaps": [],
+            }
+        ],
+    )
+    _write_modelbus_bundle(
+        env_dir,
+        [
+            {
+                "surface_id": "mission_suggest",
+                "admission_status": "admitted",
+                "admitted_alias": "dp.env.mission.suggest",
+                "mode_admission": {"off": "manual_only", "assist": "admitted", "review": "admitted"},
+                "schema_contract": "datapulse_ai_watch_suggestion.v1",
+                "manual_fallback": "manual_or_deterministic_behavior",
+                "degraded_result_allowed": True,
+                "must_expose_runtime_facts": ["served_by_alias", "fallback_used", "degraded", "schema_valid", "manual_override_required"],
+                "rejectable_gaps": [],
+            }
+        ],
+    )
+    monkeypatch.setattr(reader_module, "_CANONICAL_MODELBUS_BUNDLE_DIR", canonical_dir)
+    monkeypatch.setenv("DATAPULSE_MODELBUS_BUNDLE_DIR", str(env_dir))
+
+    reader = DataPulseReader(inbox_path=inbox_path)
+    payload = reader.ai_surface_precheck("mission_suggest", mode="review")
+
+    assert payload["ok"] is True
+    assert payload["alias"] == "dp.env.mission.suggest"
+    assert payload["admission_source"] == "modelbus_bundle"
+    assert payload["bundle_selection"] == "explicit_env"
+    assert payload["admission_errors"] == []
+
+
+def test_ai_surface_precheck_uses_canonical_bundle_when_env_is_not_set(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    inbox_path = str(tmp_path / "inbox.json")
+    catalog_path = str(tmp_path / "catalog.json")
+    Path(catalog_path).write_text(json.dumps({
+        "version": 1, "sources": [], "subscriptions": {}, "packs": [],
+    }), encoding="utf-8")
+    monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+
+    admission_path = tmp_path / "local-ai-surface-admission.json"
+    _write_local_ai_surface_admission(
+        admission_path,
+        [
+            {
+                "surface": "mission_suggest",
+                "lifecycle_anchor": "WatchMission",
+                "required_output_kind": "suggestion",
+                "required_schema_contract": "datapulse_ai_watch_suggestion.v1",
+                "admission_status": "admitted",
+                "mode_admission": {"off": "manual_only", "assist": "admitted", "review": "admitted"},
+                "admitted_subscription_id": "mission_suggest.local",
+                "admitted_alias": "dp.local.mission.suggest",
+                "candidate_results": [{"subscription_id": "mission_suggest.local", "degraded_result_allowed": False}],
+                "must_expose_runtime_facts": ["served_by_alias", "fallback_used", "degraded", "schema_valid", "manual_override_required"],
+                "rejectable_gaps": [],
+                "manual_fallback": "manual_or_deterministic_behavior",
+            }
+        ],
+    )
+    monkeypatch.setenv("DATAPULSE_AI_SURFACE_ADMISSION_PATH", str(admission_path))
+
+    canonical_dir = tmp_path / "ha_latest_release_bundle"
+    _write_modelbus_bundle(
+        canonical_dir,
+        [
+            {
+                "surface_id": "mission_suggest",
+                "admission_status": "admitted",
+                "admitted_alias": "dp.canonical.mission.suggest",
+                "mode_admission": {"off": "manual_only", "assist": "admitted", "review": "admitted"},
+                "schema_contract": "datapulse_ai_watch_suggestion.v1",
+                "manual_fallback": "manual_or_deterministic_behavior",
+                "degraded_result_allowed": True,
+                "must_expose_runtime_facts": ["served_by_alias", "fallback_used", "degraded", "schema_valid", "manual_override_required"],
+                "rejectable_gaps": [],
+            }
+        ],
+    )
+    monkeypatch.setattr(reader_module, "_CANONICAL_MODELBUS_BUNDLE_DIR", canonical_dir)
+
+    reader = DataPulseReader(inbox_path=inbox_path)
+    payload = reader.ai_surface_precheck("mission_suggest", mode="assist")
+
+    assert payload["ok"] is True
+    assert payload["alias"] == "dp.canonical.mission.suggest"
+    assert payload["admission_source"] == "modelbus_bundle"
+    assert payload["bundle_selection"] == "canonical_default"
+    assert payload["admission_errors"] == []
+
+
 def test_ai_surface_precheck_falls_back_to_local_snapshot_when_bundle_is_invalid(tmp_path, monkeypatch):
     from pathlib import Path
 
@@ -530,6 +649,53 @@ def test_ai_surface_precheck_falls_back_to_local_snapshot_when_bundle_is_invalid
     assert payload["admission_path"] == str(admission_path)
     assert payload["admission_errors"]
     assert "modelbus bundle manifest missing:" in payload["admission_errors"][0]
+
+
+def test_ai_surface_precheck_falls_back_to_local_snapshot_when_canonical_bundle_is_invalid(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    inbox_path = str(tmp_path / "inbox.json")
+    catalog_path = str(tmp_path / "catalog.json")
+    Path(catalog_path).write_text(json.dumps({
+        "version": 1, "sources": [], "subscriptions": {}, "packs": [],
+    }), encoding="utf-8")
+    monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+
+    admission_path = tmp_path / "local-ai-surface-admission.json"
+    _write_local_ai_surface_admission(
+        admission_path,
+        [
+            {
+                "surface": "mission_suggest",
+                "lifecycle_anchor": "WatchMission",
+                "required_output_kind": "suggestion",
+                "required_schema_contract": "datapulse_ai_watch_suggestion.v1",
+                "admission_status": "admitted",
+                "mode_admission": {"off": "manual_only", "assist": "admitted", "review": "admitted"},
+                "admitted_subscription_id": "mission_suggest.local",
+                "admitted_alias": "dp.local.mission.suggest",
+                "candidate_results": [{"subscription_id": "mission_suggest.local", "degraded_result_allowed": False}],
+                "must_expose_runtime_facts": ["served_by_alias", "fallback_used", "degraded", "schema_valid", "manual_override_required"],
+                "rejectable_gaps": [],
+                "manual_fallback": "manual_or_deterministic_behavior",
+            }
+        ],
+    )
+    monkeypatch.setenv("DATAPULSE_AI_SURFACE_ADMISSION_PATH", str(admission_path))
+
+    canonical_dir = tmp_path / "ha_latest_release_bundle"
+    canonical_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(reader_module, "_CANONICAL_MODELBUS_BUNDLE_DIR", canonical_dir)
+
+    reader = DataPulseReader(inbox_path=inbox_path)
+    payload = reader.ai_surface_precheck("mission_suggest", mode="assist")
+
+    assert payload["ok"] is True
+    assert payload["alias"] == "dp.local.mission.suggest"
+    assert payload["admission_source"] == "local_snapshot"
+    assert payload["bundle_selection"] == "canonical_default"
+    assert payload["admission_errors"]
+    assert payload["admission_errors"][0].startswith("canonical bundle failed:")
 
 
 def test_ai_surface_precheck_keeps_report_draft_fail_closed_under_modelbus_bundle(tmp_path, monkeypatch):

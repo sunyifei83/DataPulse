@@ -267,6 +267,34 @@ class _WatchMCPReader:
             "runtime_facts": {"status": "fallback_used", "request_id": "claim-123"},
         }
 
+    def ai_delivery_summary(self, identifier, *, mode="assist"):
+        if identifier != "alert-1":
+            return None
+        return {
+            "surface": "delivery_summary",
+            "mode": mode,
+            "subject": {"kind": "AlertEvent", "id": identifier},
+            "precheck": self.ai_surface_precheck("delivery_summary", mode=mode),
+            "output": {
+                "contract_id": "datapulse_ai_delivery_summary.v1",
+                "payload": {
+                    "summary": "Alert `ops-threshold` is `healthy` across 1 delivery target.",
+                    "overall_status": "healthy",
+                    "routes": [
+                        {
+                            "name": "ops-webhook",
+                            "channel": "webhook",
+                            "status": "healthy",
+                            "event_count": 1,
+                            "delivered_count": 1,
+                            "failure_count": 0,
+                        }
+                    ],
+                },
+            },
+            "runtime_facts": {"status": "fallback_used", "request_id": "delivery-123"},
+        }
+
     def ops_snapshot(self, **kwargs):
         return {
             "collector_summary": {"total": 4, "ok": 2, "warn": 1, "error": 1, "available": 3, "unavailable": 1},
@@ -477,6 +505,7 @@ def test_mcp_registers_watch_tools():
         "ai_mission_suggest",
         "ai_triage_assist",
         "ai_claim_draft",
+        "ai_delivery_summary",
         "triage_list",
         "triage_explain",
         "triage_update",
@@ -708,6 +737,12 @@ async def test_mcp_ai_projection_tools(monkeypatch):
     assert claim_payload["ok"] is True
     assert claim_payload["projection"]["output"]["contract_id"] == "datapulse_ai_claim_draft.v1"
     assert claim_payload["projection"]["runtime_facts"]["request_id"] == "claim-123"
+
+    delivery_raw = await app._run_tool("ai_delivery_summary", {"identifier": "alert-1", "mode": "review"})
+    delivery_payload = json.loads(delivery_raw)
+    assert delivery_payload["ok"] is True
+    assert delivery_payload["projection"]["output"]["contract_id"] == "datapulse_ai_delivery_summary.v1"
+    assert delivery_payload["projection"]["runtime_facts"]["request_id"] == "delivery-123"
 
 
 @pytest.mark.asyncio

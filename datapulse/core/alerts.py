@@ -350,6 +350,89 @@ class AlertRouteStore:
         return existing
 
 
+def validate_delivery_summary_payload(payload: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(payload, dict):
+        return ["payload must be an object"]
+
+    if not str(payload.get("summary", "") or "").strip():
+        errors.append("summary is required")
+
+    overall_status = str(payload.get("overall_status", "") or "").strip().lower()
+    if overall_status not in {"healthy", "degraded", "missing", "idle"}:
+        errors.append("overall_status must be healthy/degraded/missing/idle")
+
+    dispatch_explanation = payload.get("dispatch_explanation")
+    if dispatch_explanation is not None and not isinstance(dispatch_explanation, str):
+        errors.append("dispatch_explanation must be a string when present")
+
+    report_output_kind = payload.get("report_output_kind")
+    if report_output_kind is not None and str(report_output_kind or "").strip().lower() not in {
+        "brief",
+        "full",
+        "sources",
+        "watch_pack",
+    }:
+        errors.append("report_output_kind must be brief/full/sources/watch_pack when present")
+
+    routes = payload.get("routes")
+    if not isinstance(routes, list) or not routes:
+        errors.append("routes must contain at least one entry")
+        routes = []
+
+    for index, route in enumerate(routes, start=1):
+        if not isinstance(route, dict):
+            errors.append(f"routes[{index}] must be an object")
+            continue
+        if not str(route.get("name", "") or "").strip():
+            errors.append(f"routes[{index}].name is required")
+        channel = route.get("channel")
+        if channel is not None and not str(channel or "").strip():
+            errors.append(f"routes[{index}].channel cannot be empty when present")
+        route_status = str(route.get("status", "") or "").strip().lower()
+        if route_status not in {"healthy", "degraded", "missing", "idle"}:
+            errors.append(f"routes[{index}].status must be healthy/degraded/missing/idle")
+        for field in ("event_count", "delivered_count", "failure_count"):
+            try:
+                value = int(route.get(field, 0) or 0)
+            except Exception:
+                errors.append(f"routes[{index}].{field} must be an integer")
+                continue
+            if value < 0:
+                errors.append(f"routes[{index}].{field} cannot be negative")
+        success_rate = route.get("success_rate")
+        if success_rate is not None:
+            try:
+                rate = float(success_rate)
+            except Exception:
+                errors.append(f"routes[{index}].success_rate must be numeric or null")
+            else:
+                if rate < 0.0 or rate > 1.0:
+                    errors.append(f"routes[{index}].success_rate must be between 0 and 1")
+        for field in ("last_event_at", "last_delivered_at", "last_failed_at", "last_error"):
+            value = route.get(field)
+            if value is not None and not isinstance(value, str):
+                errors.append(f"routes[{index}].{field} must be a string when present")
+
+    incident_notes = payload.get("incident_notes")
+    if incident_notes is not None:
+        if not isinstance(incident_notes, list):
+            errors.append("incident_notes must be a list when present")
+        else:
+            for index, note in enumerate(incident_notes, start=1):
+                if not isinstance(note, dict):
+                    errors.append(f"incident_notes[{index}] must be an object")
+                    continue
+                if not str(note.get("title", "") or "").strip():
+                    errors.append(f"incident_notes[{index}].title is required")
+                if not str(note.get("detail", "") or "").strip():
+                    errors.append(f"incident_notes[{index}].detail is required")
+                severity = str(note.get("severity", "") or "").strip().lower()
+                if severity not in {"info", "warning", "error"}:
+                    errors.append(f"incident_notes[{index}].severity must be info/warning/error")
+    return errors
+
+
 def append_alert_markdown(event: AlertEvent, items: list[DataPulseItem], *, path: str | None = None) -> str:
     target = Path(path or alerts_markdown_path_from_env()).expanduser()
     target.parent.mkdir(parents=True, exist_ok=True)
