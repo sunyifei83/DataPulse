@@ -103,7 +103,15 @@ IGNORED_WORKSPACE_GATE_PATHS = {
     "out/governance/activation_preview.draft.json",
     "out/governance/auto_continuation_runtime.draft.json",
     "out/governance/code_landing_status.draft.json",
+    "out/governance/datapulse-ai-surface-admission.example.json",
+    "out/governance/datapulse_surface_runtime_hit_evidence.draft.json",
+    "out/governance/evidence_bundle_manifest.draft.json",
+    "out/governance/ha_delivery_facts.draft.json",
+    "out/governance/ha_delivery_landing.draft.json",
+    "out/governance/ha_recovery_preset.draft.json",
     "out/governance/project_specific_loop_state.draft.json",
+    "out/governance/release_readiness_fact.draft.json",
+    "out/governance/release_sidecar.draft.json",
     "out/governance/slice_execution_brief.draft.json",
 }
 

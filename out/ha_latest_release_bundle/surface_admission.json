@@ -1,9 +1,9 @@
 {
   "schema": "modelbus.consumer_surface_admission.v1",
-  "generated_at_utc": "2026-03-16T12:29:52Z",
+  "generated_at_utc": "2026-03-16T12:32:41Z",
   "consumer_id": "datapulse",
   "release_window": {
-    "generated_at_utc": "2026-03-16T12:29:52Z",
+    "generated_at_utc": "2026-03-16T12:32:41Z",
     "release_level": "manual_only",
     "assured_verdict": "pass",
     "constitutional_semantics": "BUNDLE-FIRST-REQUIRED"
