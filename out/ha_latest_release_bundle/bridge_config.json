@@ -1,6 +1,6 @@
 {
   "schema": "modelbus.consumer_bridge_config.v1",
-  "generated_at_utc": "2026-03-16T12:32:41Z",
+  "generated_at_utc": "2026-03-16T12:34:56Z",
   "consumer_id": "datapulse",
   "bundle_id": "datapulse.ai_surface_bus",
   "base_url": "https://modelbus.example.com",

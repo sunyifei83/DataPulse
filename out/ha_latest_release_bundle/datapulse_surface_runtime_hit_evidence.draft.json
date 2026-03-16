@@ -1,7 +1,7 @@
 {
   "schema_version": "datapulse_surface_runtime_hit_evidence.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-16T12:32:46Z",
+  "generated_at_utc": "2026-03-16T12:35:01Z",
   "bundle_default": {
     "strategy": "bundle_first",
     "canonical_bundle_path": "out/ha_latest_release_bundle",
@@ -14,7 +14,7 @@
       "mode": "review",
       "subject": {
         "kind": "AlertEvent",
-        "id": "ed8d8ab9a011"
+        "id": "221d476acc13"
       },
       "admission_source": "modelbus_bundle",
       "bundle_selection": "explicit_env",
@@ -23,7 +23,7 @@
       "admission_status": "admitted",
       "served_by_alias": "dp.delivery.summary",
       "requested_alias": "dp.delivery.summary",
-      "request_id": "f7db94892167",
+      "request_id": "5cc86ccf4e29",
       "schema_valid": true,
       "runtime_status": "fallback_used",
       "output_present": true,
@@ -48,7 +48,7 @@
       "admission_status": "rejected",
       "served_by_alias": "dp.report.draft",
       "requested_alias": "dp.report.draft",
-      "request_id": "422858a10a2a",
+      "request_id": "fb28b02cbcbe",
       "schema_valid": false,
       "runtime_status": "rejected",
       "output_present": false,

@@ -1,7 +1,7 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-16T12:33:12Z",
+  "generated_at_utc": "2026-03-16T12:35:29Z",
   "status_kind": "draft_export",
   "wired": false,
   "headline_summary": {
@@ -24,7 +24,7 @@
     }
   },
   "git": {
-    "head": "154550c13165565f33d9cc15f5352c203d31f1af",
+    "head": "d8f50416e48303246a8f33c1e8c4046e1abf69dc",
     "branch": "main",
     "upstream_ref": "origin/main",
     "upstream_head": "5ae578fbf070e40fca11dc335ab417570be5d325",
@@ -216,14 +216,6 @@
     "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
-        "datapulse/cli.py",
-        "datapulse/console_server.py",
-        "datapulse/mcp_server.py",
-        "datapulse/reader.py",
-        "docs/governance/datapulse-ai-surface-admission-contract.md",
-        "docs/governance/datapulse-ai-surface-subscriptions.example.json",
-        "docs/governance/datapulse-structured-release-bundle.draft.md",
-        "docs/test_facts.md",
         "out/governance/code_landing_status.draft.json",
         "out/governance/datapulse-ai-surface-admission.example.json",
         "out/governance/datapulse_surface_runtime_hit_evidence.draft.json",
@@ -251,18 +243,7 @@
         "out/ha_latest_release_bundle/release_status.json",
         "out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
         "out/ha_latest_release_bundle/surface_admission.json",
-        "scripts/governance/export_datapulse_ai_surface_admission_example.py",
-        "scripts/governance/export_datapulse_evidence_bundle.py",
-        "scripts/governance/export_datapulse_modelbus_consumer_bundle.py",
-        "scripts/governance/export_datapulse_release_sidecar.py",
-        "scripts/governance/export_datapulse_structured_release_bundle.py",
-        "scripts/governance/export_datapulse_surface_runtime_hit_evidence.py",
-        "tests/test_cli.py",
-        "tests/test_console_server.py",
-        "tests/test_delivery.py",
-        "tests/test_mcp_server.py",
-        "tests/test_reader.py",
-        "tests/test_report.py"
+        "scripts/governance/datapulse_loop_contracts.py"
       ],
       "docs_only": false
     }
