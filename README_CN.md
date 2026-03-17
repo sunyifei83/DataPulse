@@ -19,6 +19,16 @@
 
 建立统一的跨平台情报入口：对 URL 做采集、解析、置信评分、去重归档并输出结构化结果，服务于 MCP、Skill、Agent、Bot 等编排场景。
 
+## 升维判断与蓝图落地
+
+| 维度 | 当前判断 |
+| --- | --- |
+| 仓库定位 | DataPulse 已从“多平台采集器集合”演进为本地优先的公开来源情报操作面，主链路是 `collection -> mission -> triage -> story -> report -> delivery -> governance`。 |
+| 已形成闭环 | 公开来源采集、搜索、watch/triage/story、alert/route、ops scorecard、browser console、source/lifecycle/delivery governance 已在仓内形成可运行闭环。 |
+| 正在收敛 | report objects、normalized delivery subscription、report package/dispatch、governed AI surfaces 已进入 Reader / CLI / MCP 运行面，但仍按治理契约分层收口。 |
+| 明确边界 | 本仓不是付费数据库采购系统、线下访谈系统、ERP/CRM 情报中台，也不对抓取合法性做自动法律判断。 |
+| 当前证明面 | `out/ha_latest_release_bundle/` 是当前 canonical 交付证明 bundle；其中 `code_landing_status.snapshot.json`、`release_status.json`、`datapulse-ai-surface-admission.example.json` 分别沉淀代码落地、发布状态与 AI surface admission 真相。 |
+
 ## 真实实现能力
 
 - 路由与采集器：`twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `arxiv`, `hackernews`, `trending`, `generic web`, `jina`
@@ -53,6 +63,9 @@
   - 支持 story 聚类、主次证据、时间线、冲突提示、实体聚合
   - 支持 `--story-build / --story-list / --story-show / --story-update / --story-graph / --story-export`
   - 支持 Reader / MCP / Console 共用同一套 story 语义
+- 报告生产与角色化交付：
+  - `datapulse/core/report.py` 已落地 `ReportBrief / ClaimCard / ReportSection / CitationBundle / Report / ExportProfile / DeliverySubscription / DeliveryDispatchRecord`
+  - CLI / Reader / MCP 已提供 `--report-*`、`--delivery-*` 与对应 tool surface，用于组合报告、生成 delivery package、派发并审计 dispatch record
 - 告警与调度（首版）：
   - 支持 threshold alert rule、到期任务轮询、daemon 单实例锁
   - 支持关键词 / 标签 / 域名 / source_type / 时效过滤
@@ -94,13 +107,16 @@
   - `MissionIntent` 为 watch mission 补入 `demand_intent / key_questions / freshness / coverage_targets`
   - 仓内已形成 [来源治理契约](./docs/intelligence_source_governance_contract.md)、[生命周期契约](./docs/intelligence_lifecycle_contract.md)、[分发契约](./docs/intelligence_delivery_contract.md) 与 [商业情报治理蓝图](./docs/commercial_intelligence_governance_blueprint.md)
   - `ops_snapshot()`、`datapulse --ops-overview` 与浏览器控制台已补入 `coverage / freshness / alert yield / triage throughput / story conversion` intelligence governance scorecard
+- 治理式 AI surface：
+  - 仓内已提供 `mission_suggest / triage_assist / claim_draft / report_draft / delivery_summary` 的 Reader / CLI / MCP / console 投影面
+  - 当前 admission 真相：`mission_suggest / triage_assist / claim_draft / delivery_summary` 为 admitted，`report_draft` 虽有 runtime surface，但仍按治理要求故意 fail-closed
 - 轻量实体增强（EdgeQuake 蒸馏）：
   - `--entities` 启用 URL 级实体抽取（`fast`/`llm`）
   - `--entity-query` / `--entity-graph` / `--entity-stats` 支持实体存储与查询
   - 评分链路可通过 `DATAPULSE_ENTITY_CORROBORATION_WEIGHT` 引入实体跨源互证加分（默认 `0`）
-- 测试基建：
-  - 656 个测试，覆盖 41 个测试模块
-  - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）
+- 测试与证明面：
+  - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）与 repo quick gate 共同构成默认门禁
+  - canonical truth 以 `out/ha_latest_release_bundle/` 为准，而不是 README 中易漂移的硬编码统计
 
 ## 安装
 
@@ -112,7 +128,7 @@ pip install -e ".[all]"   # 启用全部可选能力
 可选安装组：
 
 - `.[console]`、`.[trafilatura]`、`.[youtube]`、`.[telegram]`、`.[browser]`、`.[mcp]`、`.[notebooklm]`  
-  说明：`.[mcp]` 为原生 MCP 能力；未安装时，`python -m datapulse.mcp_server` 自动切到本地 fallback。
+  说明：`.[mcp]` 为原生 MCP 能力；未安装时，`uv run python -m datapulse.mcp_server` 自动切到本地 fallback。
 
 ## 开发环境
 
@@ -309,9 +325,21 @@ K. Story Workspace:
   - `datapulse --story-show <story_id>`
   - `datapulse --story-update <story_id>`
   - `datapulse --story-graph <story_id>`
-L. GUI 控制台:
+L. Report:
+  - `datapulse --report-object brief --report-list`
+  - `datapulse --report-object report --report-compose <report_id>`
+  - `datapulse --report-object report --report-export <report_id> --report-export-format markdown`
+M. Delivery:
+  - `datapulse --delivery-subscription-list`
+  - `datapulse --delivery-package <subscription_id>`
+  - `datapulse --delivery-dispatch <subscription_id>`
+N. AI surface:
+  - `datapulse --ai-surface-precheck claim_draft`
+  - `datapulse --ai-mission-suggest <watch_id>`
+  - `datapulse --ai-delivery-summary <alert_id>`
+O. GUI 控制台:
   - `datapulse-console --port 8765`（含 Story Workspace 证据板与基础 story editor）
-M. 诊断:
+P. 诊断:
   - `datapulse --config-check`
   - `datapulse --doctor`
   - `datapulse --troubleshoot`
@@ -411,12 +439,12 @@ bash scripts/run_xhs_quality_report.sh
 - MCP 服务端（`.[mcp]` 可选）：
 
 ```bash
-python -m datapulse.mcp_server
-python -m datapulse.mcp_server --list-tools
-python -m datapulse.mcp_server --call health
+uv run python -m datapulse.mcp_server
+uv run python -m datapulse.mcp_server --list-tools
+uv run python -m datapulse.mcp_server --call health
 ```
 
-46 个可用工具：
+MCP 工具已覆盖采集、信源、mission、triage、story、report、delivery、治理式 AI 与诊断面：
 
 **采集与读取：**
 - `read_url(url, min_confidence)` — 解析单条 URL
@@ -474,6 +502,17 @@ python -m datapulse.mcp_server --call health
 - `build_digest(profile, source_ids, top_n, secondary_n, min_confidence, since)` — 精选摘要
 - `emit_digest_package(profile='default', source_ids=None, top_n=3, secondary_n=7, min_confidence=0.0, since=None, output_format='json')` — 导出 office-ready 摘要包（`json`/`markdown`）
 
+**报告与交付层（Report / Delivery）：**
+- `list_report_briefs / create_report_brief / show_report_brief / update_report_brief` — 报告 brief 管理
+- `list_reports / create_report / show_report / update_report / compose_report / assess_report_quality / export_report` — 报告对象装配、质检与导出
+- `list_delivery_subscriptions / create_delivery_subscription / update_delivery_subscription / delete_delivery_subscription` — 统一交付订阅
+- `build_report_delivery_package / dispatch_report_delivery / list_delivery_dispatch_records` — 角色化交付包生成、派发与审计
+
+**治理式 AI surface：**
+- `ai_surface_precheck` — 校验 surface 的 admission / mode / contract 事实
+- `ai_mission_suggest / ai_triage_assist / ai_claim_draft / ai_report_draft / ai_delivery_summary` — 对 watch、triage、story、report、delivery 的治理式 AI 投影
+- 当前 `report_draft` 仍按 governance fail-closed；runtime surface 可见不代表 admission 已放行
+
 **诊断与工具：**
 - `doctor()` — 采集器分级健康自检
 - `detect_platform(url)` — 平台检测
@@ -522,6 +561,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_WATCH_STATUS_PATH`（daemon JSON 状态文件）
 - `DATAPULSE_WATCH_STATUS_HTML`（daemon HTML 状态页）
 - `DATAPULSE_STORIES_PATH`（story workspace 存储文件）
+- `DATAPULSE_REPORTS_PATH`（report / delivery 存储文件）
 - `TG_API_ID` / `TG_API_HASH`
 - `NITTER_INSTANCES`
 - `FXTWITTER_API_URL`
@@ -562,6 +602,7 @@ Markdown 投影说明：
 - 蓝图计划内的变更按逻辑单元提交入库，不长期停留在本地脏工作区。
 - 提交推送后默认触发 GitHub Actions，当前闸门为 `ruff check datapulse/`、`mypy datapulse/`、`pytest tests/`。
 - `G0` 浏览器控制台额外通过 `datapulse-console --help` 做入口烟测，确保 console 依赖和脚本包装在 CI 可安装。
+- 最新代码落地、发布准备度与 AI admission 事实应优先读取 `out/ha_latest_release_bundle/` 下的导出，而不是依赖 README 中的静态统计或口头描述。
 
 ## 测试与功能使用建议
 

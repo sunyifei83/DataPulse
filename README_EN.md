@@ -20,6 +20,16 @@ Brand baseline: [`docs/brand_identity.md`](./docs/brand_identity.md)
 DataPulse provides one shared intake path for URL extraction, confidence scoring, and memory output
 for MCP, Skill, Agent, and bot workflows.
 
+## Higher-level view and blueprint landing
+
+| Dimension | Current reading |
+| --- | --- |
+| Repository posture | DataPulse is no longer just a multi-platform parser set. It is now a local-first public-source intelligence operating surface with the chain `collection -> mission -> triage -> story -> report -> delivery -> governance`. |
+| Landed closed loops | Public-source intake, search, watch/triage/story, alert/routes, ops scorecard, browser console, and source/lifecycle/delivery governance are all repo-landed and runnable. |
+| In-flight convergence | Report objects, normalized delivery subscriptions, report package/dispatch flows, and governed AI surfaces are now in Reader / CLI / MCP runtime, but still intentionally constrained by governance contracts instead of being marketed as a fully autonomous research agent. |
+| Explicit boundary | This repo is not a paid-database procurement layer, field-interview system, ERP/CRM intelligence platform, or automated legal-compliance oracle. |
+| Current proof surface | `out/ha_latest_release_bundle/` is the canonical delivery-proof bundle; `code_landing_status.snapshot.json`, `release_status.json`, and `datapulse-ai-surface-admission.example.json` hold code-landing, release, and AI-surface admission truth respectively. |
+
 ## Implemented features
 
 - Parser routing: `twitter/x`, `reddit`, `youtube`, `bilibili`, `telegram`, `wechat`, `xiaohongshu`, `rss`, `arxiv`, `hackernews`, `trending`, `generic web`, `jina`
@@ -55,6 +65,9 @@ for MCP, Skill, Agent, and bot workflows.
   - story clustering, primary/secondary evidence, timelines, contradiction hints, and entity rollups
   - `--story-build / --story-list / --story-show / --story-update / --story-graph / --story-export`
   - shared story semantics across Reader, MCP, and the browser console
+- Structured report and role-aware delivery:
+  - `datapulse/core/report.py` now persists `ReportBrief / ClaimCard / ReportSection / CitationBundle / Report / ExportProfile / DeliverySubscription / DeliveryDispatchRecord`
+  - CLI / Reader / MCP now expose `--report-*`, `--delivery-*`, and corresponding tool surfaces for report assembly, delivery package generation, dispatch, and audit
 - Alerts and scheduling (initial support):
   - threshold alert rules, due-runner polling, daemon single-instance lock
   - keyword / tag / domain / source-type / freshness filters for alert matching
@@ -100,9 +113,12 @@ for MCP, Skill, Agent, and bot workflows.
   - `MissionIntent` now gives watch missions explicit `demand_intent / key_questions / freshness / coverage_targets`
   - the repo now includes a [source governance contract](./docs/intelligence_source_governance_contract.md), [lifecycle contract](./docs/intelligence_lifecycle_contract.md), [delivery contract](./docs/intelligence_delivery_contract.md), and [commercial intelligence governance blueprint](./docs/commercial_intelligence_governance_blueprint.md)
   - `ops_snapshot()`, `datapulse --ops-overview`, and the browser console now expose an intelligence governance scorecard for coverage, freshness, alert yield, triage throughput, and story conversion
-- Testing:
-  - 656 tests across 41 modules
-  - GitHub Actions CI (Python 3.10/3.11/3.12 matrix)
+- Governed AI surfaces:
+  - Reader / CLI / MCP / console now project `mission_suggest`, `triage_assist`, `claim_draft`, `report_draft`, and `delivery_summary`
+  - current admission truth is intentionally asymmetric: `mission_suggest`, `triage_assist`, `claim_draft`, and `delivery_summary` are admitted, while `report_draft` remains runtime-visible but fail-closed until its structured contract is admitted
+- Verification and proof surface:
+  - GitHub Actions CI (Python 3.10/3.11/3.12 matrix) and the repo quick gate form the default promotion gate
+  - canonical truth lives in `out/ha_latest_release_bundle/`, not in hard-coded README counters
 
 ## Install
 
@@ -114,7 +130,7 @@ pip install -e ".[all]"   # enable all optional capabilities
 Optional groups:
 
 - `.[console]`, `.[trafilatura]`, `.[youtube]`, `.[telegram]`, `.[browser]`, `.[mcp]`, `.[notebooklm]`  
-  Note: `.[mcp]` enables native MCP transport; when missing, `python -m datapulse.mcp_server` falls back to an internal stdio-compatible runtime.
+  Note: `.[mcp]` enables native MCP transport; when missing, `uv run python -m datapulse.mcp_server` falls back to an internal stdio-compatible runtime.
 
 ## Development
 
@@ -355,12 +371,12 @@ Smoke env vars:
 - MCP server (`.[mcp]` optional, fallback to built-in stdio when missing):
 
 ```bash
-python -m datapulse.mcp_server
-python -m datapulse.mcp_server --list-tools
-python -m datapulse.mcp_server --call health
+uv run python -m datapulse.mcp_server
+uv run python -m datapulse.mcp_server --list-tools
+uv run python -m datapulse.mcp_server --call health
 ```
 
-46 tools available:
+MCP coverage spans intake, source management, missions, triage, story, report, delivery, governed AI, and diagnostics:
 
 **Intake & reading:**
 - `read_url(url, min_confidence)` — parse a single URL
@@ -419,6 +435,17 @@ python -m datapulse.mcp_server --call health
 - `build_digest(profile, source_ids, top_n, secondary_n, min_confidence, since)` — curated digest
 - `emit_digest_package(profile='default', source_ids=None, top_n=3, secondary_n=7, min_confidence=0.0, since=None, output_format='json')` — export office-ready digest package (`json`/`markdown`)
 
+**Report and delivery:**
+- `list_report_briefs / create_report_brief / show_report_brief / update_report_brief` — report brief management
+- `list_reports / create_report / show_report / update_report / compose_report / assess_report_quality / export_report` — report assembly, quality gates, and export
+- `list_delivery_subscriptions / create_delivery_subscription / update_delivery_subscription / delete_delivery_subscription` — normalized delivery subscriptions
+- `build_report_delivery_package / dispatch_report_delivery / list_delivery_dispatch_records` — package generation, dispatch, and attributable delivery audit
+
+**Governed AI surfaces:**
+- `ai_surface_precheck` — inspect current admission / mode / contract truth for one AI surface
+- `ai_mission_suggest / ai_triage_assist / ai_claim_draft / ai_report_draft / ai_delivery_summary` — governed projections for watch, triage, story, report, and delivery work
+- `report_draft` remains intentionally fail-closed at governance level even though the runtime surface already exists
+
 **Diagnostics & utilities:**
 - `doctor()` — tiered collector health check
 - `detect_platform(url)` — platform detection
@@ -467,6 +494,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_WATCH_STATUS_PATH` (daemon JSON status file)
 - `DATAPULSE_WATCH_STATUS_HTML` (daemon HTML status page)
 - `DATAPULSE_STORIES_PATH` (story workspace storage file)
+- `DATAPULSE_REPORTS_PATH` (report and delivery storage file)
 - `TG_API_ID` / `TG_API_HASH`
 - `NITTER_INSTANCES`
 - `FXTWITTER_API_URL`
@@ -503,6 +531,7 @@ Markdown projection notes:
 - Blueprint work should land as repository commits, not remain as long-lived local workspace drift.
 - After push, GitHub Actions is the default gate: `ruff check datapulse/`, `mypy datapulse/`, and `pytest tests/`.
 - The G0 browser console adds a lightweight smoke check through `datapulse-console --help` so packaging and console dependencies are validated in CI.
+- Current code-landing, release-readiness, and AI-admission truth should be read from `out/ha_latest_release_bundle/` exports rather than from static README metrics.
 
 ## Safety
 

@@ -19,7 +19,13 @@ This contract covers the shared lifecycle semantics for:
 - `Report` and `ExportProfile` as the authoritative delivery basis for report-layer outputs
 - AI assistance surface contracts and `off` / `assist` / `review` switch semantics for watch, triage, report, and delivery work
 
-This contract currently records the repo-level semantics before full report model/runtime code lands.
+The repo now ships report-domain persistence plus Reader / CLI / MCP / browser-API runtime surfaces. This contract therefore records the authoritative lifecycle for landed layers and states which AI/runtime paths remain intentionally fail-closed.
+
+## Current Landing Posture
+
+- report-domain objects are repo-backed in `datapulse/core/report.py` and projected through `datapulse/reader.py`, `datapulse/cli.py`, `datapulse/mcp_server.py`, and `datapulse/console_server.py`
+- governed AI runtime projections are also repo-backed; current admission truth admits `mission_suggest`, `triage_assist`, `claim_draft`, and `delivery_summary`
+- `report_draft` already has Reader / CLI / MCP / console runtime parity, but remains intentionally rejected / fail-closed until an admitted structured contract exists
 
 ## Current Repo Anchors
 
@@ -29,10 +35,10 @@ This contract currently records the repo-level semantics before full report mode
 | Mission execution | `MissionRun` | `datapulse/core/watchlist.py`, `datapulse/core/scheduler.py` |
 | Triage queue | `DataPulseItem`, `review_state`, `review_notes`, `review_actions`, `duplicate_of` | `datapulse/core/models.py`, `datapulse/core/triage.py` |
 | Story assembly | `Story`, `StoryEvidence`, `StoryTimelineEvent`, `StoryConflict` | `datapulse/core/story.py` |
-| Report production (planned layer) | `ReportBrief`, `ClaimCard`, `ReportSection`, `CitationBundle`, `Report`, `ExportProfile` | `docs/intelligence_lifecycle_contract.md`, `docs/gui_intelligence_console_plan.md`, `docs/governance/datapulse-research-os-report-production-blueprint.md` |
+| Report production (landed additive layer) | `ReportBrief`, `ClaimCard`, `ReportSection`, `CitationBundle`, `Report`, `ExportProfile` | `datapulse/core/report.py`, `datapulse/reader.py`, `datapulse/cli.py`, `datapulse/mcp_server.py`, `datapulse/console_server.py`, `docs/governance/datapulse-research-os-report-production-blueprint.md` |
 | Delivery and ops | `AlertEvent`, named alert routes, route health, ops snapshot | `datapulse/core/alerts.py`, `datapulse/reader.py` |
 | Report-backed delivery | `Report`, `ExportProfile` | `docs/intelligence_delivery_contract.md`, `docs/governance/datapulse-report-delivery-subscription-blueprint.md`, `datapulse/core/report.py` |
-| AI assistance overlay (planned layer) | `mission_suggest`, `triage_assist`, `claim_draft`, `report_draft`, `delivery_summary`; `off`, `assist`, `review` | `docs/intelligence_lifecycle_contract.md`, `docs/governance/datapulse-modelbus-ai-governance-blueprint.md` |
+| AI assistance overlay (governed runtime layer) | `mission_suggest`, `triage_assist`, `claim_draft`, `report_draft`, `delivery_summary`; `off`, `assist`, `review` | `datapulse/reader.py`, `datapulse/cli.py`, `datapulse/mcp_server.py`, `datapulse/console_server.py`, `docs/governance/datapulse-modelbus-ai-governance-blueprint.md`, `out/ha_latest_release_bundle/datapulse-ai-surface-admission.example.json` |
 
 ## Canonical Lifecycle
 
@@ -221,6 +227,11 @@ Contract rules:
 - surfaces must not write final review, export, or dispatch outcomes directly.
 - delivery-facing AI may summarize route and report-output facts, but it may not become a transport executor.
 
+Current admission posture:
+
+- `mission_suggest`, `triage_assist`, `claim_draft`, and `delivery_summary` are currently admitted surfaces
+- `report_draft` remains runtime-visible but governance-rejected / fail-closed until a structured contract is admitted
+
 ### Switch semantics
 
 The same switch semantics apply across Reader, CLI, MCP, API, and browser projection:
@@ -260,9 +271,9 @@ Current lifecycle parity already exists and must remain true:
 | Mission | `create_watch`, `list_watches`, `show_watch`, `list_watch_results`, `run_watch`, `run_due_watches`, `watch_status_snapshot`, `ops_snapshot` | `--watch-*`, `watch_*`, `/api/watches*`, `/api/watch-status`, `/api/overview` |
 | Triage | `triage_list`, `triage_explain`, `triage_update`, `triage_note`, `triage_stats` | `--triage-*`, `triage_*`, `/api/triage*` |
 | Story | `story_build`, `list_stories`, `show_story`, `story_update`, `story_graph`, `export_story` | `--story-*`, `story_*`, `/api/stories*` |
-| Delivery and ops | `list_alerts`, `list_alert_routes`, `alert_route_health`, `ops_snapshot` | `--alert-*`, `--ops-overview`, `alert_route_health`, `ops_overview`, `/api/alert-routes*` |
-| Report (planned) | planned `report` readers and stores (L14.5+) | planned `--report-*`, `report_*`, `/api/reports*` |
-| AI assistance (planned) | planned Reader-backed requests keyed by `mission_suggest`, `triage_assist`, `claim_draft`, `report_draft`, `delivery_summary` plus shared switch modes | future CLI, MCP, API, and console projections must reuse the same surface ids and `off` / `assist` / `review` meanings |
+| Delivery and ops | `list_alerts`, `list_alert_routes`, `alert_route_health`, `ops_snapshot`, `list_delivery_subscriptions`, `list_delivery_dispatch_records`, `build_report_delivery_package`, `dispatch_report_delivery` | `--alert-*`, `--ops-overview`, `--delivery-*`, `alert_route_health`, `ops_overview`, `list_delivery_subscriptions`, `dispatch_report_delivery`, `/api/alert-routes*`, `/api/delivery-subscriptions*`, `/api/delivery-dispatch-records` |
+| Report | `list_report_briefs`, `create_report_brief`, `list_report_sections`, `create_report_section`, `list_reports`, `create_report`, `compose_report`, `assess_report_quality`, `export_report` | `--report-*`, `list_report_*`, `create_report_*`, `compose_report`, `export_report`, `/api/report-briefs*`, `/api/report-sections*`, `/api/reports*` |
+| AI assistance | `ai_surface_precheck`, `ai_mission_suggest`, `ai_triage_assist`, `ai_claim_draft`, `ai_report_draft`, `ai_delivery_summary` | `--ai-*`, `ai_*`, `/api/ai/surfaces/*`, `/api/watches/{id}/ai/*`, `/api/triage/{id}/ai/*`, `/api/stories/{id}/ai/*`, `/api/reports/{id}/ai/*`, `/api/alerts/{id}/ai/*` |
 
 Contract rules:
 

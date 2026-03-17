@@ -1,6 +1,6 @@
 # DataPulse Intelligence Hub
 
-跨平台内容采集与事实筛选工具，面向 CLI / MCP / Skill / Agent 工作流。
+本地优先的公开来源情报采集、处置、证据化、报告交付与治理底座，面向 CLI / MCP / Skill / Agent 工作流。
 
 <p align="center">
   <img src="./docs/assets/datapulse-command-chamber-hero.jpg" alt="DataPulse Command Chamber key visual" width="960">
@@ -30,6 +30,16 @@ DataPulse 提供一个统一入口，用于：
 - Bot/Agent 的“先采集、后推理”前置层
 - 多平台内容的标准化落库
 
+## 升维判断与蓝图落地
+
+| 维度 | 当前判断 |
+| --- | --- |
+| 仓库定位 | DataPulse 已从“多平台解析器集合”演进为本地优先的公开来源情报操作面，主链路是 `collection -> mission -> triage -> story -> report -> delivery -> governance`。 |
+| 已形成闭环 | 公开来源采集、搜索、watch/triage/story、alert/route、ops scorecard、browser console、source/lifecycle/delivery governance 已在仓内形成可运行闭环。 |
+| 正在收敛 | report objects、normalized delivery subscription、report package/dispatch、governed AI surfaces 已进入 Reader / CLI / MCP 运行面，但仍按治理契约逐层收口，而不是伪装成“全自动研究代理”。 |
+| 明确边界 | 本仓不是付费数据库采购系统、线下访谈系统、ERP/CRM 情报中台，也不对抓取合法性做自动法律判断。 |
+| 当前证明面 | `out/ha_latest_release_bundle/` 是当前 canonical 交付证明 bundle；其中 `code_landing_status.snapshot.json`、`release_status.json`、`datapulse-ai-surface-admission.example.json` 分别沉淀代码落地、发布状态与 AI surface admission 真相。 |
+
 ## 当前能力（按仓内实现）
 
 | 能力域 | 当前支持 |
@@ -43,6 +53,9 @@ DataPulse 提供一个统一入口，用于：
 | 告警分发 | threshold alert rule、关键词/标签/域名/时效过滤、JSON/Markdown/Webhook/Feishu/Telegram sink、`--alert-list`、`--alert-route-list`、`--alert-route-health` |
 | 运行状态 | daemon 单实例锁、heartbeat JSON/HTML 状态页、MCP `watch_status`、CLI `--ops-overview`、任务级 watch health / aggregate success-rate / intelligence governance scorecard |
 | 浏览器控制台 | `datapulse-console` 本地 G0/G3 GUI，统一 watch / triage / story / alert / route / status 工作台，`Mission Cockpit` 已具备 result stream、filter chips、timeline strip 和基础 alert rule 编辑，`Triage Queue` 已具备 first-cut keyboard workflow，`Story Workspace` 已具备基础 story editor |
+| 报告生产 | `--report-object` + `--report-list/create/update/compose/quality/export`，围绕 `ReportBrief / ClaimCard / ReportSection / Report / ExportProfile` 组织研究产物 |
+| 角色化交付 | `--delivery-subscription-*`、`--delivery-package`、`--delivery-dispatch`，支持 `profile / watch_mission / story / report` subject kind 的 normalized delivery subscription |
+| 治理式 AI | `--ai-surface-precheck`、`--ai-mission-suggest`、`--ai-triage-assist`、`--ai-claim-draft`、`--ai-report-draft`、`--ai-delivery-summary`；当前 `report_draft` 仍按 admission contract 故意 fail-closed |
 | 情报治理 | `MissionIntent`、`SourceGovernance`、生命周期/分发/来源治理契约、`commercial_intelligence_governance_blueprint`、coverage/freshness/alert yield/triage throughput/story conversion scorecard |
 | 输出模型 | 统一 `DataPulseItem`（`title/content/url/confidence/score/tags/extra`） |
 | 评分排序 | 置信度 + 权威度 + 互证 + 时效性 |
@@ -195,6 +208,9 @@ datapulse --list --limit 10
 | triage 状态更新 | `datapulse --triage-update <item_id> --triage-state verified` |
 | story 构建 | `datapulse --story-build` |
 | story 查看/编辑/导出 | `datapulse --story-show <story_id>` / `datapulse --story-update <story_id>` / `datapulse --story-export <story_id>` |
+| 报告装配 / 质检 / 导出 | `datapulse --report-object report --report-compose <report_id>` / `datapulse --report-quality <report_id>` / `datapulse --report-export <report_id>` |
+| 交付订阅 / 派发 | `datapulse --delivery-subscription-list` / `datapulse --delivery-package <subscription_id>` / `datapulse --delivery-dispatch <subscription_id>` |
+| AI surface 预检 / 投影 | `datapulse --ai-surface-precheck claim_draft` / `datapulse --ai-mission-suggest <watch_id>` / `datapulse --ai-delivery-summary <alert_id>` |
 | 浏览器控制台 | `datapulse-console --port 8765`（含 Story Workspace 证据板与基础 story editor） |
 | 实体抽取 | `datapulse <url> --entities --entity-mode fast` |
 | 查询实体 | `datapulse --entity-query OPENAI --entity-limit 20` |
@@ -209,12 +225,12 @@ datapulse --list --limit 10
 ### MCP Server
 
 ```bash
-python -m datapulse.mcp_server
-python -m datapulse.mcp_server --list-tools
-python -m datapulse.mcp_server --call health
+uv run python -m datapulse.mcp_server
+uv run python -m datapulse.mcp_server --list-tools
+uv run python -m datapulse.mcp_server --call health
 ```
 
-常用工具：`read_url`、`read_batch`、`search_web`、`create_watch`、`list_watches`、`watch_show`、`watch_set_alert_rules`、`watch_results`、`run_watch`、`run_due_watches`、`triage_list`、`triage_explain`、`triage_update`、`triage_note`、`triage_stats`、`story_build`、`story_list`、`story_show`、`story_graph`、`story_export`、`list_alerts`、`list_alert_routes`、`alert_route_health`、`watch_status`、`trending`、`query_inbox`、`build_digest`、`doctor`。
+常用工具已覆盖采集、mission、triage、story、report、delivery 与治理式 AI。代表性工具包括：`read_url`、`search_web`、`create_watch`、`watch_show`、`triage_explain`、`story_export`、`compose_report`、`export_report`、`list_delivery_subscriptions`、`dispatch_report_delivery`、`ai_surface_precheck`、`ai_mission_suggest`、`ai_delivery_summary`、`doctor`。
 
 ### Skill 调用
 
@@ -261,13 +277,14 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - `DATAPULSE_WATCH_STATUS_PATH`
 - `DATAPULSE_WATCH_STATUS_HTML`
 - `DATAPULSE_STORIES_PATH`
+- `DATAPULSE_REPORTS_PATH`
 
 ## 开发与入库
 
 - 蓝图计划内的代码变更应按逻辑单元提交入库，不长期停留在脏工作区。
 - 推送到 GitHub 后应触发 Actions，当前默认闸门包括 `ruff check datapulse/`、`mypy datapulse/`、`pytest tests/`。
 - GUI/G0 相关变更额外通过 `datapulse-console --help` 入口烟测，确保 console 包装和依赖在 CI 中可安装。
-- 当前仓内回归事实：`uv run pytest tests/ -q` 为 `656 passed`，覆盖 `41` 个测试模块。
+- 当前仓内证明面以 `out/ha_latest_release_bundle/` 为准；建议从 `code_landing_status.snapshot.json`、`release_readiness_fact.draft.json` 与 `datapulse-ai-surface-admission.example.json` 读取代码落地、发布准备度与 AI admission 的最新真相，而不是依赖 README 中易漂移的静态统计。
 
 ## 安全与边界
 
@@ -288,6 +305,7 @@ bash scripts/security_guardrails.sh
 - 来源治理契约：[`docs/intelligence_source_governance_contract.md`](./docs/intelligence_source_governance_contract.md)
 - 分发契约：[`docs/intelligence_delivery_contract.md`](./docs/intelligence_delivery_contract.md)
 - 商业情报治理蓝图：[`docs/commercial_intelligence_governance_blueprint.md`](./docs/commercial_intelligence_governance_blueprint.md)
+- 当前交付证明 bundle：[`out/ha_latest_release_bundle/`](./out/ha_latest_release_bundle/)
 - 验收模板：[`docs/openclaw_datapulse_acceptance_template.md`](./docs/openclaw_datapulse_acceptance_template.md)
 - 事实沉淀：[`docs/test_facts.md`](./docs/test_facts.md)
 - 发布清单：[`docs/release_checklist.md`](./docs/release_checklist.md)

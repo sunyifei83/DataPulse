@@ -11,23 +11,26 @@ It is the contract of record for `L6.3`. It refines the delivery half of [intell
 This contract covers the current and near-term output semantics for:
 
 - source-profile subscriptions and feed export
+- normalized `DeliverySubscription` / `DeliveryDispatchRecord` persistence for report, story, watch, and profile subjects
 - watch-level alert rules and triggered `AlertEvent` records
 - named delivery routes from `AlertRouteStore`
 - report-output handoff via `Report` + `ExportProfile`
 - story export as the legacy evidence-package handoff
 - route health and ops observations
 
-This contract does not claim that the repo already has a first-class persisted `watch subscription` or `story subscription` object. Those remain follow-up work and must extend the contract below instead of bypassing it.
+The repo now persists a normalized delivery-subscription object, but not every lifecycle surface auto-manages one yet. Follow-up work must extend the contract below rather than inventing a second subscription plane beside it.
 
 ## Current Repo Anchors
 
 | Delivery step | Canonical object(s) | Repo anchors |
 | --- | --- | --- |
 | Subscription scope | source catalog profiles, subscribed source IDs | `datapulse/core/source_catalog.py`, `datapulse/reader.py` |
+| Normalized delivery subscription | `DeliverySubscription`, `DeliveryDispatchRecord` | `datapulse/core/report.py`, `datapulse/reader.py`, `datapulse/cli.py`, `datapulse/mcp_server.py`, `datapulse/console_server.py` |
 | Triggered delivery intent | `WatchMission.alert_rules` | `datapulse/core/watchlist.py`, `datapulse/core/alerts.py`, `datapulse/reader.py` |
 | Triggered event record | `AlertEvent` | `datapulse/core/alerts.py` |
 | Route registry | `AlertRouteStore`, named route config | `datapulse/core/alerts.py` |
 | Pull outputs | `build_json_feed`, `build_rss_feed`, `build_atom_feed` | `datapulse/reader.py`, `datapulse/mcp_server.py`, `datapulse/cli.py` |
+| Report package and dispatch | `build_report_delivery_package`, `dispatch_report_delivery` | `datapulse/core/report.py`, `datapulse/reader.py`, `datapulse/cli.py`, `datapulse/mcp_server.py`, `datapulse/console_server.py` |
 | Evidence-package export | `export_story(..., output_format="json"|"markdown")` | `datapulse/reader.py`, `datapulse/mcp_server.py`, `datapulse/cli.py` |
 | Delivery observations | `list_alert_routes`, `alert_route_health`, `ops_snapshot` | `datapulse/reader.py`, `datapulse/console_server.py` |
 
@@ -53,7 +56,10 @@ The contract separates five concerns:
 
 ### 1. Subscription scope
 
-The current repo already has one real subscription primitive: source-profile subscriptions in `SourceCatalog`.
+The current repo now has two real subscription primitives:
+
+- source-profile subscriptions in `SourceCatalog`
+- normalized delivery subscriptions in `datapulse/core/report.py`
 
 Current anchors:
 
@@ -61,13 +67,18 @@ Current anchors:
 - `subscribe_source(source_id, profile="default")`
 - `unsubscribe_source(source_id, profile="default")`
 - `query_feed(profile=..., source_ids=...)`
+- `list_delivery_subscriptions(...)`
+- `create_delivery_subscription(...)`
+- `build_report_delivery_package(...)`
+- `dispatch_report_delivery(...)`
 
 Contract rules:
 
 - a subscription scope selects content membership; it does not define transport credentials
 - `profile` is the stable audience identifier for pull-oriented outputs
 - explicit `source_ids` may override a profile at read time, but should not invent a second subscription model
-- future watch/story subscriptions must compile down to the same idea: stable audience scope first, transport second
+- normalized delivery subscriptions should reference existing mission/story/report/profile truth instead of copying business state
+- future watch/story subscription UX should compile down to the same idea: stable subject identity first, transport second
 
 ### 2. Triggered delivery intent
 
@@ -132,7 +143,7 @@ The repo currently exposes three output package families:
 | Package family | Current shape | Delivery mode |
 | --- | --- | --- |
 | mission alert | `AlertEvent` plus matched item payloads | push |
-| report output | `ExportProfile` selected outputs over `Report` (`brief`, `full`, `sources`, `watch_pack`) | pull (and future push) |
+| report output | `ExportProfile` selected outputs over `Report` (`brief`, `full`, `sources`, `watch_pack`) | pull and route-backed push |
 | feed snapshot | JSON Feed, RSS, Atom built from profile/source subscription scope | pull |
 | story evidence package | story JSON or Markdown export | pull |
 
@@ -187,19 +198,19 @@ Contract rules:
 - `healthy` means attempts exist with successful delivery
 - `idle` means a route is configured but has no observed attempt
 
-## Normalized Subscription Shape For Follow-up Work
+## Normalized Subscription Shape
 
-The repo does not yet persist a single normalized subscription object across profiles, watches, and stories. Follow-up work should converge on this shape:
+The repo now persists normalized `DeliverySubscription` and `DeliveryDispatchRecord` objects in `datapulse/core/report.py`. Follow-up work should expand adoption of this shape instead of creating a second subscription model:
 
 | Field | Meaning | Current anchor |
 | --- | --- | --- |
 | `subscriber_kind` | who is consuming the output | not yet first-class |
-| `subject_kind` | `profile`, `watch_mission`, `story`, or `report` | profile exists now; watch/story/report follow-up |
-| `subject_ref` | stable subject identifier | profile name, mission ID, story ID |
-| `output_kind` | `alert_event`, `feed_json`, `feed_rss`, `feed_atom`, `story_json`, `story_markdown`, `report_brief`, `report_full`, `report_sources`, `report_watch_pack` | already implied by current APIs |
-| `delivery_mode` | `pull` or `push` | already implied by current APIs |
-| `route_names` | named push targets | current `alert_rules.routes` |
-| `cursor_or_since` | incremental read pointer | current `since` on feed builders; future expansion |
+| `subject_kind` | `profile`, `watch_mission`, `story`, or `report` | persisted in `DeliverySubscription` |
+| `subject_ref` | stable subject identifier | persisted in `DeliverySubscription` |
+| `output_kind` | `alert_event`, `feed_json`, `feed_rss`, `feed_atom`, `story_json`, `story_markdown`, `report_brief`, `report_full`, `report_sources`, `report_watch_pack` | persisted in `DeliverySubscription` |
+| `delivery_mode` | `pull` or `push` | persisted in `DeliverySubscription` |
+| `route_names` | named push targets | persisted in `DeliverySubscription`; route names still resolve through `AlertRouteStore` |
+| `cursor_or_since` | incremental read pointer | persisted in `DeliverySubscription` |
 
 Forward-compatibility rules:
 
@@ -216,8 +227,9 @@ Current output parity that should remain true:
 | --- | --- | --- |
 | subscription scope | `list_subscriptions`, `subscribe_source`, `unsubscribe_source`, `query_feed` | CLI feed flags, MCP `build_json_feed / build_rss_feed / build_atom_feed` |
 | mission push delivery | `run_watch`, `list_alerts`, `list_alert_routes` | `--watch-run`, `--alert-list`, `--alert-route-list`, MCP alert tools, browser alert panels |
+| normalized delivery subscription | `list_delivery_subscriptions`, `create_delivery_subscription`, `build_report_delivery_package`, `dispatch_report_delivery`, `list_delivery_dispatch_records` | `--delivery-*`, MCP delivery tools, `/api/delivery-subscriptions*`, `/api/delivery-dispatch-records` |
 | route health | `alert_route_health`, `ops_snapshot` | `--alert-route-health`, `--ops-overview`, MCP `alert_route_health / ops_overview`, browser ops board |
-| evidence export | `export_story` | `--story-export`, MCP `story_export`, browser export preview |
+| evidence export | `export_story`, `export_report` | `--story-export`, `--report-export`, MCP `story_export / export_report`, browser export preview and `/api/reports/{id}/export` |
 
 Contract rules:
 
@@ -234,7 +246,7 @@ The following invariants should hold for all follow-up work:
 3. named routes are reusable sink identities, not mission-specific aliases
 4. feed export and story export are pull subscription surfaces over existing lifecycle truth
 5. route health and ops metrics are observational, not authoritative replacements for source objects
-6. future watch/story subscriptions must extend this contract instead of creating a second delivery plane
+6. future watch/story subscription UX must extend this contract instead of creating a second delivery plane
 
 ## Implications For Follow-up Work
 
