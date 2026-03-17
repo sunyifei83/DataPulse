@@ -16,10 +16,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -30,7 +30,7 @@ jobs:
         run: python scripts/governance/export_datapulse_structured_release_bundle.py --out-dir out/ha_latest_release_bundle
 
       - name: Upload Governance Evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: governance-evidence-bundle
           path: out/ha_latest_release_bundle
