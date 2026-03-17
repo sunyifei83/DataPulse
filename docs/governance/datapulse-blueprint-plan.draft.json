@@ -2,8 +2,8 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-17T07:11:29Z",
-  "status": "in_progress",
+  "generated_at_utc": "2026-03-17T07:37:48Z",
+  "status": "completed",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -80,7 +80,7 @@
     "L14": "completed",
     "L15": "completed",
     "L16": "completed",
-    "L17": "in_progress"
+    "L17": "completed"
   },
   "phases": [
     {
@@ -2233,7 +2233,7 @@
       "id": "L17",
       "title": "Release-window attestation for AI capability evidence",
       "goal": "Bind bundle identity, runtime-hit evidence, release sidecar truth, and replay entrypoints into one same-window attestation artifact before any promotion discussion escalates.",
-      "status": "in_progress",
+      "status": "completed",
       "slices": [
         {
           "id": "L17.1",
@@ -2316,7 +2316,7 @@
           "category": "manual",
           "execution_profile": "runtime_validation",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run python -m pytest tests/test_delivery.py tests/test_governance_loop.py -q"
           ],
@@ -2337,9 +2337,9 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L17.4",
-    "title": "Harden promotion gating and verification around attestation freshness and same-window consistency",
-    "reason": "Derived from the next open slice in the working copy."
+    "id": "no-open-slice",
+    "title": "No open slice",
+    "reason": "All current slices are completed in this working copy."
   },
   "progress_log": [
     {
@@ -2591,7 +2591,12 @@
       "at_utc": "2026-03-17T07:11:29Z",
       "slice_id": "L17.3",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-17T07:37:48Z",
+      "slice_id": "L17.4",
+      "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-17T07:11:29Z"
+  "last_updated_utc": "2026-03-17T07:37:48Z"
 }

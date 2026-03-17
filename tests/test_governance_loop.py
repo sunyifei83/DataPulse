@@ -24,6 +24,44 @@ def auto_continuation():
     return importlib.import_module("run_datapulse_auto_continuation")
 
 
+@pytest.fixture(scope="module")
+def loop_contracts():
+    if str(GOVERNANCE_SCRIPTS_DIR) not in sys.path:
+        sys.path.insert(0, str(GOVERNANCE_SCRIPTS_DIR))
+    return importlib.import_module("datapulse_loop_contracts")
+
+
+def _stub_release_gate_baseline(loop_contracts, monkeypatch, *, head: str = "abc123", branch: str = "main") -> None:
+    monkeypatch.setattr(loop_contracts, "repo_workspace_clean", lambda: (True, []))
+    monkeypatch.setattr(loop_contracts, "ci_docs_only_skip_active", lambda workspace_clean, dirty_entries: (False, []))
+    monkeypatch.setattr(
+        loop_contracts,
+        "git_output",
+        lambda *args: head
+        if args == ("rev-parse", "HEAD")
+        else branch
+        if args == ("branch", "--show-current")
+        else "",
+    )
+    monkeypatch.setattr(loop_contracts, "current_head_published", lambda head_sha: (True, "origin/main", head_sha))
+    monkeypatch.setattr(loop_contracts, "latest_artifact_file", lambda filename: None)
+    monkeypatch.setattr(loop_contracts, "parse_quick_test_gate", lambda path=None: None)
+    monkeypatch.setattr(loop_contracts, "structured_release_bundle_available", lambda: True)
+    monkeypatch.setattr(loop_contracts, "workflow_dispatch_entrypoints", lambda: [".github/workflows/release.yml"])
+    monkeypatch.setattr(loop_contracts, "workflow_push_tag_release_enabled", lambda workflow_path: False)
+    monkeypatch.setattr(loop_contracts, "ci_paths_ignore_configured", lambda: False)
+    monkeypatch.setattr(
+        loop_contracts,
+        "latest_workflow_run_for_head",
+        lambda workflow, *, head_sha, branch: {
+            "status": "completed",
+            "conclusion": "success",
+            "head_sha": head_sha,
+            "head_branch": branch,
+        },
+    )
+
+
 def test_refresh_tracked_governance_on_stop_runs_for_terminal_stop(governance_loop, monkeypatch, tmp_path: Path) -> None:
     captured: dict[str, Path] = {}
 
@@ -277,6 +315,131 @@ def test_run_verification_commands_retries_pytest_after_negative_signal(governan
     assert ok is True
     assert len(calls) == 2
     assert results[0]["exit_code"] == 0
+
+
+def test_build_code_landing_status_blocks_missing_release_window_attestation(loop_contracts, monkeypatch) -> None:
+    _stub_release_gate_baseline(loop_contracts, monkeypatch)
+    monkeypatch.setattr(loop_contracts, "parse_release_window_attestation", lambda path=None: None)
+
+    payload = loop_contracts.build_code_landing_status()
+
+    assert "release_window_attestation_missing" in payload["gate_groups"]["release_governance"]
+    assert payload["release"]["primary_same_window_truth"] == "out/governance/datapulse_release_window_attestation.draft.json"
+    assert payload["release"]["release_window_attestation"]["status"] == "missing"
+    assert payload["release"]["release_window_attestation"]["runtime_closure_complete"] is False
+
+
+def test_build_code_landing_status_accepts_verified_fail_closed_attestation(loop_contracts, monkeypatch) -> None:
+    _stub_release_gate_baseline(loop_contracts, monkeypatch)
+    monkeypatch.setattr(
+        loop_contracts,
+        "parse_release_window_attestation",
+        lambda path=None: {
+            "path": "out/governance/datapulse_release_window_attestation.draft.json",
+            "schema_version": "datapulse_release_window_attestation.v1",
+            "generated_at_utc": "2026-03-17T07:00:00Z",
+            "window_id": "dp-release-window-20260317T070000Z-abc123",
+            "git_head": "abc123",
+            "attestation_status": "attested",
+            "blocking_reasons": [],
+            "same_window": {"proven": True},
+            "freshness": {"all_sources_fresh": True, "sources": []},
+            "runtime_hit_evidence": {
+                "required_surfaces": [
+                    {
+                        "surface": "delivery_summary",
+                        "observed_evidence_status": "verified",
+                    },
+                    {
+                        "surface": "report_draft",
+                        "observed_evidence_status": "verified_fail_closed",
+                    },
+                ]
+            },
+        },
+    )
+
+    payload = loop_contracts.build_code_landing_status()
+
+    assert payload["gate_groups"]["release_governance"] == []
+    assert payload["release"]["release_window_attestation"]["status"] == "attested"
+    assert payload["release"]["release_window_attestation"]["runtime_closure_complete"] is True
+    assert payload["release"]["release_window_attestation"]["same_window_proven"] is True
+
+
+def test_build_code_landing_status_rejects_cross_head_attestation(loop_contracts, monkeypatch) -> None:
+    _stub_release_gate_baseline(loop_contracts, monkeypatch, head="current-head")
+    monkeypatch.setattr(
+        loop_contracts,
+        "parse_release_window_attestation",
+        lambda path=None: {
+            "path": "out/governance/datapulse_release_window_attestation.draft.json",
+            "schema_version": "datapulse_release_window_attestation.v1",
+            "generated_at_utc": "2026-03-17T07:00:00Z",
+            "window_id": "dp-release-window-20260317T070000Z-other-head",
+            "git_head": "other-head",
+            "attestation_status": "attested",
+            "blocking_reasons": [],
+            "same_window": {"proven": True},
+            "freshness": {"all_sources_fresh": True, "sources": []},
+            "runtime_hit_evidence": {
+                "required_surfaces": [
+                    {
+                        "surface": "delivery_summary",
+                        "observed_evidence_status": "verified",
+                    },
+                    {
+                        "surface": "report_draft",
+                        "observed_evidence_status": "verified_fail_closed",
+                    },
+                ]
+            },
+        },
+    )
+
+    payload = loop_contracts.build_code_landing_status()
+
+    assert "release_window_attestation_cross_head" in payload["gate_groups"]["release_governance"]
+    assert payload["release"]["release_window_attestation"]["status"] == "cross_head"
+    assert payload["release"]["release_window_attestation"]["current_head_match"] is False
+
+
+def test_build_code_landing_status_rejects_stale_attestation(loop_contracts, monkeypatch) -> None:
+    _stub_release_gate_baseline(loop_contracts, monkeypatch)
+    monkeypatch.setattr(
+        loop_contracts,
+        "parse_release_window_attestation",
+        lambda path=None: {
+            "path": "out/governance/datapulse_release_window_attestation.draft.json",
+            "schema_version": "datapulse_release_window_attestation.v1",
+            "generated_at_utc": "2026-03-17T06:30:00Z",
+            "window_id": "dp-release-window-20260317T063000Z-abc123",
+            "git_head": "abc123",
+            "attestation_status": "blocked",
+            "blocking_reasons": ["source_stale"],
+            "same_window": {"proven": False},
+            "freshness": {"all_sources_fresh": False, "sources": []},
+            "runtime_hit_evidence": {
+                "required_surfaces": [
+                    {
+                        "surface": "delivery_summary",
+                        "observed_evidence_status": "verified",
+                    },
+                    {
+                        "surface": "report_draft",
+                        "observed_evidence_status": "verified_fail_closed",
+                    },
+                ]
+            },
+        },
+    )
+
+    payload = loop_contracts.build_code_landing_status()
+
+    assert "release_window_attestation_stale" in payload["gate_groups"]["release_governance"]
+    assert "release_window_attestation_not_attested" in payload["gate_groups"]["release_governance"]
+    assert payload["release"]["release_window_attestation"]["status"] == "stale"
+    assert payload["release"]["release_window_attestation"]["all_sources_fresh"] is False
 
 
 def test_persist_and_load_promotion_auto_repair_request(governance_loop, monkeypatch, tmp_path: Path) -> None:

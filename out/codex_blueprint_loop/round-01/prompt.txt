@@ -5,8 +5,8 @@
 当前 loop 事实：
 - plan_id: datapulse-loop-bootstrap-2026-03-07
 - current_level: ci_proven
-- next_slice: L17.1 / L17 / Land the repo-scoped release-window attestation blueprint and manual ignition map
-- execution_profile: draft_only
+- next_slice: L17.4 / L17 / Harden promotion gating and verification around attestation freshness and same-window consistency
+- execution_profile: runtime_validation
 - current_status: ready
 - current_reason: awaiting_manual_slice_execution
 - promotion_mode: auto
@@ -20,28 +20,27 @@
 - do not hand-edit out/governance or out/*release_bundle snapshots unless a generated exporter requires regeneration
 
 当前 slice adapter：
-- execute_mode: manual_edit
-- adapter_type: draft_only
-- summary: Land the repo-scoped release-window attestation blueprint and manual ignition map
+- execute_mode: manual_validation
+- adapter_type: runtime_validation
+- summary: Harden promotion gating and verification around attestation freshness and same-window consistency
 - candidate_commands:
-- sed -n '1,220p' docs/governance/datapulse-release-window-attestation-blueprint.md
-- sed -n '1,220p' docs/governance/datapulse-blueprint-plan.draft.json
+- uv run python -m pytest tests/test_delivery.py tests/test_governance_loop.py -q
 - verification_commands:
-- (none)
+- uv run python -m pytest tests/test_delivery.py tests/test_governance_loop.py -q
 - target_artifacts:
-- docs/governance/datapulse-release-window-attestation-blueprint.md
-- docs/governance/datapulse-blueprint-plan.draft.json
+- tests/test_delivery.py
+- tests/test_governance_loop.py
+- scripts/governance/export_datapulse_release_sidecar.py
+- scripts/governance/datapulse_loop_contracts.py
+- docs/test_facts.md
 - notes:
-- exit_condition: The repository contains a repo-scoped blueprint for release-window attestation, and the active blueprint path exposes a new manual ignition target beyond the completed L16 AI runtime wave.
+- exit_condition: Promotion and replay gates read the release-window attestation as the primary same-window truth and reject stale, missing, or cross-head evidence while still accepting report_draft verified_fail_closed as required runtime closure.
 - promotion_scope: none
-- source_note: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/ModelBusProject/跨仓能力分层与事实源迁移策略-2026-03-16.md
-- source_note_heading: 2026-03-17 事实更新
-- fact_source: /Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/ModelBusProject/跨仓能力分层与事实源迁移策略-2026-03-16.md
 - No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice.
-- exit_condition: The repository contains a repo-scoped blueprint for release-window attestation, and the active blueprint path exposes a new manual ignition target beyond the completed L16 AI runtime wave.
+- exit_condition: Promotion and replay gates read the release-window attestation as the primary same-window truth and reject stale, missing, or cross-head evidence while still accepting report_draft verified_fail_closed as required runtime closure.
 
 完成标准：
-- the repo should reflect the landing of L17.1
+- the repo should reflect the landing of L17.4
 - update the structured blueprint slice status to match reality
 - if the slice lands, re-run or leave enough changes so the governance exporters can reflect the new state
 - if the slice cannot land safely, leave the repo in a truthful blocked state rather than faking completion

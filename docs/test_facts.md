@@ -280,6 +280,13 @@ title: Test Facts
 - **运行时命中事实**：`report_draft` 现已拥有 Reader/CLI/MCP/console 一致的 runtime surface，但在缺少 admitted structured contract 时保持 fail-closed；同窗命中仍会稳定产出 `served_by_alias / request_id / schema_valid=false`。
 - **证据闭环事实**：`out/governance/datapulse_surface_runtime_hit_evidence.draft.json` 与 release bundle 中的同名证据文件会同时记录 `delivery_summary=verified` 与 `report_draft=verified_fail_closed`，用于 shadow/required 变更前提核验，而不是伪装成“成功草稿”。
 
+## Fact 3.14: release-window attestation promotion gate 已切换为同窗主真相
+
+- **门禁主真相事实**：`scripts/governance/datapulse_loop_contracts.py` 现在会优先读取 `out/governance/datapulse_release_window_attestation.draft.json`，并把它视为 release promotion 的 primary same-window truth，而不是继续只靠 sidecar/bundle 可用性做宽松推断。
+- **阻断事实**：缺失 attestation、当前 `HEAD` 与 attestation `git_head` 不一致、或 attestation freshness 失败（如 `source_stale` / `source_timestamp_missing` / `source_time_skew_exceeded`）时，`release_governance` 会显式给出 `release_window_attestation_*` 阻断码。
+- **fail-closed 兼容事实**：同一门禁仍接受 `delivery_summary=verified` 与 `report_draft=verified_fail_closed` 这一 required runtime closure 组合，不会把 `verified_fail_closed` 误判成未完成。
+- **回归验证事实（2026-03-17）**：`.venv/bin/python -m pytest tests/test_delivery.py tests/test_governance_loop.py -q` → `28 passed in 0.73s`；同等 `uv run python -m pytest ...` 在当前环境中因 `uv` 自身 panic 未能作为有效证据命令执行。
+
 ## Fact 4: 来源与订阅能力增强
 
 - 已形成统一落地清单：`docs/source_feed_enhancement_plan.md`。

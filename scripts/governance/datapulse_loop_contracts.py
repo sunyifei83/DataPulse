@@ -21,6 +21,7 @@ ACTIVE_PLAN_PATH = REPO_ROOT / "docs/governance/datapulse-blueprint-plan.json"
 DEFAULT_PLAN_PATH = ACTIVE_PLAN_PATH if ACTIVE_PLAN_PATH.exists() else DRAFT_PLAN_PATH
 DEFAULT_OUT_DIR = REPO_ROOT / "out/governance"
 DEFAULT_QUICK_TEST_GATE_PATH = ARTIFACTS_ROOT / "governance" / "quick_test_gate.draft.json"
+DEFAULT_RELEASE_WINDOW_ATTESTATION_PATH = DEFAULT_OUT_DIR / "datapulse_release_window_attestation.draft.json"
 WORKFLOW_RUN_FIELDS = [
     "databaseId",
     "headSha",
@@ -367,6 +368,163 @@ def quick_test_gate_headline(verification: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def parse_release_window_attestation(path: Path | None = None) -> dict[str, Any] | None:
+    target = path or DEFAULT_RELEASE_WINDOW_ATTESTATION_PATH
+    if not target.exists():
+        return None
+    try:
+        payload = read_json(target)
+    except (json.JSONDecodeError, OSError):
+        return None
+    if str(payload.get("schema_version", "")) not in {"", "datapulse_release_window_attestation.v1"}:
+        return None
+
+    same_window = dict(payload.get("same_window", {})) if isinstance(payload.get("same_window", {}), dict) else {}
+    freshness = dict(payload.get("freshness", {})) if isinstance(payload.get("freshness", {}), dict) else {}
+    runtime_hit = (
+        dict(payload.get("runtime_hit_evidence", {}))
+        if isinstance(payload.get("runtime_hit_evidence", {}), dict)
+        else {}
+    )
+    release_sidecar_truth = (
+        dict(payload.get("release_sidecar_truth", {}))
+        if isinstance(payload.get("release_sidecar_truth", {}), dict)
+        else {}
+    )
+    required_surfaces = [
+        {
+            "surface": str(item.get("surface", "")),
+            "expected_evidence_status": str(item.get("expected_evidence_status", "")),
+            "observed_evidence_status": str(item.get("observed_evidence_status", "")),
+            "release_scope": str(item.get("release_scope", "")),
+        }
+        for item in runtime_hit.get("required_surfaces", [])
+        if isinstance(item, dict)
+    ]
+    freshness_sources = [
+        {
+            "source": str(item.get("source", "")),
+            "path": str(item.get("path", "")),
+            "generated_at_utc": str(item.get("generated_at_utc", "")),
+            "age_seconds": parse_int(item.get("age_seconds")),
+            "fresh": bool(item.get("fresh", False)),
+        }
+        for item in freshness.get("sources", [])
+        if isinstance(item, dict)
+    ]
+    return {
+        "path": display_path(target),
+        "schema_version": str(payload.get("schema_version", "datapulse_release_window_attestation.v1")),
+        "generated_at_utc": str(payload.get("generated_at_utc", "")),
+        "window_id": str(payload.get("window_id", "")),
+        "git_head": str(payload.get("git_head", "")),
+        "attestation_status": str(payload.get("attestation_status", "")),
+        "blocking_reasons": [
+            str(item)
+            for item in payload.get("blocking_reasons", [])
+            if str(item).strip()
+        ],
+        "same_window": {
+            "required": bool(same_window.get("required", False)),
+            "same_head_required": bool(same_window.get("same_head_required", False)),
+            "same_bundle_dir_required": bool(same_window.get("same_bundle_dir_required", False)),
+            "proven": bool(same_window.get("proven", False)),
+            "reasons": [
+                str(item)
+                for item in same_window.get("reasons", [])
+                if str(item).strip()
+            ],
+        },
+        "freshness": {
+            "all_sources_fresh": bool(freshness.get("all_sources_fresh", False)),
+            "max_observed_skew_seconds": parse_int(freshness.get("max_observed_skew_seconds")),
+            "sources": freshness_sources,
+        },
+        "release_sidecar_truth": {
+            "git_head": str(release_sidecar_truth.get("git_head", "")),
+        },
+        "runtime_hit_evidence": {
+            "runtime_bundle_dir": str(runtime_hit.get("runtime_bundle_dir", "")),
+            "required_surfaces": required_surfaces,
+        },
+    }
+
+
+def summarize_release_window_attestation(report: dict[str, Any] | None, *, current_head: str) -> dict[str, Any]:
+    if not report:
+        return {
+            "status": "missing",
+            "observed": False,
+            "attested": False,
+            "current_head_match": False,
+            "same_window_proven": False,
+            "all_sources_fresh": False,
+            "runtime_closure_complete": False,
+            "window_id": "",
+            "git_head": "",
+            "generated_at_utc": "",
+            "blocking_reasons": ["release_window_attestation_missing"],
+        }
+
+    blocking_reasons = [
+        str(item)
+        for item in report.get("blocking_reasons", [])
+        if str(item).strip()
+    ]
+    surface_rows = {
+        str(item.get("surface", "")).strip(): dict(item)
+        for item in report.get("runtime_hit_evidence", {}).get("required_surfaces", [])
+        if isinstance(item, dict) and str(item.get("surface", "")).strip()
+    }
+    delivery_ok = surface_rows.get("delivery_summary", {}).get("observed_evidence_status") == "verified"
+    report_fail_closed_ok = surface_rows.get("report_draft", {}).get("observed_evidence_status") == "verified_fail_closed"
+    current_head_match = bool(current_head and report.get("git_head") and report.get("git_head") == current_head)
+    same_window_proven = bool(report.get("same_window", {}).get("proven", False))
+    all_sources_fresh = bool(report.get("freshness", {}).get("all_sources_fresh", False))
+    attested = str(report.get("attestation_status", "")) == "attested"
+
+    status = "attested"
+    if not current_head_match and report.get("git_head"):
+        status = "cross_head"
+    elif any(reason in {"source_timestamp_missing", "source_timestamp_in_future", "source_stale", "source_time_skew_exceeded"} for reason in blocking_reasons) or not all_sources_fresh:
+        status = "stale"
+    elif not attested or not same_window_proven:
+        status = "blocked"
+
+    return {
+        "status": status,
+        "observed": True,
+        "attested": attested,
+        "current_head_match": current_head_match,
+        "same_window_proven": same_window_proven,
+        "all_sources_fresh": all_sources_fresh,
+        "runtime_closure_complete": bool(delivery_ok and report_fail_closed_ok),
+        "window_id": str(report.get("window_id", "")),
+        "git_head": str(report.get("git_head", "")),
+        "generated_at_utc": str(report.get("generated_at_utc", "")),
+        "blocking_reasons": blocking_reasons,
+    }
+
+
+def release_window_attestation_gate_reasons(attestation: dict[str, Any]) -> list[str]:
+    if not attestation.get("observed", False):
+        return ["release_window_attestation_missing"]
+
+    reasons: list[str] = []
+    status = str(attestation.get("status", ""))
+    if status == "cross_head":
+        reasons.append("release_window_attestation_cross_head")
+    if status == "stale":
+        reasons.append("release_window_attestation_stale")
+    if not bool(attestation.get("attested", False)):
+        reasons.append("release_window_attestation_not_attested")
+    if not bool(attestation.get("same_window_proven", False)):
+        reasons.append("release_window_same_window_not_proven")
+    if not bool(attestation.get("runtime_closure_complete", False)):
+        reasons.append("release_window_runtime_closure_incomplete")
+    return dedupe(reasons)
+
+
 def parse_emergency_state(path: Path | None) -> dict[str, Any] | None:
     if path is None or not path.exists():
         return None
@@ -590,6 +748,7 @@ def build_code_landing_status() -> dict[str, Any]:
     local_report = parse_local_report(latest_artifact_file("local_report.md"))
     remote_report = parse_remote_report(latest_artifact_file("remote_report.md"))
     quick_test_report = parse_quick_test_gate()
+    release_window_attestation = parse_release_window_attestation()
     emergency_state = parse_emergency_state(latest_artifact_file("emergency_state.json"))
     structured_bundle_ready = structured_release_bundle_available()
     ci_head_run = latest_workflow_run_for_head("CI", head_sha=head_sha, branch=branch)
@@ -601,6 +760,7 @@ def build_code_landing_status() -> dict[str, Any]:
         quick_test_report=quick_test_report,
         current_head=head_sha,
     )
+    attestation_summary = summarize_release_window_attestation(release_window_attestation, current_head=head_sha)
     verification_gateable = all(
         (item.get("gateable", False) or item.get("gateable_via_wrapper", False))
         for item in verification.values()
@@ -672,6 +832,7 @@ def build_code_landing_status() -> dict[str, Any]:
                 "workflow_dispatch_missing" if not workflow_dispatch_ready else "",
                 "structured_release_bundle_missing" if not structured_bundle_ready else "",
                 "mixed_release_policy" if mixed_release_policy else "",
+                *release_window_attestation_gate_reasons(attestation_summary),
             ]
         ),
     }
@@ -738,8 +899,23 @@ def build_code_landing_status() -> dict[str, Any]:
             "workflow_dispatch_entrypoints": dispatch_entrypoints,
             "tag_push_release_enabled": tag_push_release_enabled,
             "structured_release_bundle": structured_bundle_ready,
+            "primary_same_window_truth": display_path(DEFAULT_RELEASE_WINDOW_ATTESTATION_PATH),
+            "release_window_attestation": {
+                "status": str(attestation_summary.get("status", "missing")),
+                "observed": bool(attestation_summary.get("observed", False)),
+                "attested": bool(attestation_summary.get("attested", False)),
+                "current_head_match": bool(attestation_summary.get("current_head_match", False)),
+                "same_window_proven": bool(attestation_summary.get("same_window_proven", False)),
+                "all_sources_fresh": bool(attestation_summary.get("all_sources_fresh", False)),
+                "runtime_closure_complete": bool(attestation_summary.get("runtime_closure_complete", False)),
+                "window_id": str(attestation_summary.get("window_id", "")),
+                "git_head": str(attestation_summary.get("git_head", "")),
+                "generated_at_utc": str(attestation_summary.get("generated_at_utc", "")),
+                "blocking_reasons": list(attestation_summary.get("blocking_reasons", [])),
+            },
             "policy_gates": ["mixed_release_policy"] if mixed_release_policy else [],
             "truth_sources": [
+                "out/governance/datapulse_release_window_attestation.draft.json",
                 "scripts/release_publish.sh",
                 ".github/workflows/release.yml",
                 ".github/workflows/governance-evidence.yml",
@@ -752,10 +928,12 @@ def build_code_landing_status() -> dict[str, Any]:
             "latest_local_report": local_report,
             "latest_remote_report": remote_report,
             "latest_emergency_state": emergency_state,
+            "latest_release_window_attestation": release_window_attestation,
             "latest_head_ci_run": ci_head_run,
             "latest_head_governance_evidence_run": governance_head_run,
         },
         "evidence_paths": {
+            "release_window_attestation": display_path(DEFAULT_RELEASE_WINDOW_ATTESTATION_PATH),
             "quick_test_gate": display_path(DEFAULT_QUICK_TEST_GATE_PATH),
             "local_report": "artifacts/openclaw_datapulse_<RUN_ID>/local_report.md",
             "remote_report": "artifacts/openclaw_datapulse_<RUN_ID>/remote_report.md",

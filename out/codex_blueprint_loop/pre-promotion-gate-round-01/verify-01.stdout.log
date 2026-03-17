@@ -1,8 +1,8 @@
 {
   "schema_version": "quick_test_gate.v1",
-  "generated_at_utc": "2026-03-15T04:20:11Z",
+  "generated_at_utc": "2026-03-17T07:40:09Z",
   "git": {
-    "head": "98c759301f4ee1eb84e4838e01f477ae291df0e0",
+    "head": "40f4fe933d99f3847dc833fc5b41e857c68c7c36",
     "branch": "main"
   },
   "ok": true,
@@ -45,7 +45,7 @@
       "rc": 0,
       "ok": true,
       "stdout_tail": [
-        "datapulse/cli.py:319: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
+        "datapulse/cli.py:326: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
         "Success: no issues found in 59 source files"
       ],
       "stderr_tail": []
