@@ -1,7 +1,7 @@
 {
   "schema": "modelbus.release_status.v1",
-  "generated_at_utc": "2026-03-17T07:12:18Z",
-  "release_level": "manual_only",
+  "generated_at_utc": "2026-03-17T09:47:29Z",
+  "release_level": "ci_proven",
   "assured_verdict": "pass",
   "runtime": {
     "base_url": "https://modelbus.example.com"

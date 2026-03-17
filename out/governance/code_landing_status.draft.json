@@ -1,15 +1,15 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-17T07:38:13Z",
+  "generated_at_utc": "2026-03-17T09:47:53Z",
   "status_kind": "draft_export",
   "wired": false,
   "headline_summary": {
-    "current_level": "manual_only",
-    "workspace_clean": false,
+    "current_level": "ci_proven",
+    "workspace_clean": true,
     "head_published_to_upstream": true,
-    "repo_landed": false,
-    "ci_proven": false,
+    "repo_landed": true,
+    "ci_proven": true,
     "ci_proof_mode": "push_ci_workflow",
     "required_workflow": "CI",
     "quick_test_gate": {
@@ -17,30 +17,23 @@
       "observed": true,
       "current_head_match": true,
       "ok": true,
-      "generated_at_utc": "2026-03-17T07:31:08Z",
-      "head": "40f4fe933d99f3847dc833fc5b41e857c68c7c36",
+      "generated_at_utc": "2026-03-17T09:47:24Z",
+      "head": "72835e60104b0bf3d3266740787897ab17c4805d",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
   },
   "git": {
-    "head": "40f4fe933d99f3847dc833fc5b41e857c68c7c36",
+    "head": "72835e60104b0bf3d3266740787897ab17c4805d",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "40f4fe933d99f3847dc833fc5b41e857c68c7c36",
+    "upstream_head": "72835e60104b0bf3d3266740787897ab17c4805d",
     "head_published_to_upstream": true
   },
   "workspace": {
-    "clean": false,
-    "dirty_entries": [
-      "M docs/governance/datapulse-blueprint-plan.draft.json",
-      " M docs/test_facts.md",
-      " M out/codex_blueprint_loop/round-01/command.json",
-      " M out/codex_blueprint_loop/round-01/prompt.txt",
-      " M scripts/governance/datapulse_loop_contracts.py",
-      " M tests/test_governance_loop.py"
-    ],
-    "reason": "git status reported local modifications."
+    "clean": true,
+    "dirty_entries": [],
+    "reason": ""
   },
   "verification": {
     "compileall": {
@@ -58,11 +51,11 @@
       "latest_observation": {
         "path": "artifacts/governance/quick_test_gate.draft.json",
         "schema_version": "quick_test_gate.v1",
-        "generated_at_utc": "2026-03-17T07:31:08Z",
+        "generated_at_utc": "2026-03-17T09:47:24Z",
         "ok": true,
         "read_only": true,
         "git": {
-          "head": "40f4fe933d99f3847dc833fc5b41e857c68c7c36",
+          "head": "72835e60104b0bf3d3266740787897ab17c4805d",
           "branch": "main"
         },
         "steps": [
@@ -218,17 +211,49 @@
     "proof_mode": "push_ci_workflow",
     "head_published_to_upstream": true,
     "required_workflow": "CI",
-    "required_run": null,
-    "latest_head_ci_run": null,
-    "latest_head_governance_evidence_run": null,
+    "required_run": {
+      "database_id": 23188082270,
+      "head_sha": "72835e60104b0bf3d3266740787897ab17c4805d",
+      "head_branch": "main",
+      "status": "completed",
+      "conclusion": "success",
+      "event": "push",
+      "workflow_name": "CI",
+      "created_at": "2026-03-17T09:45:45Z",
+      "updated_at": "2026-03-17T09:46:22Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23188082270"
+    },
+    "latest_head_ci_run": {
+      "database_id": 23188082270,
+      "head_sha": "72835e60104b0bf3d3266740787897ab17c4805d",
+      "head_branch": "main",
+      "status": "completed",
+      "conclusion": "success",
+      "event": "push",
+      "workflow_name": "CI",
+      "created_at": "2026-03-17T09:45:45Z",
+      "updated_at": "2026-03-17T09:46:22Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23188082270"
+    },
+    "latest_head_governance_evidence_run": {
+      "database_id": 23188087047,
+      "head_sha": "72835e60104b0bf3d3266740787897ab17c4805d",
+      "head_branch": "main",
+      "status": "completed",
+      "conclusion": "success",
+      "event": "workflow_dispatch",
+      "workflow_name": "governance-evidence",
+      "created_at": "2026-03-17T09:45:53Z",
+      "updated_at": "2026-03-17T09:46:18Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23188087047"
+    },
     "change_scope": {
       "paths": [
-        "docs/governance/datapulse-blueprint-plan.draft.json",
-        "docs/test_facts.md",
-        "out/codex_blueprint_loop/round-01/command.json",
-        "out/codex_blueprint_loop/round-01/prompt.txt",
-        "scripts/governance/datapulse_loop_contracts.py",
-        "tests/test_governance_loop.py"
+        ".github/workflows/ci.yml",
+        ".github/workflows/governance-evidence.yml",
+        ".github/workflows/governance-loop-auto.yml",
+        ".github/workflows/release.yml",
+        ".github/workflows/security-guard.yml"
       ],
       "docs_only": false
     }
@@ -244,19 +269,17 @@
     "structured_release_bundle": true,
     "primary_same_window_truth": "out/governance/datapulse_release_window_attestation.draft.json",
     "release_window_attestation": {
-      "status": "cross_head",
+      "status": "attested",
       "observed": true,
-      "attested": false,
-      "current_head_match": false,
-      "same_window_proven": false,
+      "attested": true,
+      "current_head_match": true,
+      "same_window_proven": true,
       "all_sources_fresh": true,
       "runtime_closure_complete": true,
-      "window_id": "dp-release-window-20260317T071230Z-f0c894f25a57d09a35a1f16298688c895ba02085",
-      "git_head": "f0c894f25a57d09a35a1f16298688c895ba02085",
-      "generated_at_utc": "2026-03-17T07:25:06Z",
-      "blocking_reasons": [
-        "workspace_dirty"
-      ]
+      "window_id": "dp-release-window-20260317T094748Z-72835e60104b0bf3d3266740787897ab17c4805d",
+      "git_head": "72835e60104b0bf3d3266740787897ab17c4805d",
+      "generated_at_utc": "2026-03-17T09:47:49Z",
+      "blocking_reasons": []
     },
     "policy_gates": [],
     "truth_sources": [
@@ -267,42 +290,31 @@
     ]
   },
   "gate_groups": {
-    "execution_safety": [
-      "workspace_dirty"
-    ],
+    "execution_safety": [],
     "local_verification": [],
     "runtime_governance": [],
     "ci_policy": [],
-    "release_governance": [
-      "release_window_attestation_cross_head",
-      "release_window_attestation_not_attested",
-      "release_window_same_window_not_proven"
-    ]
+    "release_governance": []
   },
   "promotion_levels": {
     "repo_landed": {
-      "satisfied": false,
-      "reasons": [
-        "workspace_dirty"
-      ]
+      "satisfied": true,
+      "reasons": []
     },
     "ci_proven": {
-      "satisfied": false,
-      "reasons": [
-        "repo_landed_false",
-        "ci_run_not_proven"
-      ]
+      "satisfied": true,
+      "reasons": []
     }
   },
   "observed_evidence": {
     "latest_quick_test_gate": {
       "path": "artifacts/governance/quick_test_gate.draft.json",
       "schema_version": "quick_test_gate.v1",
-      "generated_at_utc": "2026-03-17T07:31:08Z",
+      "generated_at_utc": "2026-03-17T09:47:24Z",
       "ok": true,
       "read_only": true,
       "git": {
-        "head": "40f4fe933d99f3847dc833fc5b41e857c68c7c36",
+        "head": "72835e60104b0bf3d3266740787897ab17c4805d",
         "branch": "main"
       },
       "steps": [
@@ -444,58 +456,54 @@
     "latest_release_window_attestation": {
       "path": "out/governance/datapulse_release_window_attestation.draft.json",
       "schema_version": "datapulse_release_window_attestation.v1",
-      "generated_at_utc": "2026-03-17T07:25:06Z",
-      "window_id": "dp-release-window-20260317T071230Z-f0c894f25a57d09a35a1f16298688c895ba02085",
-      "git_head": "f0c894f25a57d09a35a1f16298688c895ba02085",
-      "attestation_status": "blocked",
-      "blocking_reasons": [
-        "workspace_dirty"
-      ],
+      "generated_at_utc": "2026-03-17T09:47:49Z",
+      "window_id": "dp-release-window-20260317T094748Z-72835e60104b0bf3d3266740787897ab17c4805d",
+      "git_head": "72835e60104b0bf3d3266740787897ab17c4805d",
+      "attestation_status": "attested",
+      "blocking_reasons": [],
       "same_window": {
         "required": true,
         "same_head_required": true,
         "same_bundle_dir_required": true,
-        "proven": false,
-        "reasons": [
-          "workspace_dirty"
-        ]
+        "proven": true,
+        "reasons": []
       },
       "freshness": {
         "all_sources_fresh": true,
-        "max_observed_skew_seconds": 13,
+        "max_observed_skew_seconds": 24,
         "sources": [
           {
             "source": "structured_release_bundle_manifest",
             "path": "out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
-            "generated_at_utc": "2026-03-17T07:12:17Z",
-            "age_seconds": 769,
+            "generated_at_utc": "2026-03-17T09:47:24Z",
+            "age_seconds": 25,
             "fresh": true
           },
           {
             "source": "bundle_manifest",
             "path": "out/ha_latest_release_bundle/bundle_manifest.json",
-            "generated_at_utc": "2026-03-17T07:12:18Z",
-            "age_seconds": 768,
+            "generated_at_utc": "2026-03-17T09:47:29Z",
+            "age_seconds": 20,
             "fresh": true
           },
           {
             "source": "runtime_hit_evidence",
             "path": "out/governance/datapulse_surface_runtime_hit_evidence.draft.json",
-            "generated_at_utc": "2026-03-17T07:12:29Z",
-            "age_seconds": 757,
+            "generated_at_utc": "2026-03-17T09:47:48Z",
+            "age_seconds": 1,
             "fresh": true
           },
           {
             "source": "release_sidecar",
             "path": "out/governance/release_sidecar.draft.json",
-            "generated_at_utc": "2026-03-17T07:12:30Z",
-            "age_seconds": 756,
+            "generated_at_utc": "2026-03-17T09:47:48Z",
+            "age_seconds": 1,
             "fresh": true
           }
         ]
       },
       "release_sidecar_truth": {
-        "git_head": "f0c894f25a57d09a35a1f16298688c895ba02085"
+        "git_head": "72835e60104b0bf3d3266740787897ab17c4805d"
       },
       "runtime_hit_evidence": {
         "runtime_bundle_dir": "out/ha_latest_release_bundle",
@@ -515,8 +523,30 @@
         ]
       }
     },
-    "latest_head_ci_run": null,
-    "latest_head_governance_evidence_run": null
+    "latest_head_ci_run": {
+      "database_id": 23188082270,
+      "head_sha": "72835e60104b0bf3d3266740787897ab17c4805d",
+      "head_branch": "main",
+      "status": "completed",
+      "conclusion": "success",
+      "event": "push",
+      "workflow_name": "CI",
+      "created_at": "2026-03-17T09:45:45Z",
+      "updated_at": "2026-03-17T09:46:22Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23188082270"
+    },
+    "latest_head_governance_evidence_run": {
+      "database_id": 23188087047,
+      "head_sha": "72835e60104b0bf3d3266740787897ab17c4805d",
+      "head_branch": "main",
+      "status": "completed",
+      "conclusion": "success",
+      "event": "workflow_dispatch",
+      "workflow_name": "governance-evidence",
+      "created_at": "2026-03-17T09:45:53Z",
+      "updated_at": "2026-03-17T09:46:18Z",
+      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23188087047"
+    }
   },
   "evidence_paths": {
     "release_window_attestation": "out/governance/datapulse_release_window_attestation.draft.json",

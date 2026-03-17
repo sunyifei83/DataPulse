@@ -1,11 +1,11 @@
 {
   "schema_version": "datapulse_ha_recovery_preset.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-17T07:12:30Z",
+  "generated_at_utc": "2026-03-17T09:13:38Z",
   "wired": false,
   "source_ha_delivery_facts": {
     "source_kind": "provided_json",
-    "path": "/Users/sunyifei/DataPulse/out/governance/ha_delivery_facts.draft.json"
+    "path": "out/governance/ha_delivery_facts.draft.json"
   },
   "recovery_status": {
     "status": "clear",
