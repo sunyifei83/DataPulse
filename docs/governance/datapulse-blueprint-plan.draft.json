@@ -2,8 +2,8 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-14T15:21:32Z",
-  "status": "completed",
+  "generated_at_utc": "2026-03-17T06:41:36Z",
+  "status": "in_progress",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -79,7 +79,8 @@
     "L13": "completed",
     "L14": "completed",
     "L15": "completed",
-    "L16": "in_progress"
+    "L16": "completed",
+    "L17": "in_progress"
   },
   "phases": [
     {
@@ -2227,12 +2228,118 @@
           }
         }
       ]
+    },
+    {
+      "id": "L17",
+      "title": "Release-window attestation for AI capability evidence",
+      "goal": "Bind bundle identity, runtime-hit evidence, release sidecar truth, and replay entrypoints into one same-window attestation artifact before any promotion discussion escalates.",
+      "status": "in_progress",
+      "slices": [
+        {
+          "id": "L17.1",
+          "title": "Land the repo-scoped release-window attestation blueprint and manual ignition map",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "docs/governance/datapulse-release-window-attestation-blueprint.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "exit_condition": "The repository contains a repo-scoped blueprint for release-window attestation, and the active blueprint path exposes a new manual ignition target beyond the completed L16 AI runtime wave.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/\u8de8\u4ed3\u80fd\u529b\u5206\u5c42\u4e0e\u4e8b\u5b9e\u6e90\u8fc1\u79fb\u7b56\u7565-2026-03-16.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-17T06:41:36Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/\u8de8\u4ed3\u80fd\u529b\u5206\u5c42\u4e0e\u4e8b\u5b9e\u6e90\u8fc1\u79fb\u7b56\u7565-2026-03-16.md",
+              "frontmatter_title": "\u8de8\u4ed3\u80fd\u529b\u5206\u5c42\u4e0e\u4e8b\u5b9e\u6e90\u8fc1\u79fb\u7b56\u7565-2026-03-16",
+              "first_heading": "\u8de8\u4ed3\u80fd\u529b\u5206\u5c42\u4e0e\u4e8b\u5b9e\u6e90\u8fc1\u79fb\u7b56\u7565-2026-03-16",
+              "selected_heading": "2026-03-17 \u4e8b\u5b9e\u66f4\u65b0",
+              "wikilink_name": "\u8de8\u4ed3\u80fd\u529b\u5206\u5c42\u4e0e\u4e8b\u5b9e\u6e90\u8fc1\u79fb\u7b56\u7565-2026-03-16"
+            }
+          },
+          "notes": [
+            "This slice should only promote repo truth for the next wave and should not reopen the bundle adapter debate.",
+            "The resulting ignition map should make window-level attestation the next narrow execution target."
+          ]
+        },
+        {
+          "id": "L17.2",
+          "title": "Define the release-window attestation contract that binds bundle runtime-hit sidecar and replay",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-release-window-attestation-contract.md",
+            "docs/governance/datapulse-release-window-attestation.example.json",
+            "docs/governance/datapulse-release-window-attestation-blueprint.md"
+          ],
+          "exit_condition": "One machine-readable contract defines the same-window attestation fields, fail-closed requirements, and freshness checks for bundle identity, runtime-hit evidence, release sidecar truth, and replay entrypoint binding.",
+          "notes": [
+            "Treat report_draft verified_fail_closed as valid required runtime evidence rather than as a successful admitted draft capability.",
+            "Make window_id, git_head, generated_at_utc, attestation_status, and blocking_reasons first-class fields."
+          ]
+        },
+        {
+          "id": "L17.3",
+          "title": "Add a single exporter and bundle attachment path for release-window attestation",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 scripts/governance/export_datapulse_release_window_attestation.py --bundle-dir out/ha_latest_release_bundle"
+          ],
+          "artifacts": [
+            "scripts/governance/export_datapulse_release_window_attestation.py",
+            "scripts/governance/export_datapulse_evidence_bundle.py",
+            "scripts/governance/export_datapulse_structured_release_bundle.py",
+            "out/governance/datapulse_release_window_attestation.draft.json",
+            "out/ha_latest_release_bundle/datapulse_release_window_attestation.draft.json"
+          ],
+          "exit_condition": "A single exporter emits a fail-closed release-window attestation and attaches it to the canonical structured bundle without recomputing runtime semantics.",
+          "notes": [
+            "The exporter should bind existing evidence rather than inventing a second readiness summary.",
+            "Bundle, runtime-hit, sidecar, and replay entrypoint must be attributable to the same declared window."
+          ]
+        },
+        {
+          "id": "L17.4",
+          "title": "Harden promotion gating and verification around attestation freshness and same-window consistency",
+          "category": "manual",
+          "execution_profile": "runtime_validation",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "uv run python -m pytest tests/test_delivery.py tests/test_governance_loop.py -q"
+          ],
+          "artifacts": [
+            "tests/test_delivery.py",
+            "tests/test_governance_loop.py",
+            "scripts/governance/export_datapulse_release_sidecar.py",
+            "scripts/governance/datapulse_loop_contracts.py",
+            "docs/test_facts.md"
+          ],
+          "exit_condition": "Promotion and replay gates read the release-window attestation as the primary same-window truth and reject stale, missing, or cross-head evidence while still accepting report_draft verified_fail_closed as required runtime closure.",
+          "notes": [
+            "Prefer same-window consistency checks over adding new semantic readiness knobs.",
+            "The attestation should become the first file inspected during manual promotion review."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
+    "id": "L17.1",
+    "title": "Land the repo-scoped release-window attestation blueprint and manual ignition map",
+    "reason": "The next narrow follow-up is to promote release-window attestation as repo truth before exporter, bundle, and gating slices reopen."
   },
   "progress_log": [
     {
@@ -2471,5 +2578,5 @@
       "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-15T04:13:57Z"
+  "last_updated_utc": "2026-03-17T06:41:36Z"
 }

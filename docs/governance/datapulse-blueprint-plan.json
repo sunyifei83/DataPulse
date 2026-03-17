@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-14T14:12:00Z",
+  "generated_at_utc": "2026-03-17T06:41:36Z",
   "status": "in_progress",
   "activation": {
     "wired": true,
@@ -16,10 +16,11 @@
     "notes": [
       "This overlay keeps the repository blueprint truth active while leaving continuation in explicit manual mode.",
       "The report-production and report-delivery waves remain part of active blueprint truth.",
-      "A new ModelBus-backed AI assistance governance and runtime-bridge follow-up wave is now promoted into the active blueprint truth.",
-      "L16.1 through L16.8 are now staged in repo truth as the next governance-backed AI assistance wave, spanning blueprint landing, surface contracts, ModelBus bridge semantics, structured contracts, surface admission, Reader-backed services, cross-surface projection, and runtime verification hardening.",
-      "The derived next slice now resolves to L16.1, which should land the repo-scoped ModelBus-backed AI assistance governance blueprint and ignition map before code slices reopen.",
-      "Further work should keep AI assistance inside existing governance rails rather than inventing GUI-only state, direct provider coupling, or ungated model admission."
+      "The ModelBus-backed AI assistance governance and runtime-bridge wave is now completed in repo truth through L16.8.",
+      "A new release-window attestation follow-up wave is now promoted into the active blueprint truth.",
+      "L17.1 through L17.4 stage blueprint landing, contract binding, exporter-plus-bundle attachment, and same-window gating hardening for bundle, runtime-hit, sidecar, and replay facts.",
+      "The derived next slice now resolves to L17.1, which should land the repo-scoped release-window attestation blueprint and manual ignition map before exporter or gating slices reopen.",
+      "Further work should bind same-window evidence into attestation truth rather than reopening bundle adapter debates or inventing a second runtime semantics layer."
     ]
   }
 }
