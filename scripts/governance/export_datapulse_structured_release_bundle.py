@@ -71,6 +71,7 @@ def build_manifest(
         "code_landing_status.snapshot.json",
         "datapulse-ai-surface-admission.example.json",
         "datapulse_surface_runtime_hit_evidence.draft.json",
+        "datapulse_release_window_attestation.draft.json",
         "evidence_bundle_manifest.draft.json",
         "code_landing_status.draft.json",
         "ha_delivery_facts.draft.json",

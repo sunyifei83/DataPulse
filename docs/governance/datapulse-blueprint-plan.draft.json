@@ -2,7 +2,7 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-17T06:41:36Z",
+  "generated_at_utc": "2026-03-17T07:11:29Z",
   "status": "in_progress",
   "activation": {
     "wired": false,
@@ -2241,7 +2241,7 @@
           "category": "manual",
           "execution_profile": "draft_only",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "artifacts": [
             "docs/governance/datapulse-release-window-attestation-blueprint.md",
             "docs/governance/datapulse-blueprint-plan.draft.json"
@@ -2272,7 +2272,7 @@
           "category": "manual",
           "execution_profile": "draft_only",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
           ],
@@ -2293,7 +2293,7 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "python3 scripts/governance/export_datapulse_release_window_attestation.py --bundle-dir out/ha_latest_release_bundle"
           ],
@@ -2337,9 +2337,9 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L17.1",
-    "title": "Land the repo-scoped release-window attestation blueprint and manual ignition map",
-    "reason": "The next narrow follow-up is to promote release-window attestation as repo truth before exporter, bundle, and gating slices reopen."
+    "id": "L17.4",
+    "title": "Harden promotion gating and verification around attestation freshness and same-window consistency",
+    "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
     {
@@ -2576,7 +2576,22 @@
       "at_utc": "2026-03-15T04:13:57Z",
       "slice_id": "L16.8",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-17T06:53:04Z",
+      "slice_id": "L17.1",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-17T07:00:02Z",
+      "slice_id": "L17.2",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-17T07:11:29Z",
+      "slice_id": "L17.3",
+      "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-17T06:41:36Z"
+  "last_updated_utc": "2026-03-17T07:11:29Z"
 }

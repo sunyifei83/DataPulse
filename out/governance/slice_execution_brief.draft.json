@@ -1,16 +1,54 @@
 {
   "schema_version": "datapulse_slice_execution_brief.v1",
   "project": "DataPulse",
-  "status": "stopped",
-  "reason": "promotion_gates_open",
+  "status": "blocked",
+  "reason": "next_slice_blocked",
   "current_level": "manual_only",
   "next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "category": "complete"
+    "id": "L17.4",
+    "title": "Harden promotion gating and verification around attestation freshness and same-window consistency",
+    "category": "manual",
+    "phase_id": "L17",
+    "execution_profile": "runtime_validation",
+    "promotion_scope": "none",
+    "closes_gates": []
   },
-  "slice_execution_brief": {},
-  "blocking_facts": [],
+  "slice_execution_brief": {
+    "slice_id": "L17.4",
+    "phase_id": "L17",
+    "title": "Harden promotion gating and verification around attestation freshness and same-window consistency",
+    "category": "manual",
+    "execution_profile": "runtime_validation",
+    "adapter_type": "runtime_validation",
+    "execute_mode": "manual_validation",
+    "summary": "Harden promotion gating and verification around attestation freshness and same-window consistency",
+    "candidate_commands": [
+      "uv run python -m pytest tests/test_delivery.py tests/test_governance_loop.py -q"
+    ],
+    "verification_commands": [
+      "uv run python -m pytest tests/test_delivery.py tests/test_governance_loop.py -q"
+    ],
+    "target_artifacts": [
+      "tests/test_delivery.py",
+      "tests/test_governance_loop.py",
+      "scripts/governance/export_datapulse_release_sidecar.py",
+      "scripts/governance/datapulse_loop_contracts.py",
+      "docs/test_facts.md"
+    ],
+    "exit_condition": "Promotion and replay gates read the release-window attestation as the primary same-window truth and reject stale, missing, or cross-head evidence while still accepting report_draft verified_fail_closed as required runtime closure.",
+    "notes": [
+      "exit_condition: Promotion and replay gates read the release-window attestation as the primary same-window truth and reject stale, missing, or cross-head evidence while still accepting report_draft verified_fail_closed as required runtime closure.",
+      "promotion_scope: none",
+      "No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice."
+    ],
+    "source": {
+      "catalog_entry": false,
+      "plan_slice": true
+    }
+  },
+  "blocking_facts": [
+    "workspace_dirty"
+  ],
   "remaining_promotion_gates": [
     "workspace_dirty",
     "repo_landed_false",

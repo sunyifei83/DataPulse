@@ -392,14 +392,14 @@ def validate_delivery_summary_payload(payload: Any) -> list[str]:
         route_status = str(route.get("status", "") or "").strip().lower()
         if route_status not in {"healthy", "degraded", "missing", "idle"}:
             errors.append(f"routes[{index}].status must be healthy/degraded/missing/idle")
-        for field in ("event_count", "delivered_count", "failure_count"):
+        for count_field in ("event_count", "delivered_count", "failure_count"):
             try:
-                value = int(route.get(field, 0) or 0)
+                value = int(route.get(count_field, 0) or 0)
             except Exception:
-                errors.append(f"routes[{index}].{field} must be an integer")
+                errors.append(f"routes[{index}].{count_field} must be an integer")
                 continue
             if value < 0:
-                errors.append(f"routes[{index}].{field} cannot be negative")
+                errors.append(f"routes[{index}].{count_field} cannot be negative")
         success_rate = route.get("success_rate")
         if success_rate is not None:
             try:
@@ -409,10 +409,10 @@ def validate_delivery_summary_payload(payload: Any) -> list[str]:
             else:
                 if rate < 0.0 or rate > 1.0:
                     errors.append(f"routes[{index}].success_rate must be between 0 and 1")
-        for field in ("last_event_at", "last_delivered_at", "last_failed_at", "last_error"):
-            value = route.get(field)
-            if value is not None and not isinstance(value, str):
-                errors.append(f"routes[{index}].{field} must be a string when present")
+        for text_field in ("last_event_at", "last_delivered_at", "last_failed_at", "last_error"):
+            text_value = route.get(text_field)
+            if text_value is not None and not isinstance(text_value, str):
+                errors.append(f"routes[{index}].{text_field} must be a string when present")
 
     incident_notes = payload.get("incident_notes")
     if incident_notes is not None:

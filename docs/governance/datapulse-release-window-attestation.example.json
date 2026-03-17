@@ -1,0 +1,140 @@
+{
+  "schema_version": "datapulse_release_window_attestation.v1",
+  "project": "DataPulse",
+  "generated_at_utc": "2026-03-16T12:35:45Z",
+  "window_id": "dp-release-window-20260316T123545Z-d8f50416e48303246a8f33c1e8c4046e1abf69dc",
+  "git_head": "d8f50416e48303246a8f33c1e8c4046e1abf69dc",
+  "attestation_status": "attested",
+  "blocking_reasons": [],
+  "same_window": {
+    "required": true,
+    "same_head_required": true,
+    "same_bundle_dir_required": true,
+    "proven": true,
+    "reasons": []
+  },
+  "freshness": {
+    "max_source_age_seconds": 900,
+    "max_inter_source_skew_seconds": 300,
+    "all_sources_fresh": true,
+    "max_observed_skew_seconds": 53,
+    "sources": [
+      {
+        "source": "structured_release_bundle_manifest",
+        "path": "out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
+        "generated_at_utc": "2026-03-16T12:34:52Z",
+        "age_seconds": 53,
+        "fresh": true
+      },
+      {
+        "source": "bundle_manifest",
+        "path": "out/ha_latest_release_bundle/bundle_manifest.json",
+        "generated_at_utc": "2026-03-16T12:34:56Z",
+        "age_seconds": 49,
+        "fresh": true
+      },
+      {
+        "source": "runtime_hit_evidence",
+        "path": "out/governance/datapulse_surface_runtime_hit_evidence.draft.json",
+        "generated_at_utc": "2026-03-16T12:35:30Z",
+        "age_seconds": 15,
+        "fresh": true
+      },
+      {
+        "source": "release_sidecar",
+        "path": "out/governance/release_sidecar.draft.json",
+        "generated_at_utc": "2026-03-16T12:35:42Z",
+        "age_seconds": 3,
+        "fresh": true
+      }
+    ]
+  },
+  "bundle_identity": {
+    "bundle_dir": "out/ha_latest_release_bundle",
+    "structured_manifest_path": "out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
+    "structured_manifest_generated_at_utc": "2026-03-16T12:34:52Z",
+    "adapter_bundle_manifest_path": "out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json",
+    "bundle_manifest_path": "out/ha_latest_release_bundle/bundle_manifest.json",
+    "bundle_id": "datapulse.ai_surface_bus",
+    "consumer_id": "datapulse",
+    "bundle_files": [
+      "adapter_bundle_manifest.draft.json",
+      "bundle_manifest.json",
+      "datapulse_surface_runtime_hit_evidence.draft.json",
+      "project_specific_loop_state.draft.json",
+      "release_sidecar.draft.json",
+      "structured_release_bundle_manifest.draft.json"
+    ]
+  },
+  "runtime_hit_evidence": {
+    "path": "out/governance/datapulse_surface_runtime_hit_evidence.draft.json",
+    "schema_version": "datapulse_surface_runtime_hit_evidence.v1",
+    "generated_at_utc": "2026-03-16T12:35:30Z",
+    "bundle_default_strategy": "bundle_first",
+    "runtime_bundle_dir": "out/ha_latest_release_bundle",
+    "closure_replay_entrypoint": "python3 scripts/governance/export_datapulse_surface_runtime_hit_evidence.py --bundle-dir out/ha_latest_release_bundle",
+    "release_level_prerequisites": {
+      "bundle_first_default_ready": true,
+      "shadow_change_prerequisites_met": true,
+      "required_change_prerequisites_met": true,
+      "promotion_discussion_allowed": true
+    },
+    "required_surfaces": [
+      {
+        "surface": "delivery_summary",
+        "expected_evidence_status": "verified",
+        "observed_evidence_status": "verified",
+        "release_scope": "shadow",
+        "request_id": "36cbf2a1bca8",
+        "served_by_alias": "dp.delivery.summary",
+        "contract_id": "datapulse_ai_delivery_summary.v1",
+        "fail_closed": false,
+        "satisfied": true
+      },
+      {
+        "surface": "report_draft",
+        "expected_evidence_status": "verified_fail_closed",
+        "observed_evidence_status": "verified_fail_closed",
+        "release_scope": "required",
+        "request_id": "7c72f0c1226f",
+        "served_by_alias": "dp.report.draft",
+        "contract_id": "",
+        "fail_closed": true,
+        "satisfied": true
+      }
+    ]
+  },
+  "release_sidecar_truth": {
+    "path": "out/governance/release_sidecar.draft.json",
+    "schema_version": "release_sidecar.v1",
+    "generated_at_utc": "2026-03-16T12:35:42Z",
+    "release_tag": "v0.8.0",
+    "git_head": "d8f50416e48303246a8f33c1e8c4046e1abf69dc",
+    "workspace_clean": true,
+    "structured_release_bundle_available": true,
+    "runtime_hit_evidence_available": true,
+    "required_change_prerequisites_met": true,
+    "promotion_discussion_allowed": true,
+    "promotion_readiness_reasons": []
+  },
+  "replay_binding": {
+    "primary_bundle_replay": {
+      "kind": "generic_core_bundle_replay",
+      "entrypoint": "python3 scripts/governance/validate_governance_loop_bundle_draft.py --bundle-dir out/ha_latest_release_bundle",
+      "bundle_dir": "out/ha_latest_release_bundle",
+      "expected_result": "valid=true"
+    },
+    "runtime_hit_replay": {
+      "kind": "runtime_hit_export",
+      "entrypoint": "python3 scripts/governance/export_datapulse_surface_runtime_hit_evidence.py --bundle-dir out/ha_latest_release_bundle",
+      "bundle_dir": "out/ha_latest_release_bundle",
+      "expected_result": "delivery_summary=verified and report_draft=verified_fail_closed"
+    },
+    "ha_recovery_replay": {
+      "kind": "manual_remote_smoke_replay",
+      "entrypoint": "python3 scripts/governance/run_datapulse_ha_recovery_replay.py --json",
+      "manual_execute_entrypoint": "python3 scripts/governance/run_datapulse_ha_recovery_replay.py --execute --json",
+      "expected_result": "manual replay stays attributable to the same declared window unless recovery requires a new RUN_ID"
+    }
+  }
+}

@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-17T06:41:36Z",
+  "generated_at_utc": "2026-03-17T07:11:29Z",
   "status": "in_progress",
   "activation": {
     "wired": true,
@@ -19,8 +19,9 @@
       "The ModelBus-backed AI assistance governance and runtime-bridge wave is now completed in repo truth through L16.8.",
       "A new release-window attestation follow-up wave is now promoted into the active blueprint truth.",
       "L17.1 through L17.4 stage blueprint landing, contract binding, exporter-plus-bundle attachment, and same-window gating hardening for bundle, runtime-hit, sidecar, and replay facts.",
-      "The derived next slice now resolves to L17.1, which should land the repo-scoped release-window attestation blueprint and manual ignition map before exporter or gating slices reopen.",
-      "Further work should bind same-window evidence into attestation truth rather than reopening bundle adapter debates or inventing a second runtime semantics layer."
+      "The blueprint-landing slice L17.1 is now reflected in repo truth, the contract-freeze slice L17.2 is landed with a companion example payload, and L17.3 now adds the exporter-backed attestation artifact plus bundle attachment path.",
+      "Further work should bind same-window evidence into attestation truth rather than reopening bundle adapter debates or inventing a second runtime semantics layer.",
+      "The current next slice is L17.4, which should harden promotion gating and verification around attestation freshness and same-window consistency."
     ]
   }
 }

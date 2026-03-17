@@ -1,39 +1,54 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-16T12:35:01Z",
+  "generated_at_utc": "2026-03-17T07:12:19Z",
   "status_kind": "draft_export",
   "wired": false,
   "headline_summary": {
-    "current_level": "repo_landed",
-    "workspace_clean": true,
-    "head_published_to_upstream": false,
-    "repo_landed": true,
+    "current_level": "manual_only",
+    "workspace_clean": false,
+    "head_published_to_upstream": true,
+    "repo_landed": false,
     "ci_proven": false,
     "ci_proof_mode": "push_ci_workflow",
     "required_workflow": "CI",
     "quick_test_gate": {
-      "status": "stale_head",
+      "status": "failed",
       "observed": true,
-      "current_head_match": false,
-      "ok": true,
-      "generated_at_utc": "2026-03-15T04:22:23Z",
-      "head": "3934add049129538a1d166fe405275e70ac8f7b1",
+      "current_head_match": true,
+      "ok": false,
+      "generated_at_utc": "2026-03-17T07:03:04Z",
+      "head": "f0c894f25a57d09a35a1f16298688c895ba02085",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
   },
   "git": {
-    "head": "d8f50416e48303246a8f33c1e8c4046e1abf69dc",
+    "head": "f0c894f25a57d09a35a1f16298688c895ba02085",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "5ae578fbf070e40fca11dc335ab417570be5d325",
-    "head_published_to_upstream": false
+    "upstream_head": "f0c894f25a57d09a35a1f16298688c895ba02085",
+    "head_published_to_upstream": true
   },
   "workspace": {
-    "clean": true,
-    "dirty_entries": [],
-    "reason": ""
+    "clean": false,
+    "dirty_entries": [
+      "M docs/governance/datapulse-blueprint-plan.draft.json",
+      " M docs/governance/datapulse-blueprint-plan.json",
+      " M docs/governance/datapulse-release-window-attestation-blueprint.md",
+      " M out/codex_blueprint_loop/round-01/command.json",
+      " M out/codex_blueprint_loop/round-01/last_message.txt",
+      " M out/codex_blueprint_loop/round-01/prompt.txt",
+      " M scripts/governance/datapulse_loop_contracts.py",
+      " M scripts/governance/export_datapulse_evidence_bundle.py",
+      " M scripts/governance/export_datapulse_structured_release_bundle.py",
+      "?? docs/governance/datapulse-release-window-attestation-contract.md",
+      "?? docs/governance/datapulse-release-window-attestation.example.json",
+      "?? out/codex_blueprint_loop/round-02/",
+      "?? out/codex_blueprint_loop/round-03/",
+      "?? scripts/governance/export_datapulse_release_window_attestation.py"
+    ],
+    "reason": "git status reported local modifications."
   },
   "verification": {
     "compileall": {
@@ -51,11 +66,11 @@
       "latest_observation": {
         "path": "artifacts/governance/quick_test_gate.draft.json",
         "schema_version": "quick_test_gate.v1",
-        "generated_at_utc": "2026-03-15T04:22:23Z",
-        "ok": true,
+        "generated_at_utc": "2026-03-17T07:03:04Z",
+        "ok": false,
         "read_only": true,
         "git": {
-          "head": "3934add049129538a1d166fe405275e70ac8f7b1",
+          "head": "f0c894f25a57d09a35a1f16298688c895ba02085",
           "branch": "main"
         },
         "steps": [
@@ -80,10 +95,14 @@
               "check",
               "datapulse/"
             ],
-            "rc": 0,
-            "ok": true,
+            "rc": 1,
+            "ok": false,
             "stdout_tail": [
-              "All checks passed!"
+              "396 |             try:",
+              "397 |                 value = int(route.get(field, 0) or 0)",
+              "    |",
+              "",
+              "Found 1 error."
             ],
             "stderr_tail": []
           },
@@ -93,11 +112,12 @@
               "mypy",
               "datapulse/"
             ],
-            "rc": 0,
-            "ok": true,
+            "rc": 1,
+            "ok": false,
             "stdout_tail": [
-              "datapulse/cli.py:319: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
-              "Success: no issues found in 59 source files"
+              "datapulse/core/alerts.py:413: error: Incompatible types in assignment (expression has type \"Any | None\", variable has type \"int\")  [assignment]",
+              "datapulse/cli.py:326: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
+              "Found 1 error in 1 file (checked 59 source files)"
             ],
             "stderr_tail": []
           },
@@ -154,8 +174,8 @@
           }
         ]
       },
-      "latest_observation_status": "stale_head",
-      "latest_observation_current_head_match": false
+      "latest_observation_status": "failed",
+      "latest_observation_current_head_match": true
     },
     "local_smoke": {
       "gateable": false,
@@ -209,41 +229,27 @@
     "docs_only_changes_skip_ci": false,
     "docs_paths_ignore_configured": true,
     "proof_mode": "push_ci_workflow",
-    "head_published_to_upstream": false,
+    "head_published_to_upstream": true,
     "required_workflow": "CI",
     "required_run": null,
     "latest_head_ci_run": null,
     "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
-        "out/governance/code_landing_status.draft.json",
-        "out/governance/datapulse-ai-surface-admission.example.json",
-        "out/governance/datapulse_surface_runtime_hit_evidence.draft.json",
-        "out/governance/evidence_bundle_manifest.draft.json",
-        "out/governance/ha_delivery_facts.draft.json",
-        "out/governance/ha_delivery_landing.draft.json",
-        "out/governance/ha_recovery_preset.draft.json",
-        "out/governance/project_specific_loop_state.draft.json",
-        "out/governance/release_readiness_fact.draft.json",
-        "out/governance/release_sidecar.draft.json",
-        "out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json",
-        "out/ha_latest_release_bundle/bridge_config.json",
-        "out/ha_latest_release_bundle/bundle_manifest.json",
-        "out/ha_latest_release_bundle/code_landing_status.draft.json",
-        "out/ha_latest_release_bundle/code_landing_status.snapshot.json",
-        "out/ha_latest_release_bundle/datapulse-ai-surface-admission.example.json",
-        "out/ha_latest_release_bundle/datapulse_surface_runtime_hit_evidence.draft.json",
-        "out/ha_latest_release_bundle/evidence_bundle_manifest.draft.json",
-        "out/ha_latest_release_bundle/ha_delivery_facts.draft.json",
-        "out/ha_latest_release_bundle/ha_delivery_landing.draft.json",
-        "out/ha_latest_release_bundle/ha_recovery_preset.draft.json",
-        "out/ha_latest_release_bundle/project_specific_loop_state.draft.json",
-        "out/ha_latest_release_bundle/release_readiness_fact.draft.json",
-        "out/ha_latest_release_bundle/release_sidecar.draft.json",
-        "out/ha_latest_release_bundle/release_status.json",
-        "out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
-        "out/ha_latest_release_bundle/surface_admission.json",
-        "scripts/governance/datapulse_loop_contracts.py"
+        "docs/governance/datapulse-blueprint-plan.draft.json",
+        "docs/governance/datapulse-blueprint-plan.json",
+        "docs/governance/datapulse-release-window-attestation-blueprint.md",
+        "out/codex_blueprint_loop/round-01/command.json",
+        "out/codex_blueprint_loop/round-01/last_message.txt",
+        "out/codex_blueprint_loop/round-01/prompt.txt",
+        "scripts/governance/datapulse_loop_contracts.py",
+        "scripts/governance/export_datapulse_evidence_bundle.py",
+        "scripts/governance/export_datapulse_structured_release_bundle.py",
+        "docs/governance/datapulse-release-window-attestation-contract.md",
+        "docs/governance/datapulse-release-window-attestation.example.json",
+        "out/codex_blueprint_loop/round-02/",
+        "out/codex_blueprint_loop/round-03/",
+        "scripts/governance/export_datapulse_release_window_attestation.py"
       ],
       "docs_only": false
     }
@@ -265,23 +271,25 @@
     ]
   },
   "gate_groups": {
-    "execution_safety": [],
+    "execution_safety": [
+      "workspace_dirty"
+    ],
     "local_verification": [],
     "runtime_governance": [],
-    "ci_policy": [
-      "head_not_pushed"
-    ],
+    "ci_policy": [],
     "release_governance": []
   },
   "promotion_levels": {
     "repo_landed": {
-      "satisfied": true,
-      "reasons": []
+      "satisfied": false,
+      "reasons": [
+        "workspace_dirty"
+      ]
     },
     "ci_proven": {
       "satisfied": false,
       "reasons": [
-        "head_not_pushed",
+        "repo_landed_false",
         "ci_run_not_proven"
       ]
     }
@@ -290,11 +298,11 @@
     "latest_quick_test_gate": {
       "path": "artifacts/governance/quick_test_gate.draft.json",
       "schema_version": "quick_test_gate.v1",
-      "generated_at_utc": "2026-03-15T04:22:23Z",
-      "ok": true,
+      "generated_at_utc": "2026-03-17T07:03:04Z",
+      "ok": false,
       "read_only": true,
       "git": {
-        "head": "3934add049129538a1d166fe405275e70ac8f7b1",
+        "head": "f0c894f25a57d09a35a1f16298688c895ba02085",
         "branch": "main"
       },
       "steps": [
@@ -319,10 +327,14 @@
             "check",
             "datapulse/"
           ],
-          "rc": 0,
-          "ok": true,
+          "rc": 1,
+          "ok": false,
           "stdout_tail": [
-            "All checks passed!"
+            "396 |             try:",
+            "397 |                 value = int(route.get(field, 0) or 0)",
+            "    |",
+            "",
+            "Found 1 error."
           ],
           "stderr_tail": []
         },
@@ -332,11 +344,12 @@
             "mypy",
             "datapulse/"
           ],
-          "rc": 0,
-          "ok": true,
+          "rc": 1,
+          "ok": false,
           "stdout_tail": [
-            "datapulse/cli.py:319: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
-            "Success: no issues found in 59 source files"
+            "datapulse/core/alerts.py:413: error: Incompatible types in assignment (expression has type \"Any | None\", variable has type \"int\")  [assignment]",
+            "datapulse/cli.py:326: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
+            "Found 1 error in 1 file (checked 59 source files)"
           ],
           "stderr_tail": []
         },

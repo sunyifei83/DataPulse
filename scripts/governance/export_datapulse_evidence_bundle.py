@@ -75,6 +75,7 @@ def build_manifest(plan_path: Path, notes_file: Path, tag: str, probe_ha_readine
         "code_landing_status.draft.json",
         "datapulse-ai-surface-admission.example.json",
         "datapulse_surface_runtime_hit_evidence.draft.json",
+        "datapulse_release_window_attestation.draft.json",
         "ha_delivery_facts.draft.json",
         "ha_delivery_landing.draft.json",
         "ha_recovery_preset.draft.json",
@@ -197,6 +198,21 @@ def main() -> int:
             str(notes_file),
             "--output",
             str(out_dir / "release_sidecar.draft.json"),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            *current_python_command(),
+            "scripts/governance/export_datapulse_release_window_attestation.py",
+            "--bundle-dir",
+            str(args.bundle_dir.resolve()),
+            "--runtime-hit-json",
+            str((out_dir / "datapulse_surface_runtime_hit_evidence.draft.json").resolve()),
+            "--release-sidecar-json",
+            str((out_dir / "release_sidecar.draft.json").resolve()),
+            "--output",
+            str((out_dir / "datapulse_release_window_attestation.draft.json").resolve()),
         ],
         check=True,
     )

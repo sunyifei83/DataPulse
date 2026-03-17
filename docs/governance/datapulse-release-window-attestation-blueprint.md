@@ -93,21 +93,19 @@ This wave should not reintroduce:
 | `L17.3` | Add a single release-window attestation exporter and attach it to the structured bundle | Produces one attributable artifact per window instead of several loosely related files |
 | `L17.4` | Harden promotion and replay gates around attestation freshness and same-window consistency | Makes manual promotion and replay read attestation truth first, while preserving fail-closed semantics |
 
-## Recommended Ignition Order After This Refresh
+## Manual Ignition Handoff
 
-Recommended order after this refresh:
+`L17.2` is the contract-freeze slice for this wave. Once the contract document and companion example payload are present in repo truth, the next manual ignition target should move to `L17.3`.
 
-1. `L17.1`
-2. `L17.2`
-3. `L17.3`
-4. `L17.4`
+Recommended order after `L17.2` lands:
 
-This order keeps the next work narrow:
+1. `L17.3`
+2. `L17.4`
 
-- first promote blueprint truth
-- then freeze the contract
-- then add the exporter and bundle attachment
-- finally harden gates and tests around the new attestation artifact
+This handoff keeps the next work narrow:
+
+- first emit one attestation artifact and attach it to the canonical bundle
+- then harden gates and tests around the new attestation artifact
 
 ## One-Line Direction
 
