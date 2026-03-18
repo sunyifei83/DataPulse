@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-18T09:04:05Z",
+  "generated_at_utc": "2026-03-18T09:06:46Z",
   "status": "in_progress",
   "activation": {
     "wired": true,
@@ -19,10 +19,11 @@
       "The ModelBus-backed AI assistance governance and runtime-bridge wave is now completed in repo truth through L16.8.",
       "The release-window attestation follow-up wave is now completed in repo truth through L17.4.",
       "A new QNAIGC search-provider follow-up wave is now promoted into the active blueprint truth.",
-      "L18.1 through L18.4 stage blueprint landing, routing-and-config freeze, adapter-plus-auto-candidate wiring, and cost-aware verification hardening for a Chinese-query candidate search lane.",
+      "L18.1 through L18.3 stage blueprint landing, routing-and-config freeze, and adapter-plus-auto-candidate wiring are now reflected in repo truth without claiming broader operational readiness.",
       "The blueprint-landing slice L18.1 and contract-freeze slice L18.2 are now reflected in repo truth without claiming runtime support before implementation lands.",
+      "L18.3 has implemented the runtime candidate wiring with request-id tracing and cost accounting for QNAIGC paid calls.",
       "Further work should preserve SearchHit normalization and explicit operator-visible cost control rather than replacing the current tavily/jina default chain.",
-      "The current next slice is L18.3, which should implement adapter wiring under the frozen L18.2 token/routing constraints."
+      "The current next slice is L18.4, focused on verification diagnostics and manual ignition guardrails."
     ]
   }
 }

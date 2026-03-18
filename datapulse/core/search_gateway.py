@@ -70,9 +70,20 @@ class SearchGateway:
         self._breaker_failure_threshold = gateway_config.breaker_failure_threshold
         self._breaker_recovery_timeout = gateway_config.breaker_recovery_timeout
         self._breaker_rate_limit_weight = gateway_config.breaker_rate_limit_weight
+        self._qnaigc_enabled = gateway_config.qnaigc_enabled
+        self._qnaigc_locale_patterns = tuple(
+            p.lower() for p in gateway_config.qnaigc_locale_patterns if p.strip()
+        )
+        self._qnaigc_max_results = max(1, int(gateway_config.qnaigc_max_results))
+        self._qnaigc_site_filter_limit = max(1, int(gateway_config.qnaigc_site_filter_limit))
+        self._qnaigc_cost_per_call = float(gateway_config.qnaigc_cost_per_call)
+        self._qnaigc_cost_currency = (gateway_config.qnaigc_cost_currency or "CNY").strip() or "CNY"
+        self._qnaigc_fail_closed_without_token = gateway_config.qnaigc_fail_closed_without_token
+        self._qnaigc_tokens = self._load_qnaigc_tokens()
         self._provider_breakers: dict[str, CircuitBreaker] = {
             "tavily": self._new_circuit_breaker("tavily"),
             "jina": self._new_circuit_breaker("jina"),
+            "qnaigc": self._new_circuit_breaker("qnaigc"),
         }
 
     def _new_circuit_breaker(self, name: str) -> CircuitBreaker:
@@ -97,7 +108,7 @@ class SearchGateway:
         freshness: str | None = None,
     ) -> tuple[list[SearchHit], dict[str, Any]]:
         """Execute search with fallback/multi-mode and return normalized hits + audit."""
-        providers = self._resolve_providers(provider, mode=mode)
+        providers = self._resolve_providers(query=query, provider=provider, mode=mode)
         requested_time_range = time_range or freshness
         search_meta: dict[str, Any] = {
             "query": query,
@@ -110,6 +121,8 @@ class SearchGateway:
             "providers_with_hit": 0,
             "source_count": 0,
             "provider_count": 0,
+            "cost_currency": self._qnaigc_cost_currency,
+            "estimated_cost_total": 0.0,
         }
 
         sampled_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -142,6 +155,10 @@ class SearchGateway:
         search_meta["providers_selected"] = len(providers)
         search_meta["source_count"] = len({self._normalize_source(h.source) for h in hits})
         search_meta["sampled_at"] = sampled_at
+        search_meta["estimated_cost_total"] = round(
+            sum(float(a.get("estimated_cost", 0.0) or 0.0) for a in attempts),
+            6,
+        )
 
         # Sort and trim final output for predictable downstream behavior.
         merged = self._dedupe_hits(hits)
@@ -193,6 +210,7 @@ class SearchGateway:
                         "latency_ms": round((monotonic() - start) * 1000, 2),
                         "retry_count": middleware_meta.get("retry_count", 0),
                         "attempts": middleware_meta.get("attempts", 0),
+                        "estimated_cost": middleware_meta.get("estimated_cost", 0.0),
                         "circuit_state_before": middleware_meta.get("circuit_state_before"),
                         "circuit_state_after": middleware_meta.get("circuit_state_after"),
                     }
@@ -209,6 +227,7 @@ class SearchGateway:
                         "latency_ms": round((monotonic() - start) * 1000, 2),
                         "attempts": 0,
                         "retry_count": 0,
+                        "estimated_cost": 0.0,
                         "circuit_state_before": None,
                         "circuit_state_after": None,
                     }
@@ -266,6 +285,7 @@ class SearchGateway:
                             "latency_ms": round((monotonic() - start) * 1000, 2),
                             "retry_count": middleware_meta.get("retry_count", 0),
                             "attempts": middleware_meta.get("attempts", 0),
+                            "estimated_cost": middleware_meta.get("estimated_cost", 0.0),
                             "circuit_state_before": middleware_meta.get("circuit_state_before"),
                             "circuit_state_after": middleware_meta.get("circuit_state_after"),
                         }
@@ -279,6 +299,7 @@ class SearchGateway:
                             "latency_ms": round((monotonic() - start) * 1000, 2),
                             "attempts": 0,
                             "retry_count": 0,
+                            "estimated_cost": 0.0,
                             "circuit_state_before": None,
                             "circuit_state_after": None,
                         }
@@ -347,6 +368,7 @@ class SearchGateway:
         middleware_meta["retry_count"] = max(0, middleware_meta["attempts"] - 1)
         middleware_meta["circuit_state_before"] = circuit_state_before
         middleware_meta["circuit_state_after"] = breaker.state
+        middleware_meta["estimated_cost"] = self._qnaigc_cost_per_call if provider_name == "qnaigc" else 0.0
         return hits, middleware_meta
 
     def _run_provider(
@@ -371,7 +393,200 @@ class SearchGateway:
             )
         if provider_name == "jina":
             return self._search_jina(query=query, sites=sites, limit=limit)
+        if provider_name == "qnaigc":
+            return self._search_qnaigc(query=query, sites=sites, limit=limit)
         raise SearchProviderUnavailable(f"Unsupported search provider: {provider_name}")
+
+    @staticmethod
+    def _coalesce_key(item: dict[str, Any], keys: tuple[str, ...], default: Any = None) -> Any:
+        for key in keys:
+            value = item.get(key)
+            if value is None or value == "":
+                continue
+            return value
+        return default
+
+    @staticmethod
+    def _coerce_float(value: Any) -> float:
+        try:
+            return float(value)
+        except Exception:
+            return 0.0
+
+    @staticmethod
+    def _safe_str(value: Any) -> str:
+        if value is None:
+            return ""
+        text = str(value)
+        return text.strip()
+
+    def _load_qnaigc_tokens(self) -> list[str]:
+        tokens = [
+            get_secret("QNAIGC_TOKEN_A"),
+            get_secret("QNAIGC_TOKEN_B"),
+        ]
+        return [token.strip() for token in tokens if token.strip()]
+
+    def _next_qnaigc_token(self) -> str | None:
+        for token in self._qnaigc_tokens:
+            if token:
+                return token
+        return None
+
+    @staticmethod
+    def _is_chinese_query(query: str) -> bool:
+        return bool(re.search(r"[\u4e00-\u9fff]", query or ""))
+
+    def _is_qnaigc_candidate_query(self, query: str) -> bool:
+        if not query:
+            return False
+        if not self._qnaigc_enabled:
+            return False
+        if not self._qnaigc_tokens:
+            return False
+        if self._is_chinese_query(query):
+            return True
+        lowered = query.lower()
+        for pattern in self._qnaigc_locale_patterns:
+            if pattern and pattern in lowered:
+                return True
+        return False
+
+    def _build_qnaigc_site_filter(self, sites: list[str] | None) -> list[str]:
+        if not sites:
+            return []
+        normalized: list[str] = []
+        for site in sites:
+            text = (site or "").strip()
+            if not text:
+                continue
+            if text not in normalized:
+                normalized.append(text)
+            if len(normalized) >= self._qnaigc_site_filter_limit:
+                break
+        return normalized
+
+    def _extract_qnaigc_request_id(self, body: dict[str, Any]) -> str:
+        if not isinstance(body, dict):
+            return ""
+        for key in ("request_id", "requestId", "rid", "trace_id"):
+            value = self._safe_str(body.get(key))
+            if value:
+                return value
+
+        payload = body.get("data")
+        if isinstance(payload, dict):
+            for key in ("request_id", "requestId", "rid", "trace_id"):
+                value = self._safe_str(payload.get(key))
+                if value:
+                    return value
+        return ""
+
+    def _extract_qnaigc_results(self, body: dict[str, Any]) -> list[dict[str, Any]]:
+        if not isinstance(body, dict):
+            return []
+
+        payload: Any = body.get("data", body)
+        if isinstance(payload, dict):
+            for key in ("results", "items", "list", "data"):
+                value = payload.get(key)
+                if isinstance(value, list):
+                    return value
+        for key in ("results", "items", "list", "data"):
+            value = body.get(key)
+            if isinstance(value, list):
+                return value
+        return []
+
+    def _search_qnaigc(
+        self,
+        *,
+        query: str,
+        sites: list[str] | None,
+        limit: int,
+    ) -> list[SearchHit]:
+        token = self._next_qnaigc_token()
+        if not token:
+            if self._qnaigc_fail_closed_without_token:
+                raise SearchProviderUnavailable("QNAIGC token not configured")
+            return []
+
+        payload: dict[str, Any] = {
+            "query": query,
+            "max_results": min(max(1, int(limit)), self._qnaigc_max_results),
+        }
+        site_filter = self._build_qnaigc_site_filter(sites)
+        if site_filter:
+            payload["site_filter"] = site_filter
+
+        resp = requests.post(
+            "https://api.qnaigc.com/v1/search/web",
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            timeout=self._timeout_seconds,
+        )
+
+        if resp.status_code == 429:
+            retry_after = self._parse_retry_after(resp.headers.get("Retry-After"))
+            raise RateLimitError("QNAIGC rate limit", retry_after=retry_after)
+        if resp.status_code == 401:
+            raise SearchProviderUnavailable("QNAIGC API key invalid")
+        if resp.status_code >= 400:
+            raise RuntimeError(f"QNAIGC request failed: HTTP {resp.status_code}")
+
+        body = self._safe_json(resp)
+        if not isinstance(body, dict):
+            return []
+
+        request_id = self._extract_qnaigc_request_id(body)
+        results = self._extract_qnaigc_results(body)
+
+        out: list[SearchHit] = []
+        max_results = min(max(1, int(limit)), self._qnaigc_max_results)
+        for item in results[:max_results]:
+            if not isinstance(item, dict):
+                continue
+            url = self._safe_str(item.get("url"))
+            if not url:
+                continue
+            title = self._safe_str(item.get("title")) or self._safe_str(item.get("name")) or url
+            snippet = self._safe_str(
+                self._coalesce_key(
+                    item,
+                    ("snippet", "description", "summary", "abstract", "content", "text"),
+                    "",
+                )
+            )
+            score = self._coerce_float(
+                self._coalesce_key(item, ("score", "relevance", "rank_score", "similarity"), 0.0)
+            )
+            hit = SearchHit(
+                title=title[:300],
+                url=self._sanitize_url(url),
+                snippet=snippet,
+                provider="qnaigc",
+                source="qnaigc",
+                score=score,
+                raw=item,
+                extra={
+                    "sources": ["qnaigc"],
+                    "authority_score": self._coalesce_key(item, ("authority_score", "authorityScore"), None),
+                    "date": self._coalesce_key(
+                        item,
+                        ("date", "published_date", "publish_date", "publishTime", "published"),
+                        None,
+                    ),
+                    "request_id": request_id or self._safe_str(
+                        self._coalesce_key(item, ("request_id", "requestId"), "")
+                    ),
+                },
+            )
+            out.append(hit)
+        return out
 
     def _search_tavily(
         self,
@@ -553,7 +768,7 @@ class SearchGateway:
                     "is_cross_validated": provider_count >= 2 and summary_consistency >= 0.35,
                 }
 
-    def _resolve_providers(self, provider: str, mode: str) -> list[str]:
+    def _resolve_providers(self, query: str, provider: str, mode: str) -> list[str]:
         preferred = ",".join(self._seq)
         if preferred:
             parts = [x.strip() for x in preferred.split(",") if x.strip()]
@@ -568,8 +783,10 @@ class SearchGateway:
         elif provider == "multi":
             base = ["tavily", "jina"]
         elif provider in {"auto", ""}:
-            # If provider is auto, run both with preference for tavily.
+            # If provider is auto, add QNAIGC as a narrow candidate before default chain.
             base = ["tavily", "jina"]
+            if self._is_qnaigc_candidate_query(query):
+                base = ["qnaigc", *base]
         else:
             base = ["jina", "tavily"]
 
@@ -583,8 +800,8 @@ class SearchGateway:
             if seen == ["jina"]:
                 return seen
             # tavily/auto/multi modes keep fallback chain for reliability
-            return seen[:2]
-        return seen[:2]
+            return seen
+        return seen
 
     def _dedupe_hits(self, hits: list[SearchHit]) -> list[SearchHit]:
         merged: dict[str, SearchHit] = {}

@@ -2391,7 +2391,7 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run pytest tests/test_search_gateway.py -q"
           ],
@@ -2432,8 +2432,8 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L18.3",
-    "title": "Add the QNAIGC provider adapter normalized SearchHit mapping and Chinese-query auto candidate routing",
+    "id": "L18.4",
+    "title": "Harden QNAIGC verification diagnostics and manual ignition guardrails",
     "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
@@ -2701,7 +2701,12 @@
       "at_utc": "2026-03-18T09:04:05Z",
       "slice_id": "L18.2",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-18T09:06:46Z",
+      "slice_id": "L18.3",
+      "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-18T09:04:05Z"
+  "last_updated_utc": "2026-03-18T09:06:46Z"
 }
