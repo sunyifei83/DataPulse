@@ -2,8 +2,8 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-17T07:37:48Z",
-  "status": "completed",
+  "generated_at_utc": "2026-03-18T08:19:55Z",
+  "status": "in_progress",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -80,7 +80,8 @@
     "L14": "completed",
     "L15": "completed",
     "L16": "completed",
-    "L17": "completed"
+    "L17": "completed",
+    "L18": "in_progress"
   },
   "phases": [
     {
@@ -2334,12 +2335,105 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L18",
+      "title": "QNAIGC search provider as a cost-aware Chinese-query candidate lane",
+      "goal": "Add a narrow QNAIGC search-provider lane through SearchGateway without changing SearchHit normalization, default explicit providers, or operator-visible cost control.",
+      "status": "in_progress",
+      "slices": [
+        {
+          "id": "L18.1",
+          "title": "Land the repo-scoped QNAIGC search-provider blueprint and manual ignition map",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-qnaigc-search-provider-blueprint.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "exit_condition": "The repository contains a repo-scoped blueprint that defines QNAIGC as a cost-aware Chinese-query candidate provider, and the active blueprint truth exposes a new manual ignition target beyond the completed L17 same-window attestation wave.",
+          "fact_sources": [
+            "https://developer.qiniu.com/aitokenapi/13192/web-search-api"
+          ],
+          "notes": [
+            "Treat operator-provided cost guidance as an explicit planning constraint rather than a hidden implementation assumption.",
+            "This slice should promote repo truth for routing, provenance, and ignition order without prematurely claiming runtime support."
+          ]
+        },
+        {
+          "id": "L18.2",
+          "title": "Define the QNAIGC provider contract routing rules and runtime config boundary",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "artifacts": [
+            "docs/search_gateway_config.md",
+            "datapulse/core/search_gateway.py",
+            "datapulse/core/config.py"
+          ],
+          "exit_condition": "Repo truth explicitly defines how QNAIGC token lookup, Chinese-query candidate routing, provider precedence, provider-specific extra fields, and cost-aware activation constraints should work before adapter code lands.",
+          "notes": [
+            "Keep authority_score, date, and request_id in SearchHit.extra rather than promoting them to first-class cross-provider fields.",
+            "The contract should preserve current explicit jina and tavily modes while allowing qnaigc as a narrow auto candidate."
+          ]
+        },
+        {
+          "id": "L18.3",
+          "title": "Add the QNAIGC provider adapter normalized SearchHit mapping and Chinese-query auto candidate routing",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "uv run pytest tests/test_search_gateway.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/search_gateway.py",
+            "datapulse/core/config.py",
+            "tests/test_search_gateway.py"
+          ],
+          "exit_condition": "SearchGateway can call QNAIGC behind runtime secrets, preserve SearchHit normalization, and only introduce it as an auto candidate for Chinese-language queries without replacing current explicit-provider behavior.",
+          "notes": [
+            "Reuse the existing retry, timeout, and circuit-breaker governance instead of adding provider-specific hidden control paths.",
+            "The adapter should carry request_id at the response or per-hit audit layer so operators can trace a paid call."
+          ]
+        },
+        {
+          "id": "L18.4",
+          "title": "Harden QNAIGC verification diagnostics and manual ignition guardrails",
+          "category": "manual",
+          "execution_profile": "runtime_validation",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "uv run pytest tests/test_search_gateway.py tests/test_reader.py -q"
+          ],
+          "artifacts": [
+            "docs/search_gateway_config.md",
+            "datapulse/cli.py",
+            "tests/test_search_gateway.py",
+            "tests/test_reader.py"
+          ],
+          "exit_condition": "Operator-facing diagnostics, smoke guidance, and tests make QNAIGC rate-limit behavior, fallback semantics, and paid-call activation boundaries explicit before wider routing promotion is considered.",
+          "notes": [
+            "Manual ignition should start with low-volume Chinese-query smoke paths using runtime-injected QNAIGC_TOKEN_A or QNAIGC_TOKEN_B.",
+            "The cost-aware lane should fail closed on missing token, 429, or provider contract drift rather than silently becoming the default path."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
+    "id": "L18.2",
+    "title": "Define the QNAIGC provider contract routing rules and runtime config boundary",
+    "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
     {
@@ -2596,7 +2690,12 @@
       "at_utc": "2026-03-17T07:37:48Z",
       "slice_id": "L17.4",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-18T08:19:55Z",
+      "slice_id": "L18.1",
+      "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-17T07:37:48Z"
+  "last_updated_utc": "2026-03-18T08:19:55Z"
 }

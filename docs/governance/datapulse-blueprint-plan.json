@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-17T07:11:29Z",
+  "generated_at_utc": "2026-03-18T08:19:55Z",
   "status": "in_progress",
   "activation": {
     "wired": true,
@@ -17,11 +17,12 @@
       "This overlay keeps the repository blueprint truth active while leaving continuation in explicit manual mode.",
       "The report-production and report-delivery waves remain part of active blueprint truth.",
       "The ModelBus-backed AI assistance governance and runtime-bridge wave is now completed in repo truth through L16.8.",
-      "A new release-window attestation follow-up wave is now promoted into the active blueprint truth.",
-      "L17.1 through L17.4 stage blueprint landing, contract binding, exporter-plus-bundle attachment, and same-window gating hardening for bundle, runtime-hit, sidecar, and replay facts.",
-      "The blueprint-landing slice L17.1 is now reflected in repo truth, the contract-freeze slice L17.2 is landed with a companion example payload, and L17.3 now adds the exporter-backed attestation artifact plus bundle attachment path.",
-      "Further work should bind same-window evidence into attestation truth rather than reopening bundle adapter debates or inventing a second runtime semantics layer.",
-      "The current next slice is L17.4, which should harden promotion gating and verification around attestation freshness and same-window consistency."
+      "The release-window attestation follow-up wave is now completed in repo truth through L17.4.",
+      "A new QNAIGC search-provider follow-up wave is now promoted into the active blueprint truth.",
+      "L18.1 through L18.4 stage blueprint landing, routing-and-config freeze, adapter-plus-auto-candidate wiring, and cost-aware verification hardening for a Chinese-query candidate search lane.",
+      "The blueprint-landing slice L18.1 is now reflected in repo truth without claiming runtime support before the provider contract is frozen.",
+      "Further work should preserve SearchHit normalization and explicit operator-visible cost control rather than replacing the current tavily/jina default chain.",
+      "The current next slice is L18.2, which should freeze routing rules, token/config boundaries, and provider-specific extra-field semantics before adapter code lands."
     ]
   }
 }
