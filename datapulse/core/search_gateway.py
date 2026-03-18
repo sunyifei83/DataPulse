@@ -219,6 +219,9 @@ class SearchGateway:
                 if hits:
                     return hits, attempts
             except Exception as exc:  # pragma: no cover
+                estimated_cost = self._provider_estimated_cost(provider_name)
+                if provider_name == "qnaigc" and "token not configured" in str(exc).lower():
+                    estimated_cost = 0.0
                 attempts.append(
                     {
                         "provider": provider_name,
@@ -227,7 +230,7 @@ class SearchGateway:
                         "latency_ms": round((monotonic() - start) * 1000, 2),
                         "attempts": 0,
                         "retry_count": 0,
-                        "estimated_cost": 0.0,
+                        "estimated_cost": estimated_cost,
                         "circuit_state_before": None,
                         "circuit_state_after": None,
                     }
@@ -291,6 +294,9 @@ class SearchGateway:
                         }
                     )
                 except Exception as exc:  # pragma: no cover
+                    estimated_cost = self._provider_estimated_cost(provider_name)
+                    if provider_name == "qnaigc" and "token not configured" in str(exc).lower():
+                        estimated_cost = 0.0
                     attempts.append(
                         {
                             "provider": provider_name,
@@ -299,7 +305,7 @@ class SearchGateway:
                             "latency_ms": round((monotonic() - start) * 1000, 2),
                             "attempts": 0,
                             "retry_count": 0,
-                            "estimated_cost": 0.0,
+                            "estimated_cost": estimated_cost,
                             "circuit_state_before": None,
                             "circuit_state_after": None,
                         }
@@ -368,8 +374,11 @@ class SearchGateway:
         middleware_meta["retry_count"] = max(0, middleware_meta["attempts"] - 1)
         middleware_meta["circuit_state_before"] = circuit_state_before
         middleware_meta["circuit_state_after"] = breaker.state
-        middleware_meta["estimated_cost"] = self._qnaigc_cost_per_call if provider_name == "qnaigc" else 0.0
+        middleware_meta["estimated_cost"] = self._provider_estimated_cost(provider_name)
         return hits, middleware_meta
+
+    def _provider_estimated_cost(self, provider_name: str) -> float:
+        return self._qnaigc_cost_per_call if provider_name == "qnaigc" else 0.0
 
     def _run_provider(
         self,
@@ -482,9 +491,9 @@ class SearchGateway:
                     return value
         return ""
 
-    def _extract_qnaigc_results(self, body: dict[str, Any]) -> list[dict[str, Any]]:
+    def _extract_qnaigc_results(self, body: dict[str, Any]) -> list[dict[str, Any]] | None:
         if not isinstance(body, dict):
-            return []
+            return None
 
         payload: Any = body.get("data", body)
         if isinstance(payload, dict):
@@ -496,7 +505,7 @@ class SearchGateway:
             value = body.get(key)
             if isinstance(value, list):
                 return value
-        return []
+        return None
 
     def _search_qnaigc(
         self,
@@ -540,10 +549,12 @@ class SearchGateway:
 
         body = self._safe_json(resp)
         if not isinstance(body, dict):
-            return []
+            raise RuntimeError("QNAIGC response malformed: non-object payload")
 
         request_id = self._extract_qnaigc_request_id(body)
         results = self._extract_qnaigc_results(body)
+        if results is None:
+            raise RuntimeError("QNAIGC response malformed: missing results list")
 
         out: list[SearchHit] = []
         max_results = min(max(1, int(limit)), self._qnaigc_max_results)
@@ -782,6 +793,8 @@ class SearchGateway:
             base = ["tavily", "jina"]
         elif provider == "multi":
             base = ["tavily", "jina"]
+        elif provider == "qnaigc":
+            base = ["qnaigc"]
         elif provider in {"auto", ""}:
             # If provider is auto, add QNAIGC as a narrow candidate before default chain.
             base = ["tavily", "jina"]

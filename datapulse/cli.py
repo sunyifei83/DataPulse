@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 
 import datapulse
 from datapulse.core.config import SearchGatewayConfig
+from datapulse.core.security import get_secret, mask_secret
 from datapulse.reader import DataPulseReader
 from datapulse.tools.session import login_platform, supported_platforms
 
@@ -690,6 +691,41 @@ def _search_gateway_defaults() -> dict[str, tuple[object, object, str]]:
             ",".join(default.provider_preference),
             "provider preference",
         ),
+        "DATAPULSE_SEARCH_QNAIGC_ENABLED": (
+            effective.qnaigc_enabled,
+            default.qnaigc_enabled,
+            "qnaigc enabled",
+        ),
+        "DATAPULSE_SEARCH_QNAIGC_LOCALE_PATTERNS": (
+            ",".join(effective.qnaigc_locale_patterns),
+            ",".join(default.qnaigc_locale_patterns),
+            "qnaigc locale patterns",
+        ),
+        "DATAPULSE_SEARCH_QNAIGC_MAX_RESULTS": (
+            effective.qnaigc_max_results,
+            default.qnaigc_max_results,
+            "qnaigc max_results",
+        ),
+        "DATAPULSE_SEARCH_QNAIGC_SITE_FILTER_LIMIT": (
+            effective.qnaigc_site_filter_limit,
+            default.qnaigc_site_filter_limit,
+            "qnaigc site_filter limit",
+        ),
+        "DATAPULSE_SEARCH_QNAIGC_COST_PER_CALL": (
+            effective.qnaigc_cost_per_call,
+            default.qnaigc_cost_per_call,
+            "qnaigc cost per call",
+        ),
+        "DATAPULSE_SEARCH_QNAIGC_COST_CURRENCY": (
+            effective.qnaigc_cost_currency,
+            default.qnaigc_cost_currency,
+            "qnaigc cost currency",
+        ),
+        "DATAPULSE_SEARCH_QNAIGC_FAIL_CLOSED_WITHOUT_TOKEN": (
+            effective.qnaigc_fail_closed_without_token,
+            default.qnaigc_fail_closed_without_token,
+            "qnaigc fail-closed when token missing",
+        ),
     }
 
 
@@ -702,6 +738,22 @@ def _format_env_value(value: str | None) -> str:
     if len(text) <= 28:
         return text
     return f"{text[:22]}..."
+
+
+def _qnaigc_token_snapshot() -> tuple[dict[str, str], str]:
+    token_a = get_secret("QNAIGC_TOKEN_A")
+    token_b = get_secret("QNAIGC_TOKEN_B")
+    active_source = ""
+    if token_a:
+        active_source = "QNAIGC_TOKEN_A"
+    elif token_b:
+        active_source = "QNAIGC_TOKEN_B"
+
+    status: dict[str, str] = {
+        "QNAIGC_TOKEN_A": mask_secret(token_a) if token_a else "<empty>",
+        "QNAIGC_TOKEN_B": mask_secret(token_b) if token_b else "<empty>",
+    }
+    return status, active_source
 
 
 def _collect_fix_commands(collector_name: str, setup_hint: str) -> list[str]:
@@ -798,6 +850,26 @@ def _print_config_check() -> None:
         print("           - export TG_API_ID=<your_tg_api_id>")
         print("           - export TG_API_HASH=<your_tg_api_hash>")
 
+    # QNAIGC tokens (run as runtime secret for smoke candidates)
+    qnaigc_tokens, qnaigc_active_source = _qnaigc_token_snapshot()
+    token_a = qnaigc_tokens["QNAIGC_TOKEN_A"]
+    token_b = qnaigc_tokens["QNAIGC_TOKEN_B"]
+    if token_a != "<empty>":
+        print(f"   [OK] QNAIGC_TOKEN_A: {token_a}")
+    else:
+        print(f"   [WARN] QNAIGC_TOKEN_A: {token_a}")
+    if token_b != "<empty>":
+        print(f"   [OK] QNAIGC_TOKEN_B: {token_b}")
+    else:
+        print(f"   [WARN] QNAIGC_TOKEN_B: {token_b}")
+    if qnaigc_active_source:
+        print(f"   Active priority source: {qnaigc_active_source}")
+    else:
+        print("   [WARN] QNAIGC tokens are not set (candidate lane inactive)")
+        print("         Recommended fix:")
+        print("           - export QNAIGC_TOKEN_A=<token>  # preferred")
+        print("           - export QNAIGC_TOKEN_B=<token>  # fallback")
+
     # General optional keys (display current/placeholder for fast onboarding)
     optional_envs = [
         "FIRECRAWL_API_KEY",
@@ -815,11 +887,28 @@ def _print_config_check() -> None:
         status = "[OK]" if present not in ("", "<empty>") else "[WARN]"
         print(f"   {status} {env_name}: {present or 'not set'}")
 
+    gateway_defaults = _search_gateway_defaults()
     print("\nSearchGateway tuning (effective / default):")
-    for env_name, (value, default, desc) in _search_gateway_defaults().items():
+    for env_name, (value, default, desc) in gateway_defaults.items():
         marker = "default" if value == default else "override"
         print(f"   - {env_name}: {value} ({desc}, {marker})")
+    qnaigc_enabled = bool(gateway_defaults["DATAPULSE_SEARCH_QNAIGC_ENABLED"][0])
 
+    print("\n3) Manual ignition smoke guidance (qnaigc lane)")
+    print("   - Keep query profile narrow, Chinese-first, low-volume:")
+    print("           datapulse --search '中文 速讯' --search-provider auto --search-limit 2")
+    print("   - Expected audit semantics on dry run:")
+    print("           provider_chain includes qnaigc -> fallback provider when qnaigc unavailable")
+    print("           attempts[0]['provider'] == 'qnaigc'")
+    print("           estimated_cost is 0.0 if token is absent, else 0.036 per call")
+    print("   - Recommended gate checks:")
+    if qnaigc_active_source:
+        print("           [OK] set token and validate provider_candidate visibility now")
+        if not qnaigc_enabled:
+            print("           [WARN] DATAPULSE_SEARCH_QNAIGC_ENABLED is off")
+            print("                 - export DATAPULSE_SEARCH_QNAIGC_ENABLED=1")
+    else:
+        print("           [WARN] Set token first, then run auto-mode smoke")
 
 
 def _normalize_csv_ids(value: str | None) -> list[str] | None:

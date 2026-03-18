@@ -82,6 +82,22 @@
   - `SearchHit` 仍是唯一共享结果模型
   - `authority_score`、`date`、`request_id` 写入 `SearchHit.extra`
 
+## 手动点火指引（L18.4）
+
+- 仅点火 `provider=auto` 且使用中文查询，避免直接把 qnaigc 插入显式链路。
+- 低量 smoke 建议：
+  - 设置 `DATAPULSE_SEARCH_QNAIGC_ENABLED=1`
+  - 设置任一 token：`QNAIGC_TOKEN_A` 或 `QNAIGC_TOKEN_B`（优先 A）
+  - 执行 `datapulse --search '中文 速讯' --search-provider auto --search-limit 2`
+  - 观察 CLI/调用返回的 `search_audit`：
+    - `provider_chain` 应在首位包含 `qnaigc`
+    - 当 qnaigc 不可用时应回退到 `tavily` / `jina`，且 `estimated_cost_total` 会累计已尝试 provider 成本
+    - 缺 token 时仅计费为 `0`，并继续按回退链路执行（fail-closed 边界）
+- 运营守则：
+  - 先观察成本边界（`DATAPULSE_SEARCH_QNAIGC_COST_PER_CALL`）是否符合预算
+  - 若触发 429/返回结构漂移，避免把此结果直接作为主链路默认行为，必须经回退链路验证
+- 该机制仅用于候选加速，显式 `provider=jina/tavily` 语义不变，不作为默认主通道。
+
 ## 验收命令
 - `python3 -m datapulse.mcp_server --help`
 - `python3 -m datapulse.mcp_server --list-tools`

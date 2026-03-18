@@ -1,7 +1,6 @@
 """Tests for DataPulseReader feed generation."""
 
-from __future__ import annotations
-
+import asyncio
 import json
 import xml.etree.ElementTree as ET
 
@@ -9,6 +8,7 @@ import pytest
 
 import datapulse.reader as reader_module
 from datapulse.core.models import DataPulseItem, SourceType
+from datapulse.core.search_gateway import SearchHit
 from datapulse.reader import DataPulseReader
 
 
@@ -123,6 +123,24 @@ def _write_modelbus_bundle(bundle_dir, rows):
                 "release_level": "inescapable",
                 "assured_verdict": "pass",
                 "runtime": {"base_url": "https://modelbus.example.com"},
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_source_catalog(path: str) -> None:
+    from pathlib import Path
+
+    Path(path).write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "sources": [],
+                "subscriptions": {},
+                "packs": [],
             },
             ensure_ascii=False,
             indent=2,
@@ -401,6 +419,92 @@ class TestBuildAtomFeed:
         entry = root.find("atom:entry", ns)
         entry_id = entry.find("atom:id", ns).text
         assert entry_id.startswith("urn:datapulse:")
+
+
+def test_search_audit_includes_qnaigc_candidate_fallback(tmp_path, monkeypatch):
+    inbox_path = str(tmp_path / "inbox.json")
+    catalog_path = str(tmp_path / "catalog.json")
+    _write_source_catalog(catalog_path)
+    monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+
+    reader = DataPulseReader(inbox_path=inbox_path)
+
+    def fake_search(
+        query: str,
+        *,
+        sites: list[str] | None,
+        limit: int,
+        provider: str,
+        mode: str,
+        deep: bool,
+        news: bool,
+        time_range: str | None = None,
+    ):
+        return [
+            SearchHit(
+                title="人工点火样例",
+                url="https://example.com/china-ai",
+                snippet="Sample snippet.",
+                provider="tavily",
+                source="tavily",
+                score=0.7,
+                raw={},
+                extra={"sources": ["tavily"]},
+            )
+        ], {
+            "query": query,
+            "mode": mode,
+            "requested_query": query,
+            "effective_query": query,
+            "provider_chain": ["qnaigc", "tavily"],
+            "attempts": [
+                {
+                    "provider": "qnaigc",
+                    "status": "error",
+                    "count": 0,
+                    "latency_ms": 0.0,
+                    "retry_count": 0,
+                    "attempts": 0,
+                    "error": "QNAIGC rate limit",
+                    "estimated_cost": 0.036,
+                },
+                {
+                    "provider": "tavily",
+                    "status": "ok",
+                    "count": 1,
+                    "latency_ms": 0.0,
+                    "retry_count": 0,
+                    "attempts": 0,
+                    "estimated_cost": 0.0,
+                },
+            ],
+            "estimated_cost_total": 0.036,
+            "providers_selected": 2,
+            "providers_with_hit": 1,
+            "provider_count": 1,
+            "fallback_applied": True,
+            "fallback_reason": "rate limit",
+            "requested_provider": provider,
+            "effective_provider": "tavily",
+        }
+
+    monkeypatch.setattr(reader._search_gateway, "search", fake_search)
+    items = asyncio.run(
+        reader.search(
+            "中文 技术",
+            provider="qnaigc",
+            limit=3,
+            fetch_content=False,
+        )
+    )
+
+    assert len(items) == 1
+    audit = items[0].extra.get("search_audit", {})
+    assert audit["provider_chain"] == ["qnaigc", "tavily"]
+    assert audit["attempts"][0]["provider"] == "qnaigc"
+    assert audit["attempts"][0]["status"] == "error"
+    assert audit["estimated_cost_total"] == 0.036
+    assert audit["fallback_applied"] is True
 
 
 def test_ai_surface_precheck_rejects_report_draft_without_contract(tmp_path, monkeypatch):

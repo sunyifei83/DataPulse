@@ -86,6 +86,134 @@ def test_search_qnaigc_maps_authority_score_date_request_id(monkeypatch: pytest.
     assert audit["estimated_cost_total"] == gateway._qnaigc_cost_per_call
 
 
+def test_search_qnaigc_429_falls_back_to_next_provider(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("DATAPULSE_SEARCH_QNAIGC_ENABLED", "1")
+    monkeypatch.setenv("QNAIGC_TOKEN_A", "token-a")
+
+    class FakeResponse:
+        def __init__(self, status_code: int, payload=None):
+            self.status_code = status_code
+            self._payload = payload or {}
+            self.headers = {}
+
+        def json(self):
+            return self._payload
+
+    def fake_post(url, *, json, headers, timeout):
+        return FakeResponse(429, {"error": "rate limited"})
+
+    def fake_tavily(
+        *,
+        query: str,
+        sites: list[str] | None,
+        limit: int,
+        deep: bool,
+        news: bool,
+        time_range=None,
+    ):
+        return [
+            SearchHit(
+                title="Tavily fallback",
+                url="https://example.com/tavily",
+                snippet="Fallback from tavily",
+                provider="tavily",
+                source="tavily",
+                score=0.1,
+                raw={},
+                extra={"sources": ["tavily"]},
+            )
+        ]
+
+    import requests
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    gateway = SearchGateway()
+    monkeypatch.setattr(gateway, "_search_tavily", fake_tavily)
+    hits, audit = gateway.search("中文 热点", limit=1, provider="auto")
+
+    assert len(hits) == 1
+    assert hits[0].provider == "tavily"
+    assert len(audit["attempts"]) == 2
+    assert audit["attempts"][0]["provider"] == "qnaigc"
+    assert audit["attempts"][0]["status"] == "error"
+    assert "rate limit" in str(audit["attempts"][0]["error"]).lower()
+    assert audit["attempts"][0]["estimated_cost"] == gateway._qnaigc_cost_per_call
+    assert audit["estimated_cost_total"] == gateway._qnaigc_cost_per_call
+    assert audit["attempts"][1]["provider"] == "tavily"
+    assert audit["attempts"][1]["status"] == "ok"
+
+
+def test_search_qnaigc_contract_drift_falls_back(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("DATAPULSE_SEARCH_QNAIGC_ENABLED", "1")
+    monkeypatch.setenv("QNAIGC_TOKEN_A", "token-a")
+
+    class FakeResponse:
+        def __init__(self, payload):
+            self.status_code = 200
+            self._payload = payload
+            self.headers = {}
+
+        def json(self):
+            return self._payload
+
+    def fake_post(url, *, json, headers, timeout):
+        return FakeResponse({"data": {"result": {"invalid": True}}})
+
+    def fake_tavily(
+        *,
+        query: str,
+        sites: list[str] | None,
+        limit: int,
+        deep: bool,
+        news: bool,
+        time_range=None,
+    ):
+        return [
+            SearchHit(
+                title="Tavily fallback",
+                url="https://example.com/tavily",
+                snippet="Fallback from tavily",
+                provider="tavily",
+                source="tavily",
+                score=0.2,
+                raw={},
+                extra={"sources": ["tavily"]},
+            )
+        ]
+
+    import requests
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    gateway = SearchGateway()
+    monkeypatch.setattr(gateway, "_search_tavily", fake_tavily)
+    hits, audit = gateway.search("中文 资讯", limit=1, provider="auto")
+
+    assert len(hits) == 1
+    assert hits[0].provider == "tavily"
+    assert len(audit["attempts"]) == 2
+    assert audit["attempts"][0]["provider"] == "qnaigc"
+    assert audit["attempts"][0]["status"] == "error"
+    assert "malformed" in str(audit["attempts"][0]["error"]).lower()
+    assert audit["estimated_cost_total"] == gateway._qnaigc_cost_per_call
+
+
+def test_search_qnaigc_direct_call_fail_closed_when_token_missing(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("DATAPULSE_SEARCH_QNAIGC_ENABLED", "1")
+    monkeypatch.delenv("QNAIGC_TOKEN_A", raising=False)
+    monkeypatch.delenv("QNAIGC_TOKEN_B", raising=False)
+
+    gateway = SearchGateway()
+    gateway._qnaigc_tokens = []
+    hits, audit = gateway.search("中文 search", provider="qnaigc", limit=1)
+
+    assert hits == []
+    assert audit["provider_chain"] == ["qnaigc"]
+    assert audit["attempts"][0]["status"] == "error"
+    assert audit["attempts"][0]["estimated_cost"] == 0.0
+    assert audit["estimated_cost_total"] == 0.0
+
 
 def test_normalize_url_collapses_research_mirror_subdomain():
     gateway = SearchGateway()
