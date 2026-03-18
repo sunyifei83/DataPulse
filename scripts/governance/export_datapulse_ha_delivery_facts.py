@@ -477,6 +477,22 @@ def parse_check_lines(output: str, prefix: str) -> list[str]:
     return [line.removeprefix(prefix).strip() for line in output.splitlines() if line.startswith(prefix)]
 
 
+def normalize_release_readiness_check_line(line: str) -> str:
+    normalized = str(line or "").strip()
+    if normalized.startswith("release python runtime available:"):
+        return "release python runtime available: python>=3.10"
+    if normalized.startswith("release build path available:"):
+        return "release build path available"
+    return normalized
+
+
+def normalize_release_readiness_output_line(line: str) -> str:
+    normalized = str(line or "").strip()
+    if normalized.startswith("[PASS] "):
+        return "[PASS] " + normalize_release_readiness_check_line(normalized.removeprefix("[PASS] "))
+    return normalized
+
+
 def read_release_readiness_fact(path: Path | None) -> dict[str, Any] | None:
     if path is None or not path.exists():
         return None
@@ -553,7 +569,10 @@ def build_release_readiness_fact(*, emergency_state_path: Path | None = None) ->
     )
     combined = (completed.stdout or "") + ("\n" if completed.stdout and completed.stderr else "") + (completed.stderr or "")
     pass_count, fail_count = parse_release_readiness_counts(combined)
-    passed_checks = parse_check_lines(combined, "[PASS] ")
+    passed_checks = [
+        normalize_release_readiness_check_line(line)
+        for line in parse_check_lines(combined, "[PASS] ")
+    ]
     failed_checks = parse_check_lines(combined, "[FAIL] ")
     reasons = [] if completed.returncode == 0 else ["release_readiness_failed"]
 
@@ -584,7 +603,10 @@ def build_release_readiness_fact(*, emergency_state_path: Path | None = None) ->
             "fail_count": fail_count,
             "passed_checks": passed_checks,
             "failed_checks": failed_checks,
-            "stdout_tail": tail_lines(completed.stdout or ""),
+            "stdout_tail": [
+                normalize_release_readiness_output_line(line)
+                for line in tail_lines(completed.stdout or "")
+            ],
             "stderr_tail": tail_lines(completed.stderr or ""),
             "reasons": reasons,
         },

@@ -11,6 +11,7 @@ from export_datapulse_ai_surface_admission_example import build_payload as build
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "out/ha_latest_release_bundle"
 DEFAULT_SUBSCRIPTIONS_PATH = REPO_ROOT / "docs/governance/datapulse-ai-surface-subscriptions.example.json"
+DEFAULT_PROJECT_LOOP_STATE_PATH = REPO_ROOT / "out/governance/project_specific_loop_state.draft.json"
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,6 +37,11 @@ def parse_args() -> argparse.Namespace:
         help="Optional path for the exported admission example. Defaults to <output-dir>/datapulse-ai-surface-admission.example.json.",
     )
     parser.add_argument(
+        "--project-loop-state-json",
+        type=Path,
+        help="Optional project_specific_loop_state.draft.json used to determine release_level for release_status.json.",
+    )
+    parser.add_argument(
         "--stdout",
         action="store_true",
         help="Print the manifest payload to stdout instead of writing bundle files.",
@@ -43,8 +49,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_release_level() -> str:
-    loop_state_path = REPO_ROOT / "out/governance/project_specific_loop_state.draft.json"
+def load_release_level(project_loop_state_path: Path | None = None) -> str:
+    loop_state_path = (
+        project_loop_state_path.resolve()
+        if isinstance(project_loop_state_path, Path)
+        else DEFAULT_PROJECT_LOOP_STATE_PATH
+    )
     if not loop_state_path.exists():
         return ""
     payload = read_json(loop_state_path)
@@ -130,8 +140,7 @@ def build_bridge_config(aliases: dict[str, str]) -> dict[str, Any]:
     }
 
 
-def build_release_status() -> dict[str, Any]:
-    release_level = load_release_level()
+def build_release_status(release_level: str) -> dict[str, Any]:
     return {
         "schema": "modelbus.release_status.v1",
         "generated_at_utc": utc_now(),
@@ -164,6 +173,7 @@ def main() -> int:
     subscriptions = read_json(subscriptions_path)
     admission_payload = build_admission_payload(subscriptions, subscriptions_path)
     aliases = alias_by_surface(subscriptions)
+    release_level = load_release_level(args.project_loop_state_json)
     admission_output = (
         args.admission_output.resolve()
         if isinstance(args.admission_output, Path)
@@ -175,14 +185,14 @@ def main() -> int:
         "consumer_id": "datapulse",
         "release_window": {
             "generated_at_utc": utc_now(),
-            "release_level": load_release_level(),
+            "release_level": release_level,
             "assured_verdict": "pass",
             "constitutional_semantics": "BUNDLE-FIRST-REQUIRED",
         },
         "surface_admissions": build_surface_admissions(admission_payload, fallback_aliases=aliases),
     }
     bridge_config = build_bridge_config(aliases)
-    release_status = build_release_status()
+    release_status = build_release_status(release_level)
     bundle_manifest = build_bundle_manifest()
 
     if args.stdout:

@@ -1,7 +1,7 @@
 {
   "schema_version": "release_sidecar.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-17T09:47:48Z",
+  "generated_at_utc": "2026-03-18T08:06:39Z",
   "sidecar_kind": "draft_export",
   "wired": false,
   "release": {
@@ -21,9 +21,9 @@
     ]
   },
   "git": {
-    "head": "72835e60104b0bf3d3266740787897ab17c4805d",
+    "head": "7bc8447af13c4c1855d2ee2a64d04b86f7a09e61",
     "branch": "main",
-    "workspace_clean": true
+    "workspace_clean": false
   },
   "build_artifacts": {
     "dist_exists": true,
@@ -74,7 +74,7 @@
       "fail_count": 0,
       "log": "./artifacts/openclaw_datapulse_20260307_185520/local_test.log"
     },
-    "ai_runtime_hit_evidence_path": "out/governance/datapulse_surface_runtime_hit_evidence.draft.json"
+    "ai_runtime_hit_evidence_path": "out/ha_latest_release_bundle/datapulse_surface_runtime_hit_evidence.draft.json"
   },
   "workflow": {
     "draft_workflow_path": "docs/governance/datapulse-evidence-workflow.draft.yml",
@@ -108,6 +108,8 @@
   },
   "promotion_readiness": {
     "structured_release_bundle_available": true,
-    "reasons": []
+    "reasons": [
+      "workspace_dirty"
+    ]
   }
 }

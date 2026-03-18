@@ -31,6 +31,27 @@ def loop_contracts():
     return importlib.import_module("datapulse_loop_contracts")
 
 
+@pytest.fixture(scope="module")
+def evidence_bundle_module():
+    if str(GOVERNANCE_SCRIPTS_DIR) not in sys.path:
+        sys.path.insert(0, str(GOVERNANCE_SCRIPTS_DIR))
+    return importlib.import_module("export_datapulse_evidence_bundle")
+
+
+@pytest.fixture(scope="module")
+def structured_bundle_module():
+    if str(GOVERNANCE_SCRIPTS_DIR) not in sys.path:
+        sys.path.insert(0, str(GOVERNANCE_SCRIPTS_DIR))
+    return importlib.import_module("export_datapulse_structured_release_bundle")
+
+
+@pytest.fixture(scope="module")
+def ha_delivery_facts_module():
+    if str(GOVERNANCE_SCRIPTS_DIR) not in sys.path:
+        sys.path.insert(0, str(GOVERNANCE_SCRIPTS_DIR))
+    return importlib.import_module("export_datapulse_ha_delivery_facts")
+
+
 def _stub_release_gate_baseline(loop_contracts, monkeypatch, *, head: str = "abc123", branch: str = "main") -> None:
     monkeypatch.setattr(loop_contracts, "repo_workspace_clean", lambda: (True, []))
     monkeypatch.setattr(loop_contracts, "ci_docs_only_skip_active", lambda workspace_clean, dirty_entries: (False, []))
@@ -438,8 +459,177 @@ def test_build_code_landing_status_rejects_stale_attestation(loop_contracts, mon
 
     assert "release_window_attestation_stale" in payload["gate_groups"]["release_governance"]
     assert "release_window_attestation_not_attested" in payload["gate_groups"]["release_governance"]
-    assert payload["release"]["release_window_attestation"]["status"] == "stale"
-    assert payload["release"]["release_window_attestation"]["all_sources_fresh"] is False
+
+
+def test_build_code_landing_status_uses_explicit_attestation_path(loop_contracts, monkeypatch, tmp_path: Path) -> None:
+    _stub_release_gate_baseline(loop_contracts, monkeypatch)
+    captured: dict[str, Path | None] = {"path": None}
+
+    def _fake_parse_release_window_attestation(path=None):
+        captured["path"] = path
+        return {
+            "path": str(path),
+            "schema_version": "datapulse_release_window_attestation.v1",
+            "generated_at_utc": "2026-03-17T07:00:00Z",
+            "window_id": "dp-release-window-20260317T070000Z-abc123",
+            "git_head": "abc123",
+            "attestation_status": "attested",
+            "blocking_reasons": [],
+            "same_window": {"proven": True},
+            "freshness": {"all_sources_fresh": True, "sources": []},
+            "runtime_hit_evidence": {
+                "required_surfaces": [
+                    {"surface": "delivery_summary", "observed_evidence_status": "verified"},
+                    {"surface": "report_draft", "observed_evidence_status": "verified_fail_closed"},
+                ]
+            },
+        }
+
+    monkeypatch.setattr(loop_contracts, "parse_release_window_attestation", _fake_parse_release_window_attestation)
+
+    attestation_path = tmp_path / "bundle-attestation.json"
+    payload = loop_contracts.build_code_landing_status(release_window_attestation_path=attestation_path)
+
+    assert captured["path"] == attestation_path.resolve()
+    assert payload["release"]["primary_same_window_truth"] == str(attestation_path.resolve())
+    assert payload["evidence_paths"]["release_window_attestation"] == str(attestation_path.resolve())
+    assert payload["release"]["truth_sources"][0] == str(attestation_path.resolve())
+
+
+def test_build_release_readiness_fact_normalizes_environment_specific_runtime_lines(
+    ha_delivery_facts_module, monkeypatch, tmp_path: Path
+) -> None:
+    state_path = tmp_path / "emergency_state.json"
+    state_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        ha_delivery_facts_module,
+        "parse_emergency_state",
+        lambda path: {
+            "run_id": "run-1",
+            "conclusion": "GREEN",
+            "stop": False,
+            "first_trigger": "",
+        },
+    )
+    monkeypatch.setattr(
+        ha_delivery_facts_module.subprocess,
+        "run",
+        lambda *args, **kwargs: ha_delivery_facts_module.subprocess.CompletedProcess(
+            args[0],
+            0,
+            stdout=(
+                "[PASS] release python runtime available: uv run --python 3.10 python\n"
+                "[PASS] release build path available: uv run --python 3.10 --with build python -m build\n"
+                "release readiness: pass=2 fail=0\n"
+            ),
+            stderr="",
+        ),
+    )
+
+    payload = ha_delivery_facts_module.build_release_readiness_fact(emergency_state_path=state_path)
+
+    assert payload["observation"]["passed_checks"] == [
+        "release python runtime available: python>=3.10",
+        "release build path available",
+    ]
+    assert payload["observation"]["stdout_tail"] == [
+        "[PASS] release python runtime available: python>=3.10",
+        "[PASS] release build path available",
+        "release readiness: pass=2 fail=0",
+    ]
+
+
+def test_evidence_bundle_rebuilds_landing_status_from_generated_attestation(
+    evidence_bundle_module, monkeypatch, tmp_path: Path
+) -> None:
+    out_dir = tmp_path / "bundle"
+    captured: dict[str, object] = {}
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(
+        evidence_bundle_module,
+        "parse_args",
+        lambda: evidence_bundle_module.argparse.Namespace(
+            plan=tmp_path / "plan.json",
+            tag="",
+            notes_file=Path("RELEASE_NOTES.md"),
+            out_dir=out_dir,
+            bundle_dir=out_dir,
+            probe_ha_readiness=False,
+            stdout=False,
+        ),
+    )
+    monkeypatch.setattr(evidence_bundle_module, "load_plan", lambda path: {"project": "DataPulse"})
+    monkeypatch.setattr(evidence_bundle_module, "detect_tag", lambda tag: "v0.8.0")
+    monkeypatch.setattr(evidence_bundle_module, "build_manifest", lambda *args, **kwargs: {"manifest": True})
+    monkeypatch.setattr(evidence_bundle_module, "build_project_loop_state", lambda plan, status: {"current_level": "ci_proven"})
+    monkeypatch.setattr(evidence_bundle_module, "write_json", lambda path, payload: None)
+    monkeypatch.setattr(evidence_bundle_module, "current_python_command", lambda: ["python"])
+
+    def _fake_build_code_landing_status(*, release_window_attestation_path=None):
+        captured["attestation_path"] = release_window_attestation_path
+        return {"headline_summary": {"current_level": "ci_proven"}}
+
+    monkeypatch.setattr(evidence_bundle_module, "build_code_landing_status", _fake_build_code_landing_status)
+
+    def _fake_run(command, check=True):
+        commands.append(list(command))
+        return evidence_bundle_module.subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(evidence_bundle_module.subprocess, "run", _fake_run)
+
+    assert evidence_bundle_module.main() == 0
+    assert captured["attestation_path"] == (out_dir / "datapulse_release_window_attestation.draft.json").resolve()
+    assert any(
+        "--runtime-hit-json" in command
+        for command in commands
+        if any(str(item).endswith("export_datapulse_release_sidecar.py") for item in command)
+    )
+    assert any(
+        "--release-window-attestation" in command
+        for command in commands
+        if any(str(item).endswith("export_datapulse_ha_delivery_landing.py") for item in command)
+    )
+
+
+def test_structured_bundle_refreshes_adapter_and_modelbus_after_evidence_export(
+    structured_bundle_module, monkeypatch, tmp_path: Path
+) -> None:
+    out_dir = tmp_path / "bundle"
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(
+        structured_bundle_module,
+        "parse_args",
+        lambda: structured_bundle_module.argparse.Namespace(
+            plan=tmp_path / "plan.json",
+            out_dir=out_dir,
+            tag="",
+            notes_file=Path("RELEASE_NOTES.md"),
+            probe_ha_readiness=True,
+            stdout=False,
+        ),
+    )
+    monkeypatch.setattr(structured_bundle_module, "load_plan", lambda path: {"activation": {}})
+    monkeypatch.setattr(structured_bundle_module, "build_manifest", lambda *args, **kwargs: {"manifest": True})
+    monkeypatch.setattr(structured_bundle_module, "write_json", lambda path, payload: None)
+    monkeypatch.setattr(structured_bundle_module, "current_python_command", lambda: ["python"])
+
+    def _fake_run(command, cwd=None, check=True):
+        commands.append(list(command))
+        return structured_bundle_module.subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(structured_bundle_module.subprocess, "run", _fake_run)
+
+    assert structured_bundle_module.main() == 0
+    assert [command[1] for command in commands] == [
+        "scripts/governance/export_datapulse_modelbus_consumer_bundle.py",
+        "scripts/governance/export_datapulse_evidence_bundle.py",
+        "scripts/governance/export_datapulse_loop_adapter_bundle.py",
+        "scripts/governance/export_datapulse_modelbus_consumer_bundle.py",
+    ]
+    assert "--release-window-attestation" in commands[2]
+    assert "--project-loop-state-json" in commands[3]
 
 
 def test_persist_and_load_promotion_auto_repair_request(governance_loop, monkeypatch, tmp_path: Path) -> None:

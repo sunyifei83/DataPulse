@@ -56,6 +56,11 @@ def parse_args() -> argparse.Namespace:
         help="Optional ha_delivery_facts.v1 JSON payload. If omitted, the facts are derived from the current repo state.",
     )
     parser.add_argument(
+        "--release-window-attestation",
+        type=Path,
+        help="Optional release-window attestation JSON used when deriving repo landing status.",
+    )
+    parser.add_argument(
         "--probe-release-readiness",
         action="store_true",
         help="Opt in to probing release_readiness when deriving HA delivery facts.",
@@ -276,7 +281,11 @@ def invalid_payload(errors: list[str], source_adapter_bundle: dict[str, Any], so
 
 
 def build_ha_delivery_landing(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
-    landing_status = build_code_landing_status()
+    landing_status = build_code_landing_status(
+        release_window_attestation_path=args.release_window_attestation.resolve()
+        if isinstance(getattr(args, "release_window_attestation", None), Path)
+        else None
+    )
     ha_facts, ha_source = load_ha_facts(args)
 
     if args.bundle_dir:

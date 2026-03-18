@@ -5,7 +5,7 @@
   "bundle_default": {
     "strategy": "bundle_first",
     "canonical_bundle_path": "out/ha_latest_release_bundle",
-    "runtime_bundle_dir": "out/ha_latest_release_bundle",
+    "runtime_bundle_dir": "out/release_bundle",
     "local_snapshot_parallel_primary_disabled": true
   },
   "surfaces": [
@@ -93,6 +93,6 @@
       "report_draft"
     ],
     "blocking_reasons": [],
-    "replay_entrypoint": "python3 scripts/governance/export_datapulse_surface_runtime_hit_evidence.py --bundle-dir out/ha_latest_release_bundle"
+    "replay_entrypoint": "python3 scripts/governance/export_datapulse_surface_runtime_hit_evidence.py --bundle-dir out/release_bundle"
   }
 }

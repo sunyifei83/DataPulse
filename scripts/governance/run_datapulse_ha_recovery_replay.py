@@ -140,6 +140,7 @@ def build_landing_args(args: argparse.Namespace, *, ha_facts_json: Path | None =
         plan=args.plan,
         catalog=args.catalog,
         ha_facts_json=ha_facts_json,
+        release_window_attestation=None,
         probe_release_readiness=args.probe_release_readiness,
         disable_emergency_rehydration=args.disable_emergency_rehydration,
         output=Path(""),

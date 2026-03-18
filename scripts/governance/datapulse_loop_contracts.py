@@ -739,7 +739,7 @@ def verification_contracts(
     }
 
 
-def build_code_landing_status() -> dict[str, Any]:
+def build_code_landing_status(*, release_window_attestation_path: Path | None = None) -> dict[str, Any]:
     workspace_clean, dirty_entries = repo_workspace_clean()
     docs_only_skip_active, change_paths = ci_docs_only_skip_active(workspace_clean, dirty_entries)
     head_sha = git_output("rev-parse", "HEAD")
@@ -748,7 +748,12 @@ def build_code_landing_status() -> dict[str, Any]:
     local_report = parse_local_report(latest_artifact_file("local_report.md"))
     remote_report = parse_remote_report(latest_artifact_file("remote_report.md"))
     quick_test_report = parse_quick_test_gate()
-    release_window_attestation = parse_release_window_attestation()
+    attestation_path = (
+        release_window_attestation_path.resolve()
+        if isinstance(release_window_attestation_path, Path)
+        else DEFAULT_RELEASE_WINDOW_ATTESTATION_PATH.resolve()
+    )
+    release_window_attestation = parse_release_window_attestation(attestation_path)
     emergency_state = parse_emergency_state(latest_artifact_file("emergency_state.json"))
     structured_bundle_ready = structured_release_bundle_available()
     ci_head_run = latest_workflow_run_for_head("CI", head_sha=head_sha, branch=branch)
@@ -899,7 +904,7 @@ def build_code_landing_status() -> dict[str, Any]:
             "workflow_dispatch_entrypoints": dispatch_entrypoints,
             "tag_push_release_enabled": tag_push_release_enabled,
             "structured_release_bundle": structured_bundle_ready,
-            "primary_same_window_truth": display_path(DEFAULT_RELEASE_WINDOW_ATTESTATION_PATH),
+            "primary_same_window_truth": display_path(attestation_path),
             "release_window_attestation": {
                 "status": str(attestation_summary.get("status", "missing")),
                 "observed": bool(attestation_summary.get("observed", False)),
@@ -915,7 +920,7 @@ def build_code_landing_status() -> dict[str, Any]:
             },
             "policy_gates": ["mixed_release_policy"] if mixed_release_policy else [],
             "truth_sources": [
-                "out/governance/datapulse_release_window_attestation.draft.json",
+                display_path(attestation_path),
                 "scripts/release_publish.sh",
                 ".github/workflows/release.yml",
                 ".github/workflows/governance-evidence.yml",
@@ -933,7 +938,7 @@ def build_code_landing_status() -> dict[str, Any]:
             "latest_head_governance_evidence_run": governance_head_run,
         },
         "evidence_paths": {
-            "release_window_attestation": display_path(DEFAULT_RELEASE_WINDOW_ATTESTATION_PATH),
+            "release_window_attestation": display_path(attestation_path),
             "quick_test_gate": display_path(DEFAULT_QUICK_TEST_GATE_PATH),
             "local_report": "artifacts/openclaw_datapulse_<RUN_ID>/local_report.md",
             "remote_report": "artifacts/openclaw_datapulse_<RUN_ID>/remote_report.md",

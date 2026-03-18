@@ -32,6 +32,11 @@ def parse_args() -> argparse.Namespace:
         help="Output directory for the draft adapter bundle.",
     )
     parser.add_argument(
+        "--release-window-attestation",
+        type=Path,
+        help="Optional release-window attestation JSON used when exporting the landing-status snapshot.",
+    )
+    parser.add_argument(
         "--stdout",
         action="store_true",
         help="Print the bundle manifest JSON to stdout instead of writing files.",
@@ -71,7 +76,11 @@ def build_manifest(project: str, *, wired: bool, auto_policy_included: bool) -> 
 def main() -> int:
     args = parse_args()
     plan = load_plan(args.plan)
-    landing_status = build_code_landing_status()
+    landing_status = build_code_landing_status(
+        release_window_attestation_path=args.release_window_attestation.resolve()
+        if isinstance(args.release_window_attestation, Path)
+        else None
+    )
     project = str(plan.get("project", landing_status.get("project", "DataPulse")))
     activation = dict(plan.get("activation", {}))
     auto_policy = activation.get("auto_continuation", {})

@@ -121,18 +121,6 @@ def main() -> int:
     subprocess.run(
         [
             *current_python_command(),
-            "scripts/governance/export_datapulse_loop_adapter_bundle.py",
-            "--plan",
-            str(args.plan.resolve()),
-            "--out-dir",
-            str(bundle_dir),
-        ],
-        cwd=REPO_ROOT,
-        check=True,
-    )
-    subprocess.run(
-        [
-            *current_python_command(),
             "scripts/governance/export_datapulse_modelbus_consumer_bundle.py",
             "--output-dir",
             str(bundle_dir),
@@ -154,6 +142,32 @@ def main() -> int:
             "--notes-file",
             str(notes_file),
             *(["--probe-ha-readiness"] if args.probe_ha_readiness else []),
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+    )
+    subprocess.run(
+        [
+            *current_python_command(),
+            "scripts/governance/export_datapulse_loop_adapter_bundle.py",
+            "--plan",
+            str(args.plan.resolve()),
+            "--out-dir",
+            str(bundle_dir),
+            "--release-window-attestation",
+            str((bundle_dir / "datapulse_release_window_attestation.draft.json").resolve()),
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+    )
+    subprocess.run(
+        [
+            *current_python_command(),
+            "scripts/governance/export_datapulse_modelbus_consumer_bundle.py",
+            "--output-dir",
+            str(bundle_dir),
+            "--project-loop-state-json",
+            str((bundle_dir / "project_specific_loop_state.draft.json").resolve()),
         ],
         cwd=REPO_ROOT,
         check=True,

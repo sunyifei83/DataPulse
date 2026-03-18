@@ -1,8 +1,8 @@
 {
   "schema_version": "datapulse_auto_continuation_policy.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-07T00:00:00Z",
-  "enabled": true,
+  "generated_at_utc": "2026-03-08T00:00:00Z",
+  "enabled": false,
   "mode": "scheduled_governance_entrypoint",
   "entrypoints": {
     "workflow": ".github/workflows/governance-loop-auto.yml",
@@ -23,6 +23,24 @@
       "loop_complete"
     ],
     "side_effect_mode": "read_only_governance_refresh"
+  },
+  "companion_entrypoints": {
+    "local_codex_blueprint_loop": {
+      "enabled": true,
+      "trigger_mode": "local_manual_or_supervised",
+      "runner": "scripts/governance/run_codex_blueprint_loop.py",
+      "ignition_wrapper": "scripts/governance/ignite_datapulse_codex_loop.sh",
+      "recommended_command": "bash scripts/governance/ignite_datapulse_codex_loop.sh",
+      "allow_existing_dirty_worktree_by_default": false,
+      "enable_existing_dirty_takeover_env": "DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=1",
+      "side_effect_mode": "repo_mutating_slice_execution",
+      "guardrails": [
+        "Use this companion entrypoint only from a controlled local environment.",
+        "Keep the scheduled governance workflow read-only.",
+        "Let the Codex loop land only the current next_slice and then re-evaluate state.",
+        "The ignition wrapper now expects a clean baseline by default; set DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=1 only for explicit recovery or supervised takeover."
+      ]
+    }
   },
   "guardrails": [
     "Do not invoke business entrypoints from the auto-continuation workflow.",

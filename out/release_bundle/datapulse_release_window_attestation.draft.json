@@ -25,28 +25,28 @@
     "sources": [
       {
         "source": "structured_release_bundle_manifest",
-        "path": "out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
+        "path": "out/release_bundle/structured_release_bundle_manifest.draft.json",
         "generated_at_utc": "2026-03-18T08:06:29Z",
         "age_seconds": 10,
         "fresh": true
       },
       {
         "source": "bundle_manifest",
-        "path": "out/ha_latest_release_bundle/bundle_manifest.json",
+        "path": "out/release_bundle/bundle_manifest.json",
         "generated_at_utc": "2026-03-18T08:06:29Z",
         "age_seconds": 10,
         "fresh": true
       },
       {
         "source": "runtime_hit_evidence",
-        "path": "out/ha_latest_release_bundle/datapulse_surface_runtime_hit_evidence.draft.json",
+        "path": "out/release_bundle/datapulse_surface_runtime_hit_evidence.draft.json",
         "generated_at_utc": "2026-03-18T08:06:29Z",
         "age_seconds": 10,
         "fresh": true
       },
       {
         "source": "release_sidecar",
-        "path": "out/ha_latest_release_bundle/release_sidecar.draft.json",
+        "path": "out/release_bundle/release_sidecar.draft.json",
         "generated_at_utc": "2026-03-18T08:06:39Z",
         "age_seconds": 0,
         "fresh": true
@@ -54,11 +54,11 @@
     ]
   },
   "bundle_identity": {
-    "bundle_dir": "out/ha_latest_release_bundle",
-    "structured_manifest_path": "out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
+    "bundle_dir": "out/release_bundle",
+    "structured_manifest_path": "out/release_bundle/structured_release_bundle_manifest.draft.json",
     "structured_manifest_generated_at_utc": "2026-03-18T08:06:29Z",
-    "adapter_bundle_manifest_path": "out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json",
-    "bundle_manifest_path": "out/ha_latest_release_bundle/bundle_manifest.json",
+    "adapter_bundle_manifest_path": "out/release_bundle/adapter_bundle_manifest.draft.json",
+    "bundle_manifest_path": "out/release_bundle/bundle_manifest.json",
     "bundle_id": "datapulse.ai_surface_bus",
     "consumer_id": "datapulse",
     "bundle_files": [
@@ -85,12 +85,12 @@
     ]
   },
   "runtime_hit_evidence": {
-    "path": "out/ha_latest_release_bundle/datapulse_surface_runtime_hit_evidence.draft.json",
+    "path": "out/release_bundle/datapulse_surface_runtime_hit_evidence.draft.json",
     "schema_version": "datapulse_surface_runtime_hit_evidence.v1",
     "generated_at_utc": "2026-03-18T08:06:29Z",
     "bundle_default_strategy": "bundle_first",
-    "runtime_bundle_dir": "out/ha_latest_release_bundle",
-    "closure_replay_entrypoint": "python3 scripts/governance/export_datapulse_surface_runtime_hit_evidence.py --bundle-dir out/ha_latest_release_bundle",
+    "runtime_bundle_dir": "out/release_bundle",
+    "closure_replay_entrypoint": "python3 scripts/governance/export_datapulse_surface_runtime_hit_evidence.py --bundle-dir out/release_bundle",
     "release_level_prerequisites": {
       "bundle_first_default_ready": true,
       "shadow_change_prerequisites_met": true,
@@ -123,7 +123,7 @@
     ]
   },
   "release_sidecar_truth": {
-    "path": "out/ha_latest_release_bundle/release_sidecar.draft.json",
+    "path": "out/release_bundle/release_sidecar.draft.json",
     "schema_version": "release_sidecar.v1",
     "generated_at_utc": "2026-03-18T08:06:39Z",
     "release_tag": "v0.8.0",
@@ -140,14 +140,14 @@
   "replay_binding": {
     "primary_bundle_replay": {
       "kind": "generic_core_bundle_replay",
-      "entrypoint": "python3 scripts/governance/validate_governance_loop_bundle_draft.py --bundle-dir out/ha_latest_release_bundle",
-      "bundle_dir": "out/ha_latest_release_bundle",
+      "entrypoint": "python3 scripts/governance/validate_governance_loop_bundle_draft.py --bundle-dir out/release_bundle",
+      "bundle_dir": "out/release_bundle",
       "expected_result": "valid=true"
     },
     "runtime_hit_replay": {
       "kind": "runtime_hit_export",
-      "entrypoint": "python3 scripts/governance/export_datapulse_surface_runtime_hit_evidence.py --bundle-dir out/ha_latest_release_bundle",
-      "bundle_dir": "out/ha_latest_release_bundle",
+      "entrypoint": "python3 scripts/governance/export_datapulse_surface_runtime_hit_evidence.py --bundle-dir out/release_bundle",
+      "bundle_dir": "out/release_bundle",
       "expected_result": "delivery_summary=verified and report_draft=verified_fail_closed"
     },
     "ha_recovery_replay": {

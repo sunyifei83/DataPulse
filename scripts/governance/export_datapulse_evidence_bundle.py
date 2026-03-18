@@ -107,9 +107,6 @@ def main() -> int:
     plan = load_plan(args.plan)
     plan["_source_path"] = str(args.plan.resolve())
 
-    code_landing_status = build_code_landing_status()
-    project_loop_state = build_project_loop_state(plan, code_landing_status)
-
     tag = detect_tag(args.tag)
     notes_file = (Path.cwd() / args.notes_file).resolve() if not args.notes_file.is_absolute() else args.notes_file
     manifest = build_manifest(args.plan, notes_file, tag, args.probe_ha_readiness)
@@ -119,7 +116,6 @@ def main() -> int:
         return 0
 
     out_dir = args.out_dir
-    write_json(out_dir / "code_landing_status.draft.json", code_landing_status)
     subprocess.run(
         [
             *current_python_command(),
@@ -168,34 +164,13 @@ def main() -> int:
     subprocess.run(
         [
             *current_python_command(),
-            "scripts/governance/export_datapulse_ha_delivery_landing.py",
-            "--ha-facts-json",
-            str(out_dir / "ha_delivery_facts.draft.json"),
-            "--output",
-            str(out_dir / "ha_delivery_landing.draft.json"),
-        ],
-        check=True,
-    )
-    subprocess.run(
-        [
-            *current_python_command(),
-            "scripts/governance/export_datapulse_ha_recovery_preset.py",
-            "--ha-facts-json",
-            str(out_dir / "ha_delivery_facts.draft.json"),
-            "--output",
-            str(out_dir / "ha_recovery_preset.draft.json"),
-        ],
-        check=True,
-    )
-    write_json(out_dir / "project_specific_loop_state.draft.json", project_loop_state)
-    subprocess.run(
-        [
-            *current_python_command(),
             "scripts/governance/export_datapulse_release_sidecar.py",
             "--tag",
             tag,
             "--notes-file",
             str(notes_file),
+            "--runtime-hit-json",
+            str((out_dir / "datapulse_surface_runtime_hit_evidence.draft.json").resolve()),
             "--output",
             str(out_dir / "release_sidecar.draft.json"),
         ],
@@ -213,6 +188,37 @@ def main() -> int:
             str((out_dir / "release_sidecar.draft.json").resolve()),
             "--output",
             str((out_dir / "datapulse_release_window_attestation.draft.json").resolve()),
+        ],
+        check=True,
+    )
+    release_window_attestation_path = (out_dir / "datapulse_release_window_attestation.draft.json").resolve()
+    code_landing_status = build_code_landing_status(
+        release_window_attestation_path=release_window_attestation_path,
+    )
+    project_loop_state = build_project_loop_state(plan, code_landing_status)
+    write_json(out_dir / "code_landing_status.draft.json", code_landing_status)
+    write_json(out_dir / "project_specific_loop_state.draft.json", project_loop_state)
+    subprocess.run(
+        [
+            *current_python_command(),
+            "scripts/governance/export_datapulse_ha_delivery_landing.py",
+            "--ha-facts-json",
+            str(out_dir / "ha_delivery_facts.draft.json"),
+            "--release-window-attestation",
+            str(release_window_attestation_path),
+            "--output",
+            str(out_dir / "ha_delivery_landing.draft.json"),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            *current_python_command(),
+            "scripts/governance/export_datapulse_ha_recovery_preset.py",
+            "--ha-facts-json",
+            str(out_dir / "ha_delivery_facts.draft.json"),
+            "--output",
+            str(out_dir / "ha_recovery_preset.draft.json"),
         ],
         check=True,
     )

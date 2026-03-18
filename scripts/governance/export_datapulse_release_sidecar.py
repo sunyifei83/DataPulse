@@ -89,6 +89,12 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_OUT_DIR / "release_sidecar.draft.json",
         help="Output path for the draft release sidecar JSON.",
     )
+    parser.add_argument(
+        "--runtime-hit-json",
+        type=Path,
+        default=RUNTIME_HIT_EVIDENCE_PATH,
+        help="Runtime-hit evidence JSON used when computing governed AI release readiness.",
+    )
     parser.add_argument("--stdout", action="store_true", help="Print JSON to stdout instead of writing the default draft file.")
     return parser.parse_args()
 
@@ -114,7 +120,8 @@ def main() -> int:
         if path
     ]
     workflow_dispatch = bool(dispatch_entrypoints)
-    runtime_hit_evidence = read_json(RUNTIME_HIT_EVIDENCE_PATH) if RUNTIME_HIT_EVIDENCE_PATH.exists() else {}
+    runtime_hit_path = args.runtime_hit_json.resolve()
+    runtime_hit_evidence = read_json(runtime_hit_path) if runtime_hit_path.exists() else {}
     runtime_prereqs = (
         runtime_hit_evidence.get("release_level_prerequisites", {})
         if isinstance(runtime_hit_evidence, dict)
@@ -148,8 +155,12 @@ def main() -> int:
             "latest_remote_report": remote_report,
             "latest_emergency_state": emergency_state,
             "latest_local_report": local_report,
-            "ai_runtime_hit_evidence_path": str(RUNTIME_HIT_EVIDENCE_PATH.relative_to(REPO_ROOT))
-            if RUNTIME_HIT_EVIDENCE_PATH.exists()
+            "ai_runtime_hit_evidence_path": (
+                str(runtime_hit_path.relative_to(REPO_ROOT))
+                if runtime_hit_path.is_relative_to(REPO_ROOT)
+                else str(runtime_hit_path)
+            )
+            if runtime_hit_path.exists()
             else "",
         },
         "workflow": {

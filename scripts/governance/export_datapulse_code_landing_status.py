@@ -19,6 +19,11 @@ def parse_args() -> argparse.Namespace:
         help="Output path for the draft landing status JSON.",
     )
     parser.add_argument(
+        "--release-window-attestation",
+        type=Path,
+        help="Optional release-window attestation JSON used as the primary same-window truth source.",
+    )
+    parser.add_argument(
         "--stdout",
         action="store_true",
         help="Print JSON to stdout instead of writing the default draft file.",
@@ -28,7 +33,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    payload = build_code_landing_status()
+    payload = build_code_landing_status(
+        release_window_attestation_path=args.release_window_attestation.resolve()
+        if isinstance(args.release_window_attestation, Path)
+        else None
+    )
     if args.stdout:
         print(json.dumps(payload, indent=2, ensure_ascii=True))
         return 0

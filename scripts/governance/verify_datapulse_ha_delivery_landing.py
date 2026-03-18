@@ -48,6 +48,11 @@ def parse_args() -> argparse.Namespace:
         help="Optional ha_delivery_facts.v1 JSON payload used during recomputation.",
     )
     parser.add_argument(
+        "--release-window-attestation",
+        type=Path,
+        help="Optional release-window attestation JSON used when recomputing repo landing status.",
+    )
+    parser.add_argument(
         "--probe-release-readiness",
         action="store_true",
         help="Opt in to probing release_readiness when deriving HA facts.",
@@ -106,6 +111,7 @@ def build_expected(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         plan=args.plan,
         catalog=args.catalog,
         ha_facts_json=args.ha_facts_json,
+        release_window_attestation=args.release_window_attestation,
         probe_release_readiness=args.probe_release_readiness,
         disable_emergency_rehydration=args.disable_emergency_rehydration,
         output=Path(""),
