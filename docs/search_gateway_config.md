@@ -16,6 +16,13 @@
 - `DATAPULSE_SEARCH_CB_RECOVERY_TIMEOUT`：熔断恢复时间（秒，默认 `60`）
 - `DATAPULSE_SEARCH_CB_RATE_LIMIT_WEIGHT`：429 折损权重（默认 `2`）
 - `DATAPULSE_SEARCH_PROVIDER_PRECEDENCE`：provider 顺序，如 `tavily,jina`
+- `DATAPULSE_SEARCH_QNAIGC_ENABLED`：候选 provider 启用开关（默认 `0`）
+- `DATAPULSE_SEARCH_QNAIGC_LOCALE_PATTERNS`：中文候选触发模式，逗号分隔（默认 `zh,zh-hans,zh-hant,中文`）
+- `DATAPULSE_SEARCH_QNAIGC_MAX_RESULTS`：上游 `max_results` 上限（默认 `20`，取值建议 [1,50]）
+- `DATAPULSE_SEARCH_QNAIGC_SITE_FILTER_LIMIT`：上游 `site_filter` 上限（默认 `20`）
+- `DATAPULSE_SEARCH_QNAIGC_COST_PER_CALL`：每次调用成本约束值（默认 `0.036`）
+- `DATAPULSE_SEARCH_QNAIGC_COST_CURRENCY`：成本币种（默认 `CNY`）
+- `DATAPULSE_SEARCH_QNAIGC_FAIL_CLOSED_WITHOUT_TOKEN`：无 token 时是否 fail-closed（默认 `1`）
 
 ## Token 注入策略（建议）
 - `JINA_API_KEY` / `TAVILY_API_KEY` 不应写死到仓库。
@@ -58,6 +65,22 @@
 - `SearchGateway` 负责 provider 选择、重试、熔断和审计元数据，不负责替底层 URL 做最终合规判定。
 - provider 返回的 URL 仍应进入 `SourceCatalog.resolve_source()` 或人工审阅，再落到 `public_web` / `api` / `manual_fact` 等最终来源语义。
 - 搜索审计字段（如 `provider_chain`、`attempts`、`cross_validation`）属于发现 provenance，不代表“已验证”或“已获合规批准”。
+
+## QNAIGC 候选 Provider 合约边界（L18）
+
+- `qnaigc` 仅作为 `provider=auto` 的候选 provider，不替换现有显式 provider 链路。
+- 显式模式保持不变：
+  - `provider=jina` -> `["jina"]`
+  - `provider=tavily` -> `["tavily", "jina"]`
+- 路由约束：
+  - `provider=auto` 下可在现有显式链路基础上按 L18.2 的中文查询识别加入候选
+  - 中文查询识别器与 token 校验策略属于 runtime 切片 L18.3 的实现边界
+- Token 边界：
+  - token 名称优先级为 `QNAIGC_TOKEN_A` -> `QNAIGC_TOKEN_B`
+  - 两者缺失时不启用 qnaigc 候选路径
+- Result 归一化边界：
+  - `SearchHit` 仍是唯一共享结果模型
+  - `authority_score`、`date`、`request_id` 写入 `SearchHit.extra`
 
 ## 验收命令
 - `python3 -m datapulse.mcp_server --help`

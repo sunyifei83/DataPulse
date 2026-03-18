@@ -78,6 +78,13 @@ class SearchGatewayConfig:
     breaker_recovery_timeout: float = 60.0
     breaker_rate_limit_weight: int = 2
     provider_preference: tuple[str, ...] = ("tavily", "jina")
+    qnaigc_enabled: bool = False
+    qnaigc_locale_patterns: tuple[str, ...] = ("zh", "zh-hans", "zh-hant", "中文")
+    qnaigc_max_results: int = 20
+    qnaigc_site_filter_limit: int = 20
+    qnaigc_cost_per_call: float = 0.036
+    qnaigc_cost_currency: str = "CNY"
+    qnaigc_fail_closed_without_token: bool = True
 
     @classmethod
     def load(cls) -> "SearchGatewayConfig":
@@ -97,4 +104,16 @@ class SearchGatewayConfig:
             breaker_recovery_timeout=read_env_float("DATAPULSE_SEARCH_CB_RECOVERY_TIMEOUT", 60.0, min_value=1.0, max_value=600.0),
             breaker_rate_limit_weight=read_env_int("DATAPULSE_SEARCH_CB_RATE_LIMIT_WEIGHT", 2, min_value=1, max_value=20),
             provider_preference=tuple(read_env_list("DATAPULSE_SEARCH_PROVIDER_PRECEDENCE", default=("tavily", "jina"))),
+            qnaigc_enabled=read_env_bool("DATAPULSE_SEARCH_QNAIGC_ENABLED", False),
+            qnaigc_locale_patterns=tuple(
+                read_env_list(
+                    "DATAPULSE_SEARCH_QNAIGC_LOCALE_PATTERNS",
+                    default=("zh", "zh-hans", "zh-hant", "中文"),
+                )
+            ),
+            qnaigc_max_results=read_env_int("DATAPULSE_SEARCH_QNAIGC_MAX_RESULTS", 20, min_value=1, max_value=50),
+            qnaigc_site_filter_limit=read_env_int("DATAPULSE_SEARCH_QNAIGC_SITE_FILTER_LIMIT", 20, min_value=1, max_value=200),
+            qnaigc_cost_per_call=read_env_float("DATAPULSE_SEARCH_QNAIGC_COST_PER_CALL", 0.036, min_value=0.0),
+            qnaigc_cost_currency=read_env_str("DATAPULSE_SEARCH_QNAIGC_COST_CURRENCY", "CNY"),
+            qnaigc_fail_closed_without_token=read_env_bool("DATAPULSE_SEARCH_QNAIGC_FAIL_CLOSED_WITHOUT_TOKEN", True),
         )

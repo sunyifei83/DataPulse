@@ -2,7 +2,7 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-18T08:19:55Z",
+  "generated_at_utc": "2026-03-18T09:04:05Z",
   "status": "in_progress",
   "activation": {
     "wired": false,
@@ -2369,11 +2369,12 @@
           "category": "manual",
           "execution_profile": "draft_only",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
           ],
           "artifacts": [
+            "docs/governance/datapulse-qnaigc-search-provider-contract.md",
             "docs/search_gateway_config.md",
             "datapulse/core/search_gateway.py",
             "datapulse/core/config.py"
@@ -2431,8 +2432,8 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L18.2",
-    "title": "Define the QNAIGC provider contract routing rules and runtime config boundary",
+    "id": "L18.3",
+    "title": "Add the QNAIGC provider adapter normalized SearchHit mapping and Chinese-query auto candidate routing",
     "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
@@ -2695,7 +2696,12 @@
       "at_utc": "2026-03-18T08:19:55Z",
       "slice_id": "L18.1",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-18T09:04:05Z",
+      "slice_id": "L18.2",
+      "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-18T08:19:55Z"
+  "last_updated_utc": "2026-03-18T09:04:05Z"
 }
