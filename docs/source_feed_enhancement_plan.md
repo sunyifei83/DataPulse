@@ -145,10 +145,14 @@
   - 浏览器虽有 onboarding copy，但 CLI/MCP/GUI 还没有共享 `language/timezone/frequency/default_delivery` 这类 digest profile；
   - Telegram 与 report delivery 仍存在单次发送与 `3900` 字截断路径，缺 chunk、fallback 与显式 diagnostics。
 - 这轮必须保持当前 lifecycle 不变：仍然是 `mission -> triage -> story -> report -> delivery`；`feed_bundle` 与 `prepare_digest_payload` 只是补输出与交付中台，不另起第二条产品线。
+- `L19.2` 现已在仓内落地 [datapulse-feed-bundle-digest-delivery-contract.md](/Users/sunyifei/DataPulse/docs/governance/datapulse-feed-bundle-digest-delivery-contract.md)：
+  - `feed_bundle.v1` 固定 replayable membership 边界为 `selection + window + items + stats + errors`，要求 pack 或 profile 输入最终都解析成 concrete `source_ids` 与 closed item set；
+  - `prepare_digest_payload.v1` 固定 route-ready deterministic boundary 为 `content + config + prompts + stats + errors`，其中 `content` 必须保留 `feed_bundle + build_digest` 产物与当前 `emit_digest_package` 的 office-ready package 概念；
+  - follow-up runtime 不得在 rendering 或 delivery 阶段重新 query feed 或 network data，`build_digest / emit_digest_package` 继续作为 additive anchors 保留。
 - 仓内治理蓝图已把这轮提升为 `L19`：
   - `L19.1` 蓝图与点火图已落仓；
-  - `L19.2` 先冻结 `feed_bundle + prepare_digest_payload` contract；
-  - `L19.3` 再冻结 prompt override 与 first-run profile/onboarding；
+  - `L19.2` contract 已冻结；
+  - `L19.3` 为当前 next slice：再冻结 prompt override 与 first-run profile/onboarding；
   - `L19.4` 补 Reader/CLI/MCP 导出与 payload runtime；
   - `L19.5` 补 Telegram chunk/fallback/diagnostics；
   - `L19.6` 再把同一组 noun 投到 GUI。
@@ -161,14 +165,14 @@
 | 订阅关系 | ✅ `subscribe/unsubscribe`、`list_subscriptions` | 后续: 增加批量订阅 API |
 | 源组复用 | ✅ `install_pack` + `list_packs` | 后续: 导入清单 UI |
 | 聚合输出 | ✅ `build_json_feed / build_rss_feed / build_atom_feed` + 测试覆盖 | ✅ v0.4.0: Atom 1.0 + Digest 构建器 |
-| 摘要载荷 | ✅ `build_digest / emit_digest_package` 已落地 | 后续: `feed_bundle` + deterministic `prepare_digest_payload` + prompt override |
+| 摘要载荷 | 🚧 `build_digest / emit_digest_package` 已落地，且 `L19.2` 已冻结 `feed_bundle.v1 + prepare_digest_payload.v1` contract | 后续: `L19.3` prompt override / first-run profile；`L19.4` runtime export 与 payload emission |
 | 运维安全 | ✅ 健康检查 + SSRF 防护 + 配置化路径 | ✅ v0.3.0: processed 状态管理 |
 | 多维评分 | ✅ 四维度加权 + Source Authority Tiers | ✅ v0.4.0 完成 |
 | Web 搜索 | ✅ 多源网关（Jina/Tavily）CLI/MCP | ✅ v0.5.0 完成 |
 | 任务化 | 🚧 `WatchMission` 首版（CLI/Reader/MCP + due runner + daemon + richer alert sink + status page） | 后续: 自动重跑 / 故障恢复 / 聚合面板 |
 | 处置化 | 🚧 `TriageQueue` 首版（state/note/action + duplicate explain + CLI/MCP/Console + digest gate） | 后续: keyboard workflow / reviewer SLA |
 | 证据化 | 🚧 `Story Workspace` 首版（story cluster + evidence/timeline/conflict + CLI/MCP + persisted snapshot + console board + entity graph） | 后续: story merge / editor |
-| 分发化 | 🚧 当前有效交付层为 `AlertEvent` + named routes + `build_json_feed / build_rss_feed / build_atom_feed` + `story_export` + `alert_route_health / ops_snapshot` | 后续: `L6.3` 明确订阅/回调 contract；`L19.5` 补 Telegram chunk/fallback 与 route-backed digest/report diagnostics |
+| 分发化 | 🚧 当前有效交付层为 `AlertEvent` + named routes + `build_json_feed / build_rss_feed / build_atom_feed` + `story_export` + `alert_route_health / ops_snapshot`；后续 digest/report push 需消费冻结后的 `prepare_digest_payload` | 后续: `L6.3` 明确订阅/回调 contract；`L19.5` 补 Telegram chunk/fallback 与 route-backed digest/report diagnostics |
 
 ## 验收建议（本项目）
 

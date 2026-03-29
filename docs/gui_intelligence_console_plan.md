@@ -291,6 +291,14 @@ Console implications:
 - the browser should expose curated pack or feed-bundle browse/run/preview surfaces instead of forcing digest setup back into raw CLI flags
 - delivery panels should surface prompt-pack readiness, payload provenance, chunk or fallback status, and last route result for digest and report dispatch
 
+Shared repo truth for `L19.3`:
+
+- prompt-pack resolution order is `repo_default_pack -> local_prompt_overrides -> per_run_overrides`; the console should display the resolved pack and override provenance, not invent a browser-only prompt state
+- the repo-default digest pack name is `digest_delivery_default`, and prompt readiness in the browser should mean "can show the same resolved pack or file chain that CLI and MCP would use"
+- first-run digest onboarding is one shared `digest_profile` with `language`, `timezone`, `frequency`, and `default_delivery_target`; the browser is only another editor for that same record
+- `default_delivery_target` should prefer a named route reference, not inline channel secrets or console-local delivery config
+- when a shared digest profile already exists, the console should open on editable defaults rather than replaying a first-run wizard
+
 Rules:
 
 - these surfaces must project the same `feed_bundle`, `prepare_digest_payload`, named route, and delivery observation nouns used by Reader, CLI, and MCP

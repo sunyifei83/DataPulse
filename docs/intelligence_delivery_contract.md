@@ -11,6 +11,7 @@ It is the contract of record for `L6.3`. It refines the delivery half of [intell
 This contract covers the current and near-term output semantics for:
 
 - source-profile subscriptions and feed export
+- replayable `feed_bundle` and deterministic `prepare_digest_payload` as the future digest-delivery input boundary
 - normalized `DeliverySubscription` / `DeliveryDispatchRecord` persistence for report, story, watch, and profile subjects
 - watch-level alert rules and triggered `AlertEvent` records
 - named delivery routes from `AlertRouteStore`
@@ -30,6 +31,7 @@ The repo now persists a normalized delivery-subscription object, but not every l
 | Triggered event record | `AlertEvent` | `datapulse/core/alerts.py` |
 | Route registry | `AlertRouteStore`, named route config | `datapulse/core/alerts.py` |
 | Pull outputs | `build_json_feed`, `build_rss_feed`, `build_atom_feed` | `datapulse/reader.py`, `datapulse/mcp_server.py`, `datapulse/cli.py` |
+| Digest preparation boundary | `feed_bundle`, `prepare_digest_payload` contract over `query_feed`, `build_digest`, and `emit_digest_package` | `docs/governance/datapulse-feed-bundle-digest-delivery-contract.md`, `datapulse/reader.py` |
 | Report package and dispatch | `build_report_delivery_package`, `dispatch_report_delivery` | `datapulse/core/report.py`, `datapulse/reader.py`, `datapulse/cli.py`, `datapulse/mcp_server.py`, `datapulse/console_server.py` |
 | Evidence-package export | `export_story(..., output_format="json"|"markdown")` | `datapulse/reader.py`, `datapulse/mcp_server.py`, `datapulse/cli.py` |
 | Delivery observations | `list_alert_routes`, `alert_route_health`, `ops_snapshot` | `datapulse/reader.py`, `datapulse/console_server.py` |
@@ -145,12 +147,14 @@ The repo currently exposes three output package families:
 | mission alert | `AlertEvent` plus matched item payloads | push |
 | report output | `ExportProfile` selected outputs over `Report` (`brief`, `full`, `sources`, `watch_pack`) | pull and route-backed push |
 | feed snapshot | JSON Feed, RSS, Atom built from profile/source subscription scope | pull |
+| digest preparation payload | deterministic `prepare_digest_payload` over frozen `feed_bundle`, `build_digest`, and office-ready package fields | pull-prep and future route-backed push input |
 | story evidence package | story JSON or Markdown export | pull |
 
 Contract rules:
 
 - output packages are typed views over lifecycle truth; they are not independent business objects
 - feed and report outputs are canonical pull subscription surfaces for profile and report-scoped consumption
+- digest delivery should use a replayable `feed_bundle` plus deterministic `prepare_digest_payload` boundary instead of reconstructing membership during transport
 - story export is the legacy pull evidence-package handoff
 - route-backed push delivery currently operates on `AlertEvent`; future digest, report, or story push delivery must still produce an attributable event record before dispatch
 
@@ -218,6 +222,7 @@ Forward-compatibility rules:
 - `subject_kind='report'` must bind `subject_ref` to a stable `Report` identifier and map to explicit report output kinds for delivery
 - `output_kind` and `delivery_mode` must remain explicit so feed export, story export, and route-backed push are one model
 - route-backed story or digest delivery should emit an attributable event/attempt record before transport
+- future digest output kinds should resolve from `prepare_digest_payload` instead of from ad hoc per-route re-render state
 
 ## Cross-Surface Parity
 
@@ -251,6 +256,7 @@ The following invariants should hold for all follow-up work:
 ## Implications For Follow-up Work
 
 - role-based digest or briefing outputs should be modeled as additional output kinds, not as a parallel product surface
+- route-backed digest delivery should consume deterministic `prepare_digest_payload` content rather than re-querying feed state during dispatch
 - story-triggered callbacks should reuse named routes and delivery observations instead of inventing standalone callback status stores
 - when first-class watch/story subscriptions land, they should normalize onto `subject_ref + output_kind + delivery_mode + route_names`
 - roadmap and GUI work should treat delivery as one route-backed output plane spanning alerts, feeds, story export, and ops facts

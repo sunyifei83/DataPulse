@@ -1,2 +1,2882 @@
-............................                                             [100%]
-28 passed in 0.68s
+{
+    "schema_version": "blueprint_plan.v1",
+    "plan_id": "datapulse-loop-bootstrap-2026-03-07",
+    "project": "DataPulse",
+    "generated_at_utc": "2026-03-29T04:58:20Z",
+    "status": "in_progress",
+    "activation": {
+        "wired": false,
+        "active_path": "docs/governance/datapulse-blueprint-plan.json",
+        "promotion_mode": "manual_only"
+    },
+    "automation_objective": {
+        "target_class": "trusted_delivery_pipeline",
+        "continuous_when_healthy": true,
+        "halts_on_machine_decidable_blockers": true,
+        "blocked_state_is_expected": true
+    },
+    "reusable_capability_model": {
+        "progress_truth": "blueprint_plan_plus_next_open_slice",
+        "stop_truth": "blocking_facts_plus_remaining_promotion_gates_plus_flow_control",
+        "reopen_truth": [
+            "plan_adds_new_open_slice",
+            "workspace_or_repo_change_reopens_repo_promotion",
+            "promotion_evidence_regression_reopens_ci_or_release_promotion"
+        ],
+        "driver_cycle": [
+            "export_state_before_action",
+            "execute_slice_or_promotion",
+            "collect_evidence",
+            "re_export_state",
+            "stop_or_continue"
+        ],
+        "expected_terminal_stop": true
+    },
+    "slice_profiles": {
+        "draft_only": {
+            "description": "Plan or contract drafting slices with no default service-governance coupling.",
+            "blocking_gate_groups": []
+        },
+        "local_wrapper": {
+            "description": "Local wrapper or exporter slices. Only repo execution safety matters when activated.",
+            "blocking_gate_groups": []
+        },
+        "workflow_change": {
+            "description": "Active workflow changes. Execution safety matters, but release evidence gaps should not block the slice that introduces them.",
+            "blocking_gate_groups": [
+                "execution_safety"
+            ]
+        },
+        "release_policy_change": {
+            "description": "Release policy refactors. Execution safety matters; release evidence remains an outcome rather than a prerequisite.",
+            "blocking_gate_groups": [
+                "execution_safety"
+            ]
+        },
+        "runtime_validation": {
+            "description": "Slices that intentionally depend on runtime HA evidence.",
+            "blocking_gate_groups": [
+                "execution_safety",
+                "local_verification",
+                "runtime_governance"
+            ]
+        }
+    },
+    "phase_statuses": {
+        "L0": "completed",
+        "L1": "completed",
+        "L2": "completed",
+        "L3": "completed",
+        "L4": "completed",
+        "L5": "completed",
+        "L6": "completed",
+        "L7": "completed",
+        "L8": "completed",
+        "L9": "completed",
+        "L10": "completed",
+        "L11": "completed",
+        "L12": "completed",
+        "L13": "completed",
+        "L14": "completed",
+        "L15": "completed",
+        "L16": "completed",
+        "L17": "completed",
+        "L18": "completed",
+        "L19": "in_progress"
+    },
+    "phases": [
+        {
+            "id": "L0",
+            "title": "Adapter Contract Drafts",
+            "goal": "Create non-active design contracts with zero impact on current repository behavior.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L0.1",
+                    "title": "Write loop adapter design draft",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "docs/governance/datapulse-loop-adapter-design.md"
+                    ]
+                },
+                {
+                    "id": "L0.2",
+                    "title": "Create bootstrap blueprint plan draft",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "docs/governance/datapulse-blueprint-plan.draft.json"
+                    ]
+                },
+                {
+                    "id": "L0.3",
+                    "title": "Create example loop state and landing status contracts",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "docs/governance/project_specific_loop_state.example.json",
+                        "docs/governance/code_landing_status.example.json"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "L1",
+            "title": "Verification Gate Hardening",
+            "goal": "Normalize verification commands so the future loop can trust process exit semantics.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L1.1",
+                    "title": "Make local smoke gateable",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "bash scripts/datapulse_local_smoke.sh",
+                        "python3 scripts/governance/run_datapulse_local_smoke_gate.py"
+                    ],
+                    "exit_condition": "nonzero when mandatory checks fail",
+                    "artifacts": [
+                        "scripts/governance/run_datapulse_local_smoke_gate.py"
+                    ]
+                },
+                {
+                    "id": "L1.2",
+                    "title": "Make remote smoke gateable",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "bash scripts/datapulse_remote_openclaw_smoke.sh",
+                        "python3 scripts/governance/run_datapulse_remote_smoke_gate.py"
+                    ],
+                    "exit_condition": "nonzero when required remote steps fail",
+                    "artifacts": [
+                        "scripts/governance/run_datapulse_remote_smoke_gate.py"
+                    ]
+                },
+                {
+                    "id": "L1.3",
+                    "title": "Normalize quick test semantics",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "bash scripts/quick_test.sh",
+                        "python3 scripts/governance/run_datapulse_quick_test_gate.py"
+                    ],
+                    "exit_condition": "no swallowed failures in mandatory checks",
+                    "artifacts": [
+                        "scripts/governance/run_datapulse_quick_test_gate.py",
+                        "docs/governance/datapulse-verification-contract.draft.md"
+                    ]
+                },
+                {
+                    "id": "L1.4",
+                    "title": "Declare canonical verification command set",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "docs/inhouse_workflow.md",
+                        "docs/governance/datapulse-loop-adapter-design.md",
+                        "docs/governance/datapulse-verification-contract.draft.md"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "L2",
+            "title": "Code Landing Status Exporter",
+            "goal": "Export normalized landing truth from git state, artifact evidence, CI facts, and release facts.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L2.1",
+                    "title": "Define code_landing_status exporter output",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "out/code_landing_status.json",
+                        "docs/governance/code_landing_status.example.json",
+                        "scripts/governance/export_datapulse_code_landing_status.py"
+                    ]
+                },
+                {
+                    "id": "L2.2",
+                    "title": "Map local, HA, emergency, and CI evidence into landing status",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "scripts/governance/datapulse_loop_contracts.py"
+                    ]
+                },
+                {
+                    "id": "L2.3",
+                    "title": "Expose repo_landed and ci_proven booleans",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "scripts/governance/datapulse_loop_contracts.py"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "L3",
+            "title": "Loop State Exporter",
+            "goal": "Derive current_level, next_slice, and remaining_promotion_gates from plan plus landing truth.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L3.1",
+                    "title": "Define project_specific_loop_state exporter output",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "out/project_specific_loop_state.json",
+                        "docs/governance/project_specific_loop_state.example.json",
+                        "scripts/governance/export_datapulse_project_loop_state.py"
+                    ]
+                },
+                {
+                    "id": "L3.2",
+                    "title": "Implement next-slice selection policy",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "scripts/governance/datapulse_loop_contracts.py"
+                    ]
+                },
+                {
+                    "id": "L3.3",
+                    "title": "Decide projection targets",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "docs/governance/datapulse-projection-targets.draft.md"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "L4",
+            "title": "Promotion Evidence Unification",
+            "goal": "Create a single promotion-evidence path suitable for manual and later automatic loop progression.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L4.1",
+                    "title": "Add workflow_dispatch evidence workflow",
+                    "category": "promotion",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "ci",
+                    "closes_gates": [
+                        "workflow_dispatch_missing"
+                    ],
+                    "status": "completed",
+                    "draft_artifacts": [
+                        "docs/governance/datapulse-evidence-workflow.draft.yml",
+                        ".github/workflows/governance-evidence.yml"
+                    ]
+                },
+                {
+                    "id": "L4.2",
+                    "title": "Emit structured release evidence sidecar",
+                    "category": "promotion",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "release",
+                    "closes_gates": [
+                        "structured_release_bundle_missing"
+                    ],
+                    "status": "completed",
+                    "draft_artifacts": [
+                        "docs/governance/datapulse-release-sidecar.example.json",
+                        "scripts/governance/export_datapulse_release_sidecar.py",
+                        "scripts/governance/export_datapulse_evidence_bundle.py",
+                        "scripts/governance/export_datapulse_structured_release_bundle.py",
+                        "out/release_bundle/structured_release_bundle_manifest.draft.json"
+                    ]
+                },
+                {
+                    "id": "L4.3",
+                    "title": "Unify script-driven and workflow-driven release policy",
+                    "category": "promotion",
+                    "execution_profile": "release_policy_change",
+                    "promotion_scope": "release",
+                    "closes_gates": [
+                        "mixed_release_policy"
+                    ],
+                    "status": "completed",
+                    "artifacts": [
+                        "scripts/release_publish.sh",
+                        ".github/workflows/release.yml"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "L5",
+            "title": "Driver Integration",
+            "goal": "Integrate a reusable loop driver with DataPulse-specific adapter logic.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L5.1",
+                    "title": "Add DataPulse adapter implementation",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "scripts/governance/datapulse_loop_adapter.py",
+                        "scripts/governance/run_datapulse_blueprint_loop.py",
+                        "docs/governance/datapulse-blueprint-plan.json"
+                    ]
+                },
+                {
+                    "id": "L5.2",
+                    "title": "Run in manual promotion mode",
+                    "category": "promotion",
+                    "execution_profile": "runtime_validation",
+                    "promotion_scope": "ci",
+                    "status": "completed",
+                    "artifacts": [
+                        "scripts/governance/run_datapulse_blueprint_loop.py",
+                        "out/governance/project_specific_loop_state.draft.json"
+                    ]
+                },
+                {
+                    "id": "L5.3",
+                    "title": "Enable auto promotion after gates close",
+                    "category": "promotion",
+                    "execution_profile": "runtime_validation",
+                    "promotion_scope": "release",
+                    "status": "completed",
+                    "artifacts": [
+                        "docs/governance/datapulse-auto-continuation-policy.json",
+                        "docs/governance/datapulse-auto-continuation-policy.md",
+                        "scripts/governance/run_datapulse_auto_continuation.py",
+                        ".github/workflows/governance-loop-auto.yml"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "L6",
+            "title": "Intelligence Platformization Follow-up",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L6.1",
+                    "title": "Write unified intelligence lifecycle contract for mission-run-triage-story-delivery",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "docs/intelligence_lifecycle_contract.md"
+                    ],
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md"
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-07T13:53:33Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md",
+                            "frontmatter_title": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+                            "first_heading": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212"
+                        }
+                    }
+                },
+                {
+                    "id": "L6.2",
+                    "title": "Project lifecycle contract into source-feed and GUI roadmap docs",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "docs/source_feed_enhancement_plan.md",
+                        "docs/gui_intelligence_console_plan.md"
+                    ],
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md"
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-07T13:53:37Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md",
+                            "frontmatter_title": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+                            "first_heading": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212"
+                        }
+                    }
+                },
+                {
+                    "id": "L6.3",
+                    "title": "Define delivery and subscription contract for route-backed intelligence outputs",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "docs/intelligence_delivery_contract.md"
+                    ],
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md"
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-07T13:53:40Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212.md",
+                            "frontmatter_title": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+                            "first_heading": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185\u529f\u80fd\u5347\u7ef4\u4e0e\u60c5\u62a5\u4e2d\u53f0\u5316\u8ba1\u5212"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "id": "L7",
+            "title": "Console Interaction Uplift",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L7.1",
+                    "title": "Upgrade deploy surface into a stateful mission deck",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "datapulse/console_server.py",
+                        "datapulse/console_markup.py",
+                        "docs/gui_intelligence_console_plan.md"
+                    ]
+                },
+                {
+                    "id": "L7.2",
+                    "title": "Add server-derived mission deck suggestions and duplicate pressure hints",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "datapulse/console_server.py",
+                        "datapulse/console_deck.py",
+                        "tests/test_console_server.py"
+                    ]
+                },
+                {
+                    "id": "L7.3",
+                    "title": "Ship command palette and keyboard control surface for the shell",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "datapulse/console_server.py",
+                        "datapulse/console_markup.py",
+                        "docs/gui_intelligence_console_plan.md"
+                    ]
+                },
+                {
+                    "id": "L7.4",
+                    "title": "Add action log, optimistic mutation flow, and reversible browser actions",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "datapulse/core/watchlist.py",
+                        "datapulse/reader.py",
+                        "datapulse/console_server.py",
+                        "tests/test_console_server.py"
+                    ]
+                },
+                {
+                    "id": "L7.5",
+                    "title": "Add browser-level smoke verification for the console uplift",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "bash scripts/datapulse_console_smoke.sh",
+                        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+                        "uv run --with playwright python scripts/datapulse_console_browser_smoke.py"
+                    ],
+                    "artifacts": [
+                        "scripts/datapulse_console_smoke.sh",
+                        "scripts/datapulse_console_browser_smoke.py",
+                        "tests/test_console_server.py"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "L8",
+            "title": "Commercial Intelligence Governance Uplift",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L8.1",
+                    "title": "Write repo-specific commercial intelligence governance blueprint",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "sed -n '1,260p' docs/commercial_intelligence_governance_blueprint.md"
+                    ],
+                    "artifacts": [
+                        "docs/commercial_intelligence_governance_blueprint.md"
+                    ],
+                    "exit_condition": "The repo-specific commercial intelligence governance blueprint exists and maps source, mission, evidence, delivery, and scorecard follow-ups to DataPulse anchors.",
+                    "fact_sources": [
+                        "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+                    ],
+                    "notes": [
+                        "Derived from the user-provided commercial intelligence collection and governance note."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T12:49:57Z",
+                        "source_count": 1
+                    }
+                },
+                {
+                    "id": "L8.2",
+                    "title": "Define source governance contract for public-source intelligence intake",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/core/models.py datapulse/core/source_catalog.py",
+                        "pytest tests/test_source_catalog.py -q",
+                        "sed -n '1,260p' docs/intelligence_source_governance_contract.md"
+                    ],
+                    "artifacts": [
+                        "docs/intelligence_source_governance_contract.md",
+                        "datapulse/core/source_catalog.py",
+                        "datapulse/core/models.py",
+                        "docs/search_gateway_config.md"
+                    ],
+                    "exit_condition": "A source-governance contract defines source class, collection mode, authority, sensitivity, and compliance hints and maps them to SourceCatalog and search gateway surfaces.",
+                    "fact_sources": [
+                        "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+                    ],
+                    "notes": [
+                        "Derived from the repo-adapted commercial intelligence governance blueprint."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T12:50:10Z",
+                        "source_count": 1
+                    }
+                },
+                {
+                    "id": "L8.3",
+                    "title": "Project demand-intent fields into WatchMission and mission surfaces",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run pytest tests/test_watchlist.py tests/test_cli.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/core/watchlist.py",
+                        "datapulse/reader.py",
+                        "tests/test_watchlist.py",
+                        "tests/test_cli.py"
+                    ],
+                    "exit_condition": "WatchMission and mission-facing surfaces can carry analyst demand intent, scope, and freshness expectations without forking lifecycle semantics.",
+                    "fact_sources": [
+                        "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+                    ],
+                    "notes": [
+                        "Derived from the repo-adapted commercial intelligence governance blueprint."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T12:50:27Z",
+                        "source_count": 1
+                    }
+                },
+                {
+                    "id": "L8.4",
+                    "title": "Carry evidence-grade and delivery-risk governance through triage, story, and alert outputs",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run pytest tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/core/triage.py",
+                        "datapulse/core/story.py",
+                        "datapulse/core/alerts.py",
+                        "tests/test_triage.py",
+                        "tests/test_story.py",
+                        "tests/test_alerts.py"
+                    ],
+                    "exit_condition": "Triage, story, and alert outputs share explicit evidence-grade, provenance, and delivery-risk governance semantics.",
+                    "fact_sources": [
+                        "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+                    ],
+                    "notes": [
+                        "Derived from the repo-adapted commercial intelligence governance blueprint."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T12:50:50Z",
+                        "source_count": 1
+                    }
+                },
+                {
+                    "id": "L8.5",
+                    "title": "Expose intelligence governance scorecard signals in reader and console ops surfaces",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run pytest tests/test_console_server.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/reader.py",
+                        "datapulse/console_server.py",
+                        "docs/gui_intelligence_console_plan.md",
+                        "tests/test_console_server.py"
+                    ],
+                    "exit_condition": "Reader and console ops surfaces expose scorecard signals for coverage, freshness, alert yield, triage throughput, and story conversion.",
+                    "fact_sources": [
+                        "conversation://2026-03-08/user-commercial-intelligence-governance-paradigm"
+                    ],
+                    "notes": [
+                        "Derived from the repo-adapted commercial intelligence governance blueprint."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T12:50:59Z",
+                        "source_count": 1
+                    }
+                }
+            ]
+        },
+        {
+            "id": "L9",
+            "title": "Content Acquisition And Fact Screening Reinforcement",
+            "goal": "Close the highest-value native-source collection and evidence-trust gaps identified by the external content-acquisition and fact-screening note.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L9.1",
+                    "title": "Distill the external content-acquisition and fact-screening note into a repo-specific reinforcement blueprint",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md"
+                    ],
+                    "artifacts": [
+                        "docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md"
+                    ],
+                    "exit_condition": "A repo-scoped blueprint captures the high-value facts, exclusions, and follow-up slice map from the external note.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+                    ],
+                    "notes": [
+                        "This slice lands the repo-scoped blueprint rather than importing the external note as one open slice."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T17:38:37Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+                            "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+                            "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+                        }
+                    }
+                },
+                {
+                    "id": "L9.2",
+                    "title": "Define the native Chinese collector bridge contract and target shortlist",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "sed -n '1,260p' docs/governance/datapulse-native-collector-bridge-contract.md"
+                    ],
+                    "artifacts": [
+                        "docs/governance/datapulse-native-collector-bridge-contract.md",
+                        "docs/source_feed_enhancement_plan.md"
+                    ],
+                    "exit_condition": "A native-collector bridge contract defines shortlist order, sidecar invocation, env/session dependencies, ParseResult normalization, provenance markers, and fallback policy for Chinese-source integrations.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+                    ],
+                    "notes": [
+                        "Contract-first slice for MediaCrawler, wechat_spider, weiboSpider, and GeneralNewsExtractor-class integrations."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T17:38:40Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+                            "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+                            "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+                        }
+                    }
+                },
+                {
+                    "id": "L9.3",
+                    "title": "Implement a MediaCrawler-class sidecar bridge for native Chinese platform collection",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run pytest tests/test_collectors.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/collectors/native_bridge.py",
+                        "datapulse/core/router.py",
+                        "docs/source_feed_enhancement_plan.md"
+                    ],
+                    "exit_condition": "DataPulse can invoke a MediaCrawler-class native bridge, normalize returned content into collector results, and keep current fallback collectors intact when the bridge is unavailable.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+                    ],
+                    "notes": [
+                        "Highest-reach native collection uplift across XHS, Zhihu, Tieba, Douyin, and other Chinese platforms."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T17:38:43Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+                            "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+                            "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+                        }
+                    }
+                },
+                {
+                    "id": "L9.4",
+                    "title": "Add a first native WeChat article collector path while preserving current fallbacks",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run pytest tests/test_collectors.py tests/test_reader.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/collectors/wechat.py",
+                        "datapulse/core/router.py",
+                        "docs/source_feed_enhancement_plan.md"
+                    ],
+                    "exit_condition": "WeChat URLs prefer a native article path when available, preserve provenance of the path used, and fall back cleanly to the current Jina/browser flow.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+                    ],
+                    "notes": [
+                        "WeChat should prefer a native path when available but retain Jina and browser fallback safety."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T17:38:47Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+                            "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+                            "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+                        }
+                    }
+                },
+                {
+                    "id": "L9.5",
+                    "title": "Add a first native Weibo collector path to the router",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run pytest tests/test_collectors.py tests/test_reader.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/collectors/weibo.py",
+                        "datapulse/core/router.py",
+                        "docs/source_feed_enhancement_plan.md"
+                    ],
+                    "exit_condition": "A first-class Weibo collector exists in the router, produces normalized collector output, and preserves the rest of the routing order.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+                    ],
+                    "notes": [
+                        "Weibo is a direct repo gap and should become a first-class collector instead of staying outside the router."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T17:38:51Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+                            "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+                            "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+                        }
+                    }
+                },
+                {
+                    "id": "L9.6",
+                    "title": "Add a Chinese news body extraction backend to the generic collector chain",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run pytest tests/test_collectors.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/collectors/generic.py",
+                        "docs/source_feed_enhancement_plan.md"
+                    ],
+                    "exit_condition": "The generic collector can use a Chinese-news\u6b63\u6587 backend when available, expose backend provenance, and retain the existing extraction chain as fallback.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+                    ],
+                    "notes": [
+                        "GeneralNewsExtractor-class integration should improve Chinese article extraction without replacing the generic collector contract."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T17:38:58Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+                            "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+                            "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+                        }
+                    }
+                },
+                {
+                    "id": "L9.7",
+                    "title": "Project grounded claim and evidence extraction into triage and story surfaces",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run pytest tests/test_triage.py tests/test_story.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/core/triage.py",
+                        "datapulse/core/story.py",
+                        "datapulse/reader.py"
+                    ],
+                    "exit_condition": "Triage and story surfaces can emit source-linked claims and evidence spans so grounded extraction becomes part of the evidence workflow instead of an external side report.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+                    ],
+                    "notes": [
+                        "LangExtract-class grounding should convert collected text into source-linked claims and evidence spans."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T17:39:01Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+                            "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+                            "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+                        }
+                    }
+                },
+                {
+                    "id": "L9.8",
+                    "title": "Add a factuality gate before digest, story export, and alert escalation",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run pytest tests/test_story.py tests/test_alerts.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/core/story.py",
+                        "datapulse/core/alerts.py",
+                        "datapulse/reader.py"
+                    ],
+                    "exit_condition": "Digest, story export, and alert escalation can expose factuality outcomes and operator-visible trust signals before outward-facing delivery.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+                    ],
+                    "notes": [
+                        "OpenFactVerification-class scoring belongs at the output trust boundary, not inside low-level collection."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T17:39:05Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+                            "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+                            "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+                        }
+                    }
+                },
+                {
+                    "id": "L9.9",
+                    "title": "Add trend-intelligence feed inputs for watch seeding without replacing URL collectors",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run pytest tests/test_watchlist.py tests/test_reader.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/core/watchlist.py",
+                        "datapulse/reader.py",
+                        "docs/source_feed_enhancement_plan.md"
+                    ],
+                    "exit_condition": "Trend-feed inputs can seed watch creation and feed surfaces without being confused with the core URL collector path.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+                    ],
+                    "notes": [
+                        "TrendRadar-class inputs should seed missions and feeds rather than replace URL parsing collectors."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T17:39:08Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+                            "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+                            "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+                        }
+                    }
+                },
+                {
+                    "id": "L9.10",
+                    "title": "Define a manual emergency acquisition lane for EasySpider, Crawlab, and f2 class tools",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "sed -n '1,260p' docs/governance/datapulse-manual-acquisition-sidecar-contract.md"
+                    ],
+                    "artifacts": [
+                        "docs/governance/datapulse-manual-acquisition-sidecar-contract.md",
+                        "docs/source_feed_enhancement_plan.md"
+                    ],
+                    "exit_condition": "Operator-driven acquisition tools are placed in an explicit manual sidecar lane with clear handoff rules instead of being coupled into the core collector contract.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+                    ],
+                    "notes": [
+                        "Keep operator-driven and orchestration-heavy tools in an explicit manual lane instead of coupling them into the core collector path."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-08T17:39:12Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+                            "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+                            "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "id": "L10",
+            "title": "Optional Evidence Backend Reinforcement",
+            "goal": "Turn the newly landed grounding and factuality surfaces into backend-ready extension points without regressing current heuristic and deterministic fallbacks.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L10.1",
+                    "title": "Define optional evidence-backend contracts and provenance rules",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "sed -n '1,260p' docs/governance/datapulse-evidence-backend-contract.md",
+                        "sed -n '1,260p' docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md"
+                    ],
+                    "artifacts": [
+                        "docs/governance/datapulse-evidence-backend-contract.md",
+                        "docs/governance/datapulse-content-acquisition-fact-screening-blueprint.md",
+                        "docs/source_feed_enhancement_plan.md"
+                    ],
+                    "exit_condition": "The repo defines one optional evidence-backend contract for grounding and factuality work, including invocation boundaries, fallback semantics, and operator-visible provenance rules.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+                    ],
+                    "notes": [
+                        "The original external note still points to LangExtract and OpenFactVerification as relevant tools, but now only as optional backends behind existing repo surfaces.",
+                        "This slice should not reopen collector or manual-acquisition architecture."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-09T06:25:58Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+                            "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+                            "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+                        }
+                    }
+                },
+                {
+                    "id": "L10.2",
+                    "title": "Add a LangExtract-class grounding adapter behind the current triage and story grounding boundary",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run pytest tests/test_triage.py tests/test_story.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/core/triage.py",
+                        "datapulse/core/story.py",
+                        "datapulse/reader.py",
+                        "tests/test_triage.py",
+                        "tests/test_story.py"
+                    ],
+                    "exit_condition": "Grounding can optionally call a LangExtract-class backend, preserve backend provenance, and fall back to the current provided/heuristic path when the backend is unavailable or disabled.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+                    ],
+                    "notes": [
+                        "Treat current heuristic grounding as the stable fallback rather than deleting it.",
+                        "The adapter must enrich existing governance outputs instead of creating a parallel claim product."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-09T06:25:58Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+                            "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+                            "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+                        }
+                    }
+                },
+                {
+                    "id": "L10.3",
+                    "title": "Add an OpenFactVerification-class backend option at the factuality gate boundary",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run pytest tests/test_story.py tests/test_alerts.py tests/test_digest.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/core/story.py",
+                        "datapulse/core/alerts.py",
+                        "datapulse/reader.py",
+                        "tests/test_story.py",
+                        "tests/test_alerts.py",
+                        "tests/test_digest.py"
+                    ],
+                    "exit_condition": "The factuality gate can optionally ingest backend verdicts and signals while preserving the current deterministic gate, operator-visible reasons, and delivery fallback behavior.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md"
+                    ],
+                    "notes": [
+                        "The backend belongs at the delivery trust boundary rather than inside low-level collection.",
+                        "External verdicts should stay additive and visible instead of silently overwriting current deterministic signals."
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-09T06:25:58Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09.md",
+                            "frontmatter_title": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09",
+                            "first_heading": "\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177 Top10 \u68c0\u7d22\u6c47\u603b",
+                            "selected_heading": "",
+                            "wikilink_name": "\u4ed3\u5185_\u5185\u5bb9\u91c7\u96c6\u4e0e\u4e8b\u5b9e\u7b5b\u9009\u5de5\u5177_Top10\u68c0\u7d22\u6c47\u603b_2026-03-09"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "id": "L11",
+            "title": "Console Productization And UX Closure",
+            "goal": "Turn the now lifecycle-complete browser shell into a lower-friction operating surface with stronger product fit, clearer information architecture, and safer regression coverage.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L11.1",
+                    "title": "Consolidate the console visual system and hierarchy across topbar, dock, cards, toolbars, and danger states",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py",
+                        "python3 -m compileall datapulse",
+                        "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_watchlist.py tests/test_alerts.py tests/test_story.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "docs/brand_identity.md",
+                        "docs/gui_intelligence_console_plan.md"
+                    ],
+                    "exit_condition": "The browser shell exposes one coherent visual hierarchy for primary actions, supporting context, empty states, and danger states without reverting to generic admin-dashboard styling.",
+                    "notes": [
+                        "This slice starts from the existing command-chamber shell rather than redesigning the product from scratch.",
+                        "The goal is lower scan cost and clearer emphasis, not decorative churn."
+                    ]
+                },
+                {
+                    "id": "L11.2",
+                    "title": "Compress the single-page information architecture into clearer workspace modes and lower-noise default views",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py",
+                        "python3 -m compileall datapulse",
+                        "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_watchlist.py tests/test_alerts.py tests/test_story.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "docs/gui_intelligence_console_plan.md"
+                    ],
+                    "exit_condition": "Operators can enter the shell and identify the relevant working mode and active modules without scanning the full page length, while deep-link and saved-view semantics stay intact.",
+                    "notes": [
+                        "Use explicit workspace modes such as Operations, Review, and Config rather than exposing every module at the same visual depth.",
+                        "This slice should refine the current long-form shell, not fork a second console."
+                    ]
+                },
+                {
+                    "id": "L11.3",
+                    "title": "Push next-best actions, keyboard convenience, and bulk-flow safety deeper into mission, triage, story, and route handling",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+                        "python3 -m compileall datapulse",
+                        "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_watchlist.py tests/test_alerts.py tests/test_story.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "datapulse/console_server.py",
+                        "tests/test_console_server.py"
+                    ],
+                    "exit_condition": "The highest-frequency mission-to-triage-to-story-to-route flows require fewer context switches, fewer scroll jumps, and less operator recall while preserving reversible mutations and clear danger semantics.",
+                    "notes": [
+                        "Favor card-local quick actions and next-step affordances over adding more global controls.",
+                        "Keep bulk operations safe and obvious; faster should not mean easier to misfire."
+                    ]
+                },
+                {
+                    "id": "L11.4",
+                    "title": "Productize onboarding and empty states so the browser teaches the lifecycle instead of assuming prior CLI context",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py",
+                        "python3 -m compileall datapulse",
+                        "uv run pytest tests/test_console_server.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "docs/datapulse_console_parameter_guide.md",
+                        "docs/gui_intelligence_console_plan.md"
+                    ],
+                    "exit_condition": "A first-time operator can understand the browser lifecycle path from mission creation to triage, story promotion, and route setup without needing to start in CLI documentation.",
+                    "notes": [
+                        "Guidance should be contextual and brief instead of turning the shell into a documentation wall.",
+                        "This slice is about reducing onboarding friction, not adding a generic walkthrough library."
+                    ]
+                },
+                {
+                    "id": "L11.5",
+                    "title": "Harden browser-level regression coverage for deep links, saved views, dock behavior, triage-to-story flow, and route CRUD",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "bash scripts/datapulse_console_smoke.sh",
+                        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+                        "uv run --with playwright python scripts/datapulse_console_browser_smoke.py",
+                        "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_watchlist.py tests/test_alerts.py tests/test_story.py -q"
+                    ],
+                    "artifacts": [
+                        "scripts/datapulse_console_smoke.sh",
+                        "scripts/datapulse_console_browser_smoke.py",
+                        "tests/test_console_server.py",
+                        "datapulse/console_markup.py"
+                    ],
+                    "exit_condition": "The most stateful browser flows have repeatable regression coverage strong enough to protect further console productization and layout work from silent breakage.",
+                    "notes": [
+                        "Prefer high-signal operating-flow checks over brittle visual snapshots.",
+                        "If UI churn accelerates, this slice can be pulled earlier even though it is listed last in the preferred ignition order."
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "L12",
+            "title": "Console Operating-Surface Refactor Blueprint",
+            "goal": "Turn the lifecycle-complete browser shell into a lower-noise, state-driven workbench with one coherent navigation model, clearer cross-stage continuity, explicit card-action hierarchy, and predictable desktop/mobile behavior.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L12.1",
+                    "title": "Land a repo-scoped GUI refactor blueprint covering information architecture, navigation convergence, card action priority, and desktop/mobile interaction rules",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+                    ],
+                    "artifacts": [
+                        "docs/gui_intelligence_console_plan.md",
+                        "docs/governance/datapulse-blueprint-plan.draft.json"
+                    ],
+                    "exit_condition": "The repository contains an explicit GUI refactor blueprint and a machine-readable slice map that can be used as the next manual ignition feedstock.",
+                    "notes": [
+                        "This slice promotes the UX judgment into repo-truth artifacts instead of keeping it as chat-only design context.",
+                        "The blueprint must stay aligned to the Reader-backed lifecycle contract and must not introduce GUI-only nouns."
+                    ]
+                },
+                {
+                    "id": "L12.2",
+                    "title": "Converge console navigation into one primary rail plus one secondary context layer without overlapping meta-navigation systems",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py",
+                        "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "docs/gui_intelligence_console_plan.md",
+                        "tests/test_console_server.py"
+                    ],
+                    "exit_condition": "Operators can move across intake, missions, review, and delivery through one primary navigation model while command palette, deep links, and saved views remain accelerators rather than competing top-level entry systems.",
+                    "notes": [
+                        "Collapse primary wayfinding before adding more card-level convenience affordances.",
+                        "Preserve deep-link and saved-view semantics, but demote them from co-primary nav to contextual acceleration."
+                    ]
+                },
+                {
+                    "id": "L12.3",
+                    "title": "Recompose mission, review, and delivery information architecture around lifecycle continuity instead of copy-only explanation",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+                        "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "datapulse/console_server.py",
+                        "docs/gui_intelligence_console_plan.md",
+                        "tests/test_console_server.py"
+                    ],
+                    "exit_condition": "Mission, triage, story, and delivery workspaces expose visible cross-stage continuity facts and tighter list-detail-editor relationships, reducing context switching across the browser shell.",
+                    "notes": [
+                        "This slice should surface lifecycle continuity in the working surface rather than expanding onboarding prose.",
+                        "Cross-stage counters and next-hop facts should be additive views over existing Reader-backed objects."
+                    ]
+                },
+                {
+                    "id": "L12.4",
+                    "title": "Apply a state-driven card action hierarchy across mission, triage, story, and route surfaces",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+                        "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "datapulse/console_server.py",
+                        "tests/test_console_server.py",
+                        "docs/gui_intelligence_console_plan.md"
+                    ],
+                    "exit_condition": "High-frequency cards expose one obvious primary CTA, calmer secondary action density, and clearer danger-action treatment that matches card state instead of static button rows.",
+                    "notes": [
+                        "Primary CTA selection should be state-driven rather than card-type-only.",
+                        "Destructive actions should move behind clearer danger treatments or overflow rather than staying in every quick-action row."
+                    ]
+                },
+                {
+                    "id": "L12.5",
+                    "title": "Normalize desktop and mobile interaction behavior around one responsive density and pane contract",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py",
+                        "uv run pytest tests/test_console_server.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "docs/brand_identity.md",
+                        "docs/gui_intelligence_console_plan.md"
+                    ],
+                    "exit_condition": "Desktop and mobile console behavior follows one explicit pane, density, modal, and action-sheet contract instead of ad hoc breakpoint-specific layout exceptions.",
+                    "notes": [
+                        "Small-screen behavior should favor one dominant pane and one dominant action at a time.",
+                        "Brand language should survive breakpoint changes without letting decorative chrome outrank operational facts."
+                    ]
+                },
+                {
+                    "id": "L12.6",
+                    "title": "Harden verification for navigation convergence, card-priority behavior, and responsive interaction regressions",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "bash scripts/datapulse_console_smoke.sh",
+                        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+                        "uv run --with playwright python scripts/datapulse_console_browser_smoke.py",
+                        "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+                    ],
+                    "artifacts": [
+                        "scripts/datapulse_console_smoke.sh",
+                        "scripts/datapulse_console_browser_smoke.py",
+                        "tests/test_console_server.py",
+                        "datapulse/console_markup.py"
+                    ],
+                    "exit_condition": "The console refactor wave has repeatable workflow-level regression coverage for primary navigation, context restore, state-driven CTA behavior, and responsive interaction safety.",
+                    "notes": [
+                        "Prefer high-signal operating-flow checks over brittle visual snapshots.",
+                        "This slice should lock in the new operating model before another round of browser-surface expansion."
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "L13",
+            "title": "Console Workbench Convergence And Live Desk Refactor",
+            "goal": "Turn the refactored operating surface into an object-first analyst desk where populated workspaces lead with current-object facts, desktop uses stable workbench panes, and lifecycle handoff remains visible across Mission -> Review -> Story -> Delivery.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L13.1",
+                    "title": "Promote the next workbench-convergence blueprint and manual ignition map into repository truth",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.json"
+                    ],
+                    "artifacts": [
+                        "docs/gui_intelligence_console_plan.md",
+                        "docs/governance/datapulse-blueprint-plan.draft.json",
+                        "docs/governance/datapulse-blueprint-plan.json"
+                    ],
+                    "exit_condition": "The repository contains an explicit L13 workbench-convergence blueprint and the active blueprint path exposes a next manual ignition target again.",
+                    "notes": [
+                        "This slice promotes the latest UI/UXD workbench judgment into repo-truth artifacts instead of leaving it as chat-only critique.",
+                        "The promoted follow-up map intentionally stays inside the Reader-backed browser shell rather than opening a premature frontend-stack rewrite track."
+                    ]
+                },
+                {
+                    "id": "L13.2",
+                    "title": "Refactor intake into a live desk that leads with current-object facts, pressure signals, and next actions when data exists",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py",
+                        "uv run pytest tests/test_console_server.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "tests/test_console_server.py",
+                        "docs/gui_intelligence_console_plan.md"
+                    ],
+                    "exit_condition": "A populated browser shell opens on current-object facts and next-step actions before decorative hero treatment or copy-heavy guidance.",
+                    "notes": [
+                        "Mission drafting, presets, and clone support should remain accessible, but they should no longer dominate the first live operating view.",
+                        "Empty or first-run states may keep richer onboarding treatment; populated states should not."
+                    ]
+                },
+                {
+                    "id": "L13.3",
+                    "title": "Promote the topbar context into a persistent object rail that preserves mission, evidence, story, and route handoff across stages",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+                        "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "datapulse/console_server.py",
+                        "tests/test_console_server.py",
+                        "docs/gui_intelligence_console_plan.md"
+                    ],
+                    "exit_condition": "Moving from mission to evidence to story to route no longer feels like opening disconnected desks; one visible handoff chain remains in view.",
+                    "notes": [
+                        "Saved views, deep links, and command palette remain accelerators rather than becoming the primary object-memory system.",
+                        "Reversible mutations should return operators to the same object context unless the mutation explicitly promotes the work to a new stage."
+                    ]
+                },
+                {
+                    "id": "L13.4",
+                    "title": "Normalize desktop workspaces into stable list-detail-support panes for mission, review, story, and delivery handling",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py",
+                        "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "tests/test_console_server.py",
+                        "docs/gui_intelligence_console_plan.md"
+                    ],
+                    "exit_condition": "Desktop work no longer depends on repeated full-page scroll traversal for mission, triage, story, and delivery handling.",
+                    "notes": [
+                        "Selection-heavy flows should prefer stable pane relationships over stacked report-style page sections.",
+                        "Preserve list scroll position and detail focus after state mutations where possible."
+                    ]
+                },
+                {
+                    "id": "L13.5",
+                    "title": "Tighten the review-story evidence lane and split story workspace into board and editor modes",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+                        "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_story.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "datapulse/console_server.py",
+                        "tests/test_console_server.py",
+                        "docs/gui_intelligence_console_plan.md"
+                    ],
+                    "exit_condition": "Operators can promote evidence into narrative work without reselecting context or parsing one long story report surface.",
+                    "notes": [
+                        "Treat triage-to-story movement as one evidence lane rather than two loosely adjacent pages.",
+                        "Story board and story editor modes should be explicit enough to reduce long-form detail sprawl."
+                    ]
+                },
+                {
+                    "id": "L13.6",
+                    "title": "Compress populated-workspace control density so chips summarize state and one dominant action stays legible",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py",
+                        "uv run pytest tests/test_console_server.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "docs/brand_identity.md",
+                        "docs/gui_intelligence_console_plan.md"
+                    ],
+                    "exit_condition": "Populated cards and workspaces scan faster, with less instructional reading and less control-priority flattening.",
+                    "notes": [
+                        "Chips should summarize state more often than they create peer-level button walls.",
+                        "Instructional prose should collapse once the relevant workspace already contains real operational data."
+                    ]
+                },
+                {
+                    "id": "L13.7",
+                    "title": "Harden verification for live-desk behavior, object-rail persistence, pane stability, and mobile one-task posture",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "bash scripts/datapulse_console_smoke.sh",
+                        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+                        "uv run --with playwright python scripts/datapulse_console_browser_smoke.py",
+                        "uv run pytest tests/test_console_server.py tests/test_watchlist.py tests/test_triage.py tests/test_story.py tests/test_alerts.py -q"
+                    ],
+                    "artifacts": [
+                        "scripts/datapulse_console_smoke.sh",
+                        "scripts/datapulse_console_browser_smoke.py",
+                        "tests/test_console_server.py",
+                        "datapulse/console_markup.py"
+                    ],
+                    "exit_condition": "The next workbench refactor wave has regression coverage for the new object-first operating model before another round of shell expansion lands.",
+                    "notes": [
+                        "Add browser-level assertions for populated-intake behavior, current-object rail persistence, pane-mode stability, and story editor transitions.",
+                        "Protect mobile one-dominant-pane behavior before further populated-state refactors land."
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "L14",
+            "title": "Research OS Report Production Blueprint And Follow-up",
+            "goal": "Extend the lifecycle-complete intelligence console with a structured report-production layer above Story so DataPulse can assemble, gate, and export reusable research assets instead of stopping at story export.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L14.1",
+                    "title": "Promote the repo-scoped Research OS report-production blueprint and manual ignition map into repository truth",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.json"
+                    ],
+                    "artifacts": [
+                        "docs/governance/datapulse-research-os-report-production-blueprint.md",
+                        "docs/gui_intelligence_console_plan.md",
+                        "docs/governance/datapulse-blueprint-plan.draft.json",
+                        "docs/governance/datapulse-blueprint-plan.json"
+                    ],
+                    "exit_condition": "The repository contains a repo-scoped report-production blueprint and the active blueprint path exposes a new next manual ignition target beyond the completed console workbench wave.",
+                    "notes": [
+                        "This slice promotes the latest Research OS judgment into repo truth instead of leaving it as chat-only or Obsidian-only context.",
+                        "The promoted map must stay additive to the Reader-backed lifecycle rather than reopening the console as a second product."
+                    ]
+                },
+                {
+                    "id": "L14.2",
+                    "title": "Extend the lifecycle contract and roadmap with report-layer nouns, stage mapping, and invariants",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+                        "grep -En 'ReportBrief|ClaimCard|ReportSection|CitationBundle|ExportProfile' docs/intelligence_lifecycle_contract.md docs/gui_intelligence_console_plan.md docs/governance/datapulse-research-os-report-production-blueprint.md"
+                    ],
+                    "artifacts": [
+                        "docs/intelligence_lifecycle_contract.md",
+                        "docs/gui_intelligence_console_plan.md",
+                        "docs/governance/datapulse-research-os-report-production-blueprint.md"
+                    ],
+                    "exit_condition": "The repo has one explicit contract of record for how Story, report-layer objects, and report export relate, without treating report work as ad hoc story export.",
+                    "notes": [
+                        "Preserve Story as the evidence package layer and extend the lifecycle above it rather than redefining existing nouns.",
+                        "This slice should define invariants and stage mapping before core models or browser work lands."
+                    ]
+                },
+                {
+                    "id": "L14.3",
+                    "title": "Add report-layer core objects and persistence without introducing GUI-only state",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/core/report.py datapulse/reader.py",
+                        "uv run pytest tests/test_report.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/core/report.py",
+                        "datapulse/reader.py",
+                        "tests/test_report.py"
+                    ],
+                    "exit_condition": "Report objects can be created, loaded, updated, and listed through repo-core persistence without being hidden inside Story strings or browser-local state.",
+                    "notes": [
+                        "Start with ReportBrief, ClaimCard, ReportSection, CitationBundle, Report, and ExportProfile as first-class repo objects.",
+                        "Keep persistence additive to current story storage instead of coupling reports into UI drafts."
+                    ]
+                },
+                {
+                    "id": "L14.4",
+                    "title": "Add claim composition, citation bundles, and report quality guardrails in core",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/core/report.py datapulse/reader.py",
+                        "uv run pytest tests/test_report.py tests/test_story.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/core/report.py",
+                        "datapulse/reader.py",
+                        "tests/test_report.py"
+                    ],
+                    "exit_condition": "Report assembly can evaluate claim-source binding, section coverage, contradictions, and export gates in core logic before any browser composition surface depends on it.",
+                    "notes": [
+                        "Treat uncited claims, single-source sections, freshness gaps, and unresolved contradictions as operator-visible guardrail outputs.",
+                        "Do not hide quality or provenance checks inside one opaque export renderer."
+                    ]
+                },
+                {
+                    "id": "L14.5",
+                    "title": "Expose report CRUD, compose, quality, and export through Reader, CLI, MCP, and HTTP API surfaces",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/reader.py datapulse/cli.py datapulse/mcp_server.py datapulse/console_server.py",
+                        "uv run pytest tests/test_console_server.py tests/test_report.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/reader.py",
+                        "datapulse/cli.py",
+                        "datapulse/mcp_server.py",
+                        "datapulse/console_server.py",
+                        "tests/test_console_server.py",
+                        "tests/test_report.py"
+                    ],
+                    "exit_condition": "Report-layer nouns are available through the same Reader-backed surfaces used by CLI, MCP, and browser flows rather than being trapped behind one UI path.",
+                    "notes": [
+                        "Add report CRUD plus compose, quality-preview, and export endpoints without forking naming or status semantics by surface.",
+                        "Keep browser work dependent on the same Reader-backed report APIs."
+                    ]
+                },
+                {
+                    "id": "L14.6",
+                    "title": "Add browser Claim Composer and Report Studio workspaces inside the current console shell",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+                        "uv run pytest tests/test_console_server.py tests/test_report.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "datapulse/console_server.py",
+                        "docs/gui_intelligence_console_plan.md",
+                        "tests/test_console_server.py",
+                        "tests/test_report.py"
+                    ],
+                    "exit_condition": "Operators can compose claims into report sections and inspect quality guardrails in the browser without introducing a second frontend product or browser-only report state.",
+                    "notes": [
+                        "Stay inside the current console shell and current Reader-backed contract.",
+                        "The browser should project persisted claim and report objects rather than simulating them locally."
+                    ]
+                },
+                {
+                    "id": "L14.7",
+                    "title": "Add brief, full, sources, and watch-pack export profiles plus report-to-watch feedback hooks",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/core/report.py datapulse/reader.py datapulse/console_server.py",
+                        "uv run pytest tests/test_report.py tests/test_watchlist.py tests/test_console_server.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/core/report.py",
+                        "datapulse/reader.py",
+                        "datapulse/console_server.py",
+                        "tests/test_report.py",
+                        "tests/test_watchlist.py"
+                    ],
+                    "exit_condition": "One report object can emit reusable brief, full, source-pack, and watch-pack outputs, and the watch-pack path can feed follow-up mission refinement without manual copy-paste.",
+                    "notes": [
+                        "Treat export profiles as reusable report assets rather than alternate skins over one Markdown blob.",
+                        "The watch-pack path should stay additive to current mission creation semantics."
+                    ]
+                },
+                {
+                    "id": "L14.8",
+                    "title": "Harden verification for report persistence, claim traceability, quality gates, and end-to-end export flows",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "bash scripts/datapulse_console_smoke.sh",
+                        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+                        "uv run --with playwright python scripts/datapulse_console_browser_smoke.py",
+                        "uv run pytest tests/test_console_server.py tests/test_report.py tests/test_story.py tests/test_watchlist.py -q"
+                    ],
+                    "artifacts": [
+                        "scripts/datapulse_console_smoke.sh",
+                        "scripts/datapulse_console_browser_smoke.py",
+                        "tests/test_console_server.py",
+                        "tests/test_report.py",
+                        "datapulse/console_markup.py",
+                        "datapulse/console_server.py"
+                    ],
+                    "exit_condition": "The new report layer has regression coverage for persistence, claim-source traceability, guardrail blocking, export profiles, and browser composition flow before another expansion wave lands.",
+                    "notes": [
+                        "Prefer high-signal end-to-end assertions over brittle snapshots.",
+                        "Protect claim traceability and export safety before tuning richer editorial affordances."
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "L15",
+            "title": "Report-Backed Delivery And Subscription Follow-up",
+            "goal": "Extend authoritative report outputs into one Reader-backed delivery and subscription plane so DataPulse can subscribe to, route, and audit report-derived packages without inventing GUI-only delivery state or a second lifecycle.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L15.1",
+                    "title": "Promote the repo-scoped report-delivery and subscription blueprint plus ignition map into repository truth",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "test -f docs/governance/datapulse-report-delivery-subscription-blueprint.md",
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.json"
+                    ],
+                    "artifacts": [
+                        "docs/governance/datapulse-report-delivery-subscription-blueprint.md",
+                        "docs/gui_intelligence_console_plan.md",
+                        "docs/governance/datapulse-blueprint-plan.draft.json",
+                        "docs/governance/datapulse-blueprint-plan.json"
+                    ],
+                    "exit_condition": "The repository contains a repo-scoped blueprint for report-backed delivery and normalized subscriptions, and the active blueprint path exposes a new manual ignition target beyond the completed report-production wave.",
+                    "notes": [
+                        "Promote the next-wave route map into repo truth before reopening implementation slices.",
+                        "Keep this slice limited to blueprint and roadmap truth rather than contract or code work."
+                    ]
+                },
+                {
+                    "id": "L15.2",
+                    "title": "Extend lifecycle and delivery contracts with report-authoritative output kinds and normalized subscription invariants",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+                        "grep -En 'subject_kind|output_kind|route_names|cursor_or_since|report' docs/intelligence_delivery_contract.md docs/intelligence_lifecycle_contract.md docs/governance/datapulse-report-delivery-subscription-blueprint.md"
+                    ],
+                    "artifacts": [
+                        "docs/intelligence_lifecycle_contract.md",
+                        "docs/intelligence_delivery_contract.md",
+                        "docs/gui_intelligence_console_plan.md",
+                        "docs/governance/datapulse-report-delivery-subscription-blueprint.md"
+                    ],
+                    "exit_condition": "The repo has one explicit contract of record for how report outputs become authoritative delivery subjects and how normalized subscriptions relate to routes, output kinds, and delivery observations.",
+                    "notes": [
+                        "Extend the current delivery contract rather than bypassing it with report-specific ad hoc terms.",
+                        "Treat report-backed delivery as additive to alerts, feeds, and story export."
+                    ]
+                },
+                {
+                    "id": "L15.3",
+                    "title": "Add normalized delivery-subscription core objects and persistence without forking route truth",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/reader.py",
+                        "uv run pytest tests/test_delivery.py tests/test_report.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/reader.py",
+                        "datapulse/core/alerts.py",
+                        "datapulse/core/report.py",
+                        "tests/test_delivery.py"
+                    ],
+                    "exit_condition": "The repo can persist normalized delivery-subscription state for report, story, watch, and profile subjects using explicit subject, output, route, and cursor semantics instead of CLI-only flags or browser-local toggles.",
+                    "notes": [
+                        "Keep named routes as reusable sink identities rather than duplicating transport secrets inline.",
+                        "Do not copy report or story business fields into subscription records."
+                    ]
+                },
+                {
+                    "id": "L15.4",
+                    "title": "Add report-backed package assembly and attributable dispatch records above current alert events",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/reader.py datapulse/console_server.py",
+                        "uv run pytest tests/test_delivery.py tests/test_console_server.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/reader.py",
+                        "datapulse/console_server.py",
+                        "datapulse/core/alerts.py",
+                        "datapulse/core/report.py",
+                        "tests/test_delivery.py",
+                        "tests/test_console_server.py"
+                    ],
+                    "exit_condition": "Report-backed pull and push packages can be assembled deterministically, and route-backed dispatch produces attributable event or attempt records before transport.",
+                    "notes": [
+                        "Preserve provenance back to report and export-profile truth.",
+                        "Treat dispatch records as delivery observations, not as replacements for report truth."
+                    ]
+                },
+                {
+                    "id": "L15.5",
+                    "title": "Expose delivery-subscription CRUD and report-backed dispatch through Reader, CLI, MCP, and HTTP API surfaces",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/reader.py datapulse/cli.py datapulse/mcp_server.py datapulse/console_server.py",
+                        "uv run pytest tests/test_delivery.py tests/test_console_server.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/reader.py",
+                        "datapulse/cli.py",
+                        "datapulse/mcp_server.py",
+                        "datapulse/console_server.py",
+                        "tests/test_delivery.py",
+                        "tests/test_console_server.py"
+                    ],
+                    "exit_condition": "Normalized delivery-subscription nouns and report-backed dispatch are available through the same Reader-backed surfaces used by CLI, MCP, and browser flows.",
+                    "notes": [
+                        "Keep naming and status semantics aligned across every surface.",
+                        "Browser work should depend on the same Reader-backed delivery APIs."
+                    ]
+                },
+                {
+                    "id": "L15.6",
+                    "title": "Add a browser delivery workspace for subscriptions, route-backed dispatch, and report package audit inside the current console shell",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m py_compile datapulse/console_markup.py datapulse/console_server.py",
+                        "uv run pytest tests/test_console_server.py tests/test_delivery.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "datapulse/console_server.py",
+                        "docs/gui_intelligence_console_plan.md",
+                        "tests/test_console_server.py",
+                        "tests/test_delivery.py"
+                    ],
+                    "exit_condition": "Operators can subscribe to, inspect, and dispatch report-backed output packages in the browser without introducing a second frontend product or browser-only delivery state.",
+                    "notes": [
+                        "Stay inside the current shell and current Reader-backed contract.",
+                        "The browser should project persisted delivery objects rather than simulate them locally."
+                    ]
+                },
+                {
+                    "id": "L15.7",
+                    "title": "Harden verification for route-backed report delivery, subscription normalization, and delivery audit flows",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "bash scripts/datapulse_console_smoke.sh",
+                        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+                        "uv run --with playwright python scripts/datapulse_console_browser_smoke.py",
+                        "uv run pytest tests/test_delivery.py tests/test_console_server.py tests/test_report.py -q"
+                    ],
+                    "artifacts": [
+                        "scripts/datapulse_console_smoke.sh",
+                        "scripts/datapulse_console_browser_smoke.py",
+                        "tests/test_delivery.py",
+                        "tests/test_console_server.py",
+                        "datapulse/console_markup.py",
+                        "datapulse/console_server.py"
+                    ],
+                    "exit_condition": "The report-backed delivery plane has regression coverage for subscription persistence, route-backed dispatch, audit records, and browser workflow before richer briefing output work lands.",
+                    "notes": [
+                        "Prefer high-signal end-to-end assertions over brittle snapshots.",
+                        "Protect delivery auditability and route semantics before adding richer briefing affordances."
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "L16",
+            "title": "ModelBus-backed AI assistance governance and runtime bridge",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L16.1",
+                    "title": "Land the ModelBus-backed AI assistance governance blueprint and ignition map",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
+                        "docs/governance/datapulse-blueprint-plan.draft.json"
+                    ],
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-14T13:59:01Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+                            "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "selected_heading": "",
+                            "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+                        }
+                    }
+                },
+                {
+                    "id": "L16.2",
+                    "title": "Define AI assistance surface contracts and switch semantics for watch triage report and delivery",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+                    ],
+                    "artifacts": [
+                        "docs/intelligence_lifecycle_contract.md",
+                        "docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
+                        "docs/governance/datapulse-blueprint-plan.draft.json"
+                    ],
+                    "exit_condition": "AI assistance surfaces and off/assist/review switch semantics are explicit in the shared lifecycle contract without granting AI direct final-state authority.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-14T14:07:50Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+                            "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "selected_heading": "",
+                            "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+                        }
+                    }
+                },
+                {
+                    "id": "L16.3",
+                    "title": "Add the DataPulse ModelBus bridge contract for route alias bus key and runtime config inputs",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+                    ],
+                    "artifacts": [
+                        "docs/governance/datapulse-modelbus-bridge-contract.md",
+                        "docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
+                        "docs/governance/datapulse-blueprint-plan.draft.json"
+                    ],
+                    "exit_condition": "The DataPulse-to-ModelBus bridge contract defines runtime inputs, surface-to-alias mapping, secret boundaries, and fallback policy ownership without binding DataPulse to provider SDK specifics.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-14T14:07:54Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+                            "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "selected_heading": "",
+                            "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+                        }
+                    }
+                },
+                {
+                    "id": "L16.4",
+                    "title": "Add structured output contracts and fail-closed validation for AI assistance payloads",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m json.tool docs/contracts/datapulse_ai_watch_suggestion_contract.json",
+                        "python3 -m json.tool docs/contracts/datapulse_ai_triage_explain_contract.json",
+                        "python3 -m json.tool docs/contracts/datapulse_ai_claim_draft_contract.json",
+                        "python3 -m json.tool docs/contracts/datapulse_ai_delivery_summary_contract.json"
+                    ],
+                    "artifacts": [
+                        "docs/contracts/datapulse_ai_watch_suggestion_contract.json",
+                        "docs/contracts/datapulse_ai_triage_explain_contract.json",
+                        "docs/contracts/datapulse_ai_claim_draft_contract.json",
+                        "docs/contracts/datapulse_ai_delivery_summary_contract.json"
+                    ],
+                    "exit_condition": "AI assistance payloads are governed by explicit schemas and fail closed when structured contracts are missing or invalid.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-14T14:07:58Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+                            "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "selected_heading": "",
+                            "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+                        }
+                    }
+                },
+                {
+                    "id": "L16.5",
+                    "title": "Introduce candidate subscriptions and capability admission facts for AI assistance surfaces",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m json.tool docs/governance/datapulse-ai-surface-subscriptions.example.json",
+                        "python3 -m json.tool out/governance/datapulse-ai-surface-admission.example.json"
+                    ],
+                    "artifacts": [
+                        "docs/governance/datapulse-ai-surface-admission-contract.md",
+                        "docs/governance/datapulse-ai-surface-subscriptions.example.json",
+                        "out/governance/datapulse-ai-surface-admission.example.json"
+                    ],
+                    "exit_condition": "AI candidate subscriptions, admitted surface capabilities, and rejectable gaps are machine-readable and decoupled from local provider assumptions.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-14T14:08:02Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+                            "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "selected_heading": "",
+                            "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+                        }
+                    }
+                },
+                {
+                    "id": "L16.6",
+                    "title": "Add Reader-backed AI assistance services for suggestions drafts and governed prechecks",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "pytest"
+                    ],
+                    "artifacts": [
+                        "datapulse/reader.py",
+                        "datapulse/core/watchlist.py",
+                        "datapulse/core/triage.py",
+                        "datapulse/core/report.py",
+                        "tests/test_reader.py",
+                        "tests/test_triage.py",
+                        "tests/test_report.py"
+                    ],
+                    "exit_condition": "Reader-backed AI assist services can generate governed suggestions and drafts under off/assist/review policy without writing final operational states directly.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-14T14:08:05Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+                            "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "selected_heading": "",
+                            "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+                        }
+                    }
+                },
+                {
+                    "id": "L16.7",
+                    "title": "Project AI assistance surfaces through CLI MCP Console and ops scorecards",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "pytest"
+                    ],
+                    "artifacts": [
+                        "datapulse/cli.py",
+                        "datapulse/mcp_server.py",
+                        "datapulse/console_server.py",
+                        "datapulse/console_markup.py",
+                        "docs/gui_intelligence_console_plan.md"
+                    ],
+                    "exit_condition": "CLI, MCP, and Console expose the same AI assistance surfaces and operator-visible governance signals without creating GUI-only AI state.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-14T14:08:09Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+                            "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "selected_heading": "",
+                            "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+                        }
+                    }
+                },
+                {
+                    "id": "L16.8",
+                    "title": "Harden verification gates and governance scorecards for AI assistance runtime semantics",
+                    "category": "manual",
+                    "execution_profile": "runtime_validation",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "pytest",
+                        "bash scripts/quick_test.sh"
+                    ],
+                    "artifacts": [
+                        "tests/test_delivery.py",
+                        "tests/test_report.py",
+                        "tests/test_story.py",
+                        "docs/test_facts.md",
+                        "out/governance/datapulse-ai-surface-admission.example.json"
+                    ],
+                    "exit_condition": "Verification gates and scorecards cover switch modes, schema fail-closed behavior, admission misses, route fallback, and manual override observability for AI assistance runtime semantics.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md"
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-14T14:08:13Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14.md",
+                            "frontmatter_title": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "first_heading": "DataPulse ModelBusProject \u80fd\u529b\u63a5\u5165\u4e0e AI \u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212",
+                            "selected_heading": "",
+                            "wikilink_name": "DataPulse_ModelBusProject\u80fd\u529b\u63a5\u5165\u4e0eAI\u6cbb\u7406\u5347\u7ef4\u6295\u6599\u8ba1\u5212_2026-03-14"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "id": "L17",
+            "title": "Release-window attestation for AI capability evidence",
+            "goal": "Bind bundle identity, runtime-hit evidence, release sidecar truth, and replay entrypoints into one same-window attestation artifact before any promotion discussion escalates.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L17.1",
+                    "title": "Land the repo-scoped release-window attestation blueprint and manual ignition map",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "docs/governance/datapulse-release-window-attestation-blueprint.md",
+                        "docs/governance/datapulse-blueprint-plan.draft.json"
+                    ],
+                    "exit_condition": "The repository contains a repo-scoped blueprint for release-window attestation, and the active blueprint path exposes a new manual ignition target beyond the completed L16 AI runtime wave.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/\u8de8\u4ed3\u80fd\u529b\u5206\u5c42\u4e0e\u4e8b\u5b9e\u6e90\u8fc1\u79fb\u7b56\u7565-2026-03-16.md"
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-17T06:41:36Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/\u8de8\u4ed3\u80fd\u529b\u5206\u5c42\u4e0e\u4e8b\u5b9e\u6e90\u8fc1\u79fb\u7b56\u7565-2026-03-16.md",
+                            "frontmatter_title": "\u8de8\u4ed3\u80fd\u529b\u5206\u5c42\u4e0e\u4e8b\u5b9e\u6e90\u8fc1\u79fb\u7b56\u7565-2026-03-16",
+                            "first_heading": "\u8de8\u4ed3\u80fd\u529b\u5206\u5c42\u4e0e\u4e8b\u5b9e\u6e90\u8fc1\u79fb\u7b56\u7565-2026-03-16",
+                            "selected_heading": "2026-03-17 \u4e8b\u5b9e\u66f4\u65b0",
+                            "wikilink_name": "\u8de8\u4ed3\u80fd\u529b\u5206\u5c42\u4e0e\u4e8b\u5b9e\u6e90\u8fc1\u79fb\u7b56\u7565-2026-03-16"
+                        }
+                    },
+                    "notes": [
+                        "This slice should only promote repo truth for the next wave and should not reopen the bundle adapter debate.",
+                        "The resulting ignition map should make window-level attestation the next narrow execution target."
+                    ]
+                },
+                {
+                    "id": "L17.2",
+                    "title": "Define the release-window attestation contract that binds bundle runtime-hit sidecar and replay",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+                    ],
+                    "artifacts": [
+                        "docs/governance/datapulse-release-window-attestation-contract.md",
+                        "docs/governance/datapulse-release-window-attestation.example.json",
+                        "docs/governance/datapulse-release-window-attestation-blueprint.md"
+                    ],
+                    "exit_condition": "One machine-readable contract defines the same-window attestation fields, fail-closed requirements, and freshness checks for bundle identity, runtime-hit evidence, release sidecar truth, and replay entrypoint binding.",
+                    "notes": [
+                        "Treat report_draft verified_fail_closed as valid required runtime evidence rather than as a successful admitted draft capability.",
+                        "Make window_id, git_head, generated_at_utc, attestation_status, and blocking_reasons first-class fields."
+                    ]
+                },
+                {
+                    "id": "L17.3",
+                    "title": "Add a single exporter and bundle attachment path for release-window attestation",
+                    "category": "manual",
+                    "execution_profile": "local_wrapper",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 scripts/governance/export_datapulse_release_window_attestation.py --bundle-dir out/ha_latest_release_bundle"
+                    ],
+                    "artifacts": [
+                        "scripts/governance/export_datapulse_release_window_attestation.py",
+                        "scripts/governance/export_datapulse_evidence_bundle.py",
+                        "scripts/governance/export_datapulse_structured_release_bundle.py",
+                        "out/governance/datapulse_release_window_attestation.draft.json",
+                        "out/ha_latest_release_bundle/datapulse_release_window_attestation.draft.json"
+                    ],
+                    "exit_condition": "A single exporter emits a fail-closed release-window attestation and attaches it to the canonical structured bundle without recomputing runtime semantics.",
+                    "notes": [
+                        "The exporter should bind existing evidence rather than inventing a second readiness summary.",
+                        "Bundle, runtime-hit, sidecar, and replay entrypoint must be attributable to the same declared window."
+                    ]
+                },
+                {
+                    "id": "L17.4",
+                    "title": "Harden promotion gating and verification around attestation freshness and same-window consistency",
+                    "category": "manual",
+                    "execution_profile": "runtime_validation",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run python -m pytest tests/test_delivery.py tests/test_governance_loop.py -q"
+                    ],
+                    "artifacts": [
+                        "tests/test_delivery.py",
+                        "tests/test_governance_loop.py",
+                        "scripts/governance/export_datapulse_release_sidecar.py",
+                        "scripts/governance/datapulse_loop_contracts.py",
+                        "docs/test_facts.md"
+                    ],
+                    "exit_condition": "Promotion and replay gates read the release-window attestation as the primary same-window truth and reject stale, missing, or cross-head evidence while still accepting report_draft verified_fail_closed as required runtime closure.",
+                    "notes": [
+                        "Prefer same-window consistency checks over adding new semantic readiness knobs.",
+                        "The attestation should become the first file inspected during manual promotion review."
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "L18",
+            "title": "QNAIGC search provider as a cost-aware Chinese-query candidate lane",
+            "goal": "Add a narrow QNAIGC search-provider lane through SearchGateway without changing SearchHit normalization, default explicit providers, or operator-visible cost control.",
+            "status": "completed",
+            "slices": [
+                {
+                    "id": "L18.1",
+                    "title": "Land the repo-scoped QNAIGC search-provider blueprint and manual ignition map",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "docs/governance/datapulse-qnaigc-search-provider-blueprint.md",
+                        "docs/governance/datapulse-blueprint-plan.draft.json",
+                        "docs/governance/datapulse-blueprint-plan.json"
+                    ],
+                    "exit_condition": "The repository contains a repo-scoped blueprint that defines QNAIGC as a cost-aware Chinese-query candidate provider, and the active blueprint truth exposes a new manual ignition target beyond the completed L17 same-window attestation wave.",
+                    "fact_sources": [
+                        "https://developer.qiniu.com/aitokenapi/13192/web-search-api"
+                    ],
+                    "notes": [
+                        "Treat operator-provided cost guidance as an explicit planning constraint rather than a hidden implementation assumption.",
+                        "This slice should promote repo truth for routing, provenance, and ignition order without prematurely claiming runtime support."
+                    ]
+                },
+                {
+                    "id": "L18.2",
+                    "title": "Define the QNAIGC provider contract routing rules and runtime config boundary",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+                    ],
+                    "artifacts": [
+                        "docs/governance/datapulse-qnaigc-search-provider-contract.md",
+                        "docs/search_gateway_config.md",
+                        "datapulse/core/search_gateway.py",
+                        "datapulse/core/config.py"
+                    ],
+                    "exit_condition": "Repo truth explicitly defines how QNAIGC token lookup, Chinese-query candidate routing, provider precedence, provider-specific extra fields, and cost-aware activation constraints should work before adapter code lands.",
+                    "notes": [
+                        "Keep authority_score, date, and request_id in SearchHit.extra rather than promoting them to first-class cross-provider fields.",
+                        "The contract should preserve current explicit jina and tavily modes while allowing qnaigc as a narrow auto candidate."
+                    ]
+                },
+                {
+                    "id": "L18.3",
+                    "title": "Add the QNAIGC provider adapter normalized SearchHit mapping and Chinese-query auto candidate routing",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run pytest tests/test_search_gateway.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/core/search_gateway.py",
+                        "datapulse/core/config.py",
+                        "tests/test_search_gateway.py"
+                    ],
+                    "exit_condition": "SearchGateway can call QNAIGC behind runtime secrets, preserve SearchHit normalization, and only introduce it as an auto candidate for Chinese-language queries without replacing current explicit-provider behavior.",
+                    "notes": [
+                        "Reuse the existing retry, timeout, and circuit-breaker governance instead of adding provider-specific hidden control paths.",
+                        "The adapter should carry request_id at the response or per-hit audit layer so operators can trace a paid call."
+                    ]
+                },
+                {
+                    "id": "L18.4",
+                    "title": "Harden QNAIGC verification diagnostics and manual ignition guardrails",
+                    "category": "manual",
+                    "execution_profile": "runtime_validation",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "uv run pytest tests/test_search_gateway.py tests/test_reader.py -q"
+                    ],
+                    "artifacts": [
+                        "docs/search_gateway_config.md",
+                        "datapulse/cli.py",
+                        "tests/test_search_gateway.py",
+                        "tests/test_reader.py"
+                    ],
+                    "exit_condition": "Operator-facing diagnostics, smoke guidance, and tests make QNAIGC rate-limit behavior, fallback semantics, and paid-call activation boundaries explicit before wider routing promotion is considered.",
+                    "notes": [
+                        "Manual ignition should start with low-volume Chinese-query smoke paths using runtime-injected QNAIGC_TOKEN_A or QNAIGC_TOKEN_B.",
+                        "The cost-aware lane should fail closed on missing token, 429, or provider contract drift rather than silently becoming the default path."
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "L19",
+            "title": "Feed bundle and digest-delivery hardening over existing pack/feed surfaces",
+            "goal": "Make existing pack, feed, digest, and route-backed delivery surfaces replayable, deterministic, prompt-governed, and ready for next manual ignition without creating a second lifecycle.",
+            "status": "in_progress",
+            "slices": [
+                {
+                    "id": "L19.1",
+                    "title": "Land the repo-scoped feed-bundle and digest-delivery hardening blueprint plus manual ignition map",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "artifacts": [
+                        "docs/governance/datapulse-feed-bundle-digest-delivery-blueprint.md",
+                        "docs/source_feed_enhancement_plan.md",
+                        "docs/gui_intelligence_console_plan.md",
+                        "docs/governance/datapulse-blueprint-plan.draft.json",
+                        "docs/governance/datapulse-blueprint-plan.json"
+                    ],
+                    "exit_condition": "The repository contains a repo-scoped blueprint that narrows the gap to replayable feed bundles, deterministic digest payloads, prompt overrides, onboarding defaults, and route-backed delivery hardening, and the active blueprint truth exposes a new manual ignition target beyond the completed L18 wave.",
+                    "fact_sources": [
+                        "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_follow-builders\u80fd\u529b\u8403\u53d6\u4e0e\u84dd\u56fe\u70b9\u706b\u6e05\u5355_2026-03-29.md"
+                    ],
+                    "fact_intake": {
+                        "imported_at_utc": "2026-03-29T04:58:20Z",
+                        "source_count": 1,
+                        "source_note": {
+                            "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_follow-builders\u80fd\u529b\u8403\u53d6\u4e0e\u84dd\u56fe\u70b9\u706b\u6e05\u5355_2026-03-29.md",
+                            "frontmatter_title": "DataPulse + follow-builders \u80fd\u529b\u8403\u53d6\u4e0e\u84dd\u56fe\u70b9\u706b\u6e05\u5355",
+                            "first_heading": "DataPulse + follow-builders \u80fd\u529b\u8403\u53d6\u4e0e\u4e0b\u4e00\u6b65\u8865\u5f3a\u6e05\u5355",
+                            "selected_heading": "",
+                            "wikilink_name": "DataPulse_follow-builders\u80fd\u529b\u8403\u53d6\u4e0e\u84dd\u56fe\u70b9\u706b\u6e05\u5355_2026-03-29"
+                        }
+                    },
+                    "notes": [
+                        "This slice must correct the repo-read: current DataPulse already has packs, feed exports, and digest builders, so the gap is deterministic payload shape and delivery hardening rather than missing basic source-pack capability.",
+                        "The resulting ignition map should make L19.2 the next narrow contract-freeze target."
+                    ]
+                },
+                {
+                    "id": "L19.2",
+                    "title": "Define the feed_bundle and prepare_digest_payload contract on top of current pack feed and digest surfaces",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "completed",
+                    "verification_commands": [
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+                    ],
+                    "artifacts": [
+                        "docs/governance/datapulse-feed-bundle-digest-delivery-contract.md",
+                        "docs/intelligence_delivery_contract.md",
+                        "docs/source_feed_enhancement_plan.md"
+                    ],
+                    "exit_condition": "Repo truth explicitly defines replayable feed_bundle membership and a deterministic prepare_digest_payload boundary with content, config, prompts, stats, and errors while preserving current build_digest and emit_digest_package anchors.",
+                    "notes": [
+                        "The contract should bind pack/profile/source scope, run window, stats, and errors without inventing a second source-catalog model.",
+                        "Deterministic digest payloads must be route-ready inputs and must not re-query network data during rendering."
+                    ]
+                },
+                {
+                    "id": "L19.3",
+                    "title": "Define prompt-pack override order and first-run digest profile onboarding semantics across CLI MCP and console",
+                    "category": "manual",
+                    "execution_profile": "draft_only",
+                    "promotion_scope": "none",
+                    "status": "pending",
+                    "verification_commands": [
+                        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+                    ],
+                    "artifacts": [
+                        "docs/governance/datapulse-feed-bundle-digest-delivery-contract.md",
+                        "docs/gui_intelligence_console_plan.md",
+                        "docs/datapulse_console_parameter_guide.md"
+                    ],
+                    "exit_condition": "Repo truth defines repo-default prompt packs, local override order, and one shared first-run digest profile for language, timezone, frequency, and default delivery target without inventing GUI-only state.",
+                    "notes": [
+                        "Keep prompt override order explicit and operator-visible instead of hiding it in environment drift.",
+                        "Onboarding must compile down to shared Reader-backed nouns rather than separate CLI and browser setup stories."
+                    ]
+                },
+                {
+                    "id": "L19.4",
+                    "title": "Add Reader CLI and MCP feed-bundle export plus deterministic digest payload emission",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "pending",
+                    "verification_commands": [
+                        "uv run pytest tests/test_digest.py tests/test_reader.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/reader.py",
+                        "datapulse/cli.py",
+                        "datapulse/mcp_server.py",
+                        "tests/test_digest.py",
+                        "tests/test_reader.py"
+                    ],
+                    "exit_condition": "DataPulse can export replayable feed bundles and deterministic digest payloads that reuse current pack/feed/digest semantics while keeping rendering and delivery as downstream steps.",
+                    "notes": [
+                        "Prefer additive methods such as feed_bundle export and prepare_digest_payload over replacing build_digest or emit_digest_package.",
+                        "MCP and CLI nouns should match Reader exactly so the browser can project the same contract later."
+                    ]
+                },
+                {
+                    "id": "L19.5",
+                    "title": "Harden route-backed digest and report delivery with Telegram chunk fallback and operator-visible diagnostics",
+                    "category": "manual",
+                    "execution_profile": "workflow_change",
+                    "promotion_scope": "none",
+                    "status": "pending",
+                    "verification_commands": [
+                        "uv run pytest tests/test_delivery.py tests/test_watchlist.py -q"
+                    ],
+                    "artifacts": [
+                        "datapulse/core/alerts.py",
+                        "datapulse/reader.py",
+                        "tests/test_delivery.py",
+                        "docs/intelligence_delivery_contract.md"
+                    ],
+                    "exit_condition": "Route-backed digest and report delivery no longer rely on one silent Telegram send or a 3900-character truncation path and instead expose chunk, fallback, and attempt diagnostics as operator-visible delivery facts.",
+                    "notes": [
+                        "Preserve attributable AlertEvent and route-health truth instead of inventing a hidden transport retry layer.",
+                        "Markdown-or-plain fallback should fail closed and stay visible in delivery observations."
+                    ]
+                },
+                {
+                    "id": "L19.6",
+                    "title": "Project feed-bundle browse run onboarding and delivery diagnostics into the browser console and smoke coverage",
+                    "category": "manual",
+                    "execution_profile": "runtime_validation",
+                    "promotion_scope": "none",
+                    "status": "pending",
+                    "verification_commands": [
+                        "bash scripts/datapulse_console_smoke.sh",
+                        "uv run --with playwright python scripts/datapulse_console_browser_smoke.py"
+                    ],
+                    "artifacts": [
+                        "datapulse/console_markup.py",
+                        "datapulse/console_server.py",
+                        "scripts/datapulse_console_smoke.sh",
+                        "scripts/datapulse_console_browser_smoke.py",
+                        "tests/test_console_server.py",
+                        "docs/gui_intelligence_console_plan.md"
+                    ],
+                    "exit_condition": "The browser console can expose feed-bundle browse or run surfaces, digest profile onboarding, prompt-pack readiness, and route-backed delivery diagnostics without introducing a second browser-only digest model.",
+                    "notes": [
+                        "Treat this slice as a projection of the L19 contract and runtime nouns, not as a separate frontend feature tree.",
+                        "Browser smoke should cover onboarding visibility, bundle preview, and delivery diagnostic rendering at a high-signal level."
+                    ]
+                }
+            ]
+        }
+    ],
+    "recommended_next_slice": {
+        "id": "L19.3",
+        "title": "Define prompt-pack override order and first-run digest profile onboarding semantics across CLI MCP and console",
+        "reason": "Derived from the next open slice in the working copy."
+    },
+    "progress_log": [
+        {
+            "at_utc": "2026-03-14T15:21:32Z",
+            "slice_id": "L16.5",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-14T15:09:04Z",
+            "slice_id": "L16.4",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-14T14:42:55Z",
+            "slice_id": "L16.3",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-14T14:36:35Z",
+            "slice_id": "L16.2",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-14T14:31:38Z",
+            "slice_id": "L16.1",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-13T18:20:00Z",
+            "slice_id": "L15.6",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-13T18:00:00Z",
+            "slice_id": "L15.5",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-13T17:00:00Z",
+            "slice_id": "L15.4",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-13T16:10:00Z",
+            "slice_id": "L15.3",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-13T06:30:00Z",
+            "slice_id": "L15.1",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-13T07:00:00Z",
+            "slice_id": "L15.2",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-12T23:50:00Z",
+            "slice_id": "L14.8",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-12T23:45:00Z",
+            "slice_id": "L14.7",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-12T22:00:00Z",
+            "slice_id": "L14.5",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-12T08:47:32Z",
+            "slice_id": "L14.6",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-12T14:05:00Z",
+            "slice_id": "L14.4",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-12T05:49:47Z",
+            "slice_id": "L14.2",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-12T11:20:31Z",
+            "slice_id": "L14.3",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-11T11:08:59Z",
+            "slice_id": "L13.7",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-11T09:11:07Z",
+            "slice_id": "L13.4",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-11T09:27:23Z",
+            "slice_id": "L13.5",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-08T18:44:24Z",
+            "slice_id": "L9.6",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-08T18:56:25Z",
+            "slice_id": "L9.7",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-09T03:37:00Z",
+            "slice_id": "L9.8",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-09T03:51:44Z",
+            "slice_id": "L9.9",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-09T03:57:49Z",
+            "slice_id": "L9.10",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-09T06:35:04Z",
+            "slice_id": "L10.1",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-09T06:55:47Z",
+            "slice_id": "L10.2",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-09T07:16:09Z",
+            "slice_id": "L10.3",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-10T06:03:03Z",
+            "slice_id": "L11.1",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-10T06:17:55Z",
+            "slice_id": "L11.2",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-10T06:23:45Z",
+            "slice_id": "L11.3",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-10T06:39:52Z",
+            "slice_id": "L11.4",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-10T07:08:42Z",
+            "slice_id": "L11.5",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-10T13:43:23Z",
+            "slice_id": "L12.1",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-10T14:03:55Z",
+            "slice_id": "L12.2",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-10T14:23:23Z",
+            "slice_id": "L12.3",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-10T14:41:56Z",
+            "slice_id": "L12.4",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-10T14:50:33Z",
+            "slice_id": "L12.5",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-10T15:17:54Z",
+            "slice_id": "L12.6",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-11T08:06:11Z",
+            "slice_id": "L13.1",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-11T08:06:11Z",
+            "slice_id": "L13.2",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-11T08:28:49Z",
+            "slice_id": "L13.3",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-12T04:17:51Z",
+            "slice_id": "L14.1",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-13T11:19:16Z",
+            "slice_id": "L15.7",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-14T15:45:09Z",
+            "slice_id": "L16.6",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-15T04:13:57Z",
+            "slice_id": "L16.8",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-17T06:53:04Z",
+            "slice_id": "L17.1",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-17T07:00:02Z",
+            "slice_id": "L17.2",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-17T07:11:29Z",
+            "slice_id": "L17.3",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-17T07:37:48Z",
+            "slice_id": "L17.4",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-18T08:19:55Z",
+            "slice_id": "L18.1",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-18T09:04:05Z",
+            "slice_id": "L18.2",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-18T09:06:46Z",
+            "slice_id": "L18.3",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-18T09:18:08Z",
+            "slice_id": "L18.4",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-29T04:58:20Z",
+            "slice_id": "L19.1",
+            "status": "completed"
+        },
+        {
+            "at_utc": "2026-03-29T05:11:30Z",
+            "slice_id": "L19.2",
+            "status": "completed"
+        }
+    ],
+    "last_updated_utc": "2026-03-29T05:11:30Z"
+}

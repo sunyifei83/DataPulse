@@ -5,7 +5,7 @@
 当前 loop 事实：
 - plan_id: datapulse-loop-bootstrap-2026-03-07
 - current_level: manual_only
-- next_slice: L17.2 / L17 / Define the release-window attestation contract that binds bundle runtime-hit sidecar and replay
+- next_slice: L19.3 / L19 / Define prompt-pack override order and first-run digest profile onboarding semantics across CLI MCP and console
 - execution_profile: draft_only
 - current_status: ready
 - current_reason: awaiting_manual_slice_execution
@@ -22,23 +22,23 @@
 当前 slice adapter：
 - execute_mode: manual_edit
 - adapter_type: draft_only
-- summary: Define the release-window attestation contract that binds bundle runtime-hit sidecar and replay
+- summary: Define prompt-pack override order and first-run digest profile onboarding semantics across CLI MCP and console
 - candidate_commands:
 - python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json
 - verification_commands:
 - python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json
 - target_artifacts:
-- docs/governance/datapulse-release-window-attestation-contract.md
-- docs/governance/datapulse-release-window-attestation.example.json
-- docs/governance/datapulse-release-window-attestation-blueprint.md
+- docs/governance/datapulse-feed-bundle-digest-delivery-contract.md
+- docs/gui_intelligence_console_plan.md
+- docs/datapulse_console_parameter_guide.md
 - notes:
-- exit_condition: One machine-readable contract defines the same-window attestation fields, fail-closed requirements, and freshness checks for bundle identity, runtime-hit evidence, release sidecar truth, and replay entrypoint binding.
+- exit_condition: Repo truth defines repo-default prompt packs, local override order, and one shared first-run digest profile for language, timezone, frequency, and default delivery target without inventing GUI-only state.
 - promotion_scope: none
 - No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice.
-- exit_condition: One machine-readable contract defines the same-window attestation fields, fail-closed requirements, and freshness checks for bundle identity, runtime-hit evidence, release sidecar truth, and replay entrypoint binding.
+- exit_condition: Repo truth defines repo-default prompt packs, local override order, and one shared first-run digest profile for language, timezone, frequency, and default delivery target without inventing GUI-only state.
 
 完成标准：
-- the repo should reflect the landing of L17.2
+- the repo should reflect the landing of L19.3
 - update the structured blueprint slice status to match reality
 - if the slice lands, re-run or leave enough changes so the governance exporters can reflect the new state
 - if the slice cannot land safely, leave the repo in a truthful blocked state rather than faking completion
