@@ -1,0 +1,106 @@
+{
+  "schema_version": "quick_test_gate.v1",
+  "generated_at_utc": "2026-03-29T05:51:03Z",
+  "git": {
+    "head": "9485fd65333029ffedff06aaf2549c9cf432225d",
+    "branch": "main"
+  },
+  "ok": true,
+  "read_only": true,
+  "steps": [
+    {
+      "name": "python_import",
+      "command": [
+        "python3.10",
+        "-c",
+        "import datapulse; print(datapulse.__name__)"
+      ],
+      "rc": 0,
+      "ok": true,
+      "stdout_tail": [
+        "datapulse"
+      ],
+      "stderr_tail": []
+    },
+    {
+      "name": "lint_datapulse",
+      "command": [
+        "ruff",
+        "check",
+        "datapulse/"
+      ],
+      "rc": 0,
+      "ok": true,
+      "stdout_tail": [
+        "All checks passed!"
+      ],
+      "stderr_tail": []
+    },
+    {
+      "name": "typecheck_datapulse",
+      "command": [
+        "mypy",
+        "datapulse/"
+      ],
+      "rc": 0,
+      "ok": true,
+      "stdout_tail": [
+        "datapulse/cli.py:327: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
+        "Success: no issues found in 59 source files"
+      ],
+      "stderr_tail": []
+    },
+    {
+      "name": "console_smoke",
+      "command": [
+        "bash",
+        "scripts/datapulse_console_smoke.sh"
+      ],
+      "rc": 0,
+      "ok": true,
+      "stdout_tail": [
+        "[console-smoke] check: module help",
+        "[console-smoke] check: wrapper help",
+        "[console-smoke] check: installed entrypoint help",
+        "[console-smoke] skip: browser smoke (set DATAPULSE_CONSOLE_BROWSER_SMOKE=1 to enable)",
+        "[console-smoke] pass"
+      ],
+      "stderr_tail": []
+    },
+    {
+      "name": "smoke_list",
+      "command": [
+        "datapulse-smoke",
+        "--list"
+      ],
+      "rc": 0,
+      "ok": true,
+      "stdout_tail": [
+        "- telegram   MISSING  set DATAPULSE_SMOKE_TELEGRAM_URL for 1 Telegram public/channel URL",
+        "- twitter    MISSING  set DATAPULSE_SMOKE_TWITTER_URL for 1 X/Twitter single status URL",
+        "- wechat     MISSING  set DATAPULSE_SMOKE_WECHAT_URL for 1 WeChat public article URL",
+        "- xhs        MISSING  set DATAPULSE_SMOKE_XHS_URL for 1 Xiaohongshu note URL",
+        "- youtube    MISSING  set DATAPULSE_SMOKE_YOUTUBE_URL for 1 YouTube video URL"
+      ],
+      "stderr_tail": []
+    },
+    {
+      "name": "cli_list",
+      "command": [
+        "datapulse",
+        "--list",
+        "--limit",
+        "5",
+        "--min-confidence",
+        "0.0"
+      ],
+      "rc": 0,
+      "ok": true,
+      "stdout_tail": [
+        "\ud83d\udce6 Inbox is empty"
+      ],
+      "stderr_tail": []
+    }
+  ],
+  "path": "artifacts/governance/quick_test_gate.draft.json"
+}

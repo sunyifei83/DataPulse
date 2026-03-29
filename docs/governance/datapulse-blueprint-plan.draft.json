@@ -2542,7 +2542,7 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run pytest tests/test_delivery.py tests/test_watchlist.py -q"
           ],
@@ -2587,11 +2587,16 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L19.5",
-    "title": "Harden route-backed digest and report delivery with Telegram chunk fallback and operator-visible diagnostics",
-    "reason": "L19.4 is now landed in the working copy, so the next open manual slice is the delivery hardening follow-up."
+    "id": "L19.6",
+    "title": "Project feed-bundle browse run onboarding and delivery diagnostics into the browser console and smoke coverage",
+    "reason": "L19.5 is now landed in the working copy, so the next open manual slice is the browser projection and smoke follow-up."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-29T05:00:00Z",
+      "slice_id": "L19.5",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-29T00:00:00Z",
       "slice_id": "L19.4",

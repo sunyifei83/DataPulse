@@ -1,7 +1,7 @@
 {
   "schema_version": "project_specific_loop_state.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-29T05:20:30Z",
+  "generated_at_utc": "2026-03-29T05:49:45Z",
   "state_kind": "draft_export",
   "source_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
   "wired": false,
@@ -104,14 +104,16 @@
     "L18.4",
     "L19.1",
     "L19.2",
-    "L19.3"
+    "L19.3",
+    "L19.4",
+    "L19.5"
   ],
   "next_slice": {
-    "id": "L19.4",
-    "title": "Add Reader CLI and MCP feed-bundle export plus deterministic digest payload emission",
+    "id": "L19.6",
+    "title": "Project feed-bundle browse run onboarding and delivery diagnostics into the browser console and smoke coverage",
     "category": "manual",
     "phase_id": "L19",
-    "execution_profile": "workflow_change",
+    "execution_profile": "runtime_validation",
     "promotion_scope": "none",
     "closes_gates": []
   },
@@ -136,7 +138,7 @@
   "control_contract": {
     "progress_truth": {
       "source": "blueprint_plan_next_open_slice",
-      "current_next_slice_id": "L19.4"
+      "current_next_slice_id": "L19.6"
     },
     "stop_truth": {
       "source": "blocking_facts_and_flow_control",
@@ -194,8 +196,8 @@
       "observed": true,
       "current_head_match": true,
       "ok": true,
-      "generated_at_utc": "2026-03-29T05:15:20Z",
-      "head": "ad01c004801b662a90a53753eea3dcea0e8a34e9",
+      "generated_at_utc": "2026-03-29T05:37:49Z",
+      "head": "9485fd65333029ffedff06aaf2549c9cf432225d",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
@@ -203,8 +205,8 @@
   "headline_summary": {
     "current_level": "manual_only",
     "workspace_clean": false,
-    "next_slice_id": "L19.4",
-    "next_slice_title": "Add Reader CLI and MCP feed-bundle export plus deterministic digest payload emission",
+    "next_slice_id": "L19.6",
+    "next_slice_title": "Project feed-bundle browse run onboarding and delivery diagnostics into the browser console and smoke coverage",
     "status_if_run_now": "blocked",
     "reason_if_run_now": "draft_only_not_wired",
     "quick_test_gate": {
@@ -212,8 +214,8 @@
       "observed": true,
       "current_head_match": true,
       "ok": true,
-      "generated_at_utc": "2026-03-29T05:15:20Z",
-      "head": "ad01c004801b662a90a53753eea3dcea0e8a34e9",
+      "generated_at_utc": "2026-03-29T05:37:49Z",
+      "head": "9485fd65333029ffedff06aaf2549c9cf432225d",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }

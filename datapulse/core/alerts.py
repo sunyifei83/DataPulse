@@ -534,6 +534,128 @@ def _post_json(url: str, payload: dict[str, Any], *, timeout: float = 10.0, head
     response.raise_for_status()
 
 
+class DeliveryDispatchError(RuntimeError):
+    """Raised when a route delivery attempt fails after collecting diagnostics."""
+
+    def __init__(self, message: str, *, diagnostics: dict[str, Any] | None = None):
+        super().__init__(message)
+        self.diagnostics = dict(diagnostics or {})
+
+
+def _chunk_telegram_text(text: str, *, max_chars: int = 3900) -> list[str]:
+    normalized = str(text or "")
+    if not normalized:
+        return [""]
+    if len(normalized) <= max_chars:
+        return [normalized]
+
+    chunks: list[str] = []
+    remaining = normalized
+    minimum_break = max(200, max_chars // 3)
+    while remaining:
+        if len(remaining) <= max_chars:
+            chunks.append(remaining)
+            break
+        cut = remaining.rfind("\n\n", 0, max_chars + 1)
+        if cut < minimum_break:
+            cut = remaining.rfind("\n", 0, max_chars + 1)
+        if cut < minimum_break:
+            cut = remaining.rfind(" ", 0, max_chars + 1)
+        if cut < minimum_break:
+            cut = max_chars
+        chunk = remaining[:cut].rstrip()
+        if not chunk:
+            chunk = remaining[:max_chars]
+            cut = len(chunk)
+        chunks.append(chunk)
+        remaining = remaining[cut:].lstrip()
+    return chunks or [normalized[:max_chars]]
+
+
+def send_telegram_text(
+    config: dict[str, Any],
+    text: str,
+    *,
+    timeout: float = 10.0,
+    disable_web_page_preview: bool = True,
+) -> dict[str, Any]:
+    bot_token = _resolve_telegram_bot_token(config)
+    chat_id = _resolve_telegram_chat_id(config)
+    if not bot_token or not chat_id:
+        raise ValueError("telegram_bot_token and telegram_chat_id are required")
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    chunks = _chunk_telegram_text(text)
+    attempts: list[dict[str, Any]] = []
+    diagnostics: dict[str, Any] = {
+        "transport": "telegram",
+        "message_length": len(text),
+        "attempt_count": 0,
+        "chunk_count": len(chunks),
+        "chunk_lengths": [len(chunk) for chunk in chunks],
+        "fallback_used": len(chunks) > 1,
+        "fallback_reason": "telegram_chunking" if len(chunks) > 1 else "",
+        "truncated": False,
+        "attempts": attempts,
+    }
+
+    for index, chunk in enumerate(chunks, start=1):
+        attempt = {
+            "kind": "telegram_send_message",
+            "chunk_index": index,
+            "chunk_count": len(chunks),
+            "text_length": len(chunk),
+            "status": "pending",
+        }
+        attempts.append(attempt)
+        try:
+            _post_json(
+                url,
+                {
+                    "chat_id": chat_id,
+                    "text": chunk,
+                    "disable_web_page_preview": disable_web_page_preview,
+                },
+                timeout=timeout,
+            )
+        except Exception as exc:  # noqa: BLE001
+            attempt["status"] = "failed"
+            attempt["error"] = str(exc)
+            diagnostics["attempt_count"] = len(attempts)
+            diagnostics["failed_chunk_index"] = index
+            diagnostics["error"] = str(exc)
+            raise DeliveryDispatchError(
+                f"telegram chunk {index}/{len(chunks)} failed: {exc}",
+                diagnostics=diagnostics,
+            ) from exc
+        attempt["status"] = "delivered"
+
+    diagnostics["attempt_count"] = len(attempts)
+    return diagnostics
+
+
+def append_delivery_markdown(
+    title: str,
+    text: str,
+    *,
+    path: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> str:
+    target = Path(path or alerts_markdown_path_from_env()).expanduser()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("a", encoding="utf-8") as handle:
+        handle.write(f"\n## {str(title or 'Delivery').strip() or 'Delivery'}\n")
+        for key, value in (metadata or {}).items():
+            label = str(key or "").strip()
+            if not label:
+                continue
+            handle.write(f"- {label}: {value}\n")
+        handle.write("\n")
+        handle.write(f"{str(text or '').rstrip()}\n")
+        handle.write("\n---\n")
+    return str(target)
+
+
 def _resolve_webhook_url(rule: dict[str, Any]) -> str:
     return str(
         rule.get("webhook_url")
@@ -919,18 +1041,10 @@ def dispatch_alert_event(
                     timeout=target_timeout,
                 )
             elif channel == "telegram":
-                bot_token = _resolve_telegram_bot_token(config)
-                chat_id = _resolve_telegram_chat_id(config)
-                if not bot_token or not chat_id:
-                    raise ValueError("telegram_bot_token and telegram_chat_id are required")
                 if factuality_status != "ready":
                     held.append(label or channel)
                     continue
-                _post_json(
-                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                    {"chat_id": chat_id, "text": text, "disable_web_page_preview": True},
-                    timeout=target_timeout,
-                )
+                send_telegram_text(config, text, timeout=target_timeout)
             else:
                 raise ValueError(f"unsupported alert channel: {channel}")
         except Exception as exc:  # noqa: BLE001

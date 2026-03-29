@@ -1,15 +1,15 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-17T09:47:53Z",
+  "generated_at_utc": "2026-03-29T05:48:46Z",
   "status_kind": "draft_export",
   "wired": false,
   "headline_summary": {
-    "current_level": "ci_proven",
-    "workspace_clean": true,
+    "current_level": "manual_only",
+    "workspace_clean": false,
     "head_published_to_upstream": true,
-    "repo_landed": true,
-    "ci_proven": true,
+    "repo_landed": false,
+    "ci_proven": false,
     "ci_proof_mode": "push_ci_workflow",
     "required_workflow": "CI",
     "quick_test_gate": {
@@ -17,23 +17,30 @@
       "observed": true,
       "current_head_match": true,
       "ok": true,
-      "generated_at_utc": "2026-03-17T09:47:24Z",
-      "head": "72835e60104b0bf3d3266740787897ab17c4805d",
+      "generated_at_utc": "2026-03-29T05:37:49Z",
+      "head": "9485fd65333029ffedff06aaf2549c9cf432225d",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
   },
   "git": {
-    "head": "72835e60104b0bf3d3266740787897ab17c4805d",
+    "head": "9485fd65333029ffedff06aaf2549c9cf432225d",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "72835e60104b0bf3d3266740787897ab17c4805d",
+    "upstream_head": "9485fd65333029ffedff06aaf2549c9cf432225d",
     "head_published_to_upstream": true
   },
   "workspace": {
-    "clean": true,
-    "dirty_entries": [],
-    "reason": ""
+    "clean": false,
+    "dirty_entries": [
+      "M datapulse/core/alerts.py",
+      " M datapulse/reader.py",
+      " M docs/governance/datapulse-blueprint-plan.draft.json",
+      " M docs/intelligence_delivery_contract.md",
+      " M tests/test_delivery.py",
+      "?? out/codex_blueprint_loop/round-04/"
+    ],
+    "reason": "git status reported local modifications."
   },
   "verification": {
     "compileall": {
@@ -51,11 +58,11 @@
       "latest_observation": {
         "path": "artifacts/governance/quick_test_gate.draft.json",
         "schema_version": "quick_test_gate.v1",
-        "generated_at_utc": "2026-03-17T09:47:24Z",
+        "generated_at_utc": "2026-03-29T05:37:49Z",
         "ok": true,
         "read_only": true,
         "git": {
-          "head": "72835e60104b0bf3d3266740787897ab17c4805d",
+          "head": "9485fd65333029ffedff06aaf2549c9cf432225d",
           "branch": "main"
         },
         "steps": [
@@ -96,7 +103,7 @@
             "rc": 0,
             "ok": true,
             "stdout_tail": [
-              "datapulse/cli.py:326: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
+              "datapulse/cli.py:327: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
               "Success: no issues found in 59 source files"
             ],
             "stderr_tail": []
@@ -211,49 +218,17 @@
     "proof_mode": "push_ci_workflow",
     "head_published_to_upstream": true,
     "required_workflow": "CI",
-    "required_run": {
-      "database_id": 23188082270,
-      "head_sha": "72835e60104b0bf3d3266740787897ab17c4805d",
-      "head_branch": "main",
-      "status": "completed",
-      "conclusion": "success",
-      "event": "push",
-      "workflow_name": "CI",
-      "created_at": "2026-03-17T09:45:45Z",
-      "updated_at": "2026-03-17T09:46:22Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23188082270"
-    },
-    "latest_head_ci_run": {
-      "database_id": 23188082270,
-      "head_sha": "72835e60104b0bf3d3266740787897ab17c4805d",
-      "head_branch": "main",
-      "status": "completed",
-      "conclusion": "success",
-      "event": "push",
-      "workflow_name": "CI",
-      "created_at": "2026-03-17T09:45:45Z",
-      "updated_at": "2026-03-17T09:46:22Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23188082270"
-    },
-    "latest_head_governance_evidence_run": {
-      "database_id": 23188087047,
-      "head_sha": "72835e60104b0bf3d3266740787897ab17c4805d",
-      "head_branch": "main",
-      "status": "completed",
-      "conclusion": "success",
-      "event": "workflow_dispatch",
-      "workflow_name": "governance-evidence",
-      "created_at": "2026-03-17T09:45:53Z",
-      "updated_at": "2026-03-17T09:46:18Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23188087047"
-    },
+    "required_run": null,
+    "latest_head_ci_run": null,
+    "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
-        ".github/workflows/ci.yml",
-        ".github/workflows/governance-evidence.yml",
-        ".github/workflows/governance-loop-auto.yml",
-        ".github/workflows/release.yml",
-        ".github/workflows/security-guard.yml"
+        "datapulse/core/alerts.py",
+        "datapulse/reader.py",
+        "docs/governance/datapulse-blueprint-plan.draft.json",
+        "docs/intelligence_delivery_contract.md",
+        "tests/test_delivery.py",
+        "out/codex_blueprint_loop/round-04/"
       ],
       "docs_only": false
     }
@@ -269,10 +244,10 @@
     "structured_release_bundle": true,
     "primary_same_window_truth": "out/governance/datapulse_release_window_attestation.draft.json",
     "release_window_attestation": {
-      "status": "attested",
+      "status": "cross_head",
       "observed": true,
       "attested": true,
-      "current_head_match": true,
+      "current_head_match": false,
       "same_window_proven": true,
       "all_sources_fresh": true,
       "runtime_closure_complete": true,
@@ -290,31 +265,40 @@
     ]
   },
   "gate_groups": {
-    "execution_safety": [],
+    "execution_safety": [
+      "workspace_dirty"
+    ],
     "local_verification": [],
     "runtime_governance": [],
     "ci_policy": [],
-    "release_governance": []
+    "release_governance": [
+      "release_window_attestation_cross_head"
+    ]
   },
   "promotion_levels": {
     "repo_landed": {
-      "satisfied": true,
-      "reasons": []
+      "satisfied": false,
+      "reasons": [
+        "workspace_dirty"
+      ]
     },
     "ci_proven": {
-      "satisfied": true,
-      "reasons": []
+      "satisfied": false,
+      "reasons": [
+        "repo_landed_false",
+        "ci_run_not_proven"
+      ]
     }
   },
   "observed_evidence": {
     "latest_quick_test_gate": {
       "path": "artifacts/governance/quick_test_gate.draft.json",
       "schema_version": "quick_test_gate.v1",
-      "generated_at_utc": "2026-03-17T09:47:24Z",
+      "generated_at_utc": "2026-03-29T05:37:49Z",
       "ok": true,
       "read_only": true,
       "git": {
-        "head": "72835e60104b0bf3d3266740787897ab17c4805d",
+        "head": "9485fd65333029ffedff06aaf2549c9cf432225d",
         "branch": "main"
       },
       "steps": [
@@ -355,7 +339,7 @@
           "rc": 0,
           "ok": true,
           "stdout_tail": [
-            "datapulse/cli.py:326: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
+            "datapulse/cli.py:327: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
             "Success: no issues found in 59 source files"
           ],
           "stderr_tail": []
@@ -523,30 +507,8 @@
         ]
       }
     },
-    "latest_head_ci_run": {
-      "database_id": 23188082270,
-      "head_sha": "72835e60104b0bf3d3266740787897ab17c4805d",
-      "head_branch": "main",
-      "status": "completed",
-      "conclusion": "success",
-      "event": "push",
-      "workflow_name": "CI",
-      "created_at": "2026-03-17T09:45:45Z",
-      "updated_at": "2026-03-17T09:46:22Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23188082270"
-    },
-    "latest_head_governance_evidence_run": {
-      "database_id": 23188087047,
-      "head_sha": "72835e60104b0bf3d3266740787897ab17c4805d",
-      "head_branch": "main",
-      "status": "completed",
-      "conclusion": "success",
-      "event": "workflow_dispatch",
-      "workflow_name": "governance-evidence",
-      "created_at": "2026-03-17T09:45:53Z",
-      "updated_at": "2026-03-17T09:46:18Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23188087047"
-    }
+    "latest_head_ci_run": null,
+    "latest_head_governance_evidence_run": null
   },
   "evidence_paths": {
     "release_window_attestation": "out/governance/datapulse_release_window_attestation.draft.json",

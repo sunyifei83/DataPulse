@@ -31,8 +31,8 @@ The repo now persists a normalized delivery-subscription object, but not every l
 | Triggered event record | `AlertEvent` | `datapulse/core/alerts.py` |
 | Route registry | `AlertRouteStore`, named route config | `datapulse/core/alerts.py` |
 | Pull outputs | `build_json_feed`, `build_rss_feed`, `build_atom_feed` | `datapulse/reader.py`, `datapulse/mcp_server.py`, `datapulse/cli.py` |
-| Digest preparation boundary | `feed_bundle`, `prepare_digest_payload` contract over `query_feed`, `build_digest`, and `emit_digest_package` | `docs/governance/datapulse-feed-bundle-digest-delivery-contract.md`, `datapulse/reader.py` |
-| Report package and dispatch | `build_report_delivery_package`, `dispatch_report_delivery` | `datapulse/core/report.py`, `datapulse/reader.py`, `datapulse/cli.py`, `datapulse/mcp_server.py`, `datapulse/console_server.py` |
+| Digest preparation boundary | `feed_bundle`, `prepare_digest_payload`, and route-backed `dispatch_digest_delivery` over `query_feed`, `build_digest`, and `emit_digest_package` | `docs/governance/datapulse-feed-bundle-digest-delivery-contract.md`, `datapulse/reader.py` |
+| Report package and dispatch | `build_report_delivery_package`, `dispatch_report_delivery`, persisted `DeliveryDispatchRecord.governance.delivery_diagnostics` | `datapulse/core/report.py`, `datapulse/reader.py`, `datapulse/cli.py`, `datapulse/mcp_server.py`, `datapulse/console_server.py` |
 | Evidence-package export | `export_story(..., output_format="json"|"markdown")` | `datapulse/reader.py`, `datapulse/mcp_server.py`, `datapulse/cli.py` |
 | Delivery observations | `list_alert_routes`, `alert_route_health`, `ops_snapshot` | `datapulse/reader.py`, `datapulse/console_server.py` |
 
@@ -177,6 +177,7 @@ Contract rules:
 - direct channel configuration is acceptable for local/manual use, but route names are the durable operating contract
 - route dispatch failure must be reported as delivery observation, not by deleting or suppressing the `AlertEvent`
 - route labels in `delivered_channels` should remain channel-qualified when route-backed, such as `webhook:ops-webhook`
+- Telegram-backed report and digest delivery must expose chunk counts, per-attempt facts, and any markdown-to-plain fallback instead of silently truncating or pretending a single send was sufficient
 
 ## Delivery Observation Contract
 
@@ -184,6 +185,8 @@ Delivery observation is currently exposed through:
 
 - `alert_route_health(limit=...)`
 - `ops_snapshot()`
+- `list_delivery_dispatch_records(...)` for persisted route-backed report attempts
+- direct `dispatch_digest_delivery(...)` return payloads for pre-subscription digest route tests and operator review
 - watch-level `recent_alerts`, `delivery_stats`, and `timeline_strip`
 
 Current route health states include:
@@ -201,6 +204,7 @@ Contract rules:
 - `degraded` means attempts exist with failures
 - `healthy` means attempts exist with successful delivery
 - `idle` means a route is configured but has no observed attempt
+- report and digest dispatch facts should carry operator-visible `attempt_count`, `chunk_count`, `fallback_used`, and per-attempt details when text channels degrade into chunked or fallback delivery
 
 ## Normalized Subscription Shape
 
@@ -257,6 +261,7 @@ The following invariants should hold for all follow-up work:
 
 - role-based digest or briefing outputs should be modeled as additional output kinds, not as a parallel product surface
 - route-backed digest delivery should consume deterministic `prepare_digest_payload` content rather than re-querying feed state during dispatch
+- route-backed digest and report delivery may render markdown first for text sinks, but any fallback to plain JSON/text must stay visible in dispatch diagnostics rather than becoming hidden transport behavior
 - story-triggered callbacks should reuse named routes and delivery observations instead of inventing standalone callback status stores
 - when first-class watch/story subscriptions land, they should normalize onto `subject_ref + output_kind + delivery_mode + route_names`
 - roadmap and GUI work should treat delivery as one route-backed output plane spanning alerts, feeds, story export, and ops facts

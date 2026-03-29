@@ -18,15 +18,16 @@ from datapulse.core.alerts import (
     AlertEvent,
     AlertRouteStore,
     AlertStore,
+    DeliveryDispatchError,
     _coerce_timeout_seconds,
     _post_json,
     _resolve_feishu_url,
-    _resolve_telegram_bot_token,
-    _resolve_telegram_chat_id,
     _resolve_webhook_url,
+    append_delivery_markdown,
     dispatch_alert_event,
     evaluate_watch_alerts,
     resolve_delivery_targets,
+    send_telegram_text,
     validate_delivery_summary_payload,
 )
 from datapulse.core.confidence import compute_confidence
@@ -3887,48 +3888,198 @@ class DataPulseReader:
             return text.split(":", 1)[1].strip()
         return text
 
-    def _send_report_delivery_payload_to_route(
+    @staticmethod
+    def _route_delivery_base_diagnostics(route_target: dict[str, Any]) -> dict[str, Any]:
+        label = str(route_target.get("label", "")).strip()
+        channel = str(route_target.get("channel", "")).strip().lower()
+        route_name = label.split(":", 1)[1].strip() if ":" in label else ""
+        return {
+            "route_label": label,
+            "route_name": route_name,
+            "channel": channel,
+            "attempt_count": 0,
+            "chunk_count": 0,
+            "fallback_used": False,
+            "fallback_reason": "",
+            "attempts": [],
+        }
+
+    def _render_report_delivery_text(self, package_payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        delivery_payload = package_payload.get("payload", {})
+        if not isinstance(delivery_payload, dict):
+            delivery_payload = {}
+        payload_kind = str(delivery_payload.get("kind", "")).strip().lower()
+        attempted_formats: list[str] = []
+        render_errors: list[str] = []
+
+        if payload_kind == "report_full" and isinstance(delivery_payload.get("report_export"), dict):
+            attempted_formats.append("markdown")
+            try:
+                markdown = self._render_report_markdown(delivery_payload["report_export"])
+                if markdown.strip():
+                    return markdown, {
+                        "rendering": {
+                            "preferred_format": "markdown",
+                            "selected_format": "markdown",
+                            "fallback_used": False,
+                            "fallback_reason": "",
+                            "attempted_formats": attempted_formats,
+                            "errors": render_errors,
+                        }
+                    }
+                render_errors.append("markdown render returned empty payload")
+            except Exception as exc:  # noqa: BLE001
+                render_errors.append(f"markdown render failed: {exc}")
+
+        attempted_formats.append("plain_json")
+        return (
+            json.dumps(package_payload, ensure_ascii=False, indent=2, sort_keys=True),
+            {
+                "rendering": {
+                    "preferred_format": "markdown" if payload_kind == "report_full" else "plain_json",
+                    "selected_format": "plain_json",
+                    "fallback_used": payload_kind == "report_full",
+                    "fallback_reason": "markdown_render_failed_or_empty" if payload_kind == "report_full" else "",
+                    "attempted_formats": attempted_formats,
+                    "errors": render_errors,
+                }
+            },
+        )
+
+    def _render_digest_delivery_text(self, prepared_payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        content = prepared_payload.get("content", {}) if isinstance(prepared_payload.get("content"), dict) else {}
+        delivery_package = content.get("delivery_package", {}) if isinstance(content.get("delivery_package"), dict) else {}
+        attempted_formats: list[str] = ["markdown"]
+        render_errors: list[str] = []
+        try:
+            markdown = self._render_digest_delivery_package(delivery_package, output_format="markdown")
+            if markdown.strip():
+                return markdown, {
+                    "rendering": {
+                        "preferred_format": "markdown",
+                        "selected_format": "markdown",
+                        "fallback_used": False,
+                        "fallback_reason": "",
+                        "attempted_formats": attempted_formats,
+                        "errors": render_errors,
+                    }
+                }
+            render_errors.append("markdown render returned empty payload")
+        except Exception as exc:  # noqa: BLE001
+            render_errors.append(f"markdown render failed: {exc}")
+
+        attempted_formats.append("plain_json")
+        fallback_payload = delivery_package or prepared_payload
+        return (
+            json.dumps(fallback_payload, ensure_ascii=False, indent=2, sort_keys=True),
+            {
+                "rendering": {
+                    "preferred_format": "markdown",
+                    "selected_format": "plain_json",
+                    "fallback_used": True,
+                    "fallback_reason": "markdown_render_failed_or_empty",
+                    "attempted_formats": attempted_formats,
+                    "errors": render_errors,
+                }
+            },
+        )
+
+    def _dispatch_route_delivery_payload(
         self,
         route_target: dict[str, Any],
-        package_payload: dict[str, Any],
-    ) -> None:
+        *,
+        webhook_payload: dict[str, Any],
+        text_payload: tuple[str, dict[str, Any]],
+        markdown_title: str,
+        markdown_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         channel = str(route_target.get("channel", "")).strip().lower()
         config_raw = route_target.get("config", route_target)
         config = config_raw if isinstance(config_raw, dict) else {}
         target_timeout = _coerce_timeout_seconds(config.get("timeout_seconds"), default=10.0)
-        message = json.dumps(package_payload, ensure_ascii=False, sort_keys=True, indent=2)
+        text, render_diagnostics = text_payload
+        diagnostics = self._route_delivery_base_diagnostics(route_target)
+        diagnostics.update(render_diagnostics)
         if channel == "webhook":
             url = _resolve_webhook_url(config)
             if not url:
                 raise ValueError("webhook_url is required")
             _post_json(
                 url,
-                {"report_delivery": package_payload},
+                webhook_payload,
                 timeout=target_timeout,
             )
-            return
+            diagnostics.update(
+                {
+                    "attempt_count": 1,
+                    "chunk_count": 1,
+                    "attempts": [
+                        {
+                            "kind": "webhook_post",
+                            "status": "delivered",
+                            "payload_kind": next(iter(webhook_payload.keys()), "payload"),
+                        }
+                    ],
+                }
+            )
+            return diagnostics
+        if channel == "markdown":
+            markdown_path = append_delivery_markdown(
+                markdown_title,
+                text,
+                metadata=markdown_metadata,
+            )
+            diagnostics.update(
+                {
+                    "attempt_count": 1,
+                    "chunk_count": 1,
+                    "attempts": [
+                        {
+                            "kind": "markdown_append",
+                            "status": "delivered",
+                            "path": markdown_path,
+                            "text_length": len(text),
+                        }
+                    ],
+                    "markdown_path": markdown_path,
+                }
+            )
+            return diagnostics
         if channel == "feishu":
             url = _resolve_feishu_url(config)
             if not url:
                 raise ValueError("feishu_webhook is required")
             _post_json(
                 url,
-                {"msg_type": "text", "content": {"text": message}},
+                {"msg_type": "text", "content": {"text": text}},
                 timeout=target_timeout,
             )
-            return
+            diagnostics.update(
+                {
+                    "attempt_count": 1,
+                    "chunk_count": 1,
+                    "attempts": [
+                        {
+                            "kind": "feishu_text",
+                            "status": "delivered",
+                            "text_length": len(text),
+                        }
+                    ],
+                }
+            )
+            return diagnostics
         if channel == "telegram":
-            bot_token = _resolve_telegram_bot_token(config)
-            chat_id = _resolve_telegram_chat_id(config)
-            if not bot_token or not chat_id:
-                raise ValueError("telegram_bot_token and telegram_chat_id are required")
-            _post_json(
-                f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                {"chat_id": chat_id, "text": message[:3900], "disable_web_page_preview": True},
-                timeout=target_timeout,
-            )
+            diagnostics.update(send_telegram_text(config, text, timeout=target_timeout))
+            return diagnostics
+        raise ValueError(f"unsupported route delivery channel: {channel}")
+
+    def _persist_delivery_dispatch_governance(self, record_id: str, governance: dict[str, Any]) -> None:
+        record = self.report_store.get_delivery_dispatch_record(record_id)
+        if record is None:
             return
-        raise ValueError(f"unsupported report delivery channel: {channel}")
+        record.governance = dict(governance or {})
+        self.report_store._touch(record)
+        self.report_store.save()
 
     def build_report_delivery_package(
         self,
@@ -3978,11 +4129,26 @@ class DataPulseReader:
             route_label = str(target.get("label", "") if isinstance(target, dict) else "").strip()
             channel = str(target.get("channel", "")).strip().lower() if isinstance(target, dict) else ""
             error = ""
+            governance: dict[str, Any] = {}
             if not route_label:
                 route_label = f"route:{route_name}"
             if not target:
                 error = str(route_errors.get(f"route:{route_name}") or route_errors.get(route_label) or "")
                 status = "missing_route"
+                governance = {
+                    "delivery_diagnostics": {
+                        "route_label": route_label,
+                        "route_name": route_name,
+                        "channel": channel or "unknown",
+                        "attempt_count": 0,
+                        "chunk_count": 0,
+                        "fallback_used": False,
+                        "fallback_reason": "",
+                        "attempts": [],
+                        "resolution": "missing_route",
+                        "error": error,
+                    }
+                }
             else:
                 status = "pending"
             record = self.report_store.create_delivery_dispatch_record(
@@ -4000,6 +4166,7 @@ class DataPulseReader:
                     "status": status,
                     "error": error,
                     "attempts": 0,
+                    "governance": governance,
                 }
             )
             dispatch_records.append(record.to_dict())
@@ -4013,14 +4180,41 @@ class DataPulseReader:
                 continue
             record_id = str(row.get("id", "")).strip()
             current_attempts = 0
+            diagnostics: dict[str, Any] = {}
             try:
-                self._send_report_delivery_payload_to_route(target, package)
+                diagnostics = self._dispatch_route_delivery_payload(
+                    target,
+                    webhook_payload={"report_delivery": package},
+                    text_payload=self._render_report_delivery_text(package),
+                    markdown_title=f"Report Delivery | {route_name}",
+                    markdown_metadata={
+                        "package_id": str(package.get("package_id", "")),
+                        "route_label": str(target.get("label", "")),
+                        "channel": str(target.get("channel", "")),
+                    },
+                )
                 new_error = ""
                 current_status = "delivered"
-            except Exception as exc:  # noqa: BLE001
+            except DeliveryDispatchError as exc:
+                diagnostics = dict(exc.diagnostics or {})
                 new_error = str(exc)
                 current_status = "failed"
-            current_attempts += 1
+            except Exception as exc:  # noqa: BLE001
+                diagnostics = self._route_delivery_base_diagnostics(target)
+                diagnostics["error"] = str(exc)
+                diagnostics["attempt_count"] = 1
+                diagnostics["attempts"] = [
+                    {
+                        "kind": "route_dispatch",
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                ]
+                new_error = str(exc)
+                current_status = "failed"
+            current_attempts = int(diagnostics.get("attempt_count", 1 if current_status == "failed" else 0) or 0)
+            if current_status == "delivered" and current_attempts <= 0:
+                current_attempts = 1
             self.report_store.update_delivery_dispatch_record(
                 record_id,
                 status=current_status,
@@ -4028,14 +4222,130 @@ class DataPulseReader:
                 attempts=current_attempts,
                 route_channel=target.get("channel", ""),
             )
+            self._persist_delivery_dispatch_governance(record_id, {"delivery_diagnostics": diagnostics})
             for idx, item in enumerate(dispatch_records):
                 if str(item.get("id", "")) == record_id:
                     dispatch_records[idx]["status"] = current_status
                     dispatch_records[idx]["error"] = new_error
                     dispatch_records[idx]["attempts"] = current_attempts
                     dispatch_records[idx]["route_channel"] = str(target.get("channel", ""))
+                    dispatch_records[idx]["governance"] = {"delivery_diagnostics": diagnostics}
                     break
         return dispatch_records
+
+    def dispatch_digest_delivery(
+        self,
+        *,
+        prepared_payload: dict[str, Any] | None = None,
+        route_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        payload = prepared_payload if isinstance(prepared_payload, dict) else self.prepare_digest_payload()
+        config = payload.get("config", {}) if isinstance(payload.get("config"), dict) else {}
+        digest_profile = config.get("digest_profile", {}) if isinstance(config.get("digest_profile"), dict) else {}
+        default_target = (
+            digest_profile.get("default_delivery_target", {})
+            if isinstance(digest_profile.get("default_delivery_target"), dict)
+            else {}
+        )
+        target_kind = str(default_target.get("kind", "route") or "route").strip().lower() or "route"
+        resolved_route = str(route_name or default_target.get("ref", "")).strip().lower()
+        if target_kind != "route":
+            raise ValueError(f"Unsupported digest delivery target kind: {target_kind}")
+        if not resolved_route:
+            raise ValueError("Digest delivery route is required")
+
+        rule = {"routes": [resolved_route]}
+        route_targets, route_errors = resolve_delivery_targets(rule)
+        target = route_targets[0] if route_targets else None
+        profile_name = str(config.get("profile", "default") or "default").strip() or "default"
+        package_signature = _package_signature(payload)
+        route_label = str(target.get("label", "") if isinstance(target, dict) else "").strip() or f"route:{resolved_route}"
+        route_channel = str(target.get("channel", "") if isinstance(target, dict) else "").strip().lower()
+        if not target:
+            error = str(route_errors.get(f"route:{resolved_route}") or route_errors.get(route_label) or "alert route not found")
+            return [
+                {
+                    "subject_kind": "profile",
+                    "subject_ref": profile_name,
+                    "output_kind": "digest_delivery",
+                    "route_name": resolved_route,
+                    "route_label": route_label,
+                    "route_channel": route_channel or "unknown",
+                    "package_signature": package_signature,
+                    "status": "missing_route",
+                    "attempts": 0,
+                    "error": error,
+                    "governance": {
+                        "delivery_diagnostics": {
+                            "route_label": route_label,
+                            "route_name": resolved_route,
+                            "channel": route_channel or "unknown",
+                            "attempt_count": 0,
+                            "chunk_count": 0,
+                            "fallback_used": False,
+                            "fallback_reason": "",
+                            "attempts": [],
+                            "resolution": "missing_route",
+                            "error": error,
+                        }
+                    },
+                }
+            ]
+
+        diagnostics: dict[str, Any] = {}
+        status = "pending"
+        error = ""
+        try:
+            diagnostics = self._dispatch_route_delivery_payload(
+                target,
+                webhook_payload={"digest_delivery": payload},
+                text_payload=self._render_digest_delivery_text(payload),
+                markdown_title=f"Digest Delivery | {profile_name}",
+                markdown_metadata={
+                    "package_signature": package_signature,
+                    "route_label": str(target.get("label", "")),
+                    "channel": str(target.get("channel", "")),
+                    "profile": profile_name,
+                },
+            )
+            status = "delivered"
+        except DeliveryDispatchError as exc:
+            diagnostics = dict(exc.diagnostics or {})
+            error = str(exc)
+            status = "failed"
+        except Exception as exc:  # noqa: BLE001
+            diagnostics = self._route_delivery_base_diagnostics(target)
+            diagnostics["error"] = str(exc)
+            diagnostics["attempt_count"] = 1
+            diagnostics["attempts"] = [
+                {
+                    "kind": "route_dispatch",
+                    "status": "failed",
+                    "error": str(exc),
+                }
+            ]
+            error = str(exc)
+            status = "failed"
+        attempts = int(diagnostics.get("attempt_count", 1 if status == "failed" else 0) or 0)
+        if status == "delivered" and attempts <= 0:
+            attempts = 1
+        return [
+            {
+                "subject_kind": "profile",
+                "subject_ref": profile_name,
+                "output_kind": "digest_delivery",
+                "route_name": resolved_route,
+                "route_label": str(target.get("label", "")),
+                "route_channel": str(target.get("channel", "")).strip().lower(),
+                "package_signature": package_signature,
+                "status": status,
+                "attempts": attempts,
+                "error": error,
+                "governance": {
+                    "delivery_diagnostics": diagnostics,
+                },
+            }
+        ]
 
     @staticmethod
     def _normalize_report_export_format(output_format: str) -> str:

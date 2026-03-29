@@ -443,10 +443,16 @@ def test_report_delivery_package_is_deterministic_and_dispatch_records_are_attri
     assert package_a["package_id"] == package_b["package_id"]
     assert package_a["package_signature"] == package_b["package_signature"]
 
-    def _noop_send(route_target: dict[str, object], payload: dict[str, object]) -> None:
-        return None
+    def _noop_send(*args, **kwargs) -> dict[str, object]:
+        return {
+            "attempt_count": 1,
+            "chunk_count": 1,
+            "fallback_used": False,
+            "fallback_reason": "",
+            "attempts": [{"kind": "webhook_post", "status": "delivered"}],
+        }
 
-    monkeypatch.setattr(reader, "_send_report_delivery_payload_to_route", _noop_send)
+    monkeypatch.setattr(reader, "_dispatch_route_delivery_payload", _noop_send)
     dispatch_rows = reader.dispatch_report_delivery(subscription["id"])
 
     assert len(dispatch_rows) == 1
@@ -462,6 +468,8 @@ def test_report_delivery_package_is_deterministic_and_dispatch_records_are_attri
     persisted = reader.list_delivery_dispatch_records(subscription_id=subscription["id"], status="delivered")
     assert len(persisted) == 1
     assert persisted[0]["route_label"] == "webhook:ops-webhook"
+    assert persisted[0]["governance"]["delivery_diagnostics"]["attempt_count"] == 1
+    assert persisted[0]["governance"]["delivery_diagnostics"]["fallback_used"] is False
 
 
 def test_report_delivery_package_and_dispatch_reject_non_report_subscriptions(tmp_path):
@@ -514,10 +522,10 @@ def test_report_delivery_dispatch_records_capture_missing_routes_and_failures(tm
         route_names=["OPS-WEBHOOK", "missing-route", "ops-webhook"],
     )
 
-    def _fail_send(route_target: dict[str, object], payload: dict[str, object]) -> None:
+    def _fail_send(route_target: dict[str, object], **kwargs) -> dict[str, object]:
         raise RuntimeError(f"transport down for {route_target.get('label', route_target.get('channel', 'route'))}")
 
-    monkeypatch.setattr(reader, "_send_report_delivery_payload_to_route", _fail_send)
+    monkeypatch.setattr(reader, "_dispatch_route_delivery_payload", _fail_send)
     dispatch_rows = reader.dispatch_report_delivery(subscription["id"])
 
     assert len(dispatch_rows) == 2
@@ -543,3 +551,124 @@ def test_report_delivery_dispatch_records_capture_missing_routes_and_failures(tm
     assert persisted_by_route["missing-route"]["package_signature"] == failed_route["package_signature"]
     assert persisted_by_route["ops-webhook"]["status"] == "failed"
     assert persisted_by_route["ops-webhook"]["attempts"] == 1
+    assert persisted_by_route["missing-route"]["governance"]["delivery_diagnostics"]["resolution"] == "missing_route"
+    assert "transport down" in persisted_by_route["ops-webhook"]["governance"]["delivery_diagnostics"]["error"]
+
+
+def test_report_delivery_telegram_chunk_diagnostics_are_persisted(tmp_path, monkeypatch):
+    reader = _reader(tmp_path)
+
+    report = reader.create_report(
+        title="Chunked Telegram Report",
+        summary="A" * 4500,
+    )
+    claim = reader.create_claim_card(
+        statement="Chunked Telegram dispatch should stay attributable.",
+        source_item_ids=["item-telegram-report"],
+        brief_id="",
+    )
+    section = reader.create_report_section(
+        report_id=report["id"],
+        title="Chunk Section",
+        claim_card_ids=[claim["id"]],
+        position=1,
+    )
+    reader.update_report(report["id"], section_ids=[section["id"]], claim_card_ids=[claim["id"]])
+    reader.create_alert_route(
+        name="ops-telegram",
+        channel="telegram",
+        telegram_bot_token="bot-token",
+        telegram_chat_id="chat-1",
+    )
+    subscription = reader.create_delivery_subscription(
+        subject_kind="report",
+        subject_ref=report["id"],
+        output_kind="report_full",
+        delivery_mode="push",
+        route_names=["ops-telegram"],
+    )
+
+    calls: list[dict[str, object]] = []
+
+    def _fake_post_json(url: str, payload: dict[str, object], *, timeout: float = 10.0, headers=None) -> None:
+        calls.append({"url": url, "payload": payload, "timeout": timeout})
+
+    monkeypatch.setattr("datapulse.core.alerts._post_json", _fake_post_json)
+    dispatch_rows = reader.dispatch_report_delivery(subscription["id"])
+
+    assert len(dispatch_rows) == 1
+    row = dispatch_rows[0]
+    diagnostics = row["governance"]["delivery_diagnostics"]
+    assert row["status"] == "delivered"
+    assert row["attempts"] == diagnostics["chunk_count"] == diagnostics["attempt_count"] == len(calls)
+    assert row["attempts"] > 1
+    assert diagnostics["fallback_used"] is True
+    assert diagnostics["fallback_reason"] == "telegram_chunking"
+    assert diagnostics["rendering"]["selected_format"] in {"markdown", "plain_json"}
+    if diagnostics["rendering"]["selected_format"] == "plain_json":
+        assert diagnostics["rendering"]["fallback_used"] is True
+    assert all(call["url"] == "https://api.telegram.org/botbot-token/sendMessage" for call in calls)
+
+    persisted = reader.list_delivery_dispatch_records(subscription_id=subscription["id"], status="delivered")
+    assert persisted[0]["governance"]["delivery_diagnostics"]["chunk_count"] == len(calls)
+
+
+def test_digest_delivery_telegram_chunk_diagnostics_are_visible(tmp_path, monkeypatch):
+    reader = _reader(tmp_path)
+    reader.create_alert_route(
+        name="ops-telegram",
+        channel="telegram",
+        telegram_bot_token="bot-token",
+        telegram_chat_id="chat-1",
+    )
+
+    prepared_payload = {
+        "schema_version": "prepare_digest_payload.v1",
+        "generated_at": "2026-03-29T12:00:00Z",
+        "content": {
+            "delivery_package": {
+                "summary": {
+                    "title": "DataPulse Digest Package | default",
+                    "generated_at": "2026-03-29T12:00:00Z",
+                    "high_confidence_count": 1,
+                    "item_count": 1,
+                    "factuality_status": "ready",
+                    "factuality_score": 0.9,
+                },
+                "sources": [{"source_name": "ops-source", "count": 1}],
+                "recommendations": ["B" * 4500],
+                "timeline": [],
+                "todos": [],
+                "factuality": {"status": "ready", "score": 0.9, "reasons": []},
+                "digest_payload": {},
+            }
+        },
+        "config": {
+            "profile": "default",
+            "digest_profile": {
+                "default_delivery_target": {"kind": "route", "ref": "ops-telegram"},
+            },
+        },
+        "prompts": {},
+        "stats": {},
+        "errors": [],
+    }
+
+    calls: list[dict[str, object]] = []
+
+    def _fake_post_json(url: str, payload: dict[str, object], *, timeout: float = 10.0, headers=None) -> None:
+        calls.append({"url": url, "payload": payload, "timeout": timeout})
+
+    monkeypatch.setattr("datapulse.core.alerts._post_json", _fake_post_json)
+    rows = reader.dispatch_digest_delivery(prepared_payload=prepared_payload)
+
+    assert len(rows) == 1
+    row = rows[0]
+    diagnostics = row["governance"]["delivery_diagnostics"]
+    assert row["status"] == "delivered"
+    assert row["route_name"] == "ops-telegram"
+    assert row["attempts"] == diagnostics["chunk_count"] == diagnostics["attempt_count"] == len(calls)
+    assert row["attempts"] > 1
+    assert diagnostics["fallback_used"] is True
+    assert diagnostics["rendering"]["selected_format"] == "markdown"
+    assert all(call["url"] == "https://api.telegram.org/botbot-token/sendMessage" for call in calls)
