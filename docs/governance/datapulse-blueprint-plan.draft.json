@@ -2,8 +2,8 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-18T09:18:08Z",
-  "status": "completed",
+  "generated_at_utc": "2026-03-29T04:58:20Z",
+  "status": "in_progress",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -81,7 +81,8 @@
     "L15": "completed",
     "L16": "completed",
     "L17": "completed",
-    "L18": "completed"
+    "L18": "completed",
+    "L19": "in_progress"
   },
   "phases": [
     {
@@ -2340,7 +2341,7 @@
       "id": "L18",
       "title": "QNAIGC search provider as a cost-aware Chinese-query candidate lane",
       "goal": "Add a narrow QNAIGC search-provider lane through SearchGateway without changing SearchHit normalization, default explicit providers, or operator-visible cost control.",
-      "status": "in_progress",
+      "status": "completed",
       "slices": [
         {
           "id": "L18.1",
@@ -2429,12 +2430,166 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L19",
+      "title": "Feed bundle and digest-delivery hardening over existing pack/feed surfaces",
+      "goal": "Make existing pack, feed, digest, and route-backed delivery surfaces replayable, deterministic, prompt-governed, and ready for next manual ignition without creating a second lifecycle.",
+      "status": "in_progress",
+      "slices": [
+        {
+          "id": "L19.1",
+          "title": "Land the repo-scoped feed-bundle and digest-delivery hardening blueprint plus manual ignition map",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-feed-bundle-digest-delivery-blueprint.md",
+            "docs/source_feed_enhancement_plan.md",
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "exit_condition": "The repository contains a repo-scoped blueprint that narrows the gap to replayable feed bundles, deterministic digest payloads, prompt overrides, onboarding defaults, and route-backed delivery hardening, and the active blueprint truth exposes a new manual ignition target beyond the completed L18 wave.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_follow-builders能力萃取与蓝图点火清单_2026-03-29.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-29T04:58:20Z",
+            "source_count": 1,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_follow-builders能力萃取与蓝图点火清单_2026-03-29.md",
+              "frontmatter_title": "DataPulse + follow-builders 能力萃取与蓝图点火清单",
+              "first_heading": "DataPulse + follow-builders 能力萃取与下一步补强清单",
+              "selected_heading": "",
+              "wikilink_name": "DataPulse_follow-builders能力萃取与蓝图点火清单_2026-03-29"
+            }
+          },
+          "notes": [
+            "This slice must correct the repo-read: current DataPulse already has packs, feed exports, and digest builders, so the gap is deterministic payload shape and delivery hardening rather than missing basic source-pack capability.",
+            "The resulting ignition map should make L19.2 the next narrow contract-freeze target."
+          ]
+        },
+        {
+          "id": "L19.2",
+          "title": "Define the feed_bundle and prepare_digest_payload contract on top of current pack feed and digest surfaces",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-feed-bundle-digest-delivery-contract.md",
+            "docs/intelligence_delivery_contract.md",
+            "docs/source_feed_enhancement_plan.md"
+          ],
+          "exit_condition": "Repo truth explicitly defines replayable feed_bundle membership and a deterministic prepare_digest_payload boundary with content, config, prompts, stats, and errors while preserving current build_digest and emit_digest_package anchors.",
+          "notes": [
+            "The contract should bind pack/profile/source scope, run window, stats, and errors without inventing a second source-catalog model.",
+            "Deterministic digest payloads must be route-ready inputs and must not re-query network data during rendering."
+          ]
+        },
+        {
+          "id": "L19.3",
+          "title": "Define prompt-pack override order and first-run digest profile onboarding semantics across CLI MCP and console",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-feed-bundle-digest-delivery-contract.md",
+            "docs/gui_intelligence_console_plan.md",
+            "docs/datapulse_console_parameter_guide.md"
+          ],
+          "exit_condition": "Repo truth defines repo-default prompt packs, local override order, and one shared first-run digest profile for language, timezone, frequency, and default delivery target without inventing GUI-only state.",
+          "notes": [
+            "Keep prompt override order explicit and operator-visible instead of hiding it in environment drift.",
+            "Onboarding must compile down to shared Reader-backed nouns rather than separate CLI and browser setup stories."
+          ]
+        },
+        {
+          "id": "L19.4",
+          "title": "Add Reader CLI and MCP feed-bundle export plus deterministic digest payload emission",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "uv run pytest tests/test_digest.py tests/test_reader.py -q"
+          ],
+          "artifacts": [
+            "datapulse/reader.py",
+            "datapulse/cli.py",
+            "datapulse/mcp_server.py",
+            "tests/test_digest.py",
+            "tests/test_reader.py"
+          ],
+          "exit_condition": "DataPulse can export replayable feed bundles and deterministic digest payloads that reuse current pack/feed/digest semantics while keeping rendering and delivery as downstream steps.",
+          "notes": [
+            "Prefer additive methods such as feed_bundle export and prepare_digest_payload over replacing build_digest or emit_digest_package.",
+            "MCP and CLI nouns should match Reader exactly so the browser can project the same contract later."
+          ]
+        },
+        {
+          "id": "L19.5",
+          "title": "Harden route-backed digest and report delivery with Telegram chunk fallback and operator-visible diagnostics",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "uv run pytest tests/test_delivery.py tests/test_watchlist.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/alerts.py",
+            "datapulse/reader.py",
+            "tests/test_delivery.py",
+            "docs/intelligence_delivery_contract.md"
+          ],
+          "exit_condition": "Route-backed digest and report delivery no longer rely on one silent Telegram send or a 3900-character truncation path and instead expose chunk, fallback, and attempt diagnostics as operator-visible delivery facts.",
+          "notes": [
+            "Preserve attributable AlertEvent and route-health truth instead of inventing a hidden transport retry layer.",
+            "Markdown-or-plain fallback should fail closed and stay visible in delivery observations."
+          ]
+        },
+        {
+          "id": "L19.6",
+          "title": "Project feed-bundle browse run onboarding and delivery diagnostics into the browser console and smoke coverage",
+          "category": "manual",
+          "execution_profile": "runtime_validation",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "bash scripts/datapulse_console_smoke.sh",
+            "uv run --with playwright python scripts/datapulse_console_browser_smoke.py"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "datapulse/console_server.py",
+            "scripts/datapulse_console_smoke.sh",
+            "scripts/datapulse_console_browser_smoke.py",
+            "tests/test_console_server.py",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "The browser console can expose feed-bundle browse or run surfaces, digest profile onboarding, prompt-pack readiness, and route-backed delivery diagnostics without introducing a second browser-only digest model.",
+          "notes": [
+            "Treat this slice as a projection of the L19 contract and runtime nouns, not as a separate frontend feature tree.",
+            "Browser smoke should cover onboarding visibility, bundle preview, and delivery diagnostic rendering at a high-signal level."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
+    "id": "L19.2",
+    "title": "Define the feed_bundle and prepare_digest_payload contract on top of current pack feed and digest surfaces",
+    "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
     {
@@ -2711,7 +2866,12 @@
       "at_utc": "2026-03-18T09:18:08Z",
       "slice_id": "L18.4",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-29T04:58:20Z",
+      "slice_id": "L19.1",
+      "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-18T09:18:08Z"
+  "last_updated_utc": "2026-03-29T04:58:20Z"
 }

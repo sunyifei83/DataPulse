@@ -2,12 +2,12 @@
   "valid": true,
   "schema_version": "datapulse_ha_delivery_landing.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-18T08:06:47Z",
+  "generated_at_utc": "2026-03-29T05:04:01Z",
   "wired": false,
   "source_adapter_bundle": {
     "source_kind": "derived_temp_bundle",
-    "bundle_dir": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmp1kn34_9x/adapter_bundle",
-    "manifest_path": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmp1kn34_9x/adapter_bundle/adapter_bundle_manifest.draft.json",
+    "bundle_dir": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmp1yy4q5ig/adapter_bundle",
+    "manifest_path": "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmp1yy4q5ig/adapter_bundle/adapter_bundle_manifest.draft.json",
     "ephemeral": true
   },
   "source_ha_delivery_facts": {
@@ -25,8 +25,8 @@
     "head_published_to_upstream": true,
     "repo_landed": false,
     "ci_proven": false,
-    "ci_proof_mode": "push_ci_workflow",
-    "required_workflow": "CI",
+    "ci_proof_mode": "governance_evidence_dispatch",
+    "required_workflow": "governance-evidence.yml",
     "quick_test_gate": {
       "status": "stale_head",
       "observed": true,
@@ -93,7 +93,7 @@
             "manual_handoff_still_required"
           ],
           "suggested_artifacts": [
-            "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmp1kn34_9x/adapter_bundle/blueprint_plan.snapshot.json",
+            "/var/folders/rl/v1zj2k695hx5r92gfk4561wm0000gn/T/tmp1yy4q5ig/adapter_bundle/blueprint_plan.snapshot.json",
             "scripts/governance/run_governance_loop_bundle_draft.py",
             "repository workflow, scheduler, or explicit loop trigger entrypoint"
           ],
@@ -108,6 +108,11 @@
       "track_id": "runtime_cutover_window",
       "status": "open",
       "items": [
+        {
+          "fact": "governance_evidence_not_proven",
+          "category": "machine_blocker",
+          "summary": "This is a machine-decidable operating blocker and should not be promoted into reusable-core coupling."
+        },
         {
           "fact": "release_window_attestation_not_attested",
           "category": "machine_blocker",
@@ -151,6 +156,7 @@
       "repo_auto_continuation_policy"
     ],
     "runtime_cutover_window_facts": [
+      "governance_evidence_not_proven",
       "release_window_attestation_not_attested",
       "release_window_same_window_not_proven",
       "repo_landed_false",
@@ -162,6 +168,7 @@
     "release_structuring_facts": [],
     "release_structuring_projection": [],
     "machine_blockers": [
+      "governance_evidence_not_proven",
       "release_window_attestation_not_attested",
       "release_window_same_window_not_proven",
       "repo_landed_false",
@@ -181,6 +188,7 @@
       "target_pipeline_class_reached": false
     },
     "stop_on_machine_blockers": [
+      "governance_evidence_not_proven",
       "release_window_attestation_not_attested",
       "release_window_same_window_not_proven",
       "repo_landed_false",
@@ -192,6 +200,7 @@
         "repo_auto_continuation_policy"
       ],
       "runtime_facts": [
+        "governance_evidence_not_proven",
         "release_window_attestation_not_attested",
         "release_window_same_window_not_proven",
         "repo_landed_false",
@@ -202,6 +211,6 @@
   },
   "recommended_actions": [
     "Keep repo-governance cutover limited to the declared surfaces: repo_auto_continuation_policy",
-    "Resolve runtime cutover window facts separately from architecture work: release_window_attestation_not_attested, release_window_same_window_not_proven, repo_landed_false, workspace_dirty"
+    "Resolve runtime cutover window facts separately from architecture work: governance_evidence_not_proven, release_window_attestation_not_attested, release_window_same_window_not_proven, repo_landed_false, workspace_dirty"
   ]
 }

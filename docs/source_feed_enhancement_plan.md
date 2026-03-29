@@ -134,6 +134,25 @@
 - `L10.3` 应把 `OpenFactVerification`-class 能力挂到现有 `build_factuality_gate(...)` 边界后面，并保留当前 `status / score / reasons / signals / operator_action` 的 operator-visible contract。
 - 因此下一次点火顺序已前推为 `L10.2 -> L10.3`，而不是重新打开任何已经完成的 `L9` collector slice。
 
+## L19：Feed Bundle 与 Digest Delivery 加固波次（2026-03-29）
+
+- 这轮不是重做来源目录、pack 或 digest。仓内已经有 `list_packs / install_pack / query_feed / build_json_feed / build_atom_feed / build_digest / emit_digest_package`。
+- `follow-builders` 对本仓真正有价值的不是采集器更多，而是这条轻闭环：`curated pack/profile -> replayable feed bundle -> deterministic digest payload -> prompt-governed rendering -> route-backed delivery`。
+- 当前差距已经收敛为 5 个窄缺口：
+  - 缺可回放 `feed_bundle` artifact，无法把 `pack/profile/source_ids/run_window/stats/errors` 固化为后续摘要输入；
+  - 缺 `prepare_digest_payload` 风格 contract，当前 `build_digest/emit_digest_package` 还没有形成单一 `content/config/prompts/stats/errors` 边界；
+  - 缺 digest prompt pack 与本地 override 顺序；
+  - 浏览器虽有 onboarding copy，但 CLI/MCP/GUI 还没有共享 `language/timezone/frequency/default_delivery` 这类 digest profile；
+  - Telegram 与 report delivery 仍存在单次发送与 `3900` 字截断路径，缺 chunk、fallback 与显式 diagnostics。
+- 这轮必须保持当前 lifecycle 不变：仍然是 `mission -> triage -> story -> report -> delivery`；`feed_bundle` 与 `prepare_digest_payload` 只是补输出与交付中台，不另起第二条产品线。
+- 仓内治理蓝图已把这轮提升为 `L19`：
+  - `L19.1` 蓝图与点火图已落仓；
+  - `L19.2` 先冻结 `feed_bundle + prepare_digest_payload` contract；
+  - `L19.3` 再冻结 prompt override 与 first-run profile/onboarding；
+  - `L19.4` 补 Reader/CLI/MCP 导出与 payload runtime；
+  - `L19.5` 补 Telegram chunk/fallback/diagnostics；
+  - `L19.6` 再把同一组 noun 投到 GUI。
+
 ## 与现网能力映射
 
 | 目标 | 目前落地状态 | 下一步 |
@@ -142,13 +161,14 @@
 | 订阅关系 | ✅ `subscribe/unsubscribe`、`list_subscriptions` | 后续: 增加批量订阅 API |
 | 源组复用 | ✅ `install_pack` + `list_packs` | 后续: 导入清单 UI |
 | 聚合输出 | ✅ `build_json_feed / build_rss_feed / build_atom_feed` + 测试覆盖 | ✅ v0.4.0: Atom 1.0 + Digest 构建器 |
+| 摘要载荷 | ✅ `build_digest / emit_digest_package` 已落地 | 后续: `feed_bundle` + deterministic `prepare_digest_payload` + prompt override |
 | 运维安全 | ✅ 健康检查 + SSRF 防护 + 配置化路径 | ✅ v0.3.0: processed 状态管理 |
 | 多维评分 | ✅ 四维度加权 + Source Authority Tiers | ✅ v0.4.0 完成 |
 | Web 搜索 | ✅ 多源网关（Jina/Tavily）CLI/MCP | ✅ v0.5.0 完成 |
 | 任务化 | 🚧 `WatchMission` 首版（CLI/Reader/MCP + due runner + daemon + richer alert sink + status page） | 后续: 自动重跑 / 故障恢复 / 聚合面板 |
 | 处置化 | 🚧 `TriageQueue` 首版（state/note/action + duplicate explain + CLI/MCP/Console + digest gate） | 后续: keyboard workflow / reviewer SLA |
 | 证据化 | 🚧 `Story Workspace` 首版（story cluster + evidence/timeline/conflict + CLI/MCP + persisted snapshot + console board + entity graph） | 后续: story merge / editor |
-| 分发化 | 🚧 当前有效交付层为 `AlertEvent` + named routes + `build_json_feed / build_rss_feed / build_atom_feed` + `story_export` + `alert_route_health / ops_snapshot` | 后续: `L6.3` 明确订阅/回调 contract，统一角色化 feed 与 route-backed 输出 |
+| 分发化 | 🚧 当前有效交付层为 `AlertEvent` + named routes + `build_json_feed / build_rss_feed / build_atom_feed` + `story_export` + `alert_route_health / ops_snapshot` | 后续: `L6.3` 明确订阅/回调 contract；`L19.5` 补 Telegram chunk/fallback 与 route-backed digest/report diagnostics |
 
 ## 验收建议（本项目）
 
@@ -179,6 +199,7 @@
 - `G3` 的 browser story workspace 已补入基础 story editor：同屏支持查看 evidence/timeline/graph，并直接回写 story title、summary 与 status。
 - `G4` 现已补到任务级 watch health / aggregate success-rate board：后端 `ops_snapshot()`、CLI `--ops-overview`、MCP `ops_overview()` 与浏览器状态面板保持一致。
 - `G4` 已继续补入 route delivery timeline：最近投递尝试、投递状态和错误摘要可在同一 ops 面板连续查看。
+- `L19.6` 的 GUI follow-up 应聚焦于 `feed_bundle` 浏览/触发、digest profile onboarding、prompt pack readiness、以及 route-backed digest/report diagnostics；这些都应投影同一 Reader noun，而不是新增 GUI-only digest composer。
 - `G0/G3` 壳层已落地，且已补入 `mission detail + result stream + result filter chips + timeline strip + alert rule editor` 与 `route health` 首版：`FastAPI` + `datapulse-console` + `/api/overview` / `/api/watches` / `/api/watches/{id}` / `/api/watches/{id}/results` / `/api/watches/{id}/alert-rules` / `/api/alerts` / `/api/alert-routes` / `/api/alert-routes/health` / `/api/watch-status` / `/api/triage` / `/api/triage/{id}/explain` / `/api/stories` / `/api/stories/{id}` / `/api/stories/{id}/graph` / `/api/stories/{id}/export`。
 - console 启动入口已补齐：`datapulse-console`、`python -m datapulse.console_server` 与 `scripts/datapulse_console.sh`；仓内附带 `scripts/datapulse_console_smoke.sh` 做入口烟测。
 - `P8` backend 与首版 GUI story board 已打通，当前已补入 story-aware entity graph 和基础 story editor；更深的编辑能力后续再补。

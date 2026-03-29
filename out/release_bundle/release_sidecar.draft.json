@@ -1,7 +1,7 @@
 {
   "schema_version": "release_sidecar.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-18T08:06:39Z",
+  "generated_at_utc": "2026-03-29T05:03:51Z",
   "sidecar_kind": "draft_export",
   "wired": false,
   "release": {
@@ -21,7 +21,7 @@
     ]
   },
   "git": {
-    "head": "7bc8447af13c4c1855d2ee2a64d04b86f7a09e61",
+    "head": "bd007e8c259768a54790bb9f7b244a79a1f2faf5",
     "branch": "main",
     "workspace_clean": false
   },

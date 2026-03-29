@@ -273,12 +273,32 @@ Current browser baseline:
 - triage-to-story promotion, story-to-triage evidence focus, route CRUD, command palette persistence, URL deep links, saved views, pinned views, default landing views, and context-lens sharing are all available
 - onboarding and empty states now teach the in-browser lifecycle `Mission Intake -> Mission Board/Cockpit -> Triage -> Story Workspace -> Route Manager / Distribution Health` instead of sending first-time operators back to CLI-first assumptions
 - story and route onboarding now point to browser actions such as `Create Story`, `Story Intake`, `Alert Route`, and `Route Manager`, keeping first-pass operation inside the shell
+- current onboarding is still mission-first; digest profile defaults, prompt-pack readiness, and feed-bundle-specific delivery setup are not yet first-class browser surfaces
 - the remaining problem is no longer "can the browser do the lifecycle work" but "can operators move through it with lower cognitive load, clearer priorities, and stronger product fit"
 
 That changes the follow-up shape.
 
 - the next slices should optimize operating feel, information architecture, and verification safety
 - they should not reopen parallel browser-only state models or fork the Reader-backed lifecycle contract
+
+## Cross-Blueprint Dependency: L19 Feed Bundle And Digest Delivery
+
+The next repo-wide ignition wave is not another GUI-only feature lane. It is a browser projection problem over an already-visible repo gap in pack/feed/digest/delivery ergonomics.
+
+Console implications:
+
+- onboarding should expand from mission/story/route guidance to a shared first-run digest profile capture for `language`, `timezone`, `frequency`, and default route target
+- the browser should expose curated pack or feed-bundle browse/run/preview surfaces instead of forcing digest setup back into raw CLI flags
+- delivery panels should surface prompt-pack readiness, payload provenance, chunk or fallback status, and last route result for digest and report dispatch
+
+Rules:
+
+- these surfaces must project the same `feed_bundle`, `prepare_digest_payload`, named route, and delivery observation nouns used by Reader, CLI, and MCP
+- the browser must not invent a second digest-composer state machine or hide prompt selection inside local-only UI state
+
+Handoff:
+
+- treat this as the GUI projection slice of `L19.6` after `L19.2` through `L19.5` freeze the contract and runtime semantics
 
 ## Repo-Relevant Follow-up Slice Map
 

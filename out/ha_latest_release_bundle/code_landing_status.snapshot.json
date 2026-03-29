@@ -1,7 +1,7 @@
 {
   "schema_version": "code_landing_status.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-18T08:06:52Z",
+  "generated_at_utc": "2026-03-29T05:04:08Z",
   "status_kind": "draft_export",
   "wired": false,
   "headline_summary": {
@@ -10,8 +10,8 @@
     "head_published_to_upstream": true,
     "repo_landed": false,
     "ci_proven": false,
-    "ci_proof_mode": "push_ci_workflow",
-    "required_workflow": "CI",
+    "ci_proof_mode": "governance_evidence_dispatch",
+    "required_workflow": "governance-evidence.yml",
     "quick_test_gate": {
       "status": "stale_head",
       "observed": true,
@@ -24,27 +24,20 @@
     }
   },
   "git": {
-    "head": "7bc8447af13c4c1855d2ee2a64d04b86f7a09e61",
+    "head": "bd007e8c259768a54790bb9f7b244a79a1f2faf5",
     "branch": "main",
     "upstream_ref": "origin/main",
-    "upstream_head": "7bc8447af13c4c1855d2ee2a64d04b86f7a09e61",
+    "upstream_head": "bd007e8c259768a54790bb9f7b244a79a1f2faf5",
     "head_published_to_upstream": true
   },
   "workspace": {
     "clean": false,
     "dirty_entries": [
-      " M scripts/governance/datapulse_loop_contracts.py",
-      " M scripts/governance/export_datapulse_code_landing_status.py",
-      " M scripts/governance/export_datapulse_evidence_bundle.py",
-      " M scripts/governance/export_datapulse_ha_delivery_facts.py",
-      " M scripts/governance/export_datapulse_ha_delivery_landing.py",
-      " M scripts/governance/export_datapulse_loop_adapter_bundle.py",
-      " M scripts/governance/export_datapulse_modelbus_consumer_bundle.py",
-      " M scripts/governance/export_datapulse_release_sidecar.py",
-      " M scripts/governance/export_datapulse_structured_release_bundle.py",
-      " M scripts/governance/run_datapulse_ha_recovery_replay.py",
-      " M scripts/governance/verify_datapulse_ha_delivery_landing.py",
-      " M tests/test_governance_loop.py"
+      "M docs/governance/datapulse-blueprint-plan.draft.json",
+      " M docs/governance/datapulse-blueprint-plan.json",
+      " M docs/gui_intelligence_console_plan.md",
+      " M docs/source_feed_enhancement_plan.md",
+      "?? docs/governance/datapulse-feed-bundle-digest-delivery-blueprint.md"
     ],
     "reason": "git status reported local modifications."
   },
@@ -219,52 +212,23 @@
   "ci": {
     "workflow_name": "CI",
     "truth_source": ".github/workflows/ci.yml",
-    "docs_only_changes_skip_ci": false,
+    "docs_only_changes_skip_ci": true,
     "docs_paths_ignore_configured": true,
-    "proof_mode": "push_ci_workflow",
+    "proof_mode": "governance_evidence_dispatch",
     "head_published_to_upstream": true,
-    "required_workflow": "CI",
-    "required_run": {
-      "database_id": 23188461160,
-      "head_sha": "7bc8447af13c4c1855d2ee2a64d04b86f7a09e61",
-      "head_branch": "main",
-      "status": "completed",
-      "conclusion": "success",
-      "event": "push",
-      "workflow_name": "CI",
-      "created_at": "2026-03-17T09:55:36Z",
-      "updated_at": "2026-03-17T09:56:16Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23188461160"
-    },
-    "latest_head_ci_run": {
-      "database_id": 23188461160,
-      "head_sha": "7bc8447af13c4c1855d2ee2a64d04b86f7a09e61",
-      "head_branch": "main",
-      "status": "completed",
-      "conclusion": "success",
-      "event": "push",
-      "workflow_name": "CI",
-      "created_at": "2026-03-17T09:55:36Z",
-      "updated_at": "2026-03-17T09:56:16Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23188461160"
-    },
+    "required_workflow": "governance-evidence.yml",
+    "required_run": null,
+    "latest_head_ci_run": null,
     "latest_head_governance_evidence_run": null,
     "change_scope": {
       "paths": [
-        "scripts/governance/datapulse_loop_contracts.py",
-        "scripts/governance/export_datapulse_code_landing_status.py",
-        "scripts/governance/export_datapulse_evidence_bundle.py",
-        "scripts/governance/export_datapulse_ha_delivery_facts.py",
-        "scripts/governance/export_datapulse_ha_delivery_landing.py",
-        "scripts/governance/export_datapulse_loop_adapter_bundle.py",
-        "scripts/governance/export_datapulse_modelbus_consumer_bundle.py",
-        "scripts/governance/export_datapulse_release_sidecar.py",
-        "scripts/governance/export_datapulse_structured_release_bundle.py",
-        "scripts/governance/run_datapulse_ha_recovery_replay.py",
-        "scripts/governance/verify_datapulse_ha_delivery_landing.py",
-        "tests/test_governance_loop.py"
+        "docs/governance/datapulse-blueprint-plan.draft.json",
+        "docs/governance/datapulse-blueprint-plan.json",
+        "docs/gui_intelligence_console_plan.md",
+        "docs/source_feed_enhancement_plan.md",
+        "docs/governance/datapulse-feed-bundle-digest-delivery-blueprint.md"
       ],
-      "docs_only": false
+      "docs_only": true
     }
   },
   "release": {
@@ -285,9 +249,9 @@
       "same_window_proven": false,
       "all_sources_fresh": true,
       "runtime_closure_complete": true,
-      "window_id": "dp-release-window-20260318T080639Z-7bc8447af13c4c1855d2ee2a64d04b86f7a09e61",
-      "git_head": "7bc8447af13c4c1855d2ee2a64d04b86f7a09e61",
-      "generated_at_utc": "2026-03-18T08:06:39Z",
+      "window_id": "dp-release-window-20260329T050351Z-bd007e8c259768a54790bb9f7b244a79a1f2faf5",
+      "git_head": "bd007e8c259768a54790bb9f7b244a79a1f2faf5",
+      "generated_at_utc": "2026-03-29T05:03:51Z",
       "blocking_reasons": [
         "workspace_dirty"
       ]
@@ -306,7 +270,9 @@
     ],
     "local_verification": [],
     "runtime_governance": [],
-    "ci_policy": [],
+    "ci_policy": [
+      "docs_only_changes_skip_ci"
+    ],
     "release_governance": [
       "release_window_attestation_not_attested",
       "release_window_same_window_not_proven"
@@ -322,7 +288,8 @@
     "ci_proven": {
       "satisfied": false,
       "reasons": [
-        "repo_landed_false"
+        "repo_landed_false",
+        "governance_evidence_not_proven"
       ]
     }
   },
@@ -476,9 +443,9 @@
     "latest_release_window_attestation": {
       "path": "out/ha_latest_release_bundle/datapulse_release_window_attestation.draft.json",
       "schema_version": "datapulse_release_window_attestation.v1",
-      "generated_at_utc": "2026-03-18T08:06:39Z",
-      "window_id": "dp-release-window-20260318T080639Z-7bc8447af13c4c1855d2ee2a64d04b86f7a09e61",
-      "git_head": "7bc8447af13c4c1855d2ee2a64d04b86f7a09e61",
+      "generated_at_utc": "2026-03-29T05:03:51Z",
+      "window_id": "dp-release-window-20260329T050351Z-bd007e8c259768a54790bb9f7b244a79a1f2faf5",
+      "git_head": "bd007e8c259768a54790bb9f7b244a79a1f2faf5",
       "attestation_status": "blocked",
       "blocking_reasons": [
         "workspace_dirty"
@@ -494,40 +461,40 @@
       },
       "freshness": {
         "all_sources_fresh": true,
-        "max_observed_skew_seconds": 10,
+        "max_observed_skew_seconds": 2,
         "sources": [
           {
             "source": "structured_release_bundle_manifest",
             "path": "out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
-            "generated_at_utc": "2026-03-18T08:06:29Z",
-            "age_seconds": 10,
+            "generated_at_utc": "2026-03-29T05:03:49Z",
+            "age_seconds": 2,
             "fresh": true
           },
           {
             "source": "bundle_manifest",
             "path": "out/ha_latest_release_bundle/bundle_manifest.json",
-            "generated_at_utc": "2026-03-18T08:06:29Z",
-            "age_seconds": 10,
+            "generated_at_utc": "2026-03-29T05:03:49Z",
+            "age_seconds": 2,
             "fresh": true
           },
           {
             "source": "runtime_hit_evidence",
             "path": "out/ha_latest_release_bundle/datapulse_surface_runtime_hit_evidence.draft.json",
-            "generated_at_utc": "2026-03-18T08:06:29Z",
-            "age_seconds": 10,
+            "generated_at_utc": "2026-03-29T05:03:51Z",
+            "age_seconds": 0,
             "fresh": true
           },
           {
             "source": "release_sidecar",
             "path": "out/ha_latest_release_bundle/release_sidecar.draft.json",
-            "generated_at_utc": "2026-03-18T08:06:39Z",
+            "generated_at_utc": "2026-03-29T05:03:51Z",
             "age_seconds": 0,
             "fresh": true
           }
         ]
       },
       "release_sidecar_truth": {
-        "git_head": "7bc8447af13c4c1855d2ee2a64d04b86f7a09e61"
+        "git_head": "bd007e8c259768a54790bb9f7b244a79a1f2faf5"
       },
       "runtime_hit_evidence": {
         "runtime_bundle_dir": "out/ha_latest_release_bundle",
@@ -547,18 +514,7 @@
         ]
       }
     },
-    "latest_head_ci_run": {
-      "database_id": 23188461160,
-      "head_sha": "7bc8447af13c4c1855d2ee2a64d04b86f7a09e61",
-      "head_branch": "main",
-      "status": "completed",
-      "conclusion": "success",
-      "event": "push",
-      "workflow_name": "CI",
-      "created_at": "2026-03-17T09:55:36Z",
-      "updated_at": "2026-03-17T09:56:16Z",
-      "url": "https://github.com/sunyifei83/DataPulse/actions/runs/23188461160"
-    },
+    "latest_head_ci_run": null,
     "latest_head_governance_evidence_run": null
   },
   "evidence_paths": {

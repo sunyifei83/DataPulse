@@ -1,6 +1,6 @@
 {
   "schema": "modelbus.release_status.v1",
-  "generated_at_utc": "2026-03-18T08:06:52Z",
+  "generated_at_utc": "2026-03-29T05:04:08Z",
   "release_level": "manual_only",
   "assured_verdict": "pass",
   "runtime": {

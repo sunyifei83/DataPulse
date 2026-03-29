@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-18T09:18:08Z",
+  "generated_at_utc": "2026-03-29T04:58:20Z",
   "status": "in_progress",
   "activation": {
     "wired": true,
@@ -18,12 +18,11 @@
       "The report-production and report-delivery waves remain part of active blueprint truth.",
       "The ModelBus-backed AI assistance governance and runtime-bridge wave is now completed in repo truth through L16.8.",
       "The release-window attestation follow-up wave is now completed in repo truth through L17.4.",
-      "A new QNAIGC search-provider follow-up wave is now promoted into the active blueprint truth.",
-      "L18.1 through L18.3 stage blueprint landing, routing-and-config freeze, and adapter-plus-auto-candidate wiring are now reflected in repo truth without claiming broader operational readiness.",
-      "The blueprint-landing slice L18.1 and contract-freeze slice L18.2 are now reflected in repo truth without claiming runtime support before implementation lands.",
-      "L18.3 has implemented the runtime candidate wiring with request-id tracing and cost accounting for QNAIGC paid calls.",
-      "Further work should preserve SearchHit normalization and explicit operator-visible cost control rather than replacing the current tavily/jina default chain.",
-      "L18.4 is now completed in this working copy; next manual slice is not yet defined."
+      "The QNAIGC search-provider follow-up wave is now fully completed in repo truth through L18.4.",
+      "A new feed-bundle and digest-delivery hardening wave is now promoted into the active blueprint truth.",
+      "L19.1 lands the repo-scoped blueprint and ignition map while correcting the repo-read: current DataPulse already has packs, feed exports, and digest builders.",
+      "L19.2 is now the next manual slice and should freeze feed_bundle plus prepare_digest_payload semantics before runtime or browser work proceeds.",
+      "Further work should preserve the current lifecycle contract and additive build_digest or emit_digest_package anchors rather than creating a second content pipeline."
     ]
   }
 }
