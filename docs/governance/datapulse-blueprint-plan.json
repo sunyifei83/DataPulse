@@ -1,8 +1,8 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-29T04:58:20Z",
-  "status": "in_progress",
+  "generated_at_utc": "2026-03-29T09:49:05Z",
+  "status": "completed",
   "activation": {
     "wired": true,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -12,17 +12,17 @@
     }
   },
   "governance_mode": {
-    "kind": "active_manual_open_slice",
+    "kind": "active_manual_terminal_stop",
     "notes": [
       "This overlay keeps the repository blueprint truth active while leaving continuation in explicit manual mode.",
       "The report-production and report-delivery waves remain part of active blueprint truth.",
       "The ModelBus-backed AI assistance governance and runtime-bridge wave is now completed in repo truth through L16.8.",
       "The release-window attestation follow-up wave is now completed in repo truth through L17.4.",
       "The QNAIGC search-provider follow-up wave is now fully completed in repo truth through L18.4.",
-      "A new feed-bundle and digest-delivery hardening wave is now promoted into the active blueprint truth.",
-      "L19.1 lands the repo-scoped blueprint and ignition map while correcting the repo-read: current DataPulse already has packs, feed exports, and digest builders.",
-      "L19.2 is now the next manual slice and should freeze feed_bundle plus prepare_digest_payload semantics before runtime or browser work proceeds.",
-      "Further work should preserve the current lifecycle contract and additive build_digest or emit_digest_package anchors rather than creating a second content pipeline."
+      "The feed-bundle and digest-delivery hardening wave is now fully completed in repo truth through L19.6.",
+      "This wave corrected the repo-read: DataPulse already had packs, feed exports, and digest builders, so the real gap was replayable feed_bundle semantics, deterministic digest payloads, prompt override order, shared onboarding defaults, and Telegram delivery hardening.",
+      "The current structured blueprint now resolves to no-open-slice; continuation should reopen only when a new repo-relevant slice is promoted or promotion evidence regresses.",
+      "Operator review should treat release-window attestation freshness and same-head consistency as the remaining promotion concern rather than inventing another follow-up slice after L19."
     ]
   }
 }

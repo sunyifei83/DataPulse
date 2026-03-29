@@ -9,6 +9,7 @@ from pathlib import Path
 from datapulse_loop_contracts import (
     DEFAULT_OUT_DIR,
     REPO_ROOT,
+    ci_docs_only_skip_active,
     git_output,
     latest_artifact_file,
     parse_emergency_state,
@@ -19,6 +20,7 @@ from datapulse_loop_contracts import (
     repo_workspace_clean,
     structured_release_bundle_available,
     utc_now,
+    workspace_dirty_gate_active,
     workflow_dispatch_available,
     write_json,
 )
@@ -105,7 +107,9 @@ def main() -> int:
     version = tag.lstrip("v")
     notes_file = (REPO_ROOT / args.notes_file).resolve() if not args.notes_file.is_absolute() else args.notes_file
     notes_found, notes_excerpt = extract_notes_section(notes_file, tag)
-    workspace_clean, _dirty_entries = repo_workspace_clean()
+    workspace_clean, dirty_entries = repo_workspace_clean()
+    docs_only_skip_active, _change_paths = ci_docs_only_skip_active(workspace_clean, dirty_entries)
+    workspace_dirty_active = workspace_dirty_gate_active(workspace_clean, dirty_entries)
     remote_report = parse_remote_report(latest_artifact_file("remote_report.md"))
     emergency_state = parse_emergency_state(latest_artifact_file("emergency_state.json"))
     local_report = parse_local_report(latest_artifact_file("local_report.md"))
@@ -194,13 +198,14 @@ def main() -> int:
                     "" if workflow_dispatch else "workflow_dispatch_missing",
                     "" if structured_release_bundle_available() else "structured_release_bundle_missing",
                     "" if notes_found else "release_notes_section_missing",
-                    "" if workspace_clean else "workspace_dirty",
+                    "" if not workspace_dirty_active else "workspace_dirty",
                     "" if runtime_hit_evidence else "ai_runtime_hit_evidence_missing",
                     "" if runtime_prereqs.get("bundle_first_default_ready", False) else "bundle_first_default_not_ready",
                     "" if runtime_prereqs.get("required_change_prerequisites_met", False) else "required_runtime_surface_not_ready",
                 ]
                 if reason
             ],
+            "docs_only_skip_active": docs_only_skip_active,
         },
     }
 

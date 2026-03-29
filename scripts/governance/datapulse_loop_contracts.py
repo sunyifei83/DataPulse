@@ -227,6 +227,13 @@ def ci_docs_only_skip_active(workspace_clean: bool, dirty_entries: list[str]) ->
     return docs_only, change_paths
 
 
+def workspace_dirty_gate_active(workspace_clean: bool, dirty_entries: list[str]) -> bool:
+    if workspace_clean:
+        return False
+    docs_only_skip_active, _change_paths = ci_docs_only_skip_active(workspace_clean, dirty_entries)
+    return not docs_only_skip_active
+
+
 def latest_artifact_file(filename: str) -> Path | None:
     if not ARTIFACTS_ROOT.exists():
         return None
@@ -742,6 +749,7 @@ def verification_contracts(
 def build_code_landing_status(*, release_window_attestation_path: Path | None = None) -> dict[str, Any]:
     workspace_clean, dirty_entries = repo_workspace_clean()
     docs_only_skip_active, change_paths = ci_docs_only_skip_active(workspace_clean, dirty_entries)
+    workspace_dirty_active = workspace_dirty_gate_active(workspace_clean, dirty_entries)
     head_sha = git_output("rev-parse", "HEAD")
     branch = git_output("branch", "--show-current")
     head_published, upstream_ref, upstream_head = current_head_published(head_sha)
@@ -773,7 +781,7 @@ def build_code_landing_status(*, release_window_attestation_path: Path | None = 
     )
 
     repo_landed_reasons: list[str] = []
-    if not workspace_clean:
+    if workspace_dirty_active:
         repo_landed_reasons.append("workspace_dirty")
     if not verification_gateable:
         repo_landed_reasons.append("verification_not_fully_gateable")
@@ -812,7 +820,7 @@ def build_code_landing_status(*, release_window_attestation_path: Path | None = 
     gate_groups = {
         "execution_safety": dedupe(
             [
-                "workspace_dirty" if not workspace_clean else "",
+                "workspace_dirty" if workspace_dirty_active else "",
             ]
         ),
         "local_verification": dedupe(
@@ -879,7 +887,16 @@ def build_code_landing_status(*, release_window_attestation_path: Path | None = 
         "workspace": {
             "clean": workspace_clean,
             "dirty_entries": dirty_entries,
-            "reason": "" if workspace_clean else "git status reported local modifications.",
+            "reason": (
+                ""
+                if workspace_clean
+                else (
+                    "git status reported only docs-only changes; workspace_dirty gate is inactive."
+                    if docs_only_skip_active
+                    else "git status reported local modifications."
+                )
+            ),
+            "workspace_dirty_gate_active": workspace_dirty_active,
         },
         "verification": verification,
         "ci": {
