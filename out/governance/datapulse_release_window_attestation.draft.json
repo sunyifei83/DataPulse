@@ -1,9 +1,9 @@
 {
   "schema_version": "datapulse_release_window_attestation.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-17T09:47:49Z",
-  "window_id": "dp-release-window-20260317T094748Z-72835e60104b0bf3d3266740787897ab17c4805d",
-  "git_head": "72835e60104b0bf3d3266740787897ab17c4805d",
+  "generated_at_utc": "2026-03-29T10:04:39Z",
+  "window_id": "dp-release-window-20260329T100427Z-f97166f6456ca81be78068d76a19c849e7f1b731",
+  "git_head": "f97166f6456ca81be78068d76a19c849e7f1b731",
   "attestation_status": "attested",
   "blocking_reasons": [],
   "same_window": {
@@ -17,34 +17,34 @@
     "max_source_age_seconds": 900,
     "max_inter_source_skew_seconds": 300,
     "all_sources_fresh": true,
-    "max_observed_skew_seconds": 24,
+    "max_observed_skew_seconds": 27,
     "sources": [
       {
         "source": "structured_release_bundle_manifest",
         "path": "out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
-        "generated_at_utc": "2026-03-17T09:47:24Z",
-        "age_seconds": 25,
+        "generated_at_utc": "2026-03-29T10:04:00Z",
+        "age_seconds": 39,
         "fresh": true
       },
       {
         "source": "bundle_manifest",
         "path": "out/ha_latest_release_bundle/bundle_manifest.json",
-        "generated_at_utc": "2026-03-17T09:47:29Z",
-        "age_seconds": 20,
+        "generated_at_utc": "2026-03-29T10:04:27Z",
+        "age_seconds": 12,
         "fresh": true
       },
       {
         "source": "runtime_hit_evidence",
-        "path": "out/governance/datapulse_surface_runtime_hit_evidence.draft.json",
-        "generated_at_utc": "2026-03-17T09:47:48Z",
-        "age_seconds": 1,
+        "path": "out/ha_latest_release_bundle/datapulse_surface_runtime_hit_evidence.draft.json",
+        "generated_at_utc": "2026-03-29T10:04:01Z",
+        "age_seconds": 38,
         "fresh": true
       },
       {
         "source": "release_sidecar",
-        "path": "out/governance/release_sidecar.draft.json",
-        "generated_at_utc": "2026-03-17T09:47:48Z",
-        "age_seconds": 1,
+        "path": "out/ha_latest_release_bundle/release_sidecar.draft.json",
+        "generated_at_utc": "2026-03-29T10:04:15Z",
+        "age_seconds": 24,
         "fresh": true
       }
     ]
@@ -52,7 +52,7 @@
   "bundle_identity": {
     "bundle_dir": "out/ha_latest_release_bundle",
     "structured_manifest_path": "out/ha_latest_release_bundle/structured_release_bundle_manifest.draft.json",
-    "structured_manifest_generated_at_utc": "2026-03-17T09:47:24Z",
+    "structured_manifest_generated_at_utc": "2026-03-29T10:04:00Z",
     "adapter_bundle_manifest_path": "out/ha_latest_release_bundle/adapter_bundle_manifest.draft.json",
     "bundle_manifest_path": "out/ha_latest_release_bundle/bundle_manifest.json",
     "bundle_id": "datapulse.ai_surface_bus",
@@ -81,9 +81,9 @@
     ]
   },
   "runtime_hit_evidence": {
-    "path": "out/governance/datapulse_surface_runtime_hit_evidence.draft.json",
+    "path": "out/ha_latest_release_bundle/datapulse_surface_runtime_hit_evidence.draft.json",
     "schema_version": "datapulse_surface_runtime_hit_evidence.v1",
-    "generated_at_utc": "2026-03-17T09:47:48Z",
+    "generated_at_utc": "2026-03-29T10:04:01Z",
     "bundle_default_strategy": "bundle_first",
     "runtime_bundle_dir": "out/ha_latest_release_bundle",
     "closure_replay_entrypoint": "python3 scripts/governance/export_datapulse_surface_runtime_hit_evidence.py --bundle-dir out/ha_latest_release_bundle",
@@ -99,7 +99,7 @@
         "expected_evidence_status": "verified",
         "observed_evidence_status": "verified",
         "release_scope": "shadow",
-        "request_id": "166c607564ef",
+        "request_id": "b8382834555a",
         "served_by_alias": "dp.delivery.summary",
         "contract_id": "datapulse_ai_delivery_summary.v1",
         "fail_closed": false,
@@ -110,7 +110,7 @@
         "expected_evidence_status": "verified_fail_closed",
         "observed_evidence_status": "verified_fail_closed",
         "release_scope": "required",
-        "request_id": "adeeba67c95f",
+        "request_id": "f3963b240a5f",
         "served_by_alias": "dp.report.draft",
         "contract_id": "",
         "fail_closed": true,
@@ -119,11 +119,11 @@
     ]
   },
   "release_sidecar_truth": {
-    "path": "out/governance/release_sidecar.draft.json",
+    "path": "out/ha_latest_release_bundle/release_sidecar.draft.json",
     "schema_version": "release_sidecar.v1",
-    "generated_at_utc": "2026-03-17T09:47:48Z",
+    "generated_at_utc": "2026-03-29T10:04:15Z",
     "release_tag": "v0.8.0",
-    "git_head": "72835e60104b0bf3d3266740787897ab17c4805d",
+    "git_head": "f97166f6456ca81be78068d76a19c849e7f1b731",
     "workspace_clean": true,
     "structured_release_bundle_available": true,
     "runtime_hit_evidence_available": true,

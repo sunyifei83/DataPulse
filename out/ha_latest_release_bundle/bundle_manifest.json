@@ -1,6 +1,6 @@
 {
   "schema": "modelbus.consumer_bundle_manifest.v1",
-  "generated_at_utc": "2026-03-29T05:04:08Z",
+  "generated_at_utc": "2026-03-29T10:04:27Z",
   "bundle_id": "datapulse.ai_surface_bus",
   "consumer_id": "datapulse",
   "artifacts": {

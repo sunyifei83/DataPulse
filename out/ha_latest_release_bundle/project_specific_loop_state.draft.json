@@ -1,12 +1,12 @@
 {
   "schema_version": "project_specific_loop_state.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-29T05:03:57Z",
+  "generated_at_utc": "2026-03-29T10:04:19Z",
   "state_kind": "draft_export",
   "source_plan": "docs/governance/datapulse-blueprint-plan.json",
   "wired": true,
-  "current_level": "manual_only",
-  "workspace_clean": false,
+  "current_level": "repo_landed",
+  "workspace_clean": true,
   "completed_slices": [
     "L0.1",
     "L0.2",
@@ -102,23 +102,21 @@
     "L18.2",
     "L18.3",
     "L18.4",
-    "L19.1"
+    "L19.1",
+    "L19.2",
+    "L19.3",
+    "L19.4",
+    "L19.5",
+    "L19.6"
   ],
   "next_slice": {
-    "id": "L19.2",
-    "title": "Define the feed_bundle and prepare_digest_payload contract on top of current pack feed and digest surfaces",
-    "category": "manual",
-    "phase_id": "L19",
-    "execution_profile": "draft_only",
-    "promotion_scope": "none",
-    "closes_gates": []
+    "id": "no-open-slice",
+    "title": "No open slice",
+    "category": "complete"
   },
   "remaining_promotion_gates": [
-    "workspace_dirty",
-    "repo_landed_false",
-    "governance_evidence_not_proven",
-    "release_window_attestation_not_attested",
-    "release_window_same_window_not_proven"
+    "head_not_pushed",
+    "ci_run_not_proven"
   ],
   "blocking_facts": [],
   "pipeline_contract": {
@@ -131,12 +129,12 @@
   "control_contract": {
     "progress_truth": {
       "source": "blueprint_plan_next_open_slice",
-      "current_next_slice_id": "L19.2"
+      "current_next_slice_id": "no-open-slice"
     },
     "stop_truth": {
       "source": "blocking_facts_and_flow_control",
-      "status_if_run_now": "ready_waiting_manual_handoff",
-      "reason_if_run_now": "manual_promotion_mode",
+      "status_if_run_now": "stopped",
+      "reason_if_run_now": "promotion_gates_open",
       "machine_decidable": true,
       "expected_terminal_stop_on_complete": true
     },
@@ -172,8 +170,8 @@
     }
   },
   "flow_control": {
-    "status_if_run_now": "ready_waiting_manual_handoff",
-    "reason_if_run_now": "manual_promotion_mode",
+    "status_if_run_now": "stopped",
+    "reason_if_run_now": "promotion_gates_open",
     "machine_decidable_blockers": true,
     "auto_continuation_enabled": false,
     "readiness_gaps": [
@@ -181,33 +179,33 @@
     ]
   },
   "promotion_mode": "manual_only",
-  "stop_reason_if_run_now": "",
+  "stop_reason_if_run_now": "promotion_gates_open",
   "local_verification": {
     "quick_test_gate": {
       "status": "stale_head",
       "observed": true,
       "current_head_match": false,
       "ok": true,
-      "generated_at_utc": "2026-03-17T09:47:24Z",
-      "head": "72835e60104b0bf3d3266740787897ab17c4805d",
+      "generated_at_utc": "2026-03-29T06:16:39Z",
+      "head": "5bf56b82a9d3133765beccca1cee3ec6d1eb3b84",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
   },
   "headline_summary": {
-    "current_level": "manual_only",
-    "workspace_clean": false,
-    "next_slice_id": "L19.2",
-    "next_slice_title": "Define the feed_bundle and prepare_digest_payload contract on top of current pack feed and digest surfaces",
-    "status_if_run_now": "ready_waiting_manual_handoff",
-    "reason_if_run_now": "manual_promotion_mode",
+    "current_level": "repo_landed",
+    "workspace_clean": true,
+    "next_slice_id": "no-open-slice",
+    "next_slice_title": "No open slice",
+    "status_if_run_now": "stopped",
+    "reason_if_run_now": "promotion_gates_open",
     "quick_test_gate": {
       "status": "stale_head",
       "observed": true,
       "current_head_match": false,
       "ok": true,
-      "generated_at_utc": "2026-03-17T09:47:24Z",
-      "head": "72835e60104b0bf3d3266740787897ab17c4805d",
+      "generated_at_utc": "2026-03-29T06:16:39Z",
+      "head": "5bf56b82a9d3133765beccca1cee3ec6d1eb3b84",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }

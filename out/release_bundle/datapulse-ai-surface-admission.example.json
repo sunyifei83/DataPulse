@@ -1,6 +1,6 @@
 {
   "schema_version": "datapulse_ai_surface_admission.v1",
-  "generated_at_utc": "2026-03-29T05:04:06Z",
+  "generated_at_utc": "2026-03-29T10:04:15Z",
   "governance_phase": "L16.5",
   "source_subscription_contract": "docs/governance/datapulse-ai-surface-subscriptions.example.json",
   "surface_admissions": [
