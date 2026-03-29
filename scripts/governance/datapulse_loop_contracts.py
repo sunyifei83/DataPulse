@@ -3,10 +3,22 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from datapulse.governance_paths import (
+    EVIDENCE_BUNDLE_ROOT,
+    GOVERNANCE_SNAPSHOT_ROOT,
+    read_path as resolve_governance_read_path,
+    root_candidates as resolve_governance_root_candidates,
+    write_root as resolve_governance_write_root,
+)
 from loop_core_draft import (
     build_project_loop_state_core,
     current_level_from_promotion_levels,
@@ -14,12 +26,11 @@ from loop_core_draft import (
     ensure_valid_blueprint_plan,
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_ROOT = REPO_ROOT / "artifacts"
 DRAFT_PLAN_PATH = REPO_ROOT / "docs/governance/datapulse-blueprint-plan.draft.json"
 ACTIVE_PLAN_PATH = REPO_ROOT / "docs/governance/datapulse-blueprint-plan.json"
 DEFAULT_PLAN_PATH = ACTIVE_PLAN_PATH if ACTIVE_PLAN_PATH.exists() else DRAFT_PLAN_PATH
-DEFAULT_OUT_DIR = REPO_ROOT / "out/governance"
+DEFAULT_OUT_DIR = resolve_governance_write_root(GOVERNANCE_SNAPSHOT_ROOT, repo_root=REPO_ROOT)
 DEFAULT_QUICK_TEST_GATE_PATH = ARTIFACTS_ROOT / "governance" / "quick_test_gate.draft.json"
 DEFAULT_RELEASE_WINDOW_ATTESTATION_PATH = DEFAULT_OUT_DIR / "datapulse_release_window_attestation.draft.json"
 WORKFLOW_RUN_FIELDS = [
@@ -118,6 +129,8 @@ IGNORED_WORKSPACE_GATE_PATHS = {
 }
 
 IGNORED_WORKSPACE_GATE_PREFIXES = (
+    "artifacts/governance/release_bundle/",
+    "artifacts/governance/snapshots/",
     "out/ha_latest_release_bundle/",
     "out/release_bundle/",
 )
@@ -376,7 +389,15 @@ def quick_test_gate_headline(verification: dict[str, Any]) -> dict[str, Any]:
 
 
 def parse_release_window_attestation(path: Path | None = None) -> dict[str, Any] | None:
-    target = path or DEFAULT_RELEASE_WINDOW_ATTESTATION_PATH
+    target = (
+        path.resolve()
+        if isinstance(path, Path)
+        else resolve_governance_read_path(
+            GOVERNANCE_SNAPSHOT_ROOT,
+            "datapulse_release_window_attestation.draft.json",
+            repo_root=REPO_ROOT,
+        )
+    )
     if not target.exists():
         return None
     try:
@@ -669,10 +690,7 @@ def workflow_run_success(run: dict[str, Any] | None) -> bool:
 
 
 def structured_release_bundle_available() -> bool:
-    candidates = [
-        REPO_ROOT / "out/ha_latest_release_bundle",
-        REPO_ROOT / "out/release_bundle",
-    ]
+    candidates = resolve_governance_root_candidates(EVIDENCE_BUNDLE_ROOT, repo_root=REPO_ROOT)
     manifest_names = [
         "structured_release_bundle_manifest.draft.json",
         "evidence_bundle_manifest.draft.json",
@@ -759,7 +777,11 @@ def build_code_landing_status(*, release_window_attestation_path: Path | None = 
     attestation_path = (
         release_window_attestation_path.resolve()
         if isinstance(release_window_attestation_path, Path)
-        else DEFAULT_RELEASE_WINDOW_ATTESTATION_PATH.resolve()
+        else resolve_governance_read_path(
+            GOVERNANCE_SNAPSHOT_ROOT,
+            "datapulse_release_window_attestation.draft.json",
+            repo_root=REPO_ROOT,
+        )
     )
     release_window_attestation = parse_release_window_attestation(attestation_path)
     emergency_state = parse_emergency_state(latest_artifact_file("emergency_state.json"))

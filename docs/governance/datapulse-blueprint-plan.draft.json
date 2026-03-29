@@ -2,7 +2,7 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-29T10:38:26Z",
+  "generated_at_utc": "2026-03-29T11:05:11Z",
   "status": "in_progress",
   "activation": {
     "wired": false,
@@ -2616,7 +2616,7 @@
           "category": "manual",
           "execution_profile": "draft_only",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
           ],
@@ -2637,7 +2637,7 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run pytest tests/test_reader.py tests/test_governance_loop.py -q"
           ],
@@ -2710,11 +2710,21 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L20.2",
-    "title": "Define the path-resolution and runtime-versus-evidence contract for governance snapshot decoupling",
-    "reason": "Derived from the next open slice in the working copy."
+    "id": "L20.4",
+    "title": "Split stable runtime bundle truth from derived same-window evidence outputs without breaking manual ignition",
+    "reason": "L20.3 lands the shared compatibility layer, so the next narrow step is moving stable runtime truth and same-window evidence onto separate planes without breaking the current ignition wrapper."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-29T11:05:11Z",
+      "slice_id": "L20.3",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-29T10:53:24Z",
+      "slice_id": "L20.2",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-29T10:38:26Z",
       "slice_id": "L20.1",

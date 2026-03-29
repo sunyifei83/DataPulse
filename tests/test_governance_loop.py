@@ -32,6 +32,11 @@ def loop_contracts():
 
 
 @pytest.fixture(scope="module")
+def governance_paths():
+    return importlib.import_module("datapulse.governance_paths")
+
+
+@pytest.fixture(scope="module")
 def evidence_bundle_module():
     if str(GOVERNANCE_SCRIPTS_DIR) not in sys.path:
         sys.path.insert(0, str(GOVERNANCE_SCRIPTS_DIR))
@@ -81,6 +86,52 @@ def _stub_release_gate_baseline(loop_contracts, monkeypatch, *, head: str = "abc
             "head_branch": branch,
         },
     )
+
+
+def test_governance_path_read_prefers_configured_root_before_canonical(governance_paths, tmp_path: Path) -> None:
+    configured_root = tmp_path / "configured"
+    canonical_root = tmp_path / "artifacts" / "governance" / "snapshots"
+    legacy_root = tmp_path / "out" / "governance"
+    configured_root.mkdir(parents=True, exist_ok=True)
+    canonical_root.mkdir(parents=True, exist_ok=True)
+    legacy_root.mkdir(parents=True, exist_ok=True)
+    (configured_root / "activation_plan.draft.json").write_text("{}", encoding="utf-8")
+    (canonical_root / "activation_plan.draft.json").write_text('{"canonical": true}', encoding="utf-8")
+    (legacy_root / "activation_plan.draft.json").write_text('{"legacy": true}', encoding="utf-8")
+
+    path = governance_paths.read_path(
+        governance_paths.GOVERNANCE_SNAPSHOT_ROOT,
+        "activation_plan.draft.json",
+        repo_root=tmp_path,
+        environ={"DATAPULSE_GOVERNANCE_SNAPSHOT_ROOT": str(configured_root)},
+    )
+
+    assert path == (configured_root / "activation_plan.draft.json").resolve()
+
+
+def test_governance_path_read_falls_back_to_legacy_when_canonical_missing(governance_paths, tmp_path: Path) -> None:
+    legacy_root = tmp_path / "out" / "governance"
+    legacy_root.mkdir(parents=True, exist_ok=True)
+    legacy_file = legacy_root / "activation_preview.draft.json"
+    legacy_file.write_text("{}", encoding="utf-8")
+
+    path = governance_paths.read_path(
+        governance_paths.GOVERNANCE_SNAPSHOT_ROOT,
+        "activation_preview.draft.json",
+        repo_root=tmp_path,
+    )
+
+    assert path == legacy_file.resolve()
+
+
+def test_governance_path_write_targets_canonical_root_not_legacy(governance_paths, tmp_path: Path) -> None:
+    path = governance_paths.write_path(
+        governance_paths.EVIDENCE_BUNDLE_ROOT,
+        "adapter_bundle_manifest.draft.json",
+        repo_root=tmp_path,
+    )
+
+    assert path == (tmp_path / "artifacts/governance/release_bundle/adapter_bundle_manifest.draft.json").resolve()
 
 
 def test_refresh_tracked_governance_on_stop_runs_for_terminal_stop(governance_loop, monkeypatch, tmp_path: Path) -> None:
@@ -338,14 +389,16 @@ def test_run_verification_commands_retries_pytest_after_negative_signal(governan
     assert results[0]["exit_code"] == 0
 
 
-def test_build_code_landing_status_blocks_missing_release_window_attestation(loop_contracts, monkeypatch) -> None:
+def test_build_code_landing_status_blocks_missing_release_window_attestation(loop_contracts, monkeypatch, tmp_path: Path) -> None:
     _stub_release_gate_baseline(loop_contracts, monkeypatch)
     monkeypatch.setattr(loop_contracts, "parse_release_window_attestation", lambda path=None: None)
+    expected_path = (tmp_path / "artifacts/governance/snapshots/datapulse_release_window_attestation.draft.json").resolve()
+    monkeypatch.setattr(loop_contracts, "resolve_governance_read_path", lambda *args, **kwargs: expected_path)
 
     payload = loop_contracts.build_code_landing_status()
 
     assert "release_window_attestation_missing" in payload["gate_groups"]["release_governance"]
-    assert payload["release"]["primary_same_window_truth"] == "out/governance/datapulse_release_window_attestation.draft.json"
+    assert payload["release"]["primary_same_window_truth"] == str(expected_path)
     assert payload["release"]["release_window_attestation"]["status"] == "missing"
     assert payload["release"]["release_window_attestation"]["runtime_closure_complete"] is False
 

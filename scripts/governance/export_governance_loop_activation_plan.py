@@ -3,10 +3,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from datapulse.governance_paths import (
+    EVIDENCE_BUNDLE_ROOT,
+    GOVERNANCE_SNAPSHOT_ROOT,
+    read_root as resolve_governance_read_root,
+    write_path as resolve_governance_write_path,
+)
 from assess_governance_loop_activation_draft import build_activation_boundary
 from loop_bundle_draft import build_bundle_runtime_payload, load_bundle_manifest, read_json, resolve_bundle_files, validate_manifest_shape
 
@@ -27,13 +38,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--bundle-dir",
         type=Path,
-        required=True,
+        default=resolve_governance_read_root(EVIDENCE_BUNDLE_ROOT, repo_root=REPO_ROOT),
         help="Directory containing adapter_bundle_manifest.draft.json and referenced snapshot files.",
     )
     parser.add_argument(
         "--out-path",
         type=Path,
-        default=Path("out/governance/activation_plan.draft.json"),
+        default=resolve_governance_write_path(
+            GOVERNANCE_SNAPSHOT_ROOT,
+            "activation_plan.draft.json",
+            repo_root=REPO_ROOT,
+        ),
         help="Output path for the activation plan JSON.",
     )
     parser.add_argument(

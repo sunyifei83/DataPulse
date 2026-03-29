@@ -14,6 +14,12 @@ from typing import Any, cast
 from urllib.parse import urlparse
 
 from datapulse.collectors.trending import TrendingCollector, build_trending_url
+from datapulse.governance_paths import (
+    GOVERNANCE_SNAPSHOT_ROOT,
+    RUNTIME_BUNDLE_ROOT,
+    read_path as resolve_governance_read_path,
+    root_candidate_entries as resolve_root_candidate_entries,
+)
 from datapulse.core.alerts import (
     AlertEvent,
     AlertRouteStore,
@@ -163,8 +169,6 @@ _AI_SURFACE_ADMISSION_PATH_ENV = "DATAPULSE_AI_SURFACE_ADMISSION_PATH"
 _MODELBUS_BUNDLE_DIR_ENV = "DATAPULSE_MODELBUS_BUNDLE_DIR"
 _DIGEST_PROFILE_PATH_ENV = "DATAPULSE_DIGEST_PROFILE_PATH"
 _DIGEST_LOCAL_PROMPT_OVERRIDE_DIR_ENV = "DATAPULSE_DIGEST_PROMPT_OVERRIDE_DIR"
-_CANONICAL_MODELBUS_BUNDLE_DIR = _REPO_ROOT / "out/ha_latest_release_bundle"
-_DEFAULT_AI_SURFACE_ADMISSION_PATH = _REPO_ROOT / "out/governance/datapulse-ai-surface-admission.example.json"
 _DEFAULT_DIGEST_PROFILE_PATH = Path.home() / ".datapulse" / "digest_profile.json"
 _DEFAULT_DIGEST_REPO_PROMPT_DIR = _REPO_ROOT / "prompts" / "digest_delivery_default"
 _DEFAULT_DIGEST_LOCAL_PROMPT_DIR = Path.home() / ".datapulse" / "prompts" / "digest_delivery"
@@ -552,8 +556,11 @@ class DataPulseReader:
         }
 
     def _load_local_ai_surface_admissions(self) -> dict[str, Any]:
-        path = self._resolve_runtime_path(
-            os.getenv(_AI_SURFACE_ADMISSION_PATH_ENV, "") or str(_DEFAULT_AI_SURFACE_ADMISSION_PATH)
+        path = resolve_governance_read_path(
+            GOVERNANCE_SNAPSHOT_ROOT,
+            "datapulse-ai-surface-admission.example.json",
+            explicit_path=str(os.getenv(_AI_SURFACE_ADMISSION_PATH_ENV, "") or "").strip() or None,
+            repo_root=_REPO_ROOT,
         )
         payload, error = self._read_json_object(path, label="admission file")
         if error is not None:
@@ -577,9 +584,21 @@ class DataPulseReader:
     def _bundle_selection_label(selection: str) -> str:
         if selection == "explicit_env":
             return "explicit env bundle"
+        if selection == "configured_root":
+            return "configured root bundle"
         if selection == "canonical_default":
             return "canonical bundle"
+        if selection == "legacy_fallback":
+            return "legacy fallback bundle"
         return "modelbus bundle"
+
+    @staticmethod
+    def _default_ai_surface_admission_path() -> Path:
+        return resolve_governance_read_path(
+            GOVERNANCE_SNAPSHOT_ROOT,
+            "datapulse-ai-surface-admission.example.json",
+            repo_root=_REPO_ROOT,
+        )
 
     def _modelbus_bundle_candidates(self) -> list[dict[str, Any]]:
         candidates: list[dict[str, Any]] = []
@@ -591,9 +610,23 @@ class DataPulseReader:
             seen.add(str(bundle_dir))
             candidates.append({"bundle_dir": bundle_dir, "bundle_selection": "explicit_env"})
 
-        canonical_dir = _CANONICAL_MODELBUS_BUNDLE_DIR.resolve()
-        if str(canonical_dir) not in seen:
-            candidates.append({"bundle_dir": canonical_dir, "bundle_selection": "canonical_default"})
+        selection_map = {
+            "configured_root": "configured_root",
+            "canonical_root": "canonical_default",
+            "legacy_fallback": "legacy_fallback",
+        }
+        for entry in resolve_root_candidate_entries(RUNTIME_BUNDLE_ROOT, repo_root=_REPO_ROOT):
+            bundle_dir = entry["path"]
+            candidate_key = str(bundle_dir)
+            if candidate_key in seen:
+                continue
+            seen.add(candidate_key)
+            candidates.append(
+                {
+                    "bundle_dir": bundle_dir,
+                    "bundle_selection": selection_map.get(str(entry.get("source") or ""), "modelbus_bundle"),
+                }
+            )
         return candidates
 
     def _load_modelbus_bundle_surface_admissions_from_dir(
@@ -794,8 +827,11 @@ class DataPulseReader:
         return {"enabled": bool(errors), "errors": errors}
 
     def _bundle_first_disabled_local_snapshot_warning(self) -> tuple[str, str]:
-        path = self._resolve_runtime_path(
-            os.getenv(_AI_SURFACE_ADMISSION_PATH_ENV, "") or str(_DEFAULT_AI_SURFACE_ADMISSION_PATH)
+        path = resolve_governance_read_path(
+            GOVERNANCE_SNAPSHOT_ROOT,
+            "datapulse-ai-surface-admission.example.json",
+            explicit_path=str(os.getenv(_AI_SURFACE_ADMISSION_PATH_ENV, "") or "").strip() or None,
+            repo_root=_REPO_ROOT,
         )
         payload, error = self._read_json_object(path, label="admission file")
         if error is None and isinstance(payload, dict):
@@ -927,9 +963,7 @@ class DataPulseReader:
             "admission_source": str(payload.get("admission_source", "local_snapshot") or "local_snapshot").strip(),
             "bundle_selection": str(payload.get("bundle_selection", "") or "").strip(),
             "admission_errors": admission_errors if isinstance(admission_errors, list) else [],
-            "admission_path": str(payload.get("admission_path") or self._resolve_runtime_path(
-                os.getenv(_AI_SURFACE_ADMISSION_PATH_ENV, "") or str(_DEFAULT_AI_SURFACE_ADMISSION_PATH)
-            )),
+            "admission_path": str(payload.get("admission_path") or self._default_ai_surface_admission_path()),
         }
 
     @staticmethod

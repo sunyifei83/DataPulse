@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-29T10:38:26Z",
+  "generated_at_utc": "2026-03-29T11:05:11Z",
   "status": "in_progress",
   "activation": {
     "wired": true,
@@ -22,7 +22,8 @@
       "The feed-bundle and digest-delivery hardening wave is now fully completed in repo truth through L19.6.",
       "This wave corrected the repo-read: DataPulse already had packs, feed exports, and digest builders, so the real gap was replayable feed_bundle semantics, deterministic digest payloads, prompt override order, shared onboarding defaults, and Telegram delivery hardening.",
       "A new L20 governance-snapshot decoupling wave is now open in repo truth to separate blueprint truth, stable runtime bundle truth, and same-window evidence truth.",
-      "The next manual ignition target is L20.2, which freezes the concrete path-resolution and runtime-versus-evidence contract before compatibility and migration code starts drifting.",
+      "L20.2 now freezes the concrete path-resolution and runtime-versus-evidence contract in repo truth, and L20.3 lands the shared compatibility layer across reader, loop, and activation tooling.",
+      "The next manual ignition target is now L20.4, which moves stable runtime truth and same-window evidence onto separate planes without breaking the current ignition wrapper.",
       "Operator review should treat post-CI closeout churn as a coupling bug to remove, not as a reason to invent another parallel loop or runtime control plane."
     ]
   }

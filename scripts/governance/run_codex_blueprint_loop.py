@@ -13,10 +13,14 @@ import time
 from pathlib import Path
 from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from datapulse.governance_paths import EVIDENCE_BUNDLE_ROOT, write_root as resolve_governance_write_root
 from datapulse_loop_adapter import DEFAULT_CATALOG_PATH, build_datapulse_loop_runtime
 from datapulse_loop_contracts import (
     DEFAULT_PLAN_PATH,
-    REPO_ROOT,
     build_code_landing_status,
     display_path,
     load_plan,
@@ -25,7 +29,7 @@ from datapulse_loop_contracts import (
 from run_datapulse_auto_continuation import refresh_governance_snapshots, refresh_governance_snapshots_to_targets
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "out" / "codex_blueprint_loop"
-DEFAULT_BUNDLE_DIR = REPO_ROOT / "out" / "ha_latest_release_bundle"
+DEFAULT_BUNDLE_DIR = resolve_governance_write_root(EVIDENCE_BUNDLE_ROOT, repo_root=REPO_ROOT)
 DEFAULT_UV_CACHE_DIR = Path(tempfile.gettempdir()) / "datapulse-uv-cache"
 DEFAULT_PROMOTION_AUTO_REPAIR_REQUEST = DEFAULT_OUTPUT_DIR / "promotion_auto_repair_request.json"
 DEFAULT_PROMPT = "自动推进 DataPulse 蓝图"

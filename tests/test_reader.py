@@ -23,6 +23,9 @@ def _cleanup_env():
     os.environ.pop("DATAPULSE_MEMORY_DIR", None)
     os.environ.pop("DATAPULSE_AI_SURFACE_ADMISSION_PATH", None)
     os.environ.pop("DATAPULSE_MODELBUS_BUNDLE_DIR", None)
+    os.environ.pop("DATAPULSE_RUNTIME_BUNDLE_ROOT", None)
+    os.environ.pop("DATAPULSE_GOVERNANCE_SNAPSHOT_ROOT", None)
+    os.environ.pop("DATAPULSE_EVIDENCE_BUNDLE_ROOT", None)
 
 
 def _populate_inbox(inbox_path: str, items: list[DataPulseItem]) -> None:
@@ -771,7 +774,7 @@ def test_ai_surface_precheck_prefers_explicit_env_bundle_over_canonical_default(
             }
         ],
     )
-    monkeypatch.setattr(reader_module, "_CANONICAL_MODELBUS_BUNDLE_DIR", canonical_dir)
+    monkeypatch.setenv("DATAPULSE_RUNTIME_BUNDLE_ROOT", str(canonical_dir))
     monkeypatch.setenv("DATAPULSE_MODELBUS_BUNDLE_DIR", str(env_dir))
 
     reader = DataPulseReader(inbox_path=inbox_path)
@@ -833,7 +836,13 @@ def test_ai_surface_precheck_uses_canonical_bundle_when_env_is_not_set(tmp_path,
             }
         ],
     )
-    monkeypatch.setattr(reader_module, "_CANONICAL_MODELBUS_BUNDLE_DIR", canonical_dir)
+    monkeypatch.setattr(
+        reader_module,
+        "resolve_root_candidate_entries",
+        lambda resolver_name, repo_root=None: [
+            {"path": canonical_dir.resolve(), "source": "canonical_root", "resolver_name": resolver_name}
+        ],
+    )
 
     reader = DataPulseReader(inbox_path=inbox_path)
     payload = reader.ai_surface_precheck("mission_suggest", mode="assist")
@@ -858,7 +867,13 @@ def test_ai_surface_precheck_rejects_when_bundle_is_invalid_and_local_snapshot_i
     bundle_dir = tmp_path / "broken-modelbus-bundle"
     bundle_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("DATAPULSE_MODELBUS_BUNDLE_DIR", str(bundle_dir))
-    monkeypatch.setattr(reader_module, "_CANONICAL_MODELBUS_BUNDLE_DIR", tmp_path / "missing-canonical-bundle")
+    monkeypatch.setattr(
+        reader_module,
+        "resolve_root_candidate_entries",
+        lambda resolver_name, repo_root=None: [
+            {"path": (tmp_path / "missing-canonical-bundle").resolve(), "source": "canonical_root", "resolver_name": resolver_name}
+        ],
+    )
 
     admission_path = tmp_path / "local-ai-surface-admission.json"
     _write_local_ai_surface_admission(
@@ -943,7 +958,13 @@ def test_ai_surface_precheck_rejects_when_canonical_bundle_is_invalid_even_if_lo
 
     canonical_dir = tmp_path / "ha_latest_release_bundle"
     canonical_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(reader_module, "_CANONICAL_MODELBUS_BUNDLE_DIR", canonical_dir)
+    monkeypatch.setattr(
+        reader_module,
+        "resolve_root_candidate_entries",
+        lambda resolver_name, repo_root=None: [
+            {"path": canonical_dir.resolve(), "source": "canonical_root", "resolver_name": resolver_name}
+        ],
+    )
 
     reader = DataPulseReader(inbox_path=inbox_path)
     payload = reader.ai_surface_precheck("mission_suggest", mode="assist")

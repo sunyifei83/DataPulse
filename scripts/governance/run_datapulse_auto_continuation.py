@@ -8,12 +8,26 @@ import sys
 from pathlib import Path
 from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from datapulse.governance_paths import (
+    EVIDENCE_BUNDLE_ROOT,
+    GOVERNANCE_SNAPSHOT_ROOT,
+    write_path as resolve_governance_write_path,
+    write_root as resolve_governance_write_root,
+)
 from datapulse_loop_adapter import DEFAULT_CATALOG_PATH, build_datapulse_loop_runtime
 from datapulse_loop_contracts import DEFAULT_PLAN_PATH, REPO_ROOT, display_path, read_json, write_json
 
 DEFAULT_POLICY_PATH = REPO_ROOT / "docs/governance/datapulse-auto-continuation-policy.json"
-DEFAULT_OUTPUT_PATH = REPO_ROOT / "out/governance/auto_continuation_runtime.draft.json"
-DEFAULT_BUNDLE_DIR = REPO_ROOT / "out/ha_latest_release_bundle"
+DEFAULT_OUTPUT_PATH = resolve_governance_write_path(
+    GOVERNANCE_SNAPSHOT_ROOT,
+    "auto_continuation_runtime.draft.json",
+    repo_root=REPO_ROOT,
+)
+DEFAULT_BUNDLE_DIR = resolve_governance_write_root(EVIDENCE_BUNDLE_ROOT, repo_root=REPO_ROOT)
 
 
 def current_python_command() -> list[str]:
@@ -97,8 +111,16 @@ def refresh_governance_snapshots(bundle_dir: Path, *, plan_path: Path = DEFAULT_
     return refresh_governance_snapshots_to_targets(
         bundle_dir=bundle_dir,
         plan_path=plan_path,
-        code_landing_status_output=REPO_ROOT / "out/governance/code_landing_status.draft.json",
-        project_loop_state_output=REPO_ROOT / "out/governance/project_specific_loop_state.draft.json",
+        code_landing_status_output=resolve_governance_write_path(
+            GOVERNANCE_SNAPSHOT_ROOT,
+            "code_landing_status.draft.json",
+            repo_root=REPO_ROOT,
+        ),
+        project_loop_state_output=resolve_governance_write_path(
+            GOVERNANCE_SNAPSHOT_ROOT,
+            "project_specific_loop_state.draft.json",
+            repo_root=REPO_ROOT,
+        ),
     )
 
 
