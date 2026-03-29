@@ -80,7 +80,13 @@ from datapulse.governance_paths import (
     RUNTIME_BUNDLE_ROOT,
 )
 from datapulse.governance_paths import (
+    canonical_root as resolve_governance_canonical_root,
+)
+from datapulse.governance_paths import (
     read_path as resolve_governance_read_path,
+)
+from datapulse.governance_paths import (
+    read_root as resolve_governance_read_root,
 )
 from datapulse.governance_paths import (
     root_candidate_entries as resolve_root_candidate_entries,
@@ -173,6 +179,18 @@ _AI_SURFACE_ADMISSION_PATH_ENV = "DATAPULSE_AI_SURFACE_ADMISSION_PATH"
 _MODELBUS_BUNDLE_DIR_ENV = "DATAPULSE_MODELBUS_BUNDLE_DIR"
 _DIGEST_PROFILE_PATH_ENV = "DATAPULSE_DIGEST_PROFILE_PATH"
 _DIGEST_LOCAL_PROMPT_OVERRIDE_DIR_ENV = "DATAPULSE_DIGEST_PROMPT_OVERRIDE_DIR"
+_DEFAULT_CANONICAL_MODELBUS_BUNDLE_DIR = resolve_governance_canonical_root(
+    RUNTIME_BUNDLE_ROOT,
+    repo_root=_REPO_ROOT,
+)
+_CANONICAL_MODELBUS_BUNDLE_DIR = _DEFAULT_CANONICAL_MODELBUS_BUNDLE_DIR
+_DEFAULT_AI_SURFACE_ADMISSION_PATH = (
+    resolve_governance_canonical_root(
+        GOVERNANCE_SNAPSHOT_ROOT,
+        repo_root=_REPO_ROOT,
+    )
+    / "datapulse-ai-surface-admission.example.json"
+)
 _DEFAULT_DIGEST_PROFILE_PATH = Path.home() / ".datapulse" / "digest_profile.json"
 _DEFAULT_DIGEST_REPO_PROMPT_DIR = _REPO_ROOT / "prompts" / "digest_delivery_default"
 _DEFAULT_DIGEST_LOCAL_PROMPT_DIR = Path.home() / ".datapulse" / "prompts" / "digest_delivery"
@@ -598,15 +616,20 @@ class DataPulseReader:
 
     @staticmethod
     def _default_ai_surface_admission_path() -> Path:
-        return resolve_governance_read_path(
-            GOVERNANCE_SNAPSHOT_ROOT,
-            "datapulse-ai-surface-admission.example.json",
-            repo_root=_REPO_ROOT,
-        )
+        return (
+            resolve_governance_read_root(
+                GOVERNANCE_SNAPSHOT_ROOT,
+                repo_root=_REPO_ROOT,
+            )
+            / "datapulse-ai-surface-admission.example.json"
+        ).resolve()
 
     def _modelbus_bundle_candidates(self) -> list[dict[str, Any]]:
         candidates: list[dict[str, Any]] = []
         seen: set[str] = set()
+        compatibility_canonical_override_active = (
+            _CANONICAL_MODELBUS_BUNDLE_DIR.resolve() != _DEFAULT_CANONICAL_MODELBUS_BUNDLE_DIR.resolve()
+        )
 
         bundle_dir_raw = str(os.getenv(_MODELBUS_BUNDLE_DIR_ENV, "") or "").strip()
         if bundle_dir_raw:
@@ -614,13 +637,22 @@ class DataPulseReader:
             seen.add(str(bundle_dir))
             candidates.append({"bundle_dir": bundle_dir, "bundle_selection": "explicit_env"})
 
-        selection_map = {
-            "configured_root": "configured_root",
-            "canonical_root": "canonical_default",
-            "legacy_fallback": "legacy_fallback",
-        }
         for entry in resolve_root_candidate_entries(RUNTIME_BUNDLE_ROOT, repo_root=_REPO_ROOT):
-            bundle_dir = entry["path"]
+            source = str(entry.get("source") or "").strip()
+            if source == "canonical_root":
+                bundle_dir = entry["path"]
+                if compatibility_canonical_override_active:
+                    bundle_dir = _CANONICAL_MODELBUS_BUNDLE_DIR.resolve()
+                bundle_selection = "canonical_default"
+            else:
+                if compatibility_canonical_override_active and source == "legacy_fallback":
+                    continue
+                bundle_dir = entry["path"]
+                selection_map = {
+                    "configured_root": "configured_root",
+                    "legacy_fallback": "legacy_fallback",
+                }
+                bundle_selection = selection_map.get(source, "modelbus_bundle")
             candidate_key = str(bundle_dir)
             if candidate_key in seen:
                 continue
@@ -628,7 +660,7 @@ class DataPulseReader:
             candidates.append(
                 {
                     "bundle_dir": bundle_dir,
-                    "bundle_selection": selection_map.get(str(entry.get("source") or ""), "modelbus_bundle"),
+                    "bundle_selection": bundle_selection,
                 }
             )
         return candidates
