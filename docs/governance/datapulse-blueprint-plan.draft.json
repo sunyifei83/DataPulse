@@ -2,8 +2,8 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-29T04:58:20Z",
-  "status": "completed",
+  "generated_at_utc": "2026-03-29T10:38:26Z",
+  "status": "in_progress",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -82,7 +82,8 @@
     "L16": "completed",
     "L17": "completed",
     "L18": "completed",
-    "L19": "completed"
+    "L19": "completed",
+    "L20": "in_progress"
   },
   "phases": [
     {
@@ -2584,14 +2585,141 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L20",
+      "title": "Governance snapshot decoupling and stable runtime-evidence split",
+      "goal": "Separate repo truth, runtime-consumed bundle truth, and same-window governance evidence so post-CI closeout no longer reopens the repository while preserving the current manual ignition surface.",
+      "status": "in_progress",
+      "slices": [
+        {
+          "id": "L20.1",
+          "title": "Land the repo-scoped governance snapshot decoupling blueprint plus manual ignition map",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-governance-snapshot-decoupling-blueprint.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "exit_condition": "The repository contains an explicit blueprint for separating repo truth, runtime bundle truth, and same-window evidence truth, and the active blueprint path exposes a new manual ignition target beyond the completed L19 wave.",
+          "notes": [
+            "This slice should not reopen the feed-bundle or release-window semantics already landed in L17-L19.",
+            "The next narrow target after this blueprint landing is L20.2, which freezes the concrete path-resolution and runtime-versus-evidence contract."
+          ]
+        },
+        {
+          "id": "L20.2",
+          "title": "Define the path-resolution and runtime-versus-evidence contract for governance snapshot decoupling",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-governance-snapshot-decoupling-contract.md",
+            "docs/governance/datapulse-structured-release-bundle.draft.md",
+            "docs/governance/datapulse-codex-blueprint-loop.draft.md"
+          ],
+          "exit_condition": "Repo truth explicitly defines resolver-driven roots for runtime bundle, governance snapshot, and evidence bundle paths, and freezes which artifacts remain tracked runtime truth versus derived same-window evidence.",
+          "notes": [
+            "Keep the operator-facing ignition commands unchanged while making the underlying roots configurable and dual-readable.",
+            "This contract should make L20.3 an implementation slice rather than another design discussion."
+          ]
+        },
+        {
+          "id": "L20.3",
+          "title": "Implement path resolvers and dual-read compatibility across reader loop and activation tooling",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "uv run pytest tests/test_reader.py tests/test_governance_loop.py -q"
+          ],
+          "artifacts": [
+            "datapulse/reader.py",
+            "scripts/governance/datapulse_loop_contracts.py",
+            "scripts/governance/run_codex_blueprint_loop.py",
+            "scripts/governance/run_datapulse_auto_continuation.py",
+            "scripts/governance/export_governance_loop_activation_plan.py",
+            "scripts/governance/export_governance_loop_activation_intent.py",
+            "scripts/governance/export_governance_loop_activation_preview.py"
+          ],
+          "exit_condition": "Runtime loading, loop evaluation, and activation tooling all resolve bundle and evidence roots through the new compatibility layer while preserving the existing wrapper commands and legacy out-path fallback.",
+          "notes": [
+            "The compatibility layer should prefer explicit CLI or configured roots first and retain out-path fallback during migration.",
+            "Do not make out/ha_latest_release_bundle the only admissible bundle root after this slice."
+          ]
+        },
+        {
+          "id": "L20.4",
+          "title": "Split stable runtime bundle truth from derived same-window evidence outputs without breaking manual ignition",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "uv run pytest tests/test_reader.py tests/test_report.py tests/test_delivery.py tests/test_governance_loop.py -q"
+          ],
+          "artifacts": [
+            "config/modelbus/datapulse",
+            "datapulse/reader.py",
+            "scripts/governance/export_datapulse_modelbus_consumer_bundle.py",
+            "scripts/governance/export_datapulse_structured_release_bundle.py",
+            "scripts/governance/export_datapulse_release_window_attestation.py",
+            "scripts/governance/export_datapulse_evidence_bundle.py",
+            "scripts/governance/export_datapulse_surface_runtime_hit_evidence.py",
+            "scripts/governance/run_codex_blueprint_loop.py"
+          ],
+          "exit_condition": "A stable tracked runtime bundle root exists for bundle-first consumption, same-window exporters write derived evidence to a separate plane, and post-CI closeout no longer depends on tracked out/* churn to preserve truth.",
+          "notes": [
+            "Keep the same one-command ignition wrapper while moving high-churn evidence away from tracked main-branch truth.",
+            "This slice should preserve fail-closed attestation and replay semantics rather than weakening them."
+          ]
+        },
+        {
+          "id": "L20.5",
+          "title": "Retire legacy tracked out snapshot coupling and update ignore rules docs and closeout behavior",
+          "category": "manual",
+          "execution_profile": "release_policy_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "uv run pytest tests/test_governance_loop.py -q",
+            "python3 scripts/governance/run_datapulse_blueprint_loop.py --plan docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "artifacts": [
+            ".gitignore",
+            "docs/governance/datapulse-codex-blueprint-loop.draft.md",
+            "docs/governance/datapulse-structured-release-bundle.draft.md",
+            "scripts/governance/run_codex_blueprint_loop.py",
+            "scripts/governance/run_datapulse_auto_continuation.py"
+          ],
+          "exit_condition": "Legacy tracked out/governance and out/*release_bundle* coupling is no longer required for terminal stop truth, ignored outputs are aligned with the new evidence plane, and the repo returns to a clean baseline after blueprint-only or closeout-only work.",
+          "notes": [
+            "Do not retire legacy paths until compatibility and runtime bundle migration are already proven.",
+            "The closing proof for this wave is that manual ignition is still one command and post-CI closeout does not reopen the repo."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
+    "id": "L20.2",
+    "title": "Define the path-resolution and runtime-versus-evidence contract for governance snapshot decoupling",
+    "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-29T10:38:26Z",
+      "slice_id": "L20.1",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-29T06:11:55Z",
       "slice_id": "L19.6",
@@ -2898,5 +3026,5 @@
       "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-29T06:11:55Z"
+  "last_updated_utc": "2026-03-29T10:38:26Z"
 }

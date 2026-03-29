@@ -1,8 +1,8 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-29T09:49:05Z",
-  "status": "completed",
+  "generated_at_utc": "2026-03-29T10:38:26Z",
+  "status": "in_progress",
   "activation": {
     "wired": true,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -12,7 +12,7 @@
     }
   },
   "governance_mode": {
-    "kind": "active_manual_terminal_stop",
+    "kind": "active_manual_next_slice_open",
     "notes": [
       "This overlay keeps the repository blueprint truth active while leaving continuation in explicit manual mode.",
       "The report-production and report-delivery waves remain part of active blueprint truth.",
@@ -21,8 +21,9 @@
       "The QNAIGC search-provider follow-up wave is now fully completed in repo truth through L18.4.",
       "The feed-bundle and digest-delivery hardening wave is now fully completed in repo truth through L19.6.",
       "This wave corrected the repo-read: DataPulse already had packs, feed exports, and digest builders, so the real gap was replayable feed_bundle semantics, deterministic digest payloads, prompt override order, shared onboarding defaults, and Telegram delivery hardening.",
-      "The current structured blueprint now resolves to no-open-slice; continuation should reopen only when a new repo-relevant slice is promoted or promotion evidence regresses.",
-      "Operator review should treat release-window attestation freshness and same-head consistency as the remaining promotion concern rather than inventing another follow-up slice after L19."
+      "A new L20 governance-snapshot decoupling wave is now open in repo truth to separate blueprint truth, stable runtime bundle truth, and same-window evidence truth.",
+      "The next manual ignition target is L20.2, which freezes the concrete path-resolution and runtime-versus-evidence contract before compatibility and migration code starts drifting.",
+      "Operator review should treat post-CI closeout churn as a coupling bug to remove, not as a reason to invent another parallel loop or runtime control plane."
     ]
   }
 }
