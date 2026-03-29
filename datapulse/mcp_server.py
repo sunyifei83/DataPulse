@@ -51,6 +51,24 @@ async def _run_query_feed(profile: str = "default", source_ids: list[str] | None
     return json.dumps([item.to_dict() for item in items], ensure_ascii=False, indent=2)
 
 
+async def _run_build_feed_bundle(
+    profile: str = "default",
+    source_ids: list[str] | None = None,
+    limit: int = 500,
+    min_confidence: float = 0.0,
+    since: str | None = None,
+) -> str:
+    reader = DataPulseReader()
+    payload = reader.build_feed_bundle(
+        profile=profile,
+        source_ids=source_ids,
+        limit=limit,
+        min_confidence=min_confidence,
+        since=since,
+    )
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
 async def _run_build_json_feed(
     profile: str = "default",
     source_ids: list[str] | None = None,
@@ -119,6 +137,44 @@ async def _run_emit_digest_package(
         since=since,
         output_format=output_format,
     )
+
+
+async def _run_prepare_digest_payload(
+    profile: str = "default",
+    source_ids: list[str] | None = None,
+    limit: int = 500,
+    top_n: int = 3,
+    secondary_n: int = 7,
+    min_confidence: float = 0.0,
+    since: str | None = None,
+    max_per_source: int = 2,
+    output_format: str = "json",
+    digest_language: str | None = None,
+    digest_timezone: str | None = None,
+    digest_frequency: str | None = None,
+    digest_delivery_target_kind: str | None = None,
+    digest_delivery_target_ref: str | None = None,
+    prompt_files: list[str] | None = None,
+) -> str:
+    reader = DataPulseReader()
+    payload = reader.prepare_digest_payload(
+        profile=profile,
+        source_ids=source_ids,
+        limit=limit,
+        top_n=top_n,
+        secondary_n=secondary_n,
+        min_confidence=min_confidence,
+        since=since,
+        max_per_source=max_per_source,
+        output_format=output_format,
+        digest_language=digest_language,
+        digest_timezone=digest_timezone,
+        digest_frequency=digest_frequency,
+        digest_delivery_target_kind=digest_delivery_target_kind,
+        digest_delivery_target_ref=digest_delivery_target_ref,
+        prompt_files=prompt_files,
+    )
+    return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
 async def _run_story_build(
@@ -1301,6 +1357,23 @@ def _register_tools(app: Any) -> None:
         )
 
     @app.tool()
+    async def build_feed_bundle(
+        profile: str = "default",
+        source_ids: list[str] | None = None,
+        limit: int = 500,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+    ) -> str:  # noqa: ANN001
+        """Export one replayable feed bundle with frozen membership and source scope."""
+        return await _run_build_feed_bundle(
+            profile=profile,
+            source_ids=source_ids,
+            limit=limit,
+            min_confidence=min_confidence,
+            since=since,
+        )
+
+    @app.tool()
     async def build_json_feed(profile: str = "default", source_ids: list[str] | None = None,
                              limit: int = 20, min_confidence: float = 0.0, since: str | None = None) -> str:  # noqa: ANN001
         return await _run_build_json_feed(
@@ -1365,6 +1438,43 @@ def _register_tools(app: Any) -> None:
             min_confidence=min_confidence,
             since=since,
             output_format=output_format,
+        )
+
+    @app.tool()
+    async def prepare_digest_payload(
+        profile: str = "default",
+        source_ids: list[str] | None = None,
+        limit: int = 500,
+        top_n: int = 3,
+        secondary_n: int = 7,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+        max_per_source: int = 2,
+        output_format: str = "json",
+        digest_language: str | None = None,
+        digest_timezone: str | None = None,
+        digest_frequency: str | None = None,
+        digest_delivery_target_kind: str | None = None,
+        digest_delivery_target_ref: str | None = None,
+        prompt_files: list[str] | None = None,
+    ) -> str:  # noqa: ANN001
+        """Prepare one deterministic route-ready digest payload from a frozen bundle."""
+        return await _run_prepare_digest_payload(
+            profile=profile,
+            source_ids=source_ids,
+            limit=limit,
+            top_n=top_n,
+            secondary_n=secondary_n,
+            min_confidence=min_confidence,
+            since=since,
+            max_per_source=max_per_source,
+            output_format=output_format,
+            digest_language=digest_language,
+            digest_timezone=digest_timezone,
+            digest_frequency=digest_frequency,
+            digest_delivery_target_kind=digest_delivery_target_kind,
+            digest_delivery_target_ref=digest_delivery_target_ref,
+            prompt_files=prompt_files,
         )
 
     @app.tool()

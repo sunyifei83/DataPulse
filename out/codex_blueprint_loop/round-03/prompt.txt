@@ -4,9 +4,9 @@
 
 当前 loop 事实：
 - plan_id: datapulse-loop-bootstrap-2026-03-07
-- current_level: manual_only
-- next_slice: L17.3 / L17 / Add a single exporter and bundle attachment path for release-window attestation
-- execution_profile: local_wrapper
+- current_level: ci_proven
+- next_slice: L19.4 / L19 / Add Reader CLI and MCP feed-bundle export plus deterministic digest payload emission
+- execution_profile: workflow_change
 - current_status: ready
 - current_reason: awaiting_manual_slice_execution
 - promotion_mode: auto
@@ -20,27 +20,27 @@
 - do not hand-edit out/governance or out/*release_bundle snapshots unless a generated exporter requires regeneration
 
 当前 slice adapter：
-- execute_mode: manual_local_command
-- adapter_type: local_wrapper
-- summary: Add a single exporter and bundle attachment path for release-window attestation
+- execute_mode: manual_edit
+- adapter_type: workflow_change
+- summary: Add Reader CLI and MCP feed-bundle export plus deterministic digest payload emission
 - candidate_commands:
-- python3 scripts/governance/export_datapulse_release_window_attestation.py --bundle-dir out/ha_latest_release_bundle
+- uv run pytest tests/test_digest.py tests/test_reader.py -q
 - verification_commands:
-- python3 scripts/governance/export_datapulse_release_window_attestation.py --bundle-dir out/ha_latest_release_bundle
+- uv run pytest tests/test_digest.py tests/test_reader.py -q
 - target_artifacts:
-- scripts/governance/export_datapulse_release_window_attestation.py
-- scripts/governance/export_datapulse_evidence_bundle.py
-- scripts/governance/export_datapulse_structured_release_bundle.py
-- out/governance/datapulse_release_window_attestation.draft.json
-- out/ha_latest_release_bundle/datapulse_release_window_attestation.draft.json
+- datapulse/reader.py
+- datapulse/cli.py
+- datapulse/mcp_server.py
+- tests/test_digest.py
+- tests/test_reader.py
 - notes:
-- exit_condition: A single exporter emits a fail-closed release-window attestation and attaches it to the canonical structured bundle without recomputing runtime semantics.
+- exit_condition: DataPulse can export replayable feed bundles and deterministic digest payloads that reuse current pack/feed/digest semantics while keeping rendering and delivery as downstream steps.
 - promotion_scope: none
 - No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice.
-- exit_condition: A single exporter emits a fail-closed release-window attestation and attaches it to the canonical structured bundle without recomputing runtime semantics.
+- exit_condition: DataPulse can export replayable feed bundles and deterministic digest payloads that reuse current pack/feed/digest semantics while keeping rendering and delivery as downstream steps.
 
 完成标准：
-- the repo should reflect the landing of L17.3
+- the repo should reflect the landing of L19.4
 - update the structured blueprint slice status to match reality
 - if the slice lands, re-run or leave enough changes so the governance exporters can reflect the new state
 - if the slice cannot land safely, leave the repo in a truthful blocked state rather than faking completion

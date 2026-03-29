@@ -2519,7 +2519,7 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run pytest tests/test_digest.py tests/test_reader.py -q"
           ],
@@ -2587,11 +2587,16 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L19.4",
-    "title": "Add Reader CLI and MCP feed-bundle export plus deterministic digest payload emission",
-    "reason": "Derived from the next open slice in the working copy."
+    "id": "L19.5",
+    "title": "Harden route-backed digest and report delivery with Telegram chunk fallback and operator-visible diagnostics",
+    "reason": "L19.4 is now landed in the working copy, so the next open manual slice is the delivery hardening follow-up."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-29T00:00:00Z",
+      "slice_id": "L19.4",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-14T15:21:32Z",
       "slice_id": "L16.5",

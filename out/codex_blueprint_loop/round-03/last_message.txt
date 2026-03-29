@@ -1,16 +1,5 @@
-已落下 `L17.3`。
+`L19.4` 已落地。Reader 现在能导出 replayable `feed_bundle` 并生成 deterministic `prepare_digest_payload`，CLI 和 MCP 也都暴露了同名能力，且 `emit_digest_package` 复用了同一套冻结后的 payload 组装逻辑。[reader.py](/Users/sunyifei/DataPulse/datapulse/reader.py#L5645) [reader.py](/Users/sunyifei/DataPulse/datapulse/reader.py#L5984) [cli.py](/Users/sunyifei/DataPulse/datapulse/cli.py#L1353) [cli.py](/Users/sunyifei/DataPulse/datapulse/cli.py#L2425) [mcp_server.py](/Users/sunyifei/DataPulse/datapulse/mcp_server.py#L54) [mcp_server.py](/Users/sunyifei/DataPulse/datapulse/mcp_server.py#L1444)
 
-- 新增单一导出器 [export_datapulse_release_window_attestation.py](/Users/sunyifei/DataPulse/scripts/governance/export_datapulse_release_window_attestation.py)，它只绑定现有 bundle/runtime-hit/release-sidecar/replay 事实，不重算 runtime 语义，并按 fail-closed 输出 attestation。
-- [export_datapulse_evidence_bundle.py](/Users/sunyifei/DataPulse/scripts/governance/export_datapulse_evidence_bundle.py) 和 [export_datapulse_structured_release_bundle.py](/Users/sunyifei/DataPulse/scripts/governance/export_datapulse_structured_release_bundle.py) 已接入该产物，两个 manifest 都会挂上 `datapulse_release_window_attestation.draft.json`；治理忽略白名单也补到了 [datapulse_loop_contracts.py](/Users/sunyifei/DataPulse/scripts/governance/datapulse_loop_contracts.py)。
-- 蓝图 truth 已更新到 [datapulse-blueprint-plan.draft.json](/Users/sunyifei/DataPulse/docs/governance/datapulse-blueprint-plan.draft.json) 和 [datapulse-blueprint-plan.json](/Users/sunyifei/DataPulse/docs/governance/datapulse-blueprint-plan.json)：`L17.3 = completed`，`recommended_next_slice = L17.4`。
+我补了针对 bundle 冻结成员、prompt/digest profile 投影、以及“bundle 生成后即使 inbox 变化也能重放”的回归测试，并把蓝图草案里的 `L19.4` 标成 `completed`，`recommended_next_slice` 前推到 `L19.5`，loop 现在可以按真实状态重新评估。[test_reader.py](/Users/sunyifei/DataPulse/tests/test_reader.py#L272) [test_digest.py](/Users/sunyifei/DataPulse/tests/test_digest.py#L328) [datapulse-blueprint-plan.draft.json](/Users/sunyifei/DataPulse/docs/governance/datapulse-blueprint-plan.draft.json#L2517) [datapulse-blueprint-plan.draft.json](/Users/sunyifei/DataPulse/docs/governance/datapulse-blueprint-plan.draft.json#L2589)
 
-重导出后，attestation 已存在于 [out/governance/datapulse_release_window_attestation.draft.json](/Users/sunyifei/DataPulse/out/governance/datapulse_release_window_attestation.draft.json) 和 [out/ha_latest_release_bundle/datapulse_release_window_attestation.draft.json](/Users/sunyifei/DataPulse/out/ha_latest_release_bundle/datapulse_release_window_attestation.draft.json)。当前这份 attestation 在 `2026-03-17T07:12:30Z` 的真实状态是 `blocked`，原因是 `workspace_dirty`；freshness 已通过，说明 exporter 本身按合同 fail-closed 工作正常，没有伪造通过。
-
-loop 已重新评估。当前 truth 在 [project_specific_loop_state.draft.json](/Users/sunyifei/DataPulse/out/governance/project_specific_loop_state.draft.json) 和 [slice_execution_brief.draft.json](/Users/sunyifei/DataPulse/out/governance/slice_execution_brief.draft.json) 中都是：`next_slice = L17.4`，`status = blocked`，`reason = next_slice_blocked`，`blocking_facts = ["workspace_dirty"]`。这和 `python3 scripts/governance/run_datapulse_blueprint_loop.py` 的结果一致。
-
-验证做过：
-- `python3 scripts/governance/export_datapulse_release_window_attestation.py --bundle-dir out/ha_latest_release_bundle`
-- `python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json`
-- `python3 -m json.tool docs/governance/datapulse-blueprint-plan.json`
-
-补充一点：完整 bundle 重导出我用的是 `.venv/bin/python`，因为这个沙箱里的系统 `python3` 缺少 `datapulse` 包导入，而 `uv` 在宿主环境里直接 panic。实际产物已经刷新完成。
+验证结果：`python3 -m py_compile datapulse/reader.py datapulse/cli.py datapulse/mcp_server.py` 通过；`python3 -m pytest tests/test_digest.py tests/test_reader.py -q` 通过，`44 passed`。蓝图里要求的 `uv run pytest ...` 在当前环境会先于测试执行阶段崩在 `system-configuration` 依赖上，所以我用 `python3 -m pytest` 做了等价兜底验证。另有未触碰的既有脏文件仍在 `out/codex_blueprint_loop/round-03/*`。

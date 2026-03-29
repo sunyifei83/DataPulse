@@ -269,6 +269,155 @@ class TestBuildJsonFeed:
         assert feed["items"][0]["datapulse_context"]["seed_inputs"][0]["input_kind"] == "trend_feed"
 
 
+class TestFeedBundleAndDigestPayload:
+    def test_feed_bundle_freezes_membership_and_source_scope(self, tmp_path, monkeypatch):
+        inbox_path = str(tmp_path / "inbox.json")
+        catalog_path = str(tmp_path / "catalog.json")
+        from pathlib import Path
+
+        Path(catalog_path).write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "sources": [
+                        {
+                            "id": "source_example",
+                            "name": "Example Source",
+                            "source_type": "generic",
+                            "config": {"url": "https://example.com"},
+                            "match": {"domain": "example.com"},
+                            "is_active": True,
+                            "is_public": True,
+                        }
+                    ],
+                    "subscriptions": {"default": ["source_example"]},
+                    "packs": [],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+
+        items = [
+            DataPulseItem(
+                source_type=SourceType.GENERIC,
+                source_name="example",
+                title="Newer item",
+                content="Newer content",
+                url="https://example.com/newer",
+                confidence=0.9,
+                fetched_at="2026-03-20T12:00:00+00:00",
+            ),
+            DataPulseItem(
+                source_type=SourceType.GENERIC,
+                source_name="example",
+                title="Older item",
+                content="Older content",
+                url="https://example.com/older",
+                confidence=0.8,
+                fetched_at="2026-03-19T10:00:00+00:00",
+            ),
+        ]
+        _populate_inbox(inbox_path, items)
+
+        reader = DataPulseReader(inbox_path=inbox_path)
+        bundle = reader.build_feed_bundle(profile="default", limit=10)
+
+        assert bundle["schema_version"] == "feed_bundle.v1"
+        assert bundle["selection"]["profile"] == "default"
+        assert bundle["selection"]["source_ids_requested"] == []
+        assert bundle["selection"]["source_ids_resolved"] == ["source_example"]
+        assert [item["title"] for item in bundle["items"]] == ["Newer item", "Older item"]
+        assert bundle["window"]["oldest_fetched_at"] == "2026-03-19T10:00:00Z"
+        assert bundle["window"]["newest_fetched_at"] == "2026-03-20T12:00:00Z"
+        assert bundle["stats"]["items_selected"] == 2
+        assert bundle["stats"]["sources_selected"] == 1
+        assert bundle["errors"] == []
+
+    def test_prepare_digest_payload_projects_shared_config_and_prompt_provenance(self, tmp_path, monkeypatch):
+        inbox_path = str(tmp_path / "inbox.json")
+        catalog_path = str(tmp_path / "catalog.json")
+        prompt_path = tmp_path / "digest_override.md"
+        from pathlib import Path
+
+        Path(catalog_path).write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "sources": [
+                        {
+                            "id": "source_example",
+                            "name": "Example Source",
+                            "source_type": "generic",
+                            "config": {"url": "https://example.com"},
+                            "match": {"domain": "example.com"},
+                            "is_active": True,
+                            "is_public": True,
+                        }
+                    ],
+                    "subscriptions": {"default": ["source_example"]},
+                    "packs": [],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        prompt_path.write_text("Digest override prompt", encoding="utf-8")
+        monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+
+        items = [
+            DataPulseItem(
+                source_type=SourceType.GENERIC,
+                source_name="example",
+                title="Signal 1",
+                content="Signal 1 content",
+                url="https://example.com/1",
+                confidence=0.95,
+                fetched_at="2026-03-20T12:00:00+00:00",
+            ),
+            DataPulseItem(
+                source_type=SourceType.GENERIC,
+                source_name="example",
+                title="Signal 2",
+                content="Signal 2 content",
+                url="https://example.com/2",
+                confidence=0.88,
+                fetched_at="2026-03-19T10:00:00+00:00",
+            ),
+        ]
+        _populate_inbox(inbox_path, items)
+
+        reader = DataPulseReader(inbox_path=inbox_path)
+        payload = reader.prepare_digest_payload(
+            profile="default",
+            limit=10,
+            top_n=1,
+            secondary_n=1,
+            digest_language="zh-CN",
+            digest_timezone="Asia/Shanghai",
+            digest_frequency="@hourly",
+            digest_delivery_target_kind="route",
+            digest_delivery_target_ref="ops-webhook",
+            prompt_files=[str(prompt_path)],
+        )
+
+        assert payload["schema_version"] == "prepare_digest_payload.v1"
+        assert payload["content"]["feed_bundle"]["schema_version"] == "feed_bundle.v1"
+        assert payload["config"]["source_ids"] == ["source_example"]
+        assert payload["config"]["digest_profile"]["language"] == "zh-CN"
+        assert payload["config"]["digest_profile"]["timezone"] == "Asia/Shanghai"
+        assert payload["config"]["digest_profile"]["frequency"] == "@hourly"
+        assert payload["config"]["digest_profile"]["default_delivery_target"] == {"kind": "route", "ref": "ops-webhook"}
+        assert payload["prompts"]["repo_default_pack"] == "digest_delivery_default"
+        assert payload["prompts"]["overrides_applied"] == ["per_run_overrides"]
+        assert str(prompt_path.resolve()) in payload["prompts"]["files"]
+        assert payload["stats"]["delivery_package"]["item_count"] == 2
+        assert payload["errors"] == []
+
+
 class TestBuildRssFeed:
     @pytest.fixture()
     def reader_with_items(self, tmp_path):

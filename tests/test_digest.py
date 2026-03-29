@@ -325,6 +325,38 @@ class TestBuildDigest:
         assert ignored.id not in selected_ids
         assert duplicate.id not in selected_ids
 
+    def test_prepare_digest_payload_replays_frozen_bundle_without_requery(self, tmp_path):
+        now = datetime.now(timezone.utc)
+        items = [
+            _make_item(
+                title="Frozen item 1",
+                url="https://example.com/1",
+                source_name="src_a",
+                content="frozen bundle content one",
+                confidence=0.91,
+                fetched_at=now.isoformat(),
+            ),
+            _make_item(
+                title="Frozen item 2",
+                url="https://example.com/2",
+                source_name="src_b",
+                content="frozen bundle content two",
+                confidence=0.87,
+                fetched_at=(now - timedelta(hours=1)).isoformat(),
+            ),
+        ]
+        reader = _setup_reader(tmp_path, items)
+        bundle = reader.build_feed_bundle(limit=10)
+
+        Path(tmp_path / "inbox.json").write_text("[]", encoding="utf-8")
+
+        payload = reader.prepare_digest_payload(feed_bundle=bundle, top_n=1, secondary_n=1)
+
+        assert payload["content"]["feed_bundle"]["items"][0]["title"] == "Frozen item 1"
+        assert payload["content"]["digest_payload"]["stats"]["selected_primary"] == 1
+        assert payload["content"]["delivery_package"]["summary"]["item_count"] == 2
+        assert payload["stats"]["feed_bundle"]["items_selected"] == 2
+
 
 class TestSelectDiverse:
     def test_penalty_same_source(self, tmp_path):

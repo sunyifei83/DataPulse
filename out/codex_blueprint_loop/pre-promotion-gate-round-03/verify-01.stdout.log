@@ -1,11 +1,11 @@
 {
   "schema_version": "quick_test_gate.v1",
-  "generated_at_utc": "2026-03-17T07:14:42Z",
+  "generated_at_utc": "2026-03-29T05:36:05Z",
   "git": {
-    "head": "f0c894f25a57d09a35a1f16298688c895ba02085",
+    "head": "8cca763cef6dcdcd9863f4125ddfefe81a5584fc",
     "branch": "main"
   },
-  "ok": false,
+  "ok": true,
   "read_only": true,
   "steps": [
     {
@@ -29,14 +29,10 @@
         "check",
         "datapulse/"
       ],
-      "rc": 1,
-      "ok": false,
+      "rc": 0,
+      "ok": true,
       "stdout_tail": [
-        "396 |             try:",
-        "397 |                 value = int(route.get(field, 0) or 0)",
-        "    |",
-        "",
-        "Found 1 error."
+        "All checks passed!"
       ],
       "stderr_tail": []
     },
@@ -46,12 +42,11 @@
         "mypy",
         "datapulse/"
       ],
-      "rc": 1,
-      "ok": false,
+      "rc": 0,
+      "ok": true,
       "stdout_tail": [
-        "datapulse/core/alerts.py:413: error: Incompatible types in assignment (expression has type \"Any | None\", variable has type \"int\")  [assignment]",
-        "datapulse/cli.py:326: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
-        "Found 1 error in 1 file (checked 59 source files)"
+        "datapulse/cli.py:327: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]",
+        "Success: no issues found in 59 source files"
       ],
       "stderr_tail": []
     },

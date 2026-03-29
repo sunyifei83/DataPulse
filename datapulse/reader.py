@@ -160,8 +160,13 @@ _REPORT_DELIVERY_OUTPUT_KINDS = (
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _AI_SURFACE_ADMISSION_PATH_ENV = "DATAPULSE_AI_SURFACE_ADMISSION_PATH"
 _MODELBUS_BUNDLE_DIR_ENV = "DATAPULSE_MODELBUS_BUNDLE_DIR"
+_DIGEST_PROFILE_PATH_ENV = "DATAPULSE_DIGEST_PROFILE_PATH"
+_DIGEST_LOCAL_PROMPT_OVERRIDE_DIR_ENV = "DATAPULSE_DIGEST_PROMPT_OVERRIDE_DIR"
 _CANONICAL_MODELBUS_BUNDLE_DIR = _REPO_ROOT / "out/ha_latest_release_bundle"
 _DEFAULT_AI_SURFACE_ADMISSION_PATH = _REPO_ROOT / "out/governance/datapulse-ai-surface-admission.example.json"
+_DEFAULT_DIGEST_PROFILE_PATH = Path.home() / ".datapulse" / "digest_profile.json"
+_DEFAULT_DIGEST_REPO_PROMPT_DIR = _REPO_ROOT / "prompts" / "digest_delivery_default"
+_DEFAULT_DIGEST_LOCAL_PROMPT_DIR = Path.home() / ".datapulse" / "prompts" / "digest_delivery"
 _AI_SURFACE_LIFECYCLE_ANCHORS: dict[str, str] = {
     "mission_suggest": "WatchMission",
     "triage_assist": "DataPulseItem",
@@ -207,6 +212,20 @@ _AI_SURFACE_CONTRACTS: dict[str, dict[str, str]] = {
 def _package_signature(payload: dict[str, Any]) -> str:
     text = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
+
+
+def _dedupe_preserve_order(values: list[Any] | tuple[Any, ...] | None) -> list[str]:
+    if not values:
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        value = str(raw or "").strip()
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        normalized.append(value)
+    return normalized
 
 
 class DataPulseReader:
@@ -290,6 +309,181 @@ class DataPulseReader:
         else:
             path = path.resolve()
         return path, None
+
+    @staticmethod
+    def _normalize_digest_delivery_target(kind: str | None, ref: str | None) -> dict[str, str]:
+        normalized_kind = str(kind or "route").strip().lower() or "route"
+        normalized_ref = str(ref or "").strip()
+        return {"kind": normalized_kind, "ref": normalized_ref}
+
+    @staticmethod
+    def _normalize_digest_profile_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
+        profile = payload if isinstance(payload, dict) else {}
+        default_delivery_target = profile.get("default_delivery_target")
+        if not isinstance(default_delivery_target, dict):
+            default_delivery_target = {}
+        return {
+            "schema_version": "digest_profile.v1",
+            "language": str(profile.get("language") or "en").strip() or "en",
+            "timezone": str(profile.get("timezone") or "UTC").strip() or "UTC",
+            "frequency": str(profile.get("frequency") or "@daily").strip() or "@daily",
+            "default_delivery_target": DataPulseReader._normalize_digest_delivery_target(
+                default_delivery_target.get("kind"),
+                default_delivery_target.get("ref"),
+            ),
+        }
+
+    @staticmethod
+    def _prompt_files_from_dir(path: Path) -> list[str]:
+        if not path.exists() or not path.is_dir():
+            return []
+        files = [item.resolve() for item in path.rglob("*") if item.is_file()]
+        return [str(item) for item in sorted(files, key=lambda item: str(item))]
+
+    def _digest_profile_path(self) -> Path:
+        raw = os.getenv(_DIGEST_PROFILE_PATH_ENV, "").strip()
+        if raw:
+            return Path(raw).expanduser()
+        return _DEFAULT_DIGEST_PROFILE_PATH
+
+    def _load_digest_profile(self) -> dict[str, Any] | None:
+        path = self._digest_profile_path()
+        if not path.exists():
+            return None
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(raw, dict):
+            return None
+        return self._normalize_digest_profile_payload(raw)
+
+    def _resolve_digest_profile(
+        self,
+        *,
+        language: str | None = None,
+        timezone_name: str | None = None,
+        frequency: str | None = None,
+        delivery_target_kind: str | None = None,
+        delivery_target_ref: str | None = None,
+    ) -> dict[str, Any]:
+        profile = self._normalize_digest_profile_payload(self._load_digest_profile())
+        if language is not None:
+            profile["language"] = str(language or "").strip() or profile["language"]
+        if timezone_name is not None:
+            profile["timezone"] = str(timezone_name or "").strip() or profile["timezone"]
+        if frequency is not None:
+            profile["frequency"] = str(frequency or "").strip() or profile["frequency"]
+        if delivery_target_kind is not None or delivery_target_ref is not None:
+            base_target = profile.get("default_delivery_target", {})
+            if not isinstance(base_target, dict):
+                base_target = {}
+            profile["default_delivery_target"] = self._normalize_digest_delivery_target(
+                delivery_target_kind if delivery_target_kind is not None else str(base_target.get("kind", "")).strip(),
+                delivery_target_ref if delivery_target_ref is not None else str(base_target.get("ref", "")).strip(),
+            )
+        return profile
+
+    def _resolve_digest_prompts(self, *, prompt_files: list[str] | None = None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        errors: list[dict[str, Any]] = []
+        repo_default_files = self._prompt_files_from_dir(_DEFAULT_DIGEST_REPO_PROMPT_DIR)
+        local_override_raw = os.getenv(_DIGEST_LOCAL_PROMPT_OVERRIDE_DIR_ENV, "").strip()
+        local_override_dir = Path(local_override_raw).expanduser() if local_override_raw else _DEFAULT_DIGEST_LOCAL_PROMPT_DIR
+        local_override_files = self._prompt_files_from_dir(local_override_dir)
+        per_run_files: list[str] = []
+        for raw_path in _dedupe_preserve_order(prompt_files):
+            path = Path(raw_path).expanduser()
+            if not path.exists() or not path.is_file():
+                errors.append(
+                    {
+                        "code": "prompt_file_missing",
+                        "message": f"Prompt override file not found: {path}",
+                    }
+                )
+                continue
+            per_run_files.append(str(path.resolve()))
+
+        overrides_applied: list[str] = []
+        if local_override_files:
+            overrides_applied.append("local_prompt_overrides")
+        if per_run_files:
+            overrides_applied.append("per_run_overrides")
+        return (
+            {
+                "prompt_pack": "repo_default",
+                "repo_default_pack": "digest_delivery_default",
+                "render_intent": "digest_delivery",
+                "files": [*repo_default_files, *local_override_files, *per_run_files],
+                "override_order": [
+                    "repo_default_pack",
+                    "local_prompt_overrides",
+                    "per_run_overrides",
+                ],
+                "overrides_applied": overrides_applied,
+            },
+            errors,
+        )
+
+    @staticmethod
+    def _bundle_error(code: str, message: str, **details: Any) -> dict[str, Any]:
+        payload: dict[str, Any] = {"code": code, "message": message}
+        for key, value in details.items():
+            if value is None:
+                continue
+            payload[key] = value
+        return payload
+
+    def _resolved_bundle_source_scope(
+        self,
+        items: list[DataPulseItem],
+        *,
+        profile: str,
+        source_ids: list[str] | None,
+    ) -> tuple[list[str], list[str], list[dict[str, Any]]]:
+        requested_ids = _dedupe_preserve_order(source_ids)
+        errors: list[dict[str, Any]] = []
+        matched_source_ids: list[str] = []
+        for item in items:
+            source_payload = self.resolve_source(item.url)
+            source_id = str(source_payload.get("source_id", "")).strip()
+            if source_id and source_id not in matched_source_ids:
+                matched_source_ids.append(source_id)
+
+        if requested_ids:
+            resolved_ids: list[str] = []
+            for source_id in requested_ids:
+                if self.catalog.get_source(source_id) is None:
+                    errors.append(
+                        self._bundle_error(
+                            "source_id_missing",
+                            f"Source ID not found in catalog: {source_id}",
+                            source_id=source_id,
+                        )
+                    )
+                    continue
+                resolved_ids.append(source_id)
+            return requested_ids, resolved_ids, errors
+
+        subscription_ids = _dedupe_preserve_order(self.catalog.list_subscriptions(profile=profile))
+        if matched_source_ids:
+            return requested_ids, matched_source_ids, errors
+        if subscription_ids:
+            return requested_ids, subscription_ids, errors
+        fallback_ids = [
+            source.id
+            for source in self.catalog.list_sources(include_inactive=False, public_only=True)
+        ]
+        return requested_ids, _dedupe_preserve_order(fallback_ids), errors
+
+    def _bundle_window(self, items: list[DataPulseItem], *, since: str | None = None) -> dict[str, Any]:
+        timestamps = [parsed for item in items if (parsed := _parse_timestamp(item.fetched_at)) is not None]
+        oldest = min(timestamps).replace(microsecond=0).isoformat().replace("+00:00", "Z") if timestamps else None
+        newest = max(timestamps).replace(microsecond=0).isoformat().replace("+00:00", "Z") if timestamps else None
+        return {
+            "since": since,
+            "oldest_fetched_at": oldest,
+            "newest_fetched_at": newest,
+        }
 
     def _load_local_ai_surface_admissions(self) -> dict[str, Any]:
         path = self._resolve_runtime_path(
@@ -2814,29 +3008,15 @@ class DataPulseReader:
                 validated_topics.append(merged)
         return validated_topics
 
-    def emit_digest_package(
+    def _build_digest_delivery_package(
         self,
+        digest_payload: dict[str, Any],
         *,
         profile: str = "default",
-        source_ids: list[str] | None = None,
-        top_n: int = 3,
-        secondary_n: int = 7,
-        min_confidence: float = 0.0,
-        since: str | None = None,
-        output_format: str = "json",
-    ) -> str:
-        """Build read-only digest package for downstream automation (no side effects)."""
-        payload = cast(dict[str, Any], self.build_digest(
-            profile=profile,
-            source_ids=source_ids,
-            top_n=top_n,
-            secondary_n=secondary_n,
-            min_confidence=min_confidence,
-            since=since,
-        ))
-
-        primary_payload = payload.get("primary")
-        secondary_payload = payload.get("secondary")
+        generated_at: str | None = None,
+    ) -> dict[str, Any]:
+        primary_payload = digest_payload.get("primary")
+        secondary_payload = digest_payload.get("secondary")
         primary = primary_payload if isinstance(primary_payload, list) else []
         secondary = secondary_payload if isinstance(secondary_payload, list) else []
         all_items = [item for item in primary + secondary if isinstance(item, dict)]
@@ -2868,18 +3048,18 @@ class DataPulseReader:
         package: dict[str, Any] = {
             "summary": {
                 "title": f"DataPulse Digest Package | {profile}",
-                "generated_at": _utcnow_z(),
+                "generated_at": str(generated_at or digest_payload.get("generated_at") or _utcnow_z()),
                 "high_confidence_count": high_confidence_hits,
                 "item_count": len(all_items),
-                "stats": payload.get("stats", {}),
+                "stats": digest_payload.get("stats", {}),
                 "factuality_status": (
-                    payload.get("factuality", {}).get("status", "review_required")
-                    if isinstance(payload.get("factuality"), dict)
+                    digest_payload.get("factuality", {}).get("status", "review_required")
+                    if isinstance(digest_payload.get("factuality"), dict)
                     else "review_required"
                 ),
                 "factuality_score": (
-                    float(payload.get("factuality", {}).get("score", 0.0) or 0.0)
-                    if isinstance(payload.get("factuality"), dict)
+                    float(digest_payload.get("factuality", {}).get("score", 0.0) or 0.0)
+                    if isinstance(digest_payload.get("factuality"), dict)
                     else 0.0
                 ),
             },
@@ -2890,8 +3070,8 @@ class DataPulseReader:
             "recommendations": recommendations,
             "timeline": sorted(timeline, key=lambda x: x.get("time", ""), reverse=True),
             "todos": todos,
-            "factuality": payload.get("factuality", {}),
-            "digest_payload": payload,
+            "factuality": digest_payload.get("factuality", {}),
+            "digest_payload": digest_payload,
         }
         factuality = package["factuality"] if isinstance(package["factuality"], dict) else {}
         factuality_backend = (
@@ -2908,6 +3088,21 @@ class DataPulseReader:
             todos.append(f"事实性复核: {reason}")
         for reason in factuality_backend.get("reasons", []) if isinstance(factuality_backend.get("reasons"), list) else []:
             todos.append(f"事实性后端复核: {reason}")
+        return package
+
+    def _render_digest_delivery_package(
+        self,
+        package: dict[str, Any],
+        *,
+        output_format: str = "json",
+    ) -> str:
+        factuality = package["factuality"] if isinstance(package.get("factuality"), dict) else {}
+        factuality_backend = (
+            factuality.get("backend_review", {})
+            if isinstance(factuality.get("backend_review"), dict)
+            else {}
+        )
+        effective_factuality_status = resolve_factuality_gate_status(factuality)
 
         if output_format.lower() == "md" or output_format.lower() == "markdown":
             lines = [
@@ -2993,6 +3188,35 @@ class DataPulseReader:
             return "\n".join(lines)
 
         return json.dumps(package, ensure_ascii=False, indent=2)
+
+    def emit_digest_package(
+        self,
+        *,
+        profile: str = "default",
+        source_ids: list[str] | None = None,
+        top_n: int = 3,
+        secondary_n: int = 7,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+        output_format: str = "json",
+    ) -> str:
+        """Build read-only digest package for downstream automation (no side effects)."""
+        digest_payload = cast(
+            dict[str, Any],
+            self.build_digest(
+                profile=profile,
+                source_ids=source_ids,
+                top_n=top_n,
+                secondary_n=secondary_n,
+                min_confidence=min_confidence,
+                since=since,
+            ),
+        )
+        package = self._build_digest_delivery_package(
+            digest_payload,
+            profile=profile,
+        )
+        return self._render_digest_delivery_package(package, output_format=output_format)
 
     def story_build(
         self,
@@ -5418,6 +5642,63 @@ class DataPulseReader:
         ordered = sorted(filtered, key=lambda it: it.fetched_at, reverse=True)
         return ordered[: max(0, limit)]
 
+    def build_feed_bundle(
+        self,
+        *,
+        profile: str = "default",
+        source_ids: list[str] | None = None,
+        limit: int = 500,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+    ) -> dict[str, Any]:
+        errors: list[dict[str, Any]] = []
+        if since and _parse_timestamp(since) is None:
+            errors.append(
+                self._bundle_error(
+                    "invalid_since",
+                    f"Unable to parse since timestamp: {since}",
+                    since=since,
+                )
+            )
+
+        items = self.query_feed(
+            profile=profile,
+            source_ids=source_ids,
+            limit=limit,
+            min_confidence=min_confidence,
+            since=since,
+        )
+        requested_ids, resolved_ids, scope_errors = self._resolved_bundle_source_scope(
+            items,
+            profile=profile,
+            source_ids=source_ids,
+        )
+        errors.extend(scope_errors)
+        source_count = len(resolved_ids)
+        if source_count == 0:
+            source_count = len({str(item.source_name or "").strip() for item in items if str(item.source_name or "").strip()})
+
+        return {
+            "schema_version": "feed_bundle.v1",
+            "generated_at": _utcnow_z(),
+            "selection": {
+                "profile": profile,
+                "pack_id": None,
+                "source_ids_requested": requested_ids,
+                "source_ids_resolved": resolved_ids,
+                "since": since,
+                "limit": max(0, int(limit)),
+                "min_confidence": float(min_confidence),
+            },
+            "window": self._bundle_window(items, since=since),
+            "items": [item.to_dict() for item in items],
+            "stats": {
+                "items_selected": len(items),
+                "sources_selected": source_count,
+            },
+            "errors": errors,
+        }
+
     def build_json_feed(
         self,
         *,
@@ -5699,6 +5980,130 @@ class DataPulseReader:
             since=since,
             max_per_source=max_per_source,
         )
+
+    def prepare_digest_payload(
+        self,
+        *,
+        feed_bundle: dict[str, Any] | None = None,
+        profile: str = "default",
+        source_ids: list[str] | None = None,
+        limit: int = 500,
+        top_n: int = 3,
+        secondary_n: int = 7,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+        max_per_source: int = 2,
+        output_format: str = "json",
+        digest_language: str | None = None,
+        digest_timezone: str | None = None,
+        digest_frequency: str | None = None,
+        digest_delivery_target_kind: str | None = None,
+        digest_delivery_target_ref: str | None = None,
+        prompt_files: list[str] | None = None,
+    ) -> dict[str, Any]:
+        errors: list[dict[str, Any]] = []
+        bundle = feed_bundle if isinstance(feed_bundle, dict) else self.build_feed_bundle(
+            profile=profile,
+            source_ids=source_ids,
+            limit=limit,
+            min_confidence=min_confidence,
+            since=since,
+        )
+        bundle_errors = bundle.get("errors", [])
+        if isinstance(bundle_errors, list):
+            errors.extend(error for error in bundle_errors if isinstance(error, dict))
+
+        selection = bundle.get("selection", {})
+        if not isinstance(selection, dict):
+            selection = {}
+        resolved_profile = str(selection.get("profile") or profile).strip() or "default"
+        resolved_source_ids = _dedupe_preserve_order(selection.get("source_ids_resolved"))
+        bundle_items: list[DataPulseItem] = []
+        for raw in bundle.get("items", []) if isinstance(bundle.get("items"), list) else []:
+            if not isinstance(raw, dict):
+                errors.append(
+                    self._bundle_error(
+                        "bundle_item_invalid",
+                        "Feed bundle item must be an object.",
+                    )
+                )
+                continue
+            try:
+                bundle_items.append(DataPulseItem.from_dict(dict(raw)))
+            except (TypeError, ValueError) as exc:
+                errors.append(
+                    self._bundle_error(
+                        "bundle_item_invalid",
+                        f"Unable to load feed bundle item: {exc}",
+                    )
+                )
+
+        digest_payload = cast(
+            dict[str, Any],
+            self.build_digest(
+                items=bundle_items,
+                profile=resolved_profile,
+                source_ids=resolved_source_ids or source_ids,
+                top_n=top_n,
+                secondary_n=secondary_n,
+                min_confidence=min_confidence,
+                max_per_source=max_per_source,
+            ),
+        )
+        delivery_package = self._build_digest_delivery_package(
+            digest_payload,
+            profile=resolved_profile,
+            generated_at=str(bundle.get("generated_at") or digest_payload.get("generated_at") or _utcnow_z()),
+        )
+        prompts, prompt_errors = self._resolve_digest_prompts(prompt_files=prompt_files)
+        errors.extend(prompt_errors)
+        digest_profile = self._resolve_digest_profile(
+            language=digest_language,
+            timezone_name=digest_timezone,
+            frequency=digest_frequency,
+            delivery_target_kind=digest_delivery_target_kind,
+            delivery_target_ref=digest_delivery_target_ref,
+        )
+        return {
+            "schema_version": "prepare_digest_payload.v1",
+            "generated_at": str(bundle.get("generated_at") or digest_payload.get("generated_at") or _utcnow_z()),
+            "content": {
+                "feed_bundle": bundle,
+                "digest_payload": digest_payload,
+                "delivery_package": delivery_package,
+            },
+            "config": {
+                "profile": resolved_profile,
+                "source_ids": resolved_source_ids,
+                "top_n": top_n,
+                "secondary_n": secondary_n,
+                "min_confidence": float(min_confidence),
+                "since": selection.get("since", since),
+                "max_per_source": max_per_source,
+                "output_format": output_format,
+                "digest_profile": digest_profile,
+            },
+            "prompts": prompts,
+            "stats": {
+                "feed_bundle": bundle.get("stats", {}),
+                "digest": digest_payload.get("stats", {}),
+                "delivery_package": {
+                    "item_count": delivery_package.get("summary", {}).get("item_count", 0)
+                    if isinstance(delivery_package.get("summary"), dict)
+                    else 0,
+                    "high_confidence_count": delivery_package.get("summary", {}).get("high_confidence_count", 0)
+                    if isinstance(delivery_package.get("summary"), dict)
+                    else 0,
+                    "factuality_status": delivery_package.get("summary", {}).get("factuality_status", "review_required")
+                    if isinstance(delivery_package.get("summary"), dict)
+                    else "review_required",
+                    "factuality_effective_status": delivery_package.get("summary", {}).get("factuality_effective_status")
+                    if isinstance(delivery_package.get("summary"), dict)
+                    else None,
+                },
+            },
+            "errors": errors,
+        }
 
     @staticmethod
     def _build_semantic_review(items: list[DataPulseItem]) -> dict[str, Any]:

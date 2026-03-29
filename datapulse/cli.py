@@ -1350,14 +1350,23 @@ def main() -> None:
     management_group.add_argument("--source-subscribe", metavar="SOURCE_ID", help="Subscribe profile source")
     management_group.add_argument("--source-unsubscribe", metavar="SOURCE_ID", help="Unsubscribe profile source")
     management_group.add_argument("--install-pack", metavar="PACK_SLUG", help="Install source pack to profile")
+    management_group.add_argument("--feed-bundle", action="store_true", help="Export replayable feed bundle")
     management_group.add_argument("--query-feed", action="store_true", help="Print JSON feed output")
     management_group.add_argument("--query-rss", action="store_true", help="Print RSS feed output")
     management_group.add_argument("--query-atom", action="store_true", help="Print Atom 1.0 feed output")
     management_group.add_argument("--digest", action="store_true", help="Build curated digest")
     management_group.add_argument("--emit-digest-package", action="store_true", help="Export minimal office-ready digest package")
+    management_group.add_argument("--prepare-digest-payload", action="store_true", help="Export deterministic digest preparation payload")
     management_group.add_argument("--emit-digest-format", default="json", choices=["json", "markdown", "md"], help="Digest package output format")
     management_group.add_argument("--top-n", type=int, default=3, help="Number of primary stories in digest")
     management_group.add_argument("--secondary-n", type=int, default=7, help="Number of secondary stories in digest")
+    management_group.add_argument("--max-per-source", type=int, default=2, help="Max digest items per source during curation")
+    management_group.add_argument("--digest-language", help="Digest language override for prepare payload")
+    management_group.add_argument("--digest-timezone", help="Digest timezone override for prepare payload")
+    management_group.add_argument("--digest-frequency", help="Digest frequency override for prepare payload")
+    management_group.add_argument("--digest-delivery-target-kind", help="Digest default delivery target kind override")
+    management_group.add_argument("--digest-delivery-target-ref", help="Digest default delivery target ref override")
+    management_group.add_argument("--digest-prompt-file", action="append", metavar="PATH", help="Per-run digest prompt override file")
     management_group.add_argument("--entity-query", help="Query entities from store by name")
     management_group.add_argument("--entity-type", help="Filter entity query by type")
     management_group.add_argument("--entity-limit", type=int, default=50, help="Limit for entity query")
@@ -2347,6 +2356,16 @@ def main() -> None:
         print(json.dumps(query_payload, ensure_ascii=False, indent=2))
         return
 
+    if args.feed_bundle:
+        bundle_payload = reader.build_feed_bundle(
+            profile=args.source_profile,
+            source_ids=_normalize_csv_ids(args.source_ids),
+            limit=args.limit,
+            min_confidence=args.min_confidence,
+        )
+        print(json.dumps(bundle_payload, ensure_ascii=False, indent=2))
+        return
+
     if args.query_feed:
         feed_payload = reader.build_json_feed(
             profile=args.source_profile,
@@ -2400,6 +2419,26 @@ def main() -> None:
             output_format=args.emit_digest_format,
         )
         print(digest_package)
+        return
+
+    if args.prepare_digest_payload:
+        prepared_payload = reader.prepare_digest_payload(
+            profile=args.source_profile,
+            source_ids=_normalize_csv_ids(args.source_ids),
+            limit=args.limit,
+            top_n=args.top_n,
+            secondary_n=args.secondary_n,
+            min_confidence=args.min_confidence,
+            max_per_source=args.max_per_source,
+            output_format=args.emit_digest_format,
+            digest_language=args.digest_language,
+            digest_timezone=args.digest_timezone,
+            digest_frequency=args.digest_frequency,
+            digest_delivery_target_kind=args.digest_delivery_target_kind,
+            digest_delivery_target_ref=args.digest_delivery_target_ref,
+            prompt_files=args.digest_prompt_file,
+        )
+        print(json.dumps(prepared_payload, ensure_ascii=False, indent=2))
         return
 
     if args.trending is not None:
