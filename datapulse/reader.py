@@ -14,12 +14,6 @@ from typing import Any, cast
 from urllib.parse import urlparse
 
 from datapulse.collectors.trending import TrendingCollector, build_trending_url
-from datapulse.governance_paths import (
-    GOVERNANCE_SNAPSHOT_ROOT,
-    RUNTIME_BUNDLE_ROOT,
-    read_path as resolve_governance_read_path,
-    root_candidate_entries as resolve_root_candidate_entries,
-)
 from datapulse.core.alerts import (
     AlertEvent,
     AlertRouteStore,
@@ -80,6 +74,16 @@ from datapulse.core.watchlist import (
     WatchMission,
     build_watch_run_readiness,
     validate_watch_suggestion_payload,
+)
+from datapulse.governance_paths import (
+    GOVERNANCE_SNAPSHOT_ROOT,
+    RUNTIME_BUNDLE_ROOT,
+)
+from datapulse.governance_paths import (
+    read_path as resolve_governance_read_path,
+)
+from datapulse.governance_paths import (
+    root_candidate_entries as resolve_root_candidate_entries,
 )
 
 logger = logging.getLogger("datapulse.reader")
