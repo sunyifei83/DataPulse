@@ -1,10 +1,10 @@
 {
   "schema_version": "project_specific_loop_state.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-29T05:49:45Z",
+  "generated_at_utc": "2026-03-29T06:12:23Z",
   "state_kind": "draft_export",
-  "source_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "wired": false,
+  "source_plan": "docs/governance/datapulse-blueprint-plan.json",
+  "wired": true,
   "current_level": "manual_only",
   "workspace_clean": false,
   "completed_slices": [
@@ -106,28 +106,20 @@
     "L19.2",
     "L19.3",
     "L19.4",
-    "L19.5"
+    "L19.5",
+    "L19.6"
   ],
   "next_slice": {
-    "id": "L19.6",
-    "title": "Project feed-bundle browse run onboarding and delivery diagnostics into the browser console and smoke coverage",
-    "category": "manual",
-    "phase_id": "L19",
-    "execution_profile": "runtime_validation",
-    "promotion_scope": "none",
-    "closes_gates": []
+    "id": "no-open-slice",
+    "title": "No open slice",
+    "category": "complete"
   },
   "remaining_promotion_gates": [
     "workspace_dirty",
     "repo_landed_false",
-    "ci_run_not_proven",
-    "release_window_attestation_cross_head",
-    "draft_not_wired"
+    "release_window_attestation_cross_head"
   ],
-  "blocking_facts": [
-    "workspace_dirty",
-    "draft_not_wired"
-  ],
+  "blocking_facts": [],
   "pipeline_contract": {
     "objective": "trusted_delivery_pipeline",
     "continuous_when_healthy": true,
@@ -138,12 +130,12 @@
   "control_contract": {
     "progress_truth": {
       "source": "blueprint_plan_next_open_slice",
-      "current_next_slice_id": "L19.6"
+      "current_next_slice_id": "no-open-slice"
     },
     "stop_truth": {
       "source": "blocking_facts_and_flow_control",
-      "status_if_run_now": "blocked",
-      "reason_if_run_now": "draft_only_not_wired",
+      "status_if_run_now": "stopped",
+      "reason_if_run_now": "promotion_gates_open",
       "machine_decidable": true,
       "expected_terminal_stop_on_complete": true
     },
@@ -179,25 +171,24 @@
     }
   },
   "flow_control": {
-    "status_if_run_now": "blocked",
-    "reason_if_run_now": "draft_only_not_wired",
+    "status_if_run_now": "stopped",
+    "reason_if_run_now": "promotion_gates_open",
     "machine_decidable_blockers": true,
     "auto_continuation_enabled": false,
     "readiness_gaps": [
-      "draft_not_wired",
       "manual_handoff_still_required"
     ]
   },
   "promotion_mode": "manual_only",
-  "stop_reason_if_run_now": "draft_only_not_wired",
+  "stop_reason_if_run_now": "promotion_gates_open",
   "local_verification": {
     "quick_test_gate": {
       "status": "passed",
       "observed": true,
       "current_head_match": true,
       "ok": true,
-      "generated_at_utc": "2026-03-29T05:37:49Z",
-      "head": "9485fd65333029ffedff06aaf2549c9cf432225d",
+      "generated_at_utc": "2026-03-29T05:52:52Z",
+      "head": "54ade8418bd28ccaf870394a631c690953d09884",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }
@@ -205,17 +196,17 @@
   "headline_summary": {
     "current_level": "manual_only",
     "workspace_clean": false,
-    "next_slice_id": "L19.6",
-    "next_slice_title": "Project feed-bundle browse run onboarding and delivery diagnostics into the browser console and smoke coverage",
-    "status_if_run_now": "blocked",
-    "reason_if_run_now": "draft_only_not_wired",
+    "next_slice_id": "no-open-slice",
+    "next_slice_title": "No open slice",
+    "status_if_run_now": "stopped",
+    "reason_if_run_now": "promotion_gates_open",
     "quick_test_gate": {
       "status": "passed",
       "observed": true,
       "current_head_match": true,
       "ok": true,
-      "generated_at_utc": "2026-03-29T05:37:49Z",
-      "head": "9485fd65333029ffedff06aaf2549c9cf432225d",
+      "generated_at_utc": "2026-03-29T05:52:52Z",
+      "head": "54ade8418bd28ccaf870394a631c690953d09884",
       "branch": "main",
       "path": "artifacts/governance/quick_test_gate.draft.json"
     }

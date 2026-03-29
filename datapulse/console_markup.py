@@ -2549,6 +2549,10 @@ def render_console_html(title: str) -> str:
       deliveryPackageAudits: {{}},
       deliveryPackageErrors: {{}},
       deliveryPackageProfileIds: {{}},
+      digestConsole: null,
+      digestProfileDraft: null,
+      digestDispatchResult: [],
+      digestDispatchError: "",
       contextRouteName: "",
       contextRouteSection: "",
       status: null,
@@ -4120,6 +4124,68 @@ def render_console_html(title: str) -> str:
       state.deliveryDraft = normalizeDeliveryDraft(state.deliveryDraft || defaultDeliveryDraft());
     }}
 
+    function defaultDigestProfileDraft() {{
+      const profile = state.digestConsole?.profile?.profile && typeof state.digestConsole.profile.profile === "object"
+        ? state.digestConsole.profile.profile
+        : {{}};
+      const target = profile.default_delivery_target && typeof profile.default_delivery_target === "object"
+        ? profile.default_delivery_target
+        : {{}};
+      const firstRoute = Array.isArray(state.routes) && state.routes.length
+        ? normalizeRouteName(state.routes[0]?.name)
+        : "";
+      return {{
+        language: String(profile.language || "en").trim() || "en",
+        timezone: String(profile.timezone || "UTC").trim() || "UTC",
+        frequency: String(profile.frequency || "@daily").trim() || "@daily",
+        default_delivery_target: {{
+          kind: "route",
+          ref: normalizeRouteName(target.ref || firstRoute),
+        }},
+      }};
+    }}
+
+    function normalizeDigestProfileDraft(draft) {{
+      const source = draft && typeof draft === "object" ? draft : defaultDigestProfileDraft();
+      const target = source.default_delivery_target && typeof source.default_delivery_target === "object"
+        ? source.default_delivery_target
+        : {{}};
+      return {{
+        language: String(source.language || "en").trim() || "en",
+        timezone: String(source.timezone || "UTC").trim() || "UTC",
+        frequency: String(source.frequency || "@daily").trim() || "@daily",
+        default_delivery_target: {{
+          kind: "route",
+          ref: normalizeRouteName(target.ref || ""),
+        }},
+      }};
+    }}
+
+    function syncDigestProfileDraft() {{
+      state.digestProfileDraft = normalizeDigestProfileDraft(state.digestProfileDraft || defaultDigestProfileDraft());
+    }}
+
+    function collectDigestProfileDraft(form) {{
+      const formData = new FormData(form);
+      return normalizeDigestProfileDraft({{
+        language: formData.get("language"),
+        timezone: formData.get("timezone"),
+        frequency: formData.get("frequency"),
+        default_delivery_target: {{
+          kind: "route",
+          ref: formData.get("default_delivery_target_ref"),
+        }},
+      }});
+    }}
+
+    function summarizePathTail(value, depth = 2) {{
+      const parts = String(value || "").split("/").filter(Boolean);
+      if (!parts.length) {{
+        return "";
+      }}
+      return parts.slice(-Math.max(1, depth)).join("/");
+    }}
+
     function getDeliverySubscriptionRecord(identifier) {{
       const normalized = String(identifier || "").trim();
       if (!normalized) {{
@@ -4203,6 +4269,18 @@ def render_console_html(title: str) -> str:
         }}
         throw error;
       }}
+    }}
+
+    async function loadDigestConsole({{ render = true, preserveDraft = true }} = {{}}) {{
+      const payload = await api("/api/digest/console?profile=default&limit=8");
+      state.digestConsole = payload;
+      if (!preserveDraft || !state.digestProfileDraft) {{
+        state.digestProfileDraft = normalizeDigestProfileDraft(payload?.profile?.profile || defaultDigestProfileDraft());
+      }}
+      if (render) {{
+        renderDeliveryWorkspace();
+      }}
+      return payload;
     }}
 
     async function attachClaimToReport(claimId, reportId, sectionId = "", bundleId = "") {{
@@ -10237,6 +10315,7 @@ def render_console_html(title: str) -> str:
         return;
       }}
       syncDeliveryDraft();
+      syncDigestProfileDraft();
       syncDeliverySelectionState();
       if (state.loading.board && !state.deliverySubscriptions.length) {{
         root.innerHTML = [skeletonCard(4), skeletonCard(4)].join("");
@@ -10245,6 +10324,40 @@ def render_console_html(title: str) -> str:
 
       const draft = normalizeDeliveryDraft(state.deliveryDraft || defaultDeliveryDraft());
       state.deliveryDraft = draft;
+      const digestConsole = state.digestConsole && typeof state.digestConsole === "object" ? state.digestConsole : {{}};
+      const digestProjection = digestConsole.prepared_payload && typeof digestConsole.prepared_payload === "object"
+        ? digestConsole.prepared_payload
+        : {{}};
+      const digestProfileShell = digestConsole.profile && typeof digestConsole.profile === "object"
+        ? digestConsole.profile
+        : {{}};
+      const digestProfileDraft = normalizeDigestProfileDraft(state.digestProfileDraft || defaultDigestProfileDraft());
+      state.digestProfileDraft = digestProfileDraft;
+      const digestBundle = digestProjection.content?.feed_bundle && typeof digestProjection.content.feed_bundle === "object"
+        ? digestProjection.content.feed_bundle
+        : {{}};
+      const digestPromptConfig = digestProjection.prompts && typeof digestProjection.prompts === "object"
+        ? digestProjection.prompts
+        : {{}};
+      const digestStats = digestProjection.stats && typeof digestProjection.stats === "object"
+        ? digestProjection.stats
+        : {{}};
+      const digestProfile = digestProjection.config?.digest_profile && typeof digestProjection.config.digest_profile === "object"
+        ? digestProjection.config.digest_profile
+        : digestProfileDraft;
+      const digestTarget = digestProfile.default_delivery_target && typeof digestProfile.default_delivery_target === "object"
+        ? digestProfile.default_delivery_target
+        : {{}};
+      const digestRouteName = normalizeRouteName(digestTarget.ref || digestProfileDraft.default_delivery_target.ref);
+      const digestRouteHealth = digestRouteName ? getRouteHealthRow(digestRouteName) : null;
+      const digestBundleItems = Array.isArray(digestBundle.items) ? digestBundle.items.slice(0, 4) : [];
+      const digestPromptFiles = Array.isArray(digestPromptConfig.files) ? digestPromptConfig.files.slice(0, 6) : [];
+      const digestPromptOverrides = Array.isArray(digestPromptConfig.overrides_applied) ? digestPromptConfig.overrides_applied : [];
+      const digestProjectionErrors = Array.isArray(digestProjection.errors) ? digestProjection.errors : [];
+      const digestRouteDispatchRows = digestRouteName
+        ? state.deliveryDispatchRecords.filter((row) => String(row.route_name || "").trim().toLowerCase() === digestRouteName).slice(0, 4)
+        : [];
+      const digestDispatchRows = Array.isArray(state.digestDispatchResult) ? state.digestDispatchResult : [];
       const subjectOptions = getDeliverySubjectRefOptions(draft.subject_kind);
       const outputOptions = getDeliveryOutputOptions(draft.subject_kind);
       const routeInputValue = draft.route_names.join(", ");
@@ -10333,6 +10446,96 @@ def render_console_html(title: str) -> str:
       root.innerHTML = `
         <div class="story-columns">
           <div class="stack">
+            <div class="card" id="digest-console-card">
+              <div class="card-top">
+                <div>
+                  <h3 class="card-title">${{copy("Digest Command Surface", "摘要控制面")}}</h3>
+                  <div class="panel-sub">${{copy("Edit the shared digest profile, inspect the replayable feed bundle, and surface prompt-pack plus route diagnostics over Reader-backed truth.", "直接编辑共享 digest_profile，查看可回放 feed_bundle，并把 prompt-pack 与路由诊断建立在 Reader 真实状态上。")}}</div>
+                </div>
+                <span class="chip ${{digestProfileShell.onboarding_status === "ready" ? "ok" : "hot"}}">${{digestProfileShell.onboarding_status === "ready" ? copy("Shared profile", "共享配置") : copy("Onboarding", "待初始化")}}</span>
+              </div>
+              <form id="digest-profile-form" style="margin-top:12px;">
+                <div class="field-grid">
+                  <label>${{copy("Language", "语言")}}<input name="language" value="${{escapeHtml(digestProfileDraft.language)}}" placeholder="en"></label>
+                  <label>${{copy("Timezone", "时区")}}<input name="timezone" value="${{escapeHtml(digestProfileDraft.timezone)}}" placeholder="UTC"></label>
+                </div>
+                <div class="field-grid">
+                  <label>${{copy("Frequency", "频率")}}<input name="frequency" value="${{escapeHtml(digestProfileDraft.frequency)}}" placeholder="@daily"></label>
+                  <label>${{copy("Default Route", "默认路由")}}
+                    <select name="default_delivery_target_ref">
+                      <option value="">${{copy("Select route", "选择路由")}}</option>
+                      ${{state.routes.map((route) => {{
+                        const routeName = normalizeRouteName(route.name);
+                        return `<option value="${{escapeHtml(routeName)}}" ${{routeName === digestProfileDraft.default_delivery_target.ref ? "selected" : ""}}>${{escapeHtml(routeName)}}</option>`;
+                      }}).join("")}}
+                    </select>
+                  </label>
+                </div>
+                <div class="meta">
+                  <span>${{copy("status", "状态")}}=${{localizeWord(digestProfileShell.onboarding_status || "needs_setup")}}</span>
+                  <span>${{copy("path", "路径")}}=${{escapeHtml(summarizePathTail(digestProfileShell.profile_path || "", 3) || "-")}}</span>
+                  <span>${{copy("route", "路由")}}=${{escapeHtml(digestRouteName || copy("unset", "未设置"))}}</span>
+                </div>
+                <div class="toolbar">
+                  <button class="btn-primary" type="submit">${{copy("Save Shared Defaults", "保存共享默认值")}}</button>
+                  <button class="btn-secondary" type="button" data-digest-refresh>${{copy("Refresh Preview", "刷新预览")}}</button>
+                  <button class="btn-secondary" type="button" data-digest-dispatch ${{digestRouteName ? "" : "disabled"}}>${{copy("Dispatch Digest", "发送摘要")}}</button>
+                </div>
+              </form>
+              <div class="graph-meta" style="margin-top:14px;">
+                <div class="mini-list" id="digest-preview-feed">
+                  <div class="mono">${{copy("Feed Bundle Preview", "Feed Bundle 预览")}}</div>
+                  <div class="meta">
+                    <span>${{copy("items", "条目")}}=${{digestStats.feed_bundle?.items_selected ?? digestBundle.stats?.items_selected ?? 0}}</span>
+                    <span>${{copy("sources", "来源")}}=${{digestStats.feed_bundle?.sources_selected ?? digestBundle.stats?.sources_selected ?? 0}}</span>
+                    <span>${{copy("window end", "窗口结束")}}=${{escapeHtml(digestBundle.window?.end_at || "-")}}</span>
+                  </div>
+                  ${{digestBundleItems.length
+                    ? digestBundleItems.map((item) => `<div class="mini-item">${{escapeHtml(item.title || item.id || "-")}}</div><div class="panel-sub">${{escapeHtml(item.source_name || item.url || "-")}}</div>`).join("")
+                    : `<div class="empty">${{copy("No feed-bundle item projected yet.", "当前还没有投影出 feed-bundle 条目。")}}</div>`}}
+                </div>
+                <div class="mini-list" id="digest-preview-prompts">
+                  <div class="mono">${{copy("Prompt Readiness", "Prompt 就绪度")}}</div>
+                  <div class="meta">
+                    <span>${{copy("pack", "包")}}=${{escapeHtml(digestPromptConfig.repo_default_pack || "-")}}</span>
+                    <span>${{copy("overrides", "覆盖")}}=${{digestPromptOverrides.length || 0}}</span>
+                    <span>${{copy("files", "文件")}}=${{digestPromptFiles.length || 0}}</span>
+                  </div>
+                  <div class="panel-sub">${{escapeHtml((digestPromptConfig.override_order || []).join(" -> ") || copy("No prompt order projected.", "当前没有 prompt 顺序信息。"))}}</div>
+                  ${{digestPromptFiles.length
+                    ? digestPromptFiles.map((path) => `<div class="mini-item">${{escapeHtml(summarizePathTail(path, 3))}}</div>`).join("")
+                    : `<div class="empty">${{copy("No prompt provenance file projected yet.", "当前还没有投影出 prompt 来源文件。")}}</div>`}}
+                </div>
+              </div>
+              <div class="graph-meta" style="margin-top:14px;">
+                <div class="mini-list" id="digest-route-diagnostics">
+                  <div class="mono">${{copy("Route Diagnostics", "路由诊断")}}</div>
+                  <div class="meta">
+                    <span>${{copy("route", "路由")}}=${{escapeHtml(digestRouteName || copy("unset", "未设置"))}}</span>
+                    <span>${{copy("health", "健康")}}=${{escapeHtml(localizeWord(digestRouteHealth?.status || "idle"))}}</span>
+                    <span>${{copy("report audit", "报告审计")}}=${{digestRouteDispatchRows.length}}</span>
+                  </div>
+                  ${{digestDispatchRows.length
+                    ? digestDispatchRows.map((row) => `<div class="mini-item">${{escapeHtml(row.route_label || row.route_name || "-")}} | ${{escapeHtml(localizeWord(row.status || "pending"))}}</div><div class="panel-sub">${{escapeHtml(row.governance?.delivery_diagnostics?.rendering?.selected_format || copy("Digest dispatch completed.", "摘要发送已完成。"))}}</div>`).join("")
+                    : digestRouteDispatchRows.length
+                      ? digestRouteDispatchRows.map((row) => `<div class="mini-item">${{escapeHtml(row.route_label || row.route_name || "-")}} | ${{escapeHtml(localizeWord(row.status || "pending"))}}</div><div class="panel-sub">${{escapeHtml(row.package_id || row.error || "-")}}</div>`).join("")
+                      : `<div class="empty">${{escapeHtml(state.digestDispatchError || copy("No route-backed diagnostic row is visible yet. Dispatch once or inspect report-backed audit on the same route.", "当前还没有看到路由诊断记录。先发送一次摘要，或查看同一路由上的报告审计。"))}}</div>`}}
+                </div>
+                <div class="mini-list" id="digest-preview-errors">
+                  <div class="mono">${{copy("Projection Notes", "投影说明")}}</div>
+                  <div class="meta">
+                    <span>${{copy("exists", "已持久化")}}=${{digestProfileShell.exists ? copy("yes", "是") : copy("no", "否")}}</span>
+                    <span>${{copy("missing", "缺字段")}}=${{(digestProfileShell.missing_fields || []).length || 0}}</span>
+                    <span>${{copy("errors", "错误")}}=${{digestProjectionErrors.length}}</span>
+                  </div>
+                  <div class="panel-sub">${{escapeHtml((digestProfileShell.missing_fields || []).join(", ") || copy("Shared digest defaults are projected from the persisted profile.", "共享 digest 默认值正从持久化 profile 投影而来。"))}}</div>
+                  ${{digestProjectionErrors.length
+                    ? digestProjectionErrors.map((error) => `<div class="mini-item">${{escapeHtml(error.code || "error")}}</div><div class="panel-sub">${{escapeHtml(error.message || "")}}</div>`).join("")
+                    : `<div class="mini-item">${{copy("Route-backed digest dispatch stays on the same Reader nouns as CLI and MCP.", "摘要路由发送继续复用与 CLI / MCP 相同的 Reader 名词。")}}</div>`}}
+                </div>
+              </div>
+            </div>
+
             <div class="card">
               <div class="card-top">
                 <div>
@@ -10470,6 +10673,72 @@ def render_console_html(title: str) -> str:
       `;
 
       wireLifecycleGuideActions(root);
+      const digestForm = root.querySelector("#digest-profile-form");
+      digestForm?.addEventListener("input", () => {{
+        state.digestProfileDraft = collectDigestProfileDraft(digestForm);
+      }});
+      digestForm?.addEventListener("submit", async (event) => {{
+        event.preventDefault();
+        const submitButton = digestForm.querySelector("button[type='submit']");
+        const nextDraft = collectDigestProfileDraft(digestForm);
+        state.digestProfileDraft = nextDraft;
+        if (!nextDraft.default_delivery_target.ref) {{
+          showToast(copy("Choose one named route before saving shared digest defaults.", "保存共享 digest 默认值前请先选择一个命名路由。"), "error");
+          return;
+        }}
+        if (submitButton) {{
+          submitButton.disabled = true;
+        }}
+        try {{
+          const updated = await api("/api/digest-profile", {{
+            method: "PUT",
+            headers: jsonHeaders,
+            body: JSON.stringify(nextDraft),
+          }});
+          state.digestProfileDraft = normalizeDigestProfileDraft(updated?.profile || nextDraft);
+          await loadDigestConsole({{ preserveDraft: false }});
+          showToast(copy("Shared digest defaults saved.", "共享 digest 默认值已保存。"), "success");
+        }} catch (error) {{
+          reportError(error, copy("Save digest profile", "保存 digest 配置"));
+        }} finally {{
+          if (submitButton) {{
+            submitButton.disabled = false;
+          }}
+        }}
+      }});
+      root.querySelector("[data-digest-refresh]")?.addEventListener("click", async (event) => {{
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {{
+          await loadDigestConsole({{ preserveDraft: false }});
+          showToast(copy("Digest preview refreshed.", "摘要预览已刷新。"), "success");
+        }} catch (error) {{
+          reportError(error, copy("Refresh digest preview", "刷新摘要预览"));
+        }} finally {{
+          button.disabled = false;
+        }}
+      }});
+      root.querySelector("[data-digest-dispatch]")?.addEventListener("click", async (event) => {{
+        const button = event.currentTarget;
+        button.disabled = true;
+        state.digestDispatchError = "";
+        try {{
+          state.digestDispatchResult = await api("/api/digest/dispatch", {{
+            method: "POST",
+            headers: jsonHeaders,
+            body: JSON.stringify({{ profile: "default", limit: 8 }}),
+          }});
+          renderDeliveryWorkspace();
+          showToast(copy("Digest dispatch completed.", "摘要发送已完成。"), "success");
+        }} catch (error) {{
+          state.digestDispatchResult = [];
+          state.digestDispatchError = error.message;
+          renderDeliveryWorkspace();
+          reportError(error, copy("Dispatch digest", "发送摘要"));
+        }} finally {{
+          button.disabled = false;
+        }}
+      }});
       const form = root.querySelector("#delivery-subscription-form");
       form?.addEventListener("input", () => {{
         state.deliveryDraft = collectDeliveryDraft(form);
@@ -13674,7 +13943,7 @@ def render_console_html(title: str) -> str:
       renderClaimsWorkspace();
       renderReportStudio();
       try {{
-        const [overview, watches, alerts, routes, routeHealth, deliverySubscriptions, deliveryDispatchRecords, status, ops, triage, triageStats, stories, reportBriefs, claimCards, citationBundles, reportSections, reports, exportProfiles, missionSuggestPrecheck, triageAssistPrecheck, claimDraftPrecheck] = await Promise.all([
+        const [overview, watches, alerts, routes, routeHealth, deliverySubscriptions, deliveryDispatchRecords, digestConsole, status, ops, triage, triageStats, stories, reportBriefs, claimCards, citationBundles, reportSections, reports, exportProfiles, missionSuggestPrecheck, triageAssistPrecheck, claimDraftPrecheck] = await Promise.all([
           api("/api/overview"),
           api("/api/watches?include_disabled=true"),
           api("/api/alerts?limit=8"),
@@ -13682,6 +13951,7 @@ def render_console_html(title: str) -> str:
           api("/api/alert-routes/health?limit=60"),
           api("/api/delivery-subscriptions?limit=40"),
           api("/api/delivery-dispatch-records?limit=40"),
+          api("/api/digest/console?profile=default&limit=8"),
           api("/api/watch-status"),
           api("/api/ops"),
           api("/api/triage?limit=12&include_closed=true"),
@@ -13704,6 +13974,10 @@ def render_console_html(title: str) -> str:
         state.routeHealth = routeHealth;
         state.deliverySubscriptions = deliverySubscriptions;
         state.deliveryDispatchRecords = deliveryDispatchRecords;
+        state.digestConsole = digestConsole;
+        if (!state.digestProfileDraft) {{
+          state.digestProfileDraft = normalizeDigestProfileDraft(digestConsole?.profile?.profile || defaultDigestProfileDraft());
+        }}
         state.status = status;
         state.ops = ops;
         state.triage = triage;

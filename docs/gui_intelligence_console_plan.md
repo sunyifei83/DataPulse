@@ -308,6 +308,12 @@ Handoff:
 
 - treat this as the GUI projection slice of `L19.6` after `L19.2` through `L19.5` freeze the contract and runtime semantics
 
+Landing note on March 29, 2026:
+
+- the delivery workspace now exposes a shared `digest_profile` editor inside the browser shell over the same persisted defaults used by Reader, CLI, and MCP
+- the browser projects `prepare_digest_payload` directly to show feed-bundle preview, prompt-pack readiness, override provenance, and route-backed diagnostics without creating a second digest-composer model
+- browser smoke now covers digest onboarding visibility, preview refresh, and live digest dispatch diagnostics alongside the existing report-delivery flow
+
 ## Repo-Relevant Follow-up Slice Map
 
 This follow-up map is promoted into the repository blueprint as phase `L11` on March 10, 2026.

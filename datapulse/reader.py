@@ -359,6 +359,51 @@ class DataPulseReader:
             return None
         return self._normalize_digest_profile_payload(raw)
 
+    def get_digest_profile(self) -> dict[str, Any]:
+        path = self._digest_profile_path()
+        exists = path.exists()
+        profile = self._normalize_digest_profile_payload(self._load_digest_profile())
+        default_target = profile.get("default_delivery_target", {}) if isinstance(profile.get("default_delivery_target"), dict) else {}
+        missing_fields: list[str] = []
+        if not str(profile.get("language", "")).strip():
+            missing_fields.append("language")
+        if not str(profile.get("timezone", "")).strip():
+            missing_fields.append("timezone")
+        if not str(profile.get("frequency", "")).strip():
+            missing_fields.append("frequency")
+        if not str(default_target.get("ref", "")).strip():
+            missing_fields.append("default_delivery_target")
+        onboarding_status = "ready" if exists and not missing_fields else "needs_setup"
+        return {
+            "schema_version": "digest_profile_projection.v1",
+            "profile_path": str(path),
+            "exists": exists,
+            "onboarding_status": onboarding_status,
+            "missing_fields": missing_fields,
+            "profile": profile,
+        }
+
+    def update_digest_profile(
+        self,
+        *,
+        language: str | None = None,
+        timezone: str | None = None,
+        frequency: str | None = None,
+        default_delivery_target_kind: str | None = None,
+        default_delivery_target_ref: str | None = None,
+    ) -> dict[str, Any]:
+        profile = self._resolve_digest_profile(
+            language=language,
+            timezone_name=timezone,
+            frequency=frequency,
+            delivery_target_kind=default_delivery_target_kind,
+            delivery_target_ref=default_delivery_target_ref,
+        )
+        path = self._digest_profile_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(profile, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        return self.get_digest_profile()
+
     def _resolve_digest_profile(
         self,
         *,
@@ -384,6 +429,26 @@ class DataPulseReader:
                 delivery_target_ref if delivery_target_ref is not None else str(base_target.get("ref", "")).strip(),
             )
         return profile
+
+    def digest_console_projection(
+        self,
+        *,
+        profile: str = "default",
+        limit: int = 12,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+    ) -> dict[str, Any]:
+        prepared_payload = self.prepare_digest_payload(
+            profile=profile,
+            limit=limit,
+            min_confidence=min_confidence,
+            since=since,
+        )
+        return {
+            "schema_version": "digest_console_projection.v1",
+            "profile": self.get_digest_profile(),
+            "prepared_payload": prepared_payload,
+        }
 
     def _resolve_digest_prompts(self, *, prompt_files: list[str] | None = None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         errors: list[dict[str, Any]] = []

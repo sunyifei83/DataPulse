@@ -19,6 +19,18 @@ import datapulse.console_server
 print("module_ok")
 PY
 
+echo "[console-smoke] check: digest projection routes"
+"${PYTHON_CMD[@]}" - <<'PY'
+from fastapi.testclient import TestClient
+
+from datapulse.console_server import create_app
+
+client = TestClient(create_app())
+assert client.get("/api/digest-profile").status_code == 200
+assert client.get("/api/digest/console?profile=default&limit=3").status_code == 200
+print("digest_routes_ok")
+PY
+
 echo "[console-smoke] check: module help"
 "${PYTHON_CMD[@]}" -m datapulse.console_server --help >/dev/null
 

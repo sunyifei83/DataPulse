@@ -174,6 +174,26 @@ class DeliveryDispatchRequest(BaseModel):
     profile_id: str | None = None
 
 
+class DigestDeliveryTargetRequest(BaseModel):
+    kind: str = "route"
+    ref: str = ""
+
+
+class DigestProfileRequest(BaseModel):
+    language: str | None = None
+    timezone: str | None = None
+    frequency: str | None = None
+    default_delivery_target: DigestDeliveryTargetRequest | None = None
+
+
+class DigestDispatchRequest(BaseModel):
+    profile: str = "default"
+    limit: int = Field(default=12, ge=1, le=500)
+    min_confidence: float = Field(default=0.0, ge=0.0)
+    since: str | None = None
+    route_name: str | None = None
+
+
 def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) -> FastAPI:
     app = FastAPI(title=CONSOLE_TITLE, version="0.8.0")
 
@@ -741,6 +761,57 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
         if mission is None:
             raise HTTPException(status_code=404, detail=f"Report not found: {identifier}")
         return mission
+
+    @app.get("/api/digest-profile")
+    def show_digest_profile() -> dict[str, Any]:
+        return reader_factory().get_digest_profile()
+
+    @app.put("/api/digest-profile")
+    def update_digest_profile(payload: DigestProfileRequest) -> dict[str, Any]:
+        target_payload = payload.default_delivery_target
+        try:
+            return reader_factory().update_digest_profile(
+                language=payload.language,
+                timezone=payload.timezone,
+                frequency=payload.frequency,
+                default_delivery_target_kind=target_payload.kind if target_payload else None,
+                default_delivery_target_ref=target_payload.ref if target_payload else None,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/digest/console")
+    def digest_console_projection(
+        profile: str = "default",
+        limit: int = 12,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+    ) -> dict[str, Any]:
+        try:
+            return reader_factory().digest_console_projection(
+                profile=profile,
+                limit=limit,
+                min_confidence=min_confidence,
+                since=since,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/digest/dispatch")
+    def dispatch_digest_delivery(payload: DigestDispatchRequest) -> list[dict[str, Any]]:
+        try:
+            prepared_payload = reader_factory().prepare_digest_payload(
+                profile=payload.profile,
+                limit=payload.limit,
+                min_confidence=payload.min_confidence,
+                since=payload.since,
+            )
+            return reader_factory().dispatch_digest_delivery(
+                prepared_payload=prepared_payload,
+                route_name=payload.route_name,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/export-profiles")
     def list_export_profiles(limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:

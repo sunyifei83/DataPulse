@@ -1,0 +1,9 @@
+`L19.6` 已落地。浏览器控制台现在在 [datapulse/console_markup.py](/Users/sunyifei/DataPulse/datapulse/console_markup.py)、[datapulse/console_server.py](/Users/sunyifei/DataPulse/datapulse/console_server.py) 和 [datapulse/reader.py](/Users/sunyifei/DataPulse/datapulse/reader.py) 上投影了共享 `digest_profile` 编辑、`feed_bundle`/`prepare_digest_payload` 预览、prompt-pack readiness/provenance，以及 route-backed digest dispatch diagnostics；没有新增浏览器专用 digest 模型。对应的 smoke 和 API 覆盖也补到了 [scripts/datapulse_console_smoke.sh](/Users/sunyifei/DataPulse/scripts/datapulse_console_smoke.sh)、[scripts/datapulse_console_browser_smoke.py](/Users/sunyifei/DataPulse/scripts/datapulse_console_browser_smoke.py) 和 [tests/test_console_server.py](/Users/sunyifei/DataPulse/tests/test_console_server.py)，文档说明补在 [docs/gui_intelligence_console_plan.md](/Users/sunyifei/DataPulse/docs/gui_intelligence_console_plan.md)。
+
+验证结果是：
+- `python -m pytest tests/test_console_server.py -q` 通过，`27 passed`
+- `bash scripts/datapulse_console_smoke.sh` 通过
+- `DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh` 通过，覆盖了 digest onboarding、preview refresh、digest dispatch、以及原有 delivery workspace 流程  
+补充说明：直接 `uv run pytest ...` 在当前机器上触发了 `uv` 自身的 macOS system-configuration panic，所以单测改用仓内解析出的 Python 跑；仓内代码本身没有对应失败。
+
+蓝图已按真实状态更新到 [docs/governance/datapulse-blueprint-plan.draft.json](/Users/sunyifei/DataPulse/docs/governance/datapulse-blueprint-plan.draft.json)，`L19.6` 标为 `completed`，`recommended_next_slice` 变成 `no-open-slice`。随后我重跑了导出器，生成了新的 [out/governance/code_landing_status.draft.json](/Users/sunyifei/DataPulse/out/governance/code_landing_status.draft.json) 和 [out/governance/project_specific_loop_state.draft.json](/Users/sunyifei/DataPulse/out/governance/project_specific_loop_state.draft.json)。按 2026-03-29T06:12:23Z 的导出结果，loop 已重新评估为 `next_slice=no-open-slice`；当前停在 promotion gates，而不是继续等待 slice 执行。

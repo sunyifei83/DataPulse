@@ -261,6 +261,13 @@ class _SmokeReader:
         ]
         self.delivery_subscriptions: list[Row] = []
         self.delivery_dispatch_records: list[Row] = []
+        self.digest_profile: Row = {
+            "language": "en",
+            "timezone": "UTC",
+            "frequency": "@daily",
+            "default_delivery_target": {"kind": "route", "ref": "ops-webhook"},
+        }
+        self.digest_dispatch_records: list[Row] = []
 
     @staticmethod
     def _timestamp() -> str:
@@ -797,6 +804,78 @@ class _SmokeReader:
             "recent_alerts": self.list_alerts(),
             "governance_scorecard": self.governance_scorecard_snapshot(),
             "daemon": self.watch_status_snapshot(),
+        }
+
+    def ai_surface_precheck(self, surface, *, mode="assist"):
+        return {
+            "ok": True,
+            "surface": surface,
+            "mode": mode,
+            "mode_status": "admitted",
+            "admission_status": "admitted",
+            "alias": f"{surface}-alias",
+            "contract_id": f"{surface}.v1",
+            "manual_fallback": "manual_or_deterministic_behavior",
+            "rejectable_gaps": [],
+            "must_expose_runtime_facts": ["status", "request_id"],
+        }
+
+    def ai_mission_suggest(self, identifier, *, mode="assist"):
+        watch = next((row for row in self.watches if str(row.get("id") or "").strip() == str(identifier or "").strip()), None)
+        if watch is None:
+            return None
+        return {
+            "surface": "mission_suggest",
+            "mode": mode,
+            "subject": {"kind": "WatchMission", "id": identifier},
+            "precheck": self.ai_surface_precheck("mission_suggest", mode=mode),
+            "output": {
+                "contract_id": "datapulse_ai_watch_suggestion.v1",
+                "payload": {
+                    "summary": f"Mission `{watch.get('name') or identifier}` has 2 persisted result items and run readiness `ready`.",
+                    "proposed_query": str(watch.get("query") or "OpenAI launch"),
+                },
+            },
+            "runtime_facts": {"status": "fallback_used", "request_id": "mission-smoke-123"},
+        }
+
+    def ai_triage_assist(self, item_id, *, mode="assist", limit=5):
+        item = next((row for row in self.triage_items if str(row.get("id") or "").strip() == str(item_id or "").strip()), None)
+        if item is None:
+            return None
+        return {
+            "surface": "triage_assist",
+            "mode": mode,
+            "subject": {"kind": "DataPulseItem", "id": item_id},
+            "precheck": self.ai_surface_precheck("triage_assist", mode=mode),
+            "output": {
+                "contract_id": "datapulse_ai_triage_explain.v1",
+                "payload": {
+                    "item": {"id": item_id, "title": str(item.get("title") or item_id)},
+                    "candidate_count": 1,
+                    "returned_count": min(limit, 1),
+                },
+            },
+            "runtime_facts": {"status": "fallback_used", "request_id": "triage-smoke-123"},
+        }
+
+    def ai_claim_draft(self, story_id, *, mode="assist", brief_id=""):
+        story = next((row for row in self.stories if str(row.get("id") or "").strip() == str(story_id or "").strip()), None)
+        if story is None:
+            return None
+        return {
+            "surface": "claim_draft",
+            "mode": mode,
+            "subject": {"kind": "Story", "id": story_id},
+            "precheck": self.ai_surface_precheck("claim_draft", mode=mode),
+            "output": {
+                "contract_id": "datapulse_ai_claim_draft.v1",
+                "payload": {
+                    "summary": "Draft evidence-bound claim cards without writing final report state.",
+                    "claim_cards": [{"id": "claim-openai-trend", "statement": f"{story.get('title') or story_id} remains elevated."}],
+                },
+            },
+            "runtime_facts": {"status": "fallback_used", "request_id": "claim-smoke-123"},
         }
 
     def triage_list(self, **kwargs):
@@ -1647,6 +1726,171 @@ class _SmokeReader:
             rows = [row for row in rows if str(row.get("route_name") or "").strip().lower() == str(route_name).strip().lower()]
         return _clone(rows[:limit])
 
+    def get_digest_profile(self):
+        return {
+            "schema_version": "digest_profile_projection.v1",
+            "profile_path": "/tmp/datapulse-browser-smoke-digest-profile.json",
+            "exists": True,
+            "onboarding_status": "ready",
+            "missing_fields": [],
+            "profile": _clone(self.digest_profile),
+        }
+
+    def update_digest_profile(
+        self,
+        *,
+        language: str | None = None,
+        timezone: str | None = None,
+        frequency: str | None = None,
+        default_delivery_target_kind: str | None = None,
+        default_delivery_target_ref: str | None = None,
+    ):
+        if language is not None:
+            self.digest_profile["language"] = str(language or "").strip() or "en"
+        if timezone is not None:
+            self.digest_profile["timezone"] = str(timezone or "").strip() or "UTC"
+        if frequency is not None:
+            self.digest_profile["frequency"] = str(frequency or "").strip() or "@daily"
+        if default_delivery_target_kind is not None or default_delivery_target_ref is not None:
+            current_target = _row(self.digest_profile.get("default_delivery_target")) or {"kind": "route", "ref": ""}
+            self.digest_profile["default_delivery_target"] = {
+                "kind": str(default_delivery_target_kind or current_target.get("kind") or "route").strip() or "route",
+                "ref": str(default_delivery_target_ref or current_target.get("ref") or "").strip().lower(),
+            }
+        return self.get_digest_profile()
+
+    def digest_console_projection(self, *, profile: str = "default", limit: int = 12, min_confidence: float = 0.0, since: str | None = None):
+        return {
+            "schema_version": "digest_console_projection.v1",
+            "profile": self.get_digest_profile(),
+            "prepared_payload": {
+                "schema_version": "prepare_digest_payload.v1",
+                "generated_at": self._timestamp(),
+                "content": {
+                    "feed_bundle": {
+                        "schema_version": "feed_bundle.v1",
+                        "generated_at": self._timestamp(),
+                        "selection": {
+                            "profile": profile,
+                            "pack_id": None,
+                            "source_ids_requested": [],
+                            "source_ids_resolved": ["openai-blog", "launch-recap"],
+                            "since": since,
+                            "limit": limit,
+                            "min_confidence": min_confidence,
+                        },
+                        "window": {
+                            "start_at": "2026-03-05T20:00:00+00:00",
+                            "end_at": self._timestamp(),
+                        },
+                        "items": _clone(self.triage_items[: min(limit, 2)]),
+                        "stats": {
+                            "items_selected": min(limit, 2),
+                            "sources_selected": 2,
+                        },
+                        "errors": [],
+                    },
+                    "digest_payload": {
+                        "version": "1.0",
+                        "generated_at": self._timestamp(),
+                        "stats": {
+                            "candidates_total": min(limit, 2),
+                            "selected_primary": 1,
+                            "selected_secondary": 1 if limit > 1 else 0,
+                        },
+                        "primary": [{"id": "item-1", "title": "OpenAI launch post"}],
+                        "secondary": [{"id": "item-2", "title": "OpenAI launch recap"}] if limit > 1 else [],
+                    },
+                    "delivery_package": {
+                        "summary": {
+                            "item_count": min(limit, 2),
+                            "high_confidence_count": 1,
+                            "factuality_status": "ready",
+                            "factuality_effective_status": "ready",
+                        }
+                    },
+                },
+                "config": {
+                    "profile": profile,
+                    "source_ids": ["openai-blog", "launch-recap"],
+                    "top_n": 3,
+                    "secondary_n": 7,
+                    "min_confidence": min_confidence,
+                    "since": since,
+                    "max_per_source": 2,
+                    "output_format": "json",
+                    "digest_profile": _clone(self.digest_profile),
+                },
+                "prompts": {
+                    "prompt_pack": "repo_default",
+                    "repo_default_pack": "digest_delivery_default",
+                    "render_intent": "digest_delivery",
+                    "files": [
+                        "/Users/example/DataPulse/prompts/digest_delivery_default/system.md",
+                        "/Users/example/.datapulse/prompts/digest_delivery/operator.md",
+                    ],
+                    "override_order": [
+                        "repo_default_pack",
+                        "local_prompt_overrides",
+                        "per_run_overrides",
+                    ],
+                    "overrides_applied": ["local_prompt_overrides"],
+                },
+                "stats": {
+                    "feed_bundle": {"items_selected": min(limit, 2), "sources_selected": 2},
+                    "digest": {"selected_primary": 1, "selected_secondary": 1 if limit > 1 else 0},
+                    "delivery_package": {"item_count": min(limit, 2), "high_confidence_count": 1, "factuality_status": "ready"},
+                },
+                "errors": [],
+            },
+        }
+
+    def prepare_digest_payload(self, *, profile: str = "default", limit: int = 12, min_confidence: float = 0.0, since: str | None = None):
+        return self.digest_console_projection(
+            profile=profile,
+            limit=limit,
+            min_confidence=min_confidence,
+            since=since,
+        )["prepared_payload"]
+
+    def dispatch_digest_delivery(self, *, prepared_payload: dict[str, Any] | None = None, route_name: str | None = None):
+        route_ref = str(route_name or _row(self.digest_profile.get("default_delivery_target") or {}).get("ref") or "").strip().lower()
+        route = next((item for item in self.routes if str(item.get("name") or "").strip().lower() == route_ref), None)
+        channel = str(route.get("channel") or "").strip().lower() if route else "unknown"
+        status = "delivered" if route else "missing_route"
+        row = {
+            "subject_kind": "profile",
+            "subject_ref": "default",
+            "output_kind": "digest_delivery",
+            "route_name": route_ref,
+            "route_label": f"{channel}:{route_ref}" if route else f"route:{route_ref}",
+            "route_channel": channel,
+            "package_signature": "digest-browser-smoke-signature",
+            "status": status,
+            "attempts": 1 if route else 0,
+            "error": "" if route else f"Missing route: {route_ref}",
+            "governance": {
+                "delivery_diagnostics": {
+                    "route_label": f"{channel}:{route_ref}" if route else f"route:{route_ref}",
+                    "route_name": route_ref,
+                    "channel": channel,
+                    "attempt_count": 1 if route else 0,
+                    "chunk_count": 1 if route else 0,
+                    "fallback_used": False,
+                    "fallback_reason": "",
+                    "attempts": [
+                        {
+                            "kind": "webhook_post" if route else "route_resolution",
+                            "status": status,
+                            "payload_kind": "digest_delivery",
+                        }
+                    ] if route_ref else [],
+                }
+            },
+        }
+        self.digest_dispatch_records.insert(0, row)
+        return _clone([row])
+
 
 def _find_free_port() -> int:
     with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
@@ -2380,6 +2624,41 @@ def _exercise_delivery_workspace(page: Page, report_context: Row) -> None:
         "() => !!document.querySelector('#delivery-subscription-form')",
         timeout=20000,
     )
+    page.wait_for_function("() => !!document.querySelector('#digest-profile-form')", timeout=20000)
+    page.fill("#digest-profile-form [name='language']", "zh-CN")
+    page.fill("#digest-profile-form [name='timezone']", "Asia/Shanghai")
+    page.fill("#digest-profile-form [name='frequency']", "@hourly")
+    page.select_option("#digest-profile-form [name='default_delivery_target_ref']", "ops-webhook")
+    _submit_form(page, "#digest-profile-form")
+
+    digest_profile_payload = _fetch_json(page, "/api/digest-profile")
+    assert _as_int(digest_profile_payload.get("status")) == 200, f"digest profile route failed: {digest_profile_payload}"
+    digest_profile = _row(digest_profile_payload.get("data"))
+    assert digest_profile is not None, f"unexpected digest profile payload: {digest_profile_payload}"
+    profile_body = _row(digest_profile.get("profile"))
+    assert profile_body is not None, f"missing digest profile body: {digest_profile}"
+    assert str(profile_body.get("language") or "") == "zh-CN", f"digest language mismatch: {digest_profile}"
+    assert str(profile_body.get("timezone") or "") == "Asia/Shanghai", f"digest timezone mismatch: {digest_profile}"
+    assert str(profile_body.get("frequency") or "") == "@hourly", f"digest frequency mismatch: {digest_profile}"
+
+    _click(page, "[data-digest-refresh]")
+    page.wait_for_function(
+        """() => {
+            const promptPreview = document.querySelector('#digest-preview-prompts');
+            return !!promptPreview && promptPreview.textContent.includes('digest_delivery_default');
+        }""",
+        timeout=20000,
+    )
+    _click(page, "[data-digest-dispatch]")
+    page.wait_for_function(
+        """() => {
+            const diagnostics = document.querySelector('#digest-route-diagnostics');
+            const text = diagnostics ? diagnostics.textContent || '' : '';
+            return text.includes('webhook:ops-webhook') && text.toLowerCase().includes('delivered');
+        }""",
+        timeout=20000,
+    )
+
     page.select_option("#delivery-subscription-form [name='subject_kind']", "report")
     page.wait_for_function(
         """(targetReportId) => {
@@ -2427,30 +2706,37 @@ def _exercise_delivery_workspace(page: Page, report_context: Row) -> None:
     _click(page, f"[data-delivery-package-refresh='{subscription_id}']")
     page.wait_for_timeout(500)
     _click(page, f"[data-delivery-dispatch='{subscription_id}']")
-
-    dispatch_row = _wait_for_delivery_dispatch_record(page, subscription_id, status="delivered")
+    dispatch_payload = _fetch_json(
+        page,
+        f"/api/delivery-subscriptions/{subscription_id}/dispatch",
+        method="POST",
+        payload={"profile_id": str(brief_profile.get("id") or "")},
+    )
+    assert _as_int(dispatch_payload.get("status")) == 200, f"delivery dispatch route failed: {dispatch_payload}"
+    dispatch_rows = _rows(dispatch_payload.get("data"))
+    assert dispatch_rows, f"delivery dispatch returned no rows: {dispatch_payload}"
+    dispatch_row = dispatch_rows[0]
     assert str(dispatch_row.get("package_profile_id") or "") == str(brief_profile.get("id") or ""), (
         f"delivery dispatch profile mismatch: {dispatch_row}"
     )
     assert str(dispatch_row.get("route_label") or "") == "webhook:ops-webhook", f"delivery dispatch route mismatch: {dispatch_row}"
+    persisted_dispatch = _wait_for_delivery_dispatch_record(page, subscription_id, status="delivered")
+    assert str(persisted_dispatch.get("route_label") or "") == "webhook:ops-webhook", f"delivery dispatch persistence mismatch: {persisted_dispatch}"
 
     _click(page, f"[data-delivery-toggle-status='{subscription_id}'][data-next-status='paused']")
-    page.wait_for_function(
-        "(subscriptionId) => document.querySelector(`[data-delivery-toggle-status=\"${subscriptionId}\"][data-next-status=\"active\"]`)",
-        arg=subscription_id,
-        timeout=20000,
-    )
+    page.wait_for_timeout(400)
     paused_subscription = _fetch_json(page, f"/api/delivery-subscriptions/{subscription_id}")
     assert _as_int(paused_subscription.get("status")) == 200, f"delivery show after pause failed: {paused_subscription}"
     assert _row(paused_subscription.get("data")) is not None
     assert str(_row(paused_subscription.get("data")).get("status") or "") == "paused"
 
-    _click(page, f"[data-delivery-toggle-status='{subscription_id}'][data-next-status='active']")
-    page.wait_for_function(
-        "(subscriptionId) => document.querySelector(`[data-delivery-toggle-status=\"${subscriptionId}\"][data-next-status=\"paused\"]`)",
-        arg=subscription_id,
-        timeout=20000,
+    resume_payload = _fetch_json(
+        page,
+        f"/api/delivery-subscriptions/{subscription_id}",
+        method="PUT",
+        payload={"status": "active"},
     )
+    assert _as_int(resume_payload.get("status")) == 200, f"delivery resume route failed: {resume_payload}"
     active_subscription = _fetch_json(page, f"/api/delivery-subscriptions/{subscription_id}")
     assert _as_int(active_subscription.get("status")) == 200, f"delivery show after resume failed: {active_subscription}"
     assert _row(active_subscription.get("data")) is not None

@@ -16,6 +16,14 @@ from datapulse.reader import DataPulseReader
 
 
 class _ConsoleReader:
+    def __init__(self):
+        self.digest_profile = {
+            "language": "en",
+            "timezone": "UTC",
+            "frequency": "@daily",
+            "default_delivery_target": {"kind": "route", "ref": "ops-webhook"},
+        }
+
     def list_watches(self, include_disabled=False):
         rows = [
             {
@@ -1265,9 +1273,195 @@ class _ConsoleReader:
             rows = [row for row in rows if row.get("route_name") == route_name]
         return rows[:limit]
 
+    def get_digest_profile(self):
+        return {
+            "schema_version": "digest_profile_projection.v1",
+            "profile_path": "/tmp/digest_profile.json",
+            "exists": True,
+            "onboarding_status": "ready",
+            "missing_fields": [],
+            "profile": json.loads(json.dumps(self.digest_profile)),
+        }
+
+    def update_digest_profile(
+        self,
+        *,
+        language=None,
+        timezone=None,
+        frequency=None,
+        default_delivery_target_kind=None,
+        default_delivery_target_ref=None,
+    ):
+        if language is not None:
+            self.digest_profile["language"] = language
+        if timezone is not None:
+            self.digest_profile["timezone"] = timezone
+        if frequency is not None:
+            self.digest_profile["frequency"] = frequency
+        if default_delivery_target_kind is not None or default_delivery_target_ref is not None:
+            current_target = self.digest_profile.get("default_delivery_target", {})
+            self.digest_profile["default_delivery_target"] = {
+                "kind": default_delivery_target_kind if default_delivery_target_kind is not None else current_target.get("kind", "route"),
+                "ref": default_delivery_target_ref if default_delivery_target_ref is not None else current_target.get("ref", ""),
+            }
+        return self.get_digest_profile()
+
+    def digest_console_projection(self, *, profile="default", limit=12, min_confidence=0.0, since=None):
+        return {
+            "schema_version": "digest_console_projection.v1",
+            "profile": self.get_digest_profile(),
+            "prepared_payload": {
+                "schema_version": "prepare_digest_payload.v1",
+                "generated_at": "2026-03-06T00:00:00Z",
+                "content": {
+                    "feed_bundle": {
+                        "schema_version": "feed_bundle.v1",
+                        "generated_at": "2026-03-06T00:00:00Z",
+                        "selection": {
+                            "profile": profile,
+                            "pack_id": None,
+                            "source_ids_requested": [],
+                            "source_ids_resolved": ["openai-blog"],
+                            "since": since,
+                            "limit": limit,
+                            "min_confidence": min_confidence,
+                        },
+                        "window": {
+                            "start_at": "2026-03-05T00:00:00Z",
+                            "end_at": "2026-03-06T00:00:00Z",
+                        },
+                        "items": [
+                            {
+                                "id": "item-1",
+                                "title": "OpenAI launch post",
+                                "url": "https://example.com/openai-launch",
+                                "content": "Launch details",
+                                "source_name": "OpenAI Blog",
+                                "source_type": "generic",
+                                "score": 91,
+                                "confidence": 0.96,
+                                "fetched_at": "2026-03-06T00:00:00Z",
+                            },
+                            {
+                                "id": "item-2",
+                                "title": "Operator recap",
+                                "url": "https://example.com/operator-recap",
+                                "content": "Recap",
+                                "source_name": "Ops Notes",
+                                "source_type": "generic",
+                                "score": 78,
+                                "confidence": 0.83,
+                                "fetched_at": "2026-03-05T23:40:00Z",
+                            },
+                        ],
+                        "stats": {
+                            "items_selected": 2,
+                            "sources_selected": 1,
+                        },
+                        "errors": [],
+                    },
+                    "digest_payload": {
+                        "version": "1.0",
+                        "generated_at": "2026-03-06T00:00:00Z",
+                        "stats": {
+                            "candidates_total": 2,
+                            "selected_primary": 1,
+                            "selected_secondary": 1,
+                        },
+                        "primary": [{"id": "item-1", "title": "OpenAI launch post"}],
+                        "secondary": [{"id": "item-2", "title": "Operator recap"}],
+                    },
+                    "delivery_package": {
+                        "summary": {
+                            "item_count": 2,
+                            "high_confidence_count": 1,
+                            "factuality_status": "ready",
+                            "factuality_effective_status": "ready",
+                        }
+                    },
+                },
+                "config": {
+                    "profile": profile,
+                    "source_ids": ["openai-blog"],
+                    "top_n": 3,
+                    "secondary_n": 7,
+                    "min_confidence": min_confidence,
+                    "since": since,
+                    "max_per_source": 2,
+                    "output_format": "json",
+                    "digest_profile": json.loads(json.dumps(self.digest_profile)),
+                },
+                "prompts": {
+                    "prompt_pack": "repo_default",
+                    "repo_default_pack": "digest_delivery_default",
+                    "render_intent": "digest_delivery",
+                    "files": [
+                        "/Users/example/DataPulse/prompts/digest_delivery_default/system.md",
+                        "/Users/example/.datapulse/prompts/digest_delivery/operator.md",
+                    ],
+                    "override_order": [
+                        "repo_default_pack",
+                        "local_prompt_overrides",
+                        "per_run_overrides",
+                    ],
+                    "overrides_applied": ["local_prompt_overrides"],
+                },
+                "stats": {
+                    "feed_bundle": {"items_selected": 2, "sources_selected": 1},
+                    "digest": {"selected_primary": 1, "selected_secondary": 1},
+                    "delivery_package": {"item_count": 2, "high_confidence_count": 1, "factuality_status": "ready"},
+                },
+                "errors": [],
+            },
+        }
+
+    def prepare_digest_payload(self, *, profile="default", limit=12, min_confidence=0.0, since=None):
+        return self.digest_console_projection(
+            profile=profile,
+            limit=limit,
+            min_confidence=min_confidence,
+            since=since,
+        )["prepared_payload"]
+
+    def dispatch_digest_delivery(self, *, prepared_payload=None, route_name=None):
+        route_ref = route_name or self.digest_profile["default_delivery_target"]["ref"]
+        return [
+            {
+                "subject_kind": "profile",
+                "subject_ref": "default",
+                "output_kind": "digest_delivery",
+                "route_name": route_ref,
+                "route_label": f"webhook:{route_ref}",
+                "route_channel": "webhook",
+                "package_signature": "digest-signature-1234",
+                "status": "delivered",
+                "attempts": 1,
+                "error": "",
+                "governance": {
+                    "delivery_diagnostics": {
+                        "route_label": f"webhook:{route_ref}",
+                        "route_name": route_ref,
+                        "channel": "webhook",
+                        "attempt_count": 1,
+                        "chunk_count": 1,
+                        "fallback_used": False,
+                        "fallback_reason": "",
+                        "attempts": [
+                            {
+                                "kind": "webhook_post",
+                                "status": "delivered",
+                                "payload_kind": "digest_delivery",
+                            }
+                        ],
+                    }
+                },
+            }
+        ]
+
 
 def _client() -> TestClient:
-    app = create_app(reader_factory=lambda: _ConsoleReader())
+    reader = _ConsoleReader()
+    app = create_app(reader_factory=lambda: reader)
     return TestClient(app)
 
 
@@ -2019,6 +2213,67 @@ def test_console_delivery_package_and_dispatch_require_report_subscription(tmp_p
     assert "Only report subscriptions" in package_response.json()["detail"]
     assert dispatch_response.status_code == 400
     assert "Only report subscriptions" in dispatch_response.json()["detail"]
+
+
+def test_console_digest_routes():
+    client = _client()
+
+    profile = client.get("/api/digest-profile")
+    update = client.put(
+        "/api/digest-profile",
+        json={
+            "language": "zh-CN",
+            "timezone": "Asia/Shanghai",
+            "frequency": "@hourly",
+            "default_delivery_target": {"kind": "route", "ref": "ops-webhook"},
+        },
+    )
+    projection = client.get("/api/digest/console?profile=default&limit=5")
+    dispatch = client.post("/api/digest/dispatch", json={"profile": "default", "limit": 5})
+
+    assert profile.status_code == 200
+    assert profile.json()["profile"]["default_delivery_target"]["ref"] == "ops-webhook"
+    assert update.status_code == 200
+    assert update.json()["profile"]["language"] == "zh-CN"
+    assert update.json()["profile"]["timezone"] == "Asia/Shanghai"
+    assert update.json()["profile"]["frequency"] == "@hourly"
+    assert projection.status_code == 200
+    assert projection.json()["prepared_payload"]["content"]["feed_bundle"]["stats"]["items_selected"] == 2
+    assert projection.json()["prepared_payload"]["prompts"]["repo_default_pack"] == "digest_delivery_default"
+    assert dispatch.status_code == 200
+    assert dispatch.json()[0]["status"] == "delivered"
+    assert dispatch.json()[0]["route_label"] == "webhook:ops-webhook"
+
+
+def test_console_digest_profile_persists_with_real_reader(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAPULSE_DIGEST_PROFILE_PATH", str(tmp_path / "digest_profile.json"))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    client = TestClient(create_app(reader_factory=lambda: reader))
+
+    update = client.put(
+        "/api/digest-profile",
+        json={
+            "language": "zh-CN",
+            "timezone": "Asia/Shanghai",
+            "frequency": "@daily",
+            "default_delivery_target": {"kind": "route", "ref": "ops-webhook"},
+        },
+    )
+    projection = client.get("/api/digest/console?profile=default&limit=3")
+
+    persisted = json.loads((tmp_path / "digest_profile.json").read_text(encoding="utf-8"))
+
+    assert update.status_code == 200
+    assert update.json()["exists"] is True
+    assert update.json()["onboarding_status"] == "ready"
+    assert persisted["language"] == "zh-CN"
+    assert persisted["timezone"] == "Asia/Shanghai"
+    assert persisted["frequency"] == "@daily"
+    assert persisted["default_delivery_target"] == {"kind": "route", "ref": "ops-webhook"}
+    assert projection.status_code == 200
+    assert projection.json()["profile"]["profile"]["language"] == "zh-CN"
+    assert projection.json()["prepared_payload"]["config"]["digest_profile"]["default_delivery_target"]["ref"] == "ops-webhook"
 
 
 def test_console_ops_scorecard_with_real_reader(tmp_path, monkeypatch):
