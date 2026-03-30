@@ -1527,6 +1527,13 @@ def test_console_index_serves_shell():
     assert "context-lens-close" in response.text
     assert "context-save-form" in response.text
     assert "context-view-dock" in response.text
+    assert 'data-fit-text="context-summary"' in response.text
+    assert 'data-fit-text="dock-summary"' in response.text
+    assert 'data-fit-text="context-object-value"' in response.text
+    assert 'data-fit-text="saved-view-chip"' in response.text
+    assert 'data-fit-text="triage-mission-chip"' in response.text
+    assert 'data-fit-text="claim-url-chip"' in response.text
+    assert 'data-fit-text="report-section-claim-chip"' in response.text
     assert 'data-responsive-viewport="desktop"' in response.text
     assert 'data-density-mode="comfortable"' in response.text
     assert 'data-pane-contract="split"' in response.text
@@ -1539,6 +1546,9 @@ def test_console_index_serves_shell():
     assert "function resolveResponsiveInteractionContract" in response.text
     assert "function applyResponsiveInteractionContract" in response.text
     assert "function bindResponsiveInteractionContract" in response.text
+    assert "function fitTextToWidth" in response.text
+    assert "function applyCanvasTextFit" in response.text
+    assert "function scheduleCanvasTextFit" in response.text
     assert 'window.visualViewport.addEventListener("resize", scheduleContractApply' in response.text
     assert 'window.matchMedia(query)' in response.text
     assert 'media.addEventListener("change", scheduleContractApply)' in response.text

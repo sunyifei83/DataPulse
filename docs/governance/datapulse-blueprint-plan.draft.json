@@ -2,7 +2,7 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-30T10:11:17Z",
+  "generated_at_utc": "2026-03-30T12:00:38Z",
   "status": "completed",
   "activation": {
     "wired": false,
@@ -84,7 +84,8 @@
     "L18": "completed",
     "L19": "completed",
     "L20": "completed",
-    "L21": "completed"
+    "L21": "completed",
+    "L22": "completed"
   },
   "phases": [
     {
@@ -2782,7 +2783,7 @@
       "id": "L22",
       "title": "Console text measurement and multilingual layout hardening",
       "goal": "Harden mixed-script truncation, dense-label fitting, and optional hotspot-driven layout behavior in the existing Reader-backed console without importing a second text engine or GUI-only state model.",
-      "status": "in_progress",
+      "status": "completed",
       "slices": [
         {
           "id": "L22.1",
@@ -2829,7 +2830,7 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run pytest tests/test_utils.py -q"
           ],
@@ -2849,10 +2850,11 @@
           "category": "manual",
           "execution_profile": "local_wrapper",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "python3 -m py_compile datapulse/console_markup.py",
-            "uv run pytest tests/test_console_server.py -q"
+            "uv run pytest tests/test_console_server.py -q",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
           ],
           "artifacts": [
             "datapulse/console_markup.py",
@@ -2871,7 +2873,7 @@
           "category": "manual",
           "execution_profile": "draft_only",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "artifacts": [
             "docs/governance/datapulse-console-text-measurement-blueprint.md",
             "docs/gui_intelligence_console_plan.md"
@@ -2879,18 +2881,34 @@
           "exit_condition": "DataPulse names whether a prepare-layout style cache is actually required for any dense multiline hotspot and keeps that work out of the active implementation path unless real evidence justifies it.",
           "notes": [
             "Do not import a full Pretext-class engine until a real console hotspot exists.",
-            "If this slice opens for implementation later, keep the scope to repo-proven multiline hotspots rather than broad speculative layout infrastructure."
+            "Current repo read after L22.3: the proven hotspots are single-line rail labels, saved-view chips, dock summaries, and triage or report chips; no dense multiline panel currently justifies prepare/layout-style caching.",
+            "If this slice reopens later, keep the scope to repo-proven multiline hotspots rather than broad speculative layout infrastructure."
           ]
         }
       ]
     }
   ],
   "recommended_next_slice": {
-    "id": "L22.2",
-    "title": "Add grapheme-aware truncation utilities and adopt them in excerpt-sensitive surfaces",
-    "reason": "The new console text-measurement wave is now open, and grapheme-safe truncation is the narrowest shared improvement before any browser-only measurement cache opens."
+    "id": "no-open-slice",
+    "title": "No open slice",
+    "reason": "All current slices are completed in this working copy."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-30T12:00:38Z",
+      "slice_id": "L22.4",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-30T11:54:43Z",
+      "slice_id": "L22.3",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-30T11:42:37Z",
+      "slice_id": "L22.2",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-30T10:11:17Z",
       "slice_id": "L22.1",

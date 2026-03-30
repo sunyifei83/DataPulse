@@ -2108,30 +2108,30 @@ def render_console_html(title: str) -> str:
           <div class="context-object-rail" id="context-object-rail" data-context-object-rail>
             <button class="context-object-step" type="button" data-context-object-step="mission" data-context-object-id="" data-context-object-section="section-board">
               <span class="context-object-step-title">Mission</span>
-              <span class="context-object-step-value">Not set</span>
+              <span class="context-object-step-value" data-fit-text="context-object-value" data-fit-fallback="18">Not set</span>
             </button>
             <span class="context-object-divider">→</span>
             <button class="context-object-step" type="button" data-context-object-step="evidence" data-context-object-id="" data-context-object-section="section-triage">
               <span class="context-object-step-title">Evidence</span>
-              <span class="context-object-step-value">Not set</span>
+              <span class="context-object-step-value" data-fit-text="context-object-value" data-fit-fallback="18">Not set</span>
             </button>
             <span class="context-object-divider">→</span>
             <button class="context-object-step" type="button" data-context-object-step="story" data-context-object-id="" data-context-object-section="section-story">
               <span class="context-object-step-title">Story</span>
-              <span class="context-object-step-value">Not set</span>
+              <span class="context-object-step-value" data-fit-text="context-object-value" data-fit-fallback="18">Not set</span>
             </button>
             <span class="context-object-divider">→</span>
             <button class="context-object-step" type="button" data-context-object-step="report" data-context-object-id="" data-context-object-section="section-report-studio">
               <span class="context-object-step-title">Report</span>
-              <span class="context-object-step-value">Not set</span>
+              <span class="context-object-step-value" data-fit-text="context-object-value" data-fit-fallback="18">Not set</span>
             </button>
             <span class="context-object-divider">→</span>
             <button class="context-object-step" type="button" data-context-object-step="route" data-context-object-id="" data-context-object-section="section-ops">
               <span class="context-object-step-title">Route</span>
-              <span class="context-object-step-value">Not set</span>
+              <span class="context-object-step-value" data-fit-text="context-object-value" data-fit-fallback="18">Not set</span>
             </button>
           </div>
-          <button class="chip context-chip context-chip-button" id="context-summary" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="context-lens-shell">Intake | Mission intake</button>
+          <button class="chip context-chip context-chip-button" id="context-summary" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="context-lens-shell" data-fit-text="context-summary" data-fit-fallback="28">Intake | Mission intake</button>
         </div>
         <button class="btn-secondary palette-trigger" id="palette-open" type="button">Command Palette</button>
         <button class="btn-secondary" id="context-reset" type="button">Reset Context</button>
@@ -2704,6 +2704,160 @@ def render_console_html(title: str) -> str:
       return `${{text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}}…`;
     }}
 
+    const textFitSegmenter = typeof Intl !== "undefined" && typeof Intl.Segmenter === "function"
+      ? new Intl.Segmenter(undefined, {{ granularity: "grapheme" }})
+      : null;
+    const canvasTextWidthCache = new Map();
+    let canvasTextMeasureContext = null;
+    let pendingTextFitFrame = 0;
+    const pendingTextFitRoots = new Set();
+
+    function segmentTextForFit(value) {{
+      const text = String(value || "").trim();
+      if (!text) {{
+        return [];
+      }}
+      if (textFitSegmenter) {{
+        return Array.from(textFitSegmenter.segment(text), (entry) => entry.segment);
+      }}
+      return Array.from(text);
+    }}
+
+    function getCanvasTextMeasureContext() {{
+      if (canvasTextMeasureContext) {{
+        return canvasTextMeasureContext;
+      }}
+      if (typeof document === "undefined" || typeof document.createElement !== "function") {{
+        return null;
+      }}
+      const canvas = document.createElement("canvas");
+      canvasTextMeasureContext = typeof canvas.getContext === "function" ? canvas.getContext("2d") : null;
+      return canvasTextMeasureContext;
+    }}
+
+    function measureCanvasTextWidth(text, font) {{
+      const context = getCanvasTextMeasureContext();
+      if (!context || !font) {{
+        return -1;
+      }}
+      const cacheKey = `${{font}}::${{text}}`;
+      if (canvasTextWidthCache.has(cacheKey)) {{
+        return canvasTextWidthCache.get(cacheKey);
+      }}
+      context.font = font;
+      const width = Number(context.measureText(text).width || 0);
+      canvasTextWidthCache.set(cacheKey, width);
+      return width;
+    }}
+
+    function resolveCanvasFitFont(node) {{
+      const style = window.getComputedStyle(node);
+      return style.font || `${{style.fontWeight || 400}} ${{style.fontSize || "14px"}} ${{style.fontFamily || "sans-serif"}}`;
+    }}
+
+    function resolveCanvasFitWidth(node) {{
+      const style = window.getComputedStyle(node);
+      const explicitWidth = Number(node.dataset.fitMaxWidth || 0);
+      const measuredWidth = explicitWidth > 0
+        ? explicitWidth
+        : Number(node.getBoundingClientRect().width || node.clientWidth || 0);
+      if (measuredWidth <= 0) {{
+        return 0;
+      }}
+      const chromeWidth = (
+        parseFloat(style.paddingLeft || "0")
+        + parseFloat(style.paddingRight || "0")
+        + parseFloat(style.borderLeftWidth || "0")
+        + parseFloat(style.borderRightWidth || "0")
+      );
+      return Math.max(0, measuredWidth - chromeWidth);
+    }}
+
+    function fitTextToWidth(value, maxWidth, {{ font = "", fallbackLength = 34 }} = {{}}) {{
+      const text = String(value || "").trim();
+      if (!text) {{
+        return "";
+      }}
+      const widthBudget = Number(maxWidth || 0);
+      if (widthBudget <= 0) {{
+        return clampLabel(text, fallbackLength);
+      }}
+      const measuredFullWidth = measureCanvasTextWidth(text, font);
+      if (measuredFullWidth >= 0 && measuredFullWidth <= widthBudget) {{
+        return text;
+      }}
+      const segments = segmentTextForFit(text);
+      if (!segments.length) {{
+        return clampLabel(text, fallbackLength);
+      }}
+      const ellipsis = "…";
+      const ellipsisWidth = measureCanvasTextWidth(ellipsis, font);
+      if (ellipsisWidth < 0) {{
+        return clampLabel(text, fallbackLength);
+      }}
+      if (ellipsisWidth >= widthBudget) {{
+        return ellipsis;
+      }}
+      let low = 0;
+      let high = segments.length;
+      let best = ellipsis;
+      while (low <= high) {{
+        const mid = Math.floor((low + high) / 2);
+        const head = segments.slice(0, mid).join("").trimEnd();
+        const candidate = head ? `${{head}}${{ellipsis}}` : ellipsis;
+        if (measureCanvasTextWidth(candidate, font) <= widthBudget) {{
+          best = candidate;
+          low = mid + 1;
+        }} else {{
+          high = mid - 1;
+        }}
+      }}
+      return best || clampLabel(text, fallbackLength);
+    }}
+
+    function applyCanvasTextFit(root = document) {{
+      const scope = root && typeof root.querySelectorAll === "function" ? root : document;
+      if (!scope) {{
+        return;
+      }}
+      const candidates = scope.matches?.("[data-fit-text]")
+        ? [scope, ...scope.querySelectorAll("[data-fit-text]")]
+        : Array.from(scope.querySelectorAll("[data-fit-text]"));
+      candidates.forEach((node) => {{
+        if (!(node instanceof HTMLElement)) {{
+          return;
+        }}
+        const originalText = String(node.dataset.fitTextOriginal || node.textContent || "").trim();
+        if (!originalText) {{
+          return;
+        }}
+        node.dataset.fitTextOriginal = originalText;
+        if (!node.getAttribute("title")) {{
+          node.setAttribute("title", originalText);
+        }}
+        const fallbackLength = Number(node.dataset.fitFallback || 34);
+        const fittedText = fitTextToWidth(originalText, resolveCanvasFitWidth(node), {{
+          font: resolveCanvasFitFont(node),
+          fallbackLength,
+        }});
+        node.textContent = fittedText;
+        node.dataset.fitApplied = fittedText !== originalText ? "true" : "false";
+      }});
+    }}
+
+    function scheduleCanvasTextFit(root = document) {{
+      pendingTextFitRoots.add(root && typeof root.querySelectorAll === "function" ? root : document);
+      if (pendingTextFitFrame) {{
+        return;
+      }}
+      pendingTextFitFrame = window.requestAnimationFrame(() => {{
+        pendingTextFitFrame = 0;
+        const roots = Array.from(pendingTextFitRoots);
+        pendingTextFitRoots.clear();
+        roots.forEach((candidate) => applyCanvasTextFit(candidate));
+      }});
+    }}
+
     const responsiveInteractionContracts = {{
       desktop: {{
         viewport: "desktop",
@@ -2757,6 +2911,7 @@ def render_console_html(title: str) -> str:
           sheet.removeAttribute("open");
         }});
       }}
+      scheduleCanvasTextFit(document);
       return contract;
     }}
 
@@ -5564,6 +5719,10 @@ def render_console_html(title: str) -> str:
       const node = $(id);
       if (node) {{
         node.textContent = value;
+        if (node instanceof HTMLElement && node.hasAttribute("data-fit-text")) {{
+          delete node.dataset.fitTextOriginal;
+          delete node.dataset.fitApplied;
+        }}
       }}
     }}
 
@@ -5926,14 +6085,14 @@ def render_console_html(title: str) -> str:
         <div class="context-view-dock-head">
           <div>
             <div class="context-view-dock-title">${{copy("Workspace Context", "工作上下文")}}</div>
-            <div class="context-view-dock-summary">${{escapeHtml(summaryLabel)}}</div>
+            <div class="context-view-dock-summary" data-fit-text="dock-summary" data-fit-fallback="40">${{escapeHtml(summaryLabel)}}</div>
           </div>
           <div class="meta">
             <span class="chip ok">${{escapeHtml(modeDescriptor.label)}}</span>
             <span class="chip">${{remainingSlots ? phrase("{{count}} open", "{{count}} 个空位", {{ count: remainingSlots }}) : copy("Rail full", "轨道已满")}}</span>
             ${{showUnsavedHint ? `<span class="chip hot">${{copy("Unsaved", "未保存")}}</span>` : ""}}
             ${{showSavedOnlyHint ? `<span class="chip">${{copy("Saved only", "仅已保存")}}</span>` : ""}}
-            ${{defaultEntry ? `<span class="chip ok">${{copy("Default", "默认")}}: ${{escapeHtml(clampLabel(defaultEntry.name, 28))}}</span>` : ""}}
+            ${{defaultEntry ? `<span class="chip ok" data-fit-text="dock-default-chip" data-fit-max-width="190" data-fit-fallback="24">${{copy("Default", "默认")}}: ${{escapeHtml(defaultEntry.name)}}</span>` : ""}}
             <button class="btn-secondary" type="button" data-context-dock-manage>${{copy("Open Context", "打开上下文")}}</button>
           </div>
         </div>
@@ -5962,6 +6121,9 @@ def render_console_html(title: str) -> str:
                   class="chip-btn ${{entry.url === currentUrl ? "active" : ""}}"
                   type="button"
                   data-context-dock-open="${{index}}"
+                  data-fit-text="saved-view-chip"
+                  data-fit-max-width="184"
+                  data-fit-fallback="22"
                   title="${{escapeHtml(entry.isDefault ? phrase("Default | {{summary}}", "默认 | {{summary}}", {{ summary: entry.summary }}) : entry.summary)}}"
                 >
                   ${{escapeHtml(entry.isDefault ? phrase("{{name}} [default]", "{{name}} [默认]", {{ name: entry.name }}) : entry.name)}}
@@ -6008,6 +6170,7 @@ def render_console_html(title: str) -> str:
       root.querySelector("[data-context-dock-save-pin]")?.addEventListener("click", () => {{
         saveAndPinCurrentContextView();
       }});
+      scheduleCanvasTextFit(root);
     }}
 
     function renderContextSavedViews() {{
@@ -6530,6 +6693,8 @@ def render_console_html(title: str) -> str:
       renderContextLens(descriptor);
       renderContextViewDock();
       renderIntakeLiveDesk();
+      scheduleCanvasTextFit($("context-shell"));
+      scheduleCanvasTextFit($("context-view-dock"));
     }}
 
     function normalizeContextObjectId(value) {{
@@ -6698,9 +6863,10 @@ def render_console_html(title: str) -> str:
             title="${{escapeHtml(`${{step.title}}: ${{step.label || contextLensEmptyValue()}}`)}}"
           >
             <span class="context-object-step-title">${{escapeHtml(step.title)}}</span>
-            <span class="context-object-step-value">${{escapeHtml(step.label || contextLensEmptyValue())}}</span>
+            <span class="context-object-step-value" data-fit-text="context-object-value" data-fit-fallback="18">${{escapeHtml(step.label || contextLensEmptyValue())}}</span>
           </button>`)
         .join('<span class="context-object-divider">→</span>');
+      scheduleCanvasTextFit(root);
     }}
 
     async function activateContextObjectRailStep(stepName, objectId, sectionId) {{
@@ -11333,12 +11499,12 @@ def render_console_html(title: str) -> str:
             <span class="chip">${{copy("Shown", "显示")}}: ${{filteredCount}}</span>
             <span class="chip">${{copy("Score", "分数")}}: ${{item.score || 0}}</span>
             <span class="chip">${{copy("Confidence", "置信度")}}: ${{Number(item.confidence || 0).toFixed(2)}}</span>
-            ${{itemMission ? `<span class="chip ok">${{copy("Mission", "任务")}}: ${{escapeHtml(clampLabel(itemMission, 28))}}</span>` : ""}}
+            ${{itemMission ? `<span class="chip ok" data-fit-text="triage-mission-chip" data-fit-max-width="190" data-fit-fallback="28">${{copy("Mission", "任务")}}: ${{escapeHtml(itemMission)}}</span>` : ""}}
             ${{evidenceFocusCount ? `<span class="chip hot">${{copy("Evidence Focus", "证据聚焦")}}: ${{evidenceFocusCount}}</span>` : ""}}
           </div>
           ${{linkedStories.length
             ? `<div class="workbench-story-links">
-                ${{linkedStories.map((story) => `<span class="chip ok">${{escapeHtml(clampLabel(story.title || story.id, 28))}}</span>`).join("")}}
+                ${{linkedStories.map((story) => `<span class="chip ok" data-fit-text="triage-story-chip" data-fit-max-width="176" data-fit-fallback="24">${{escapeHtml(story.title || story.id)}}</span>`).join("")}}
               </div>`
             : ""}}
           <div class="continuity-lane">
@@ -11981,6 +12147,7 @@ def render_console_html(title: str) -> str:
         syncTriageUrlState({{ defaultItemId }});
         flushTriageUrlFocus();
         renderTopbarContext();
+        scheduleCanvasTextFit(root);
         return;
       }}
       root.innerHTML = `
@@ -12217,6 +12384,7 @@ def render_console_html(title: str) -> str:
       syncTriageUrlState({{ defaultItemId }});
       flushTriageUrlFocus();
       renderTopbarContext();
+      scheduleCanvasTextFit(root);
     }}
 
     async function loadStory(identifier, {{ mode = null, syncUrl = true }} = {{}}) {{
@@ -13427,7 +13595,7 @@ def render_console_html(title: str) -> str:
                   <div class="panel-sub">${{escapeHtml(selectedClaim.rationale || copy("No rationale captured yet.", "当前还没有记录理由。"))}}</div>
                   <div class="meta">
                     ${{selectedClaimSources.map((value) => `<span class="chip ok">${{escapeHtml(value)}}</span>`).join("") || `<span class="chip">${{copy("no direct item id", "没有直接 item id")}}</span>`}}
-                    ${{selectedClaimUrls.map((value) => `<span class="chip">${{escapeHtml(clampLabel(value, 42))}}</span>`).join("")}}
+                    ${{selectedClaimUrls.map((value) => `<span class="chip" data-fit-text="claim-url-chip" data-fit-max-width="210" data-fit-fallback="42">${{escapeHtml(value)}}</span>`).join("")}}
                   </div>
                 `
                 : `<div class="empty">${{copy("Pick one claim from the right rail to inspect its binding and reuse it in the current section.", "先从右侧选中一条主张，再查看它的来源绑定并复用到当前章节。")}}</div>`}}
@@ -13572,6 +13740,7 @@ def render_console_html(title: str) -> str:
           }}
         }});
       }});
+      scheduleCanvasTextFit(root);
     }}
 
     function renderReportStudio() {{
@@ -13617,7 +13786,7 @@ def render_console_html(title: str) -> str:
                 <div class="panel-sub">${{escapeHtml(section.summary || copy("No section summary yet.", "当前还没有章节摘要。"))}}</div>
                 <div class="meta">
                   ${{sectionClaims.length
-                    ? sectionClaims.map((claim) => `<span class="chip ok">${{escapeHtml(clampLabel(getClaimCardLabel(claim), 32))}}</span>`).join("")
+                    ? sectionClaims.map((claim) => `<span class="chip ok" data-fit-text="report-section-claim-chip" data-fit-max-width="198" data-fit-fallback="32">${{escapeHtml(getClaimCardLabel(claim))}}</span>`).join("")
                     : `<span class="chip hot">${{copy("no claims attached", "当前没有挂接主张")}}</span>`}}
                 </div>
                 <div class="actions">
@@ -13925,6 +14094,7 @@ def render_console_html(title: str) -> str:
           jumpToSection("section-claims");
         }});
       }});
+      scheduleCanvasTextFit(root);
     }}
 
     async function refreshBoard() {{

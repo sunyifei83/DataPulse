@@ -77,6 +77,12 @@ Third and conditional target:
 
 This keeps DataPulse from importing a large text-layout surface before the repo proves it needs one.
 
+Current repo conclusion after the `L22.4` evaluation:
+
+- the currently proven dense hotspots are still single-line rail values, saved-view chips, dock summaries, and report or triage chips already covered by the narrower pixel-fit layer
+- no dense multiline panel in the current console baseline has produced repo evidence strong enough to justify a `prepare/layout`-style cache
+- keep multiline prelayout out of the active implementation path unless a future browser smoke failure or operator-reported hotspot still regresses after `L22.2` and `L22.3`
+
 ## Manual Ignition Boundary
 
 The next manual ignition target should be `L22.2`, not `L22.3` or `L22.4`.
@@ -106,6 +112,6 @@ DataPulse improves multilingual text behavior in the current shell through narro
 
 - deterministic grapheme-safe truncation first
 - cached browser measurement second
-- optional deeper prelayout only after hotspot evidence
+- no deeper prelayout in the current baseline because no dense multiline hotspot has yet justified it
 
 That sequence strengthens operator ergonomics without reopening the console architecture or inventing a parallel frontend product.

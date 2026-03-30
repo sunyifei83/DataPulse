@@ -1065,17 +1065,20 @@ With the report-production wave now landed, the next repo-relevant extension is 
 
 Another repo-relevant follow-up now exists below the shell and lifecycle layer: text measurement and multilingual layout hardening.
 
-The current browser shell already has responsive contract work, current-object workbench structure, and populated-state verification. The remaining gap is not another browser-shell rewrite. The gap is mixed-script text behavior in dense populated states. Current repo behavior still depends on character-count excerpts in `datapulse/core/utils.py` and CSS ellipsis in `datapulse/console_markup.py`, which is not a strong enough boundary for emoji, CJK, and mixed-script labels.
+The current browser shell already has responsive contract work, current-object workbench structure, and populated-state verification. That wave is no longer blocked on basic dense-label handling. Shared grapheme-safe truncation is now landed in `datapulse/core/utils.py`, and selected dense console surfaces in `datapulse/console_markup.py` now use cached canvas-fit measurement for context rail labels, saved-view chips, dock summaries, and report or triage chips where CSS ellipsis alone was not a strong enough boundary for mixed-script labels.
+
+That follow-up no longer has an open active-path implementation question. The current proven hotspots are still single-line or chip-like surfaces, and the repo does not currently have a dense multiline panel that justifies a `prepare/layout`-style cache.
 
 The promoted repo-scoped blueprint for this follow-up now lives in `docs/governance/datapulse-console-text-measurement-blueprint.md`.
 
 Recommended ignition order:
 
-- `L22.2` add grapheme-aware truncation utilities across shared excerpt-sensitive surfaces
-- `L22.3` add cached canvas label fitting for dense console chips, rail labels, and summaries where CSS ellipsis is insufficient
-- `L22.4` evaluate optional precomputed multiline layout only after a real hotspot is proven
+- `L22.2` add grapheme-aware truncation utilities across shared excerpt-sensitive surfaces; landed
+- `L22.3` add cached canvas label fitting for dense console chips, rail labels, and summaries where CSS ellipsis is insufficient; landed
+- `L22.4` evaluate optional precomputed multiline layout only after a real hotspot is proven; evaluated and closed with no current hotspot requiring it
 
 Judgment:
 
 - keep this wave as presentation and operator-ergonomics infrastructure, not a new lifecycle or frontend rewrite
 - prefer deterministic shared clamping first, then browser measurement, then optional deeper layout work
+- keep multiline prelayout off the active path unless a future dense multiline hotspot still fails after the narrower pixel-fit layer

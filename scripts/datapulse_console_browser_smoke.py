@@ -2278,6 +2278,7 @@ def _exercise_navigation_convergence(page: Page) -> None:
 
 
 def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
+    saved_view_name = "Verified Queue 多语种切片缓存标签 for dense console handoff coverage"
     _log("[console-browser-smoke] save view and set default")
     _goto(page, f"{base_url}/?triage_filter=verified#section-triage")
     _wait_for_console_ready(page)
@@ -2286,11 +2287,22 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
     page.wait_for_function("() => !!document.querySelector('[data-triage-card=\"item-2\"]')", timeout=10000)
     _click(page, "#context-summary")
     page.wait_for_function("() => document.querySelector('#context-summary')?.getAttribute('aria-expanded') === 'true'", timeout=10000)
-    page.fill("#context-save-name", "Verified Queue")
+    page.fill("#context-save-name", saved_view_name)
     _click(page, "#context-save-submit")
-    page.wait_for_function("() => document.querySelector('#context-lens-saved')?.textContent?.includes('Verified Queue')", timeout=10000)
+    page.wait_for_function("(expectedName) => document.querySelector('#context-lens-saved')?.textContent?.includes(expectedName)", arg=saved_view_name, timeout=10000)
     _click(page, "[data-context-saved-pin='0']")
-    page.wait_for_function("() => document.querySelector('[data-context-dock-open=\"0\"]')?.textContent?.includes('Verified Queue')", timeout=10000)
+    page.wait_for_function(
+        """(expectedName) => {
+            const button = document.querySelector('[data-context-dock-open="0"]');
+            return !!button
+                && button.dataset.fitTextOriginal === expectedName
+                && button.dataset.fitApplied === 'true'
+                && button.textContent !== expectedName
+                && button.textContent.includes('…');
+        }""",
+        arg=saved_view_name,
+        timeout=10000,
+    )
     _click(page, "[data-context-saved-default='0']")
     page.wait_for_function(
         "() => JSON.parse(localStorage.getItem('datapulse.console.context-saved-views.v1') || '[]')[0]?.isDefault === true",
@@ -2305,8 +2317,40 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
     next_page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
     next_page.wait_for_function("() => window.location.search.includes('triage_filter=verified')", timeout=10000)
     next_page.wait_for_function("() => document.querySelector('[data-triage-card=\"item-2\"]')?.classList.contains('selected')", timeout=10000)
-    next_page.wait_for_function("() => document.querySelector('[data-context-dock-open=\"0\"]')?.textContent?.includes('Verified Queue')", timeout=10000)
+    next_page.wait_for_function(
+        """(expectedName) => {
+            const button = document.querySelector('[data-context-dock-open="0"]');
+            return !!button
+                && button.dataset.fitTextOriginal?.includes(expectedName)
+                && button.dataset.fitApplied === 'true';
+        }""",
+        arg=saved_view_name,
+        timeout=10000,
+    )
     _wait_for_active_rail(next_page, "nav-review", "#section-triage")
+    next_page.evaluate(
+        """() => {
+            const button = document.querySelector('#context-summary');
+            if (!button) {
+                return;
+            }
+            button.style.maxWidth = '180px';
+            button.textContent = 'Mission intake | 多语言缓存像素拟合覆盖 for dense rail summary verification';
+            delete button.dataset.fitTextOriginal;
+            delete button.dataset.fitApplied;
+            scheduleCanvasTextFit(button);
+        }"""
+    )
+    next_page.wait_for_function(
+        """() => {
+            const button = document.querySelector('#context-summary');
+            return !!button
+                && button.dataset.fitApplied === 'true'
+                && button.dataset.fitTextOriginal?.includes('多语言缓存像素拟合覆盖')
+                && button.textContent.includes('…');
+        }""",
+        timeout=10000,
+    )
     _click(next_page, "[data-context-section='section-story']")
     next_page.wait_for_function("() => window.location.hash === '#section-story'", timeout=10000)
     _wait_for_active_rail(next_page, "nav-review", "#section-story")
@@ -2325,7 +2369,7 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
     next_page.evaluate("jumpToSection('section-intake')")
     next_page.wait_for_function("() => window.location.hash === '#section-intake'", timeout=10000)
     _wait_for_active_rail(next_page, "nav-intake", "#section-intake")
-    next_page.evaluate("restoreContextSavedViewByName('Verified Queue')")
+    next_page.evaluate("(viewName) => restoreContextSavedViewByName(viewName)", saved_view_name)
     next_page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
     next_page.wait_for_function("() => window.location.search.includes('triage_filter=verified')", timeout=10000)
     _wait_for_active_rail(next_page, "nav-review", "#section-triage")

@@ -28,6 +28,8 @@ from datapulse.core.utils import (
     normalize_language,
     resolve_platform_hint,
     session_valid,
+    split_graphemes,
+    truncate_graphemes,
     validate_external_url,
     watchlist_path_from_env,
 )
@@ -201,6 +203,41 @@ class TestGenerateExcerpt:
 
     def test_empty(self):
         assert generate_excerpt("") == ""
+
+    def test_does_not_split_zwj_emoji_cluster(self):
+        text = "Status family 👨‍👩‍👧‍👦 launch window"
+        result = generate_excerpt(text, max_length=15)
+
+        assert result == "Status family…"
+        assert "👨" not in result
+
+    def test_does_not_split_flag_emoji_cluster(self):
+        text = "Region 🇺🇳 update"
+        result = generate_excerpt(text, max_length=8)
+
+        assert result == "Region…"
+        assert "🇺" not in result
+
+    def test_preserves_cjk_clusters(self):
+        text = "多语言摘要验证流程"
+        assert generate_excerpt(text, max_length=6) == "多语言摘要验…"
+
+    def test_preserves_mixed_script_with_combining_mark(self):
+        text = "Cafe\u0301 数据 pipeline"
+        result = generate_excerpt(text, max_length=5)
+
+        assert result == "Café…"
+        assert "é" in result
+
+
+class TestGraphemeUtilities:
+    def test_split_graphemes_keeps_common_emoji_sequences_intact(self):
+        text = "A👩🏽‍💻🇺🇳e\u0301"
+        assert split_graphemes(text) == ["A", "👩🏽‍💻", "🇺🇳", "é"]
+
+    def test_truncate_graphemes_without_word_preservation(self):
+        text = "Launch 👩🏽‍💻 review"
+        assert truncate_graphemes(text, 8, preserve_words=False) == "Launch 👩🏽‍💻…"
 
 
 class TestNormalizeLanguage:

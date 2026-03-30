@@ -126,12 +126,99 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
+def _is_variation_selector(char: str) -> bool:
+    codepoint = ord(char)
+    return 0xFE00 <= codepoint <= 0xFE0F or 0xE0100 <= codepoint <= 0xE01EF
+
+
+def _is_emoji_modifier(char: str) -> bool:
+    return 0x1F3FB <= ord(char) <= 0x1F3FF
+
+
+def _is_regional_indicator(char: str) -> bool:
+    return 0x1F1E6 <= ord(char) <= 0x1F1FF
+
+
+def _is_tag_character(char: str) -> bool:
+    return 0xE0020 <= ord(char) <= 0xE007F
+
+
+def _is_grapheme_extend(char: str) -> bool:
+    return any([
+        unicodedata.combining(char) != 0,
+        unicodedata.category(char) in {"Mn", "Mc", "Me"},
+        _is_variation_selector(char),
+        _is_emoji_modifier(char),
+        _is_tag_character(char),
+        char == "\u200d",
+    ])
+
+
+def split_graphemes(text: str) -> list[str]:
+    """Split text into deterministic grapheme-like clusters for truncation."""
+    if not text:
+        return []
+
+    clusters: list[str] = []
+    index = 0
+    length = len(text)
+
+    while index < length:
+        cluster = text[index]
+        index += 1
+
+        if cluster == "\r" and index < length and text[index] == "\n":
+            clusters.append("\r\n")
+            index += 1
+            continue
+
+        while index < length:
+            next_char = text[index]
+            if _is_grapheme_extend(next_char):
+                cluster += next_char
+                index += 1
+                continue
+            if cluster.endswith("\u200d"):
+                cluster += next_char
+                index += 1
+                continue
+            if _is_regional_indicator(cluster[-1]) and _is_regional_indicator(next_char):
+                cluster += next_char
+                index += 1
+                continue
+            break
+
+        clusters.append(cluster)
+
+    return clusters
+
+
+def truncate_graphemes(
+    text: str,
+    max_length: int,
+    *,
+    ellipsis: str = "…",
+    preserve_words: bool = True,
+) -> str:
+    """Truncate text by grapheme clusters without splitting emoji or combining marks."""
+    if max_length <= 0:
+        return ellipsis if text else ""
+
+    clusters = split_graphemes(text)
+    if len(clusters) <= max_length:
+        return text
+
+    cropped = "".join(clusters[:max_length]).rstrip()
+    if preserve_words and " " in cropped and not cropped.endswith(" "):
+        word_safe = cropped.rsplit(" ", 1)[0].rstrip()
+        if word_safe:
+            cropped = word_safe
+    return f"{cropped}{ellipsis}" if cropped else ellipsis
+
+
 def generate_excerpt(text: str, max_length: int = 260) -> str:
     normalized = clean_text(text)
-    if len(normalized) <= max_length:
-        return normalized
-    cropped = normalized[:max_length].rsplit(" ", 1)[0]
-    return f"{cropped}…"
+    return truncate_graphemes(normalized, max_length)
 
 
 def normalize_language(text: str) -> str:
