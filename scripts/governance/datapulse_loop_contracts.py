@@ -131,6 +131,7 @@ IGNORED_WORKSPACE_GATE_PATHS = {
 IGNORED_WORKSPACE_GATE_PREFIXES = (
     "artifacts/governance/release_bundle/",
     "artifacts/governance/snapshots/",
+    "out/codex_blueprint_loop/",
     "out/ha_latest_release_bundle/",
     "out/release_bundle/",
 )

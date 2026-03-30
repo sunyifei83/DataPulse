@@ -3,7 +3,7 @@
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
   "generated_at_utc": "2026-03-30T00:00:00Z",
-  "status": "in_progress",
+  "status": "completed",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -83,7 +83,7 @@
     "L17": "completed",
     "L18": "completed",
     "L19": "completed",
-    "L20": "in_progress"
+    "L20": "completed"
   },
   "phases": [
     {
@@ -2590,7 +2590,7 @@
       "id": "L20",
       "title": "Governance snapshot decoupling and stable runtime-evidence split",
       "goal": "Separate repo truth, runtime-consumed bundle truth, and same-window governance evidence so post-CI closeout no longer reopens the repository while preserving the current manual ignition surface.",
-      "status": "in_progress",
+      "status": "completed",
       "slices": [
         {
           "id": "L20.1",
@@ -2688,10 +2688,10 @@
           "category": "manual",
           "execution_profile": "release_policy_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run pytest tests/test_governance_loop.py -q",
-            "python3 scripts/governance/run_datapulse_blueprint_loop.py --plan docs/governance/datapulse-blueprint-plan.json"
+            "uv run python scripts/governance/run_datapulse_blueprint_loop.py --plan docs/governance/datapulse-blueprint-plan.json"
           ],
           "artifacts": [
             ".gitignore",
@@ -2710,9 +2710,9 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L20.5",
-    "title": "Retire legacy tracked out snapshot coupling and update ignore rules docs and closeout behavior",
-    "reason": "L20.4 separates stable runtime truth from same-window evidence, so the next narrow step is retiring the remaining tracked out/* coupling once compatibility and closeout behavior are proven."
+    "id": "no-open-slice",
+    "title": "No open slice",
+    "reason": "All current slices are completed in this working copy."
   },
   "progress_log": [
     {
@@ -3039,7 +3039,12 @@
       "at_utc": "2026-03-29T05:19:48Z",
       "slice_id": "L19.3",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-30T04:23:46Z",
+      "slice_id": "L20.5",
+      "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-29T10:38:26Z"
+  "last_updated_utc": "2026-03-30T04:23:46Z"
 }

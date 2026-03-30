@@ -44,6 +44,12 @@ openclaw-*.env.local
 openclaw-*.secret
 datapulse-openclaw.env
 artifacts/
+artifacts/governance/snapshots/
+artifacts/governance/release_bundle/
+out/codex_blueprint_loop/
+out/governance/
+out/release_bundle/
+out/ha_latest_release_bundle/
 out/datapulse_console.log
 unified_inbox.json
 uv.lock

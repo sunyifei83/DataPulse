@@ -12,7 +12,7 @@ Provide a structured release evidence directory that HA delivery facts can recog
 
 - Export happens only on explicit command.
 - The canonical resolver name for this artifact class is `evidence_bundle_root`.
-- During compatibility, exporters may still default to `out/release_bundle`.
+- Default export now targets the canonical `artifacts/governance/release_bundle/` root.
 - No existing release script, CI workflow, or runtime service path is modified.
 
 ## Resolver Contract
@@ -20,7 +20,7 @@ Provide a structured release evidence directory that HA delivery facts can recog
 - `evidence_bundle_root` is the long-term bundle root for structured same-window release evidence.
 - `runtime_bundle_root` is a separate resolver and should not be inferred from the structured evidence bundle location.
 - `governance_snapshot_root` owns draft loop-state and attestation snapshots that may be copied into the evidence bundle when replay requires them.
-- Until `L20.3` and `L20.4` land, legacy compatibility roots remain dual-readable:
+- During migration, legacy compatibility roots remain dual-readable:
   - `out/release_bundle`
   - `out/ha_latest_release_bundle`
 
@@ -71,6 +71,7 @@ Runtime bundle files included in the evidence directory are copied evidence that
 
 - `structured_release_bundle_available()` should become true when a recognized manifest exists in the resolved `evidence_bundle_root`, with `out/release_bundle` and `out/ha_latest_release_bundle` retained as migration fallbacks.
 - `out/ha_latest_release_bundle` remains a compatibility runtime-bundle fallback during migration, not the long-term canonical root for stable runtime truth.
+- Legacy `out/*release_bundle*` directories are ignored compatibility surfaces rather than required tracked closeout truth.
 - Local admission snapshots remain diagnostic-only when the bundle-first default path is evaluated; they are no longer a parallel primary runtime source.
 - This keeps the `ha_release_structured` gate machine-decidable and avoids false positives from empty directories.
 - `.github/workflows/governance-evidence.yml` is the dedicated low-coupling `workflow_dispatch` entrypoint for exporting a bundle in GitHub Actions without changing existing release triggers.

@@ -36,7 +36,7 @@ def current_python_command() -> list[str]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run the repository-governance auto-continuation entrypoint for the DataPulse blueprint loop."
+        description="Run the read-only auto-continuation entrypoint for the DataPulse blueprint loop and refresh resolver-addressed governance/evidence outputs when requested."
     )
     parser.add_argument(
         "--plan",
@@ -60,12 +60,12 @@ def parse_args() -> argparse.Namespace:
         "--bundle-dir",
         type=Path,
         default=DEFAULT_BUNDLE_DIR,
-        help="Structured evidence bundle directory to refresh when requested.",
+        help="Structured evidence bundle directory to refresh when requested. Defaults to the canonical evidence_bundle_root.",
     )
     parser.add_argument(
         "--write-governance-snapshots",
         action="store_true",
-        help="Refresh code landing status, project loop state, and structured bundle before evaluation.",
+        help="Refresh resolver-addressed code landing status, project loop state, and structured evidence bundle before evaluation.",
     )
     parser.add_argument(
         "--out-path",

@@ -134,7 +134,7 @@ def parse_args() -> argparse.Namespace:
         "--bundle-dir",
         type=Path,
         default=DEFAULT_BUNDLE_DIR,
-        help="Repository structured evidence bundle directory refreshed when tracked governance snapshots are synced after a terminal stop.",
+        help="Structured evidence bundle directory refreshed when terminal stop outputs are synced to the resolver-addressed closeout roots.",
     )
     parser.add_argument(
         "--output-dir",
@@ -191,10 +191,11 @@ def parse_args() -> argparse.Namespace:
         help="Read-only verification command executed before auto repo_landed promotion. Use an empty string to disable.",
     )
     parser.add_argument(
+        "--refresh-stop-outputs-on-stop",
         "--sync-tracked-governance-on-stop",
         action=argparse.BooleanOptionalAction,
         default=DEFAULT_SYNC_TRACKED_GOVERNANCE_ON_STOP,
-        help="Refresh tracked out/governance and release bundle snapshots when the loop reaches a terminal stopped state.",
+        help="Refresh resolver-addressed governance snapshot and evidence bundle outputs when the loop reaches a terminal stopped state.",
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--stdout", action="store_true", help="Accepted for compatibility. JSON is always printed.")
@@ -1089,7 +1090,7 @@ def build_codex_prompt_text(
         "- do not introduce Future Track or future_* prose-only planning state",
         "- only land the current next_slice unless the current slice cannot be completed without a tightly-scoped prerequisite",
         "- keep scheduled governance workflow read-only; do not turn .github/workflows/governance-loop-auto.yml into a business executor",
-        "- do not hand-edit out/governance or out/*release_bundle snapshots unless a generated exporter requires regeneration",
+        "- do not hand-edit governance snapshot or evidence-bundle outputs unless a generated exporter requires regeneration",
         "",
         "当前 slice adapter：",
         f"- execute_mode: {_to_text(adapter_entry.get('execute_mode')) or 'unspecified'}",
@@ -1134,7 +1135,7 @@ def stop_snapshot(runtime: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-def refresh_tracked_governance_on_stop(
+def refresh_stop_outputs_on_terminal_state(
     *,
     runtime: dict[str, Any],
     plan_path: Path,
@@ -1147,6 +1148,23 @@ def refresh_tracked_governance_on_stop(
     if _to_text(runtime.get("status")) != "stopped":
         return {}
     return refresh_governance_snapshots(bundle_dir.resolve(), plan_path=plan_path.resolve())
+
+
+def refresh_tracked_governance_on_stop(
+    *,
+    runtime: dict[str, Any],
+    plan_path: Path,
+    bundle_dir: Path,
+    enabled: bool,
+    dry_run: bool,
+) -> dict[str, str]:
+    return refresh_stop_outputs_on_terminal_state(
+        runtime=runtime,
+        plan_path=plan_path,
+        bundle_dir=bundle_dir,
+        enabled=enabled,
+        dry_run=dry_run,
+    )
 
 
 def run_round(
@@ -1252,15 +1270,15 @@ def main() -> int:
             print(json.dumps(stop_snapshot(runtime), ensure_ascii=False))
             return BLOCKED_EXIT_CODE
         if _to_text(runtime.get("status")) == "stopped":
-            tracked_snapshots = refresh_tracked_governance_on_stop(
+            tracked_snapshots = refresh_stop_outputs_on_terminal_state(
                 runtime=runtime,
                 plan_path=args.plan,
                 bundle_dir=tracked_bundle_dir,
-                enabled=bool(args.sync_tracked_governance_on_stop),
+                enabled=bool(args.refresh_stop_outputs_on_stop),
                 dry_run=bool(args.dry_run),
             )
             if tracked_snapshots:
-                print(json.dumps({"status": "tracked_snapshots_refreshed", "snapshots_refreshed": tracked_snapshots}, ensure_ascii=False))
+                print(json.dumps({"status": "stop_outputs_refreshed", "snapshots_refreshed": tracked_snapshots}, ensure_ascii=False))
             print(json.dumps(stop_snapshot(runtime), ensure_ascii=False))
             return 0
 
@@ -1432,18 +1450,18 @@ def main() -> int:
                 print(json.dumps(payload, ensure_ascii=False))
                 return BLOCKED_EXIT_CODE
             if status_text == "stopped":
-                tracked_snapshots = refresh_tracked_governance_on_stop(
+                tracked_snapshots = refresh_stop_outputs_on_terminal_state(
                     runtime=runtime,
                     plan_path=args.plan,
                     bundle_dir=tracked_bundle_dir,
-                    enabled=bool(args.sync_tracked_governance_on_stop),
+                    enabled=bool(args.refresh_stop_outputs_on_stop),
                     dry_run=bool(args.dry_run),
                 )
                 if tracked_snapshots:
                     print(
                         json.dumps(
                             {
-                                "status": "tracked_snapshots_refreshed",
+                                "status": "stop_outputs_refreshed",
                                 "round": round_index,
                                 "snapshots_refreshed": tracked_snapshots,
                             },

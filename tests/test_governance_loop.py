@@ -144,7 +144,7 @@ def test_refresh_tracked_governance_on_stop_runs_for_terminal_stop(governance_lo
 
     monkeypatch.setattr(governance_loop, "refresh_governance_snapshots", _fake_refresh)
 
-    result = governance_loop.refresh_tracked_governance_on_stop(
+    result = governance_loop.refresh_stop_outputs_on_terminal_state(
         runtime={"status": "stopped"},
         plan_path=tmp_path / "plan.json",
         bundle_dir=tmp_path / "bundle",
@@ -164,7 +164,7 @@ def test_refresh_tracked_governance_on_stop_skips_when_disabled(governance_loop,
         lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("should not refresh when disabled")),
     )
 
-    result = governance_loop.refresh_tracked_governance_on_stop(
+    result = governance_loop.refresh_stop_outputs_on_terminal_state(
         runtime={"status": "stopped"},
         plan_path=tmp_path / "plan.json",
         bundle_dir=tmp_path / "bundle",
@@ -184,14 +184,14 @@ def test_refresh_tracked_governance_on_stop_skips_for_dry_run_or_non_terminal_st
         lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("should not refresh outside terminal stop")),
     )
 
-    dry_run_result = governance_loop.refresh_tracked_governance_on_stop(
+    dry_run_result = governance_loop.refresh_stop_outputs_on_terminal_state(
         runtime={"status": "stopped"},
         plan_path=tmp_path / "plan.json",
         bundle_dir=tmp_path / "bundle",
         enabled=True,
         dry_run=True,
     )
-    ready_result = governance_loop.refresh_tracked_governance_on_stop(
+    ready_result = governance_loop.refresh_stop_outputs_on_terminal_state(
         runtime={"status": "ready"},
         plan_path=tmp_path / "plan.json",
         bundle_dir=tmp_path / "bundle",
@@ -201,6 +201,19 @@ def test_refresh_tracked_governance_on_stop_skips_for_dry_run_or_non_terminal_st
 
     assert dry_run_result == {}
     assert ready_result == {}
+
+
+def test_repo_workspace_clean_ignores_codex_loop_output_prefix(loop_contracts, monkeypatch) -> None:
+    monkeypatch.setattr(
+        loop_contracts,
+        "git_output",
+        lambda *args: " M out/codex_blueprint_loop/round-02/command.json\n",
+    )
+
+    clean, entries = loop_contracts.repo_workspace_clean()
+
+    assert clean is True
+    assert entries == []
 
 
 def test_run_capture_with_mode_raises_for_required_failure(auto_continuation, monkeypatch) -> None:

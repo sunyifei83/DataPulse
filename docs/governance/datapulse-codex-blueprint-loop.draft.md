@@ -57,7 +57,7 @@ The `L20.2` contract freezes three resolver-owned roots that later implementatio
 - `governance_snapshot_root`: `artifacts/governance/snapshots/`
 - `evidence_bundle_root`: `artifacts/governance/release_bundle/`
 
-Until the compatibility layer lands, legacy `out/governance`, `out/release_bundle`, and `out/ha_latest_release_bundle` remain migration fallbacks rather than permanent hardcoded truth.
+Legacy `out/governance`, `out/release_bundle`, and `out/ha_latest_release_bundle` remain read-fallbacks during migration, but closeout refresh now targets the canonical resolver roots instead of treating those `out/*` directories as permanent tracked truth.
 
 After each Codex round, the runner now enforces four control-plane checks before continuing:
 
@@ -67,9 +67,11 @@ After each Codex round, the runner now enforces four control-plane checks before
 4. when `--promotion-mode auto` is enabled, first auto-resolve local `repo_landed`, then attempt the lowest-coupling `ci_proven` path that matches the current change scope:
    - non-docs changes: `git push` and wait for the real `CI` workflow run for the current `HEAD`
    - docs-only changes: `git push`, dispatch `.github/workflows/governance-evidence.yml`, and wait for that run to succeed for the current `HEAD`
-5. once the loop reaches a terminal `stopped` state, refresh the resolved governance snapshot and evidence-bundle roots for the current repository contract; during migration this may still land in legacy `out/*` fallbacks, but the stop-sync behavior must not stay permanently hardcoded to those paths
+5. once the loop reaches a terminal `stopped` state, refresh the resolved governance snapshot and evidence-bundle roots for the current repository contract; canonical closeout now lands in `artifacts/governance/snapshots/` and `artifacts/governance/release_bundle/`, while legacy `out/*` roots remain compatibility fallbacks only
 
 That pre-promotion quick gate still covers explicit dirty-worktree takeover, but the normal ignition path now assumes the repo is already back at a clean baseline.
+
+The local loop log directory `out/codex_blueprint_loop/` is also treated as ignored operational output so blueprint-only or closeout-only runs do not reopen the repository by themselves.
 
 Recommended trigger:
 
@@ -107,6 +109,7 @@ SYSTEM_VERSION_COMPAT=1 uv run python scripts/governance/run_codex_blueprint_loo
 - If the slice catalog is missing an entry for the current slice, use the synthesized execution brief instead of inventing prose-only instructions.
 - `--promotion-mode auto` now means "allow local repo_landed auto-promotion, then auto-resolve the current `ci_proven` path by pushing and waiting for real GitHub workflow evidence". It still does not mean release/tag autopilot.
 - The local Codex loop now keeps in-round evaluation ephemeral, but on a terminal `stopped` result it refreshes the resolver-addressed governance and evidence outputs so local truth does not lag behind the last successful run.
+- Legacy `out/governance` and `out/*release_bundle*` directories are no longer required tracked stop-truth surfaces; they are ignored compatibility fallbacks.
 - The ignition wrapper now expects a clean baseline by default; use `DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=1` only as an explicit recovery path.
 - Hard-stop gates such as `workflow_dispatch_missing`, `structured_release_bundle_missing`, `ci_run_failed`, or `governance_evidence_failed` must stop the loop instead of being auto-overridden.
 
