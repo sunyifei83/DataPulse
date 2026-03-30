@@ -1,0 +1,144 @@
+{
+  "schema": "modelbus.consumer_surface_admission.v1",
+  "generated_at_utc": "2026-03-29T10:04:27Z",
+  "consumer_id": "datapulse",
+  "release_window": {
+    "generated_at_utc": "2026-03-29T10:04:27Z",
+    "release_level": "repo_landed",
+    "assured_verdict": "pass",
+    "constitutional_semantics": "BUNDLE-FIRST-REQUIRED"
+  },
+  "surface_admissions": [
+    {
+      "surface_id": "mission_suggest",
+      "requested_alias": "dp.mission.suggest",
+      "admission_status": "admitted",
+      "admitted_alias": "dp.mission.suggest",
+      "mode_admission": {
+        "off": "manual_only",
+        "assist": "admitted",
+        "review": "admitted"
+      },
+      "schema_contract": "datapulse_ai_watch_suggestion.v1",
+      "manual_fallback": "manual_review_of_ai_payload_before_final_state_change",
+      "degraded_result_allowed": true,
+      "must_expose_runtime_facts": [
+        "served_by_alias",
+        "fallback_used",
+        "degraded",
+        "schema_valid",
+        "manual_override_required",
+        "request_id"
+      ],
+      "rejectable_gaps": []
+    },
+    {
+      "surface_id": "triage_assist",
+      "requested_alias": "dp.triage.assist",
+      "admission_status": "admitted",
+      "admitted_alias": "dp.triage.assist",
+      "mode_admission": {
+        "off": "manual_only",
+        "assist": "admitted",
+        "review": "admitted"
+      },
+      "schema_contract": "datapulse_ai_triage_explain.v1",
+      "manual_fallback": "manual_review_of_ai_payload_before_final_state_change",
+      "degraded_result_allowed": true,
+      "must_expose_runtime_facts": [
+        "served_by_alias",
+        "fallback_used",
+        "degraded",
+        "schema_valid",
+        "manual_override_required",
+        "request_id"
+      ],
+      "rejectable_gaps": []
+    },
+    {
+      "surface_id": "claim_draft",
+      "requested_alias": "dp.claim.draft",
+      "admission_status": "admitted",
+      "admitted_alias": "dp.claim.draft",
+      "mode_admission": {
+        "off": "manual_only",
+        "assist": "admitted",
+        "review": "admitted"
+      },
+      "schema_contract": "datapulse_ai_claim_draft.v1",
+      "manual_fallback": "manual_review_of_ai_payload_before_final_state_change",
+      "degraded_result_allowed": false,
+      "must_expose_runtime_facts": [
+        "served_by_alias",
+        "fallback_used",
+        "degraded",
+        "schema_valid",
+        "manual_override_required",
+        "request_id"
+      ],
+      "rejectable_gaps": []
+    },
+    {
+      "surface_id": "report_draft",
+      "requested_alias": "dp.report.draft",
+      "admission_status": "rejected",
+      "admitted_alias": "",
+      "mode_admission": {
+        "off": "manual_only",
+        "assist": "rejected",
+        "review": "rejected"
+      },
+      "schema_contract": "",
+      "manual_fallback": "manual_or_deterministic_behavior",
+      "degraded_result_allowed": false,
+      "must_expose_runtime_facts": [
+        "served_by_alias",
+        "fallback_used",
+        "degraded",
+        "schema_valid",
+        "manual_override_required",
+        "request_id"
+      ],
+      "rejectable_gaps": [
+        {
+          "gap_id": "missing_structured_contract",
+          "blocking": true,
+          "reason": "report_draft has no admitted structured payload contract after L16.4 and must fail closed."
+        },
+        {
+          "gap_id": "missing_required_schema_contract",
+          "blocking": true,
+          "reason": "The surface does not yet declare an admitted structured payload contract."
+        },
+        {
+          "gap_id": "report_draft.experimental:missing_contract_binding",
+          "blocking": true,
+          "reason": "Candidate subscription does not satisfy the required structured contract binding."
+        }
+      ]
+    },
+    {
+      "surface_id": "delivery_summary",
+      "requested_alias": "dp.delivery.summary",
+      "admission_status": "admitted",
+      "admitted_alias": "dp.delivery.summary",
+      "mode_admission": {
+        "off": "manual_only",
+        "assist": "admitted",
+        "review": "admitted"
+      },
+      "schema_contract": "datapulse_ai_delivery_summary.v1",
+      "manual_fallback": "manual_review_of_ai_payload_before_final_state_change",
+      "degraded_result_allowed": true,
+      "must_expose_runtime_facts": [
+        "served_by_alias",
+        "fallback_used",
+        "degraded",
+        "schema_valid",
+        "manual_override_required",
+        "request_id"
+      ],
+      "rejectable_gaps": []
+    }
+  ]
+}

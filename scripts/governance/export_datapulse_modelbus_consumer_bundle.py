@@ -6,12 +6,22 @@ import json
 from pathlib import Path
 from typing import Any
 
+from datapulse.governance_paths import (
+    GOVERNANCE_SNAPSHOT_ROOT,
+    RUNTIME_BUNDLE_ROOT,
+    read_path as resolve_governance_read_path,
+    write_root as resolve_governance_write_root,
+)
 from datapulse_loop_contracts import REPO_ROOT, read_json, utc_now, write_json
 from export_datapulse_ai_surface_admission_example import build_payload as build_admission_payload
 
-DEFAULT_OUTPUT_DIR = REPO_ROOT / "out/ha_latest_release_bundle"
+DEFAULT_OUTPUT_DIR = resolve_governance_write_root(RUNTIME_BUNDLE_ROOT, repo_root=REPO_ROOT)
 DEFAULT_SUBSCRIPTIONS_PATH = REPO_ROOT / "docs/governance/datapulse-ai-surface-subscriptions.example.json"
-DEFAULT_PROJECT_LOOP_STATE_PATH = REPO_ROOT / "out/governance/project_specific_loop_state.draft.json"
+DEFAULT_PROJECT_LOOP_STATE_PATH = resolve_governance_read_path(
+    GOVERNANCE_SNAPSHOT_ROOT,
+    "project_specific_loop_state.draft.json",
+    repo_root=REPO_ROOT,
+)
 
 
 def parse_args() -> argparse.Namespace:

@@ -7,6 +7,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+from datapulse.governance_paths import (
+    EVIDENCE_BUNDLE_ROOT,
+    RUNTIME_BUNDLE_ROOT,
+    read_root as resolve_governance_read_root,
+)
 from datapulse_loop_contracts import (
     DEFAULT_OUT_DIR,
     DEFAULT_PLAN_PATH,
@@ -18,6 +23,9 @@ from datapulse_loop_contracts import (
     write_json,
 )
 from export_datapulse_release_sidecar import detect_tag, extract_notes_section, project_version
+
+DEFAULT_BUNDLE_DIR = resolve_governance_read_root(EVIDENCE_BUNDLE_ROOT, repo_root=REPO_ROOT)
+DEFAULT_RUNTIME_BUNDLE_DIR = resolve_governance_read_root(RUNTIME_BUNDLE_ROOT, repo_root=REPO_ROOT)
 
 
 def current_python_command() -> list[str]:
@@ -54,8 +62,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--bundle-dir",
         type=Path,
-        default=REPO_ROOT / "out/ha_latest_release_bundle",
-        help="Bundle directory used to validate bundle-first runtime-hit evidence.",
+        default=DEFAULT_BUNDLE_DIR,
+        help="Structured evidence bundle directory bound by the release-window attestation.",
+    )
+    parser.add_argument(
+        "--runtime-bundle-dir",
+        type=Path,
+        default=DEFAULT_RUNTIME_BUNDLE_DIR,
+        help="Runtime bundle directory used to validate bundle-first runtime-hit evidence.",
     )
     parser.add_argument(
         "--probe-ha-readiness",
@@ -70,7 +84,15 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_manifest(plan_path: Path, notes_file: Path, tag: str, probe_ha_readiness: bool) -> dict[str, object]:
+def build_manifest(
+    plan_path: Path,
+    notes_file: Path,
+    tag: str,
+    probe_ha_readiness: bool,
+    *,
+    bundle_dir: Path,
+    runtime_bundle_dir: Path,
+) -> dict[str, object]:
     files = [
         "code_landing_status.draft.json",
         "datapulse-ai-surface-admission.example.json",
@@ -96,6 +118,8 @@ def build_manifest(plan_path: Path, notes_file: Path, tag: str, probe_ha_readine
         "release_tag": tag,
         "release_version": tag.lstrip("v") if tag else project_version(),
         "notes_file": str(notes_file),
+        "structured_bundle_dir": str(bundle_dir),
+        "runtime_bundle_dir": str(runtime_bundle_dir),
         "notes_section_found": notes_found,
         "ha_readiness_probed": probe_ha_readiness,
         "files": files,
@@ -109,7 +133,14 @@ def main() -> int:
 
     tag = detect_tag(args.tag)
     notes_file = (Path.cwd() / args.notes_file).resolve() if not args.notes_file.is_absolute() else args.notes_file
-    manifest = build_manifest(args.plan, notes_file, tag, args.probe_ha_readiness)
+    manifest = build_manifest(
+        args.plan,
+        notes_file,
+        tag,
+        args.probe_ha_readiness,
+        bundle_dir=args.bundle_dir.resolve(),
+        runtime_bundle_dir=args.runtime_bundle_dir.resolve(),
+    )
 
     if args.stdout:
         print(json.dumps(manifest, indent=2, ensure_ascii=True))
@@ -130,7 +161,7 @@ def main() -> int:
             *current_python_command(),
             "scripts/governance/export_datapulse_surface_runtime_hit_evidence.py",
             "--bundle-dir",
-            str(args.bundle_dir.resolve()),
+            str(args.runtime_bundle_dir.resolve()),
             "--output",
             str(out_dir / "datapulse_surface_runtime_hit_evidence.draft.json"),
         ],

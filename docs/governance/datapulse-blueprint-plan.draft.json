@@ -2,7 +2,7 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-29T11:05:11Z",
+  "generated_at_utc": "2026-03-30T00:00:00Z",
   "status": "in_progress",
   "activation": {
     "wired": false,
@@ -2662,7 +2662,7 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "verification_commands": [
             "uv run pytest tests/test_reader.py tests/test_report.py tests/test_delivery.py tests/test_governance_loop.py -q"
           ],
@@ -2710,11 +2710,16 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L20.4",
-    "title": "Split stable runtime bundle truth from derived same-window evidence outputs without breaking manual ignition",
-    "reason": "L20.3 lands the shared compatibility layer, so the next narrow step is moving stable runtime truth and same-window evidence onto separate planes without breaking the current ignition wrapper."
+    "id": "L20.5",
+    "title": "Retire legacy tracked out snapshot coupling and update ignore rules docs and closeout behavior",
+    "reason": "L20.4 separates stable runtime truth from same-window evidence, so the next narrow step is retiring the remaining tracked out/* coupling once compatibility and closeout behavior are proven."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-30T00:00:00Z",
+      "slice_id": "L20.4",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-29T11:05:11Z",
       "slice_id": "L20.3",

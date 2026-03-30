@@ -608,6 +608,7 @@ def test_evidence_bundle_rebuilds_landing_status_from_generated_attestation(
             notes_file=Path("RELEASE_NOTES.md"),
             out_dir=out_dir,
             bundle_dir=out_dir,
+            runtime_bundle_dir=tmp_path / "runtime-bundle",
             probe_ha_readiness=False,
             stdout=False,
         ),
@@ -639,6 +640,16 @@ def test_evidence_bundle_rebuilds_landing_status_from_generated_attestation(
         if any(str(item).endswith("export_datapulse_release_sidecar.py") for item in command)
     )
     assert any(
+        "--bundle-dir" in command and str(tmp_path / "runtime-bundle") in command
+        for command in commands
+        if any(str(item).endswith("export_datapulse_surface_runtime_hit_evidence.py") for item in command)
+    )
+    assert any(
+        "--bundle-dir" in command and str(out_dir) in command
+        for command in commands
+        if any(str(item).endswith("export_datapulse_release_window_attestation.py") for item in command)
+    )
+    assert any(
         "--release-window-attestation" in command
         for command in commands
         if any(str(item).endswith("export_datapulse_ha_delivery_landing.py") for item in command)
@@ -657,6 +668,7 @@ def test_structured_bundle_refreshes_adapter_and_modelbus_after_evidence_export(
         lambda: structured_bundle_module.argparse.Namespace(
             plan=tmp_path / "plan.json",
             out_dir=out_dir,
+            runtime_bundle_dir=tmp_path / "runtime-bundle",
             tag="",
             notes_file=Path("RELEASE_NOTES.md"),
             probe_ha_readiness=True,
@@ -664,6 +676,16 @@ def test_structured_bundle_refreshes_adapter_and_modelbus_after_evidence_export(
         ),
     )
     monkeypatch.setattr(structured_bundle_module, "load_plan", lambda path: {"activation": {}})
+    monkeypatch.setattr(
+        structured_bundle_module,
+        "copy_runtime_bundle_files",
+        lambda runtime_bundle_dir, bundle_dir: [
+            "bundle_manifest.json",
+            "surface_admission.json",
+            "bridge_config.json",
+            "release_status.json",
+        ],
+    )
     monkeypatch.setattr(structured_bundle_module, "build_manifest", lambda *args, **kwargs: {"manifest": True})
     monkeypatch.setattr(structured_bundle_module, "write_json", lambda path, payload: None)
     monkeypatch.setattr(structured_bundle_module, "current_python_command", lambda: ["python"])
@@ -676,13 +698,11 @@ def test_structured_bundle_refreshes_adapter_and_modelbus_after_evidence_export(
 
     assert structured_bundle_module.main() == 0
     assert [command[1] for command in commands] == [
-        "scripts/governance/export_datapulse_modelbus_consumer_bundle.py",
         "scripts/governance/export_datapulse_evidence_bundle.py",
         "scripts/governance/export_datapulse_loop_adapter_bundle.py",
-        "scripts/governance/export_datapulse_modelbus_consumer_bundle.py",
     ]
-    assert "--release-window-attestation" in commands[2]
-    assert "--project-loop-state-json" in commands[3]
+    assert "--runtime-bundle-dir" in commands[0]
+    assert "--release-window-attestation" in commands[1]
 
 
 def test_persist_and_load_promotion_auto_repair_request(governance_loop, monkeypatch, tmp_path: Path) -> None:

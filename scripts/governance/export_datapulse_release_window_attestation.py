@@ -7,9 +7,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from datapulse.governance_paths import EVIDENCE_BUNDLE_ROOT, read_root as resolve_governance_read_root
 from datapulse_loop_contracts import DEFAULT_OUT_DIR, REPO_ROOT, display_path, git_output, read_json, utc_now, write_json
 
-DEFAULT_BUNDLE_DIR = REPO_ROOT / "out/ha_latest_release_bundle"
+DEFAULT_BUNDLE_DIR = resolve_governance_read_root(EVIDENCE_BUNDLE_ROOT, repo_root=REPO_ROOT)
 DEFAULT_OUTPUT_PATH = DEFAULT_OUT_DIR / "datapulse_release_window_attestation.draft.json"
 DEFAULT_RUNTIME_HIT_PATH = DEFAULT_OUT_DIR / "datapulse_surface_runtime_hit_evidence.draft.json"
 DEFAULT_RELEASE_SIDECAR_PATH = DEFAULT_OUT_DIR / "release_sidecar.draft.json"
@@ -184,6 +185,21 @@ def build_release_sidecar_truth(sidecar_payload: dict[str, Any], sidecar_path: P
     }
 
 
+def bundle_runtime_source(structured_manifest: dict[str, Any], *, bundle_dir: Path) -> tuple[str, list[str]]:
+    runtime_bundle = (
+        dict(structured_manifest.get("runtime_bundle", {}))
+        if isinstance(structured_manifest.get("runtime_bundle"), dict)
+        else {}
+    )
+    source_dir = _string(runtime_bundle.get("source_dir")) or display_path(bundle_dir.resolve())
+    copied_files = (
+        [_string(item) for item in runtime_bundle.get("files_copied", []) if _string(item)]
+        if isinstance(runtime_bundle.get("files_copied"), list)
+        else []
+    )
+    return source_dir, copied_files
+
+
 def build_freshness(
     attestation_time: datetime,
     source_entries: list[tuple[str, Path, str]],
@@ -269,14 +285,18 @@ def main() -> int:
 
     runtime_hit_evidence, runtime_surface_rows = build_runtime_section(runtime_hit_payload, runtime_hit_path)
     release_sidecar_truth = build_release_sidecar_truth(release_sidecar_payload, release_sidecar_path)
+    runtime_bundle_source_dir, runtime_bundle_files = bundle_runtime_source(structured_manifest, bundle_dir=bundle_dir)
     bundle_identity = {
         "bundle_dir": display_path(bundle_dir),
+        "evidence_bundle_dir": display_path(bundle_dir),
         "structured_manifest_path": display_path(structured_manifest_path.resolve()),
         "structured_manifest_generated_at_utc": _string(structured_manifest.get("generated_at_utc")),
         "adapter_bundle_manifest_path": display_path(adapter_manifest_path.resolve()),
         "bundle_manifest_path": display_path(bundle_manifest_path.resolve()),
         "bundle_id": _string(bundle_manifest.get("bundle_id")),
         "consumer_id": _string(bundle_manifest.get("consumer_id")),
+        "runtime_bundle_source_dir": runtime_bundle_source_dir,
+        "runtime_bundle_files": runtime_bundle_files,
         "bundle_files": list(structured_manifest.get("files", [])) if isinstance(structured_manifest.get("files"), list) else [],
     }
 
@@ -340,7 +360,8 @@ def main() -> int:
         blocking_reasons.append("missing_runtime_hit_replay")
 
     runtime_bundle_dir = _string(runtime_hit_evidence.get("runtime_bundle_dir"))
-    if runtime_bundle_dir and runtime_bundle_dir != bundle_identity["bundle_dir"]:
+    expected_runtime_bundle_dir = _string(bundle_identity.get("runtime_bundle_source_dir")) or bundle_identity["bundle_dir"]
+    if runtime_bundle_dir and expected_runtime_bundle_dir and runtime_bundle_dir != expected_runtime_bundle_dir:
         blocking_reasons.append("bundle_runtime_dir_mismatch")
     if _string(release_sidecar_truth.get("git_head")) and git_head and _string(release_sidecar_truth.get("git_head")) != git_head:
         blocking_reasons.append("git_head_mismatch")
@@ -382,7 +403,8 @@ def main() -> int:
         "same_window": {
             "required": True,
             "same_head_required": True,
-            "same_bundle_dir_required": True,
+            "same_bundle_dir_required": expected_runtime_bundle_dir == bundle_identity["bundle_dir"],
+            "same_runtime_bundle_required": True,
             "proven": attestation_status == "attested" and bool(freshness.get("all_sources_fresh", False)),
             "reasons": [] if attestation_status == "attested" else blocking_reasons,
         },

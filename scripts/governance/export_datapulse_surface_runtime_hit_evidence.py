@@ -8,12 +8,18 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from datapulse.governance_paths import (
+    RUNTIME_BUNDLE_ROOT,
+    canonical_root as resolve_governance_canonical_root,
+    read_root as resolve_governance_read_root,
+)
 from datapulse_loop_contracts import DEFAULT_OUT_DIR, REPO_ROOT, display_path, utc_now, write_json
 
 from datapulse.core.alerts import AlertEvent
 from datapulse.reader import DataPulseReader
 
-DEFAULT_BUNDLE_DIR = REPO_ROOT / "out/ha_latest_release_bundle"
+DEFAULT_BUNDLE_DIR = resolve_governance_read_root(RUNTIME_BUNDLE_ROOT, repo_root=REPO_ROOT)
+CANONICAL_RUNTIME_BUNDLE_DIR = resolve_governance_canonical_root(RUNTIME_BUNDLE_ROOT, repo_root=REPO_ROOT)
 DEFAULT_OUTPUT_PATH = DEFAULT_OUT_DIR / "datapulse_surface_runtime_hit_evidence.draft.json"
 _SANDBOX_ENV_KEYS = (
     "DATAPULSE_MEMORY_DIR",
@@ -209,7 +215,7 @@ def build_payload(bundle_dir: Path, *, mode: str) -> dict[str, Any]:
                 "generated_at_utc": utc_now(),
                 "bundle_default": {
                     "strategy": "bundle_first",
-                    "canonical_bundle_path": display_path(DEFAULT_BUNDLE_DIR.resolve()),
+                    "canonical_bundle_path": display_path(CANONICAL_RUNTIME_BUNDLE_DIR.resolve()),
                     "runtime_bundle_dir": display_path(bundle_dir.resolve()),
                     "local_snapshot_parallel_primary_disabled": True,
                 },

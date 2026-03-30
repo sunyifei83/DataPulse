@@ -5,8 +5,8 @@
 当前 loop 事实：
 - plan_id: datapulse-loop-bootstrap-2026-03-07
 - current_level: ci_proven
-- next_slice: L19.2 / L19 / Define the feed_bundle and prepare_digest_payload contract on top of current pack feed and digest surfaces
-- execution_profile: draft_only
+- next_slice: L20.4 / L20 / Split stable runtime bundle truth from derived same-window evidence outputs without breaking manual ignition
+- execution_profile: workflow_change
 - current_status: ready
 - current_reason: awaiting_manual_slice_execution
 - promotion_mode: auto
@@ -21,24 +21,29 @@
 
 当前 slice adapter：
 - execute_mode: manual_edit
-- adapter_type: draft_only
-- summary: Define the feed_bundle and prepare_digest_payload contract on top of current pack feed and digest surfaces
+- adapter_type: workflow_change
+- summary: Split stable runtime bundle truth from derived same-window evidence outputs without breaking manual ignition
 - candidate_commands:
-- python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json
+- uv run pytest tests/test_reader.py tests/test_report.py tests/test_delivery.py tests/test_governance_loop.py -q
 - verification_commands:
-- python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json
+- uv run pytest tests/test_reader.py tests/test_report.py tests/test_delivery.py tests/test_governance_loop.py -q
 - target_artifacts:
-- docs/governance/datapulse-feed-bundle-digest-delivery-contract.md
-- docs/intelligence_delivery_contract.md
-- docs/source_feed_enhancement_plan.md
+- config/modelbus/datapulse
+- datapulse/reader.py
+- scripts/governance/export_datapulse_modelbus_consumer_bundle.py
+- scripts/governance/export_datapulse_structured_release_bundle.py
+- scripts/governance/export_datapulse_release_window_attestation.py
+- scripts/governance/export_datapulse_evidence_bundle.py
+- scripts/governance/export_datapulse_surface_runtime_hit_evidence.py
+- scripts/governance/run_codex_blueprint_loop.py
 - notes:
-- exit_condition: Repo truth explicitly defines replayable feed_bundle membership and a deterministic prepare_digest_payload boundary with content, config, prompts, stats, and errors while preserving current build_digest and emit_digest_package anchors.
+- exit_condition: A stable tracked runtime bundle root exists for bundle-first consumption, same-window exporters write derived evidence to a separate plane, and post-CI closeout no longer depends on tracked out/* churn to preserve truth.
 - promotion_scope: none
 - No explicit slice catalog entry exists; this brief is synthesized from the structured blueprint slice.
-- exit_condition: Repo truth explicitly defines replayable feed_bundle membership and a deterministic prepare_digest_payload boundary with content, config, prompts, stats, and errors while preserving current build_digest and emit_digest_package anchors.
+- exit_condition: A stable tracked runtime bundle root exists for bundle-first consumption, same-window exporters write derived evidence to a separate plane, and post-CI closeout no longer depends on tracked out/* churn to preserve truth.
 
 完成标准：
-- the repo should reflect the landing of L19.2
+- the repo should reflect the landing of L20.4
 - update the structured blueprint slice status to match reality
 - if the slice lands, re-run or leave enough changes so the governance exporters can reflect the new state
 - if the slice cannot land safely, leave the repo in a truthful blocked state rather than faking completion
