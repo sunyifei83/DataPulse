@@ -57,6 +57,13 @@ def ha_delivery_facts_module():
     return importlib.import_module("export_datapulse_ha_delivery_facts")
 
 
+@pytest.fixture(scope="module")
+def release_window_attestation_module():
+    if str(GOVERNANCE_SCRIPTS_DIR) not in sys.path:
+        sys.path.insert(0, str(GOVERNANCE_SCRIPTS_DIR))
+    return importlib.import_module("export_datapulse_release_window_attestation")
+
+
 def _stub_release_gate_baseline(loop_contracts, monkeypatch, *, head: str = "abc123", branch: str = "main") -> None:
     monkeypatch.setattr(loop_contracts, "repo_workspace_clean", lambda: (True, []))
     monkeypatch.setattr(loop_contracts, "ci_docs_only_skip_active", lambda workspace_clean, dirty_entries: (False, []))
@@ -716,6 +723,176 @@ def test_structured_bundle_refreshes_adapter_and_modelbus_after_evidence_export(
     ]
     assert "--runtime-bundle-dir" in commands[0]
     assert "--release-window-attestation" in commands[1]
+
+
+def test_release_window_attestation_decouples_stable_runtime_bundle_from_same_window_freshness(
+    release_window_attestation_module, monkeypatch, tmp_path: Path
+) -> None:
+    scripts_dir = tmp_path / "scripts" / "governance"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    (scripts_dir / "validate_governance_loop_bundle_draft.py").write_text("print('ok')\n", encoding="utf-8")
+    (scripts_dir / "export_datapulse_surface_runtime_hit_evidence.py").write_text("print('ok')\n", encoding="utf-8")
+    bundle_dir = tmp_path / "artifacts" / "governance" / "release_bundle"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    runtime_bundle_dir = tmp_path / "config" / "modelbus" / "datapulse"
+    runtime_bundle_dir.mkdir(parents=True, exist_ok=True)
+    runtime_hit_path = tmp_path / "artifacts" / "governance" / "snapshots" / "datapulse_surface_runtime_hit_evidence.draft.json"
+    runtime_hit_path.parent.mkdir(parents=True, exist_ok=True)
+    release_sidecar_path = tmp_path / "artifacts" / "governance" / "snapshots" / "release_sidecar.draft.json"
+    output_path = tmp_path / "artifacts" / "governance" / "snapshots" / "datapulse_release_window_attestation.draft.json"
+
+    (bundle_dir / "structured_release_bundle_manifest.draft.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "structured_release_bundle_manifest.v1",
+                "generated_at_utc": "2026-03-30T04:29:24Z",
+                "runtime_bundle": {
+                    "source_dir": str(runtime_bundle_dir.resolve()),
+                    "files_copied": [
+                        "bundle_manifest.json",
+                        "surface_admission.json",
+                        "bridge_config.json",
+                        "release_status.json",
+                    ],
+                },
+                "files": [
+                    "datapulse_surface_runtime_hit_evidence.draft.json",
+                    "release_sidecar.draft.json",
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (bundle_dir / "bundle_manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "modelbus.consumer_bundle_manifest.v1",
+                "generated_at_utc": "2026-03-29T10:04:27Z",
+                "bundle_id": "datapulse.ai_surface_bus",
+                "consumer_id": "datapulse",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (bundle_dir / "adapter_bundle_manifest.draft.json").write_text("{}\n", encoding="utf-8")
+    runtime_hit_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "datapulse_surface_runtime_hit_evidence.v1",
+                "generated_at_utc": "2026-03-30T04:29:24Z",
+                "bundle_default": {
+                    "strategy": "bundle_first",
+                    "runtime_bundle_dir": "config/modelbus/datapulse",
+                },
+                "closure": {
+                    "replay_entrypoint": "python3 scripts/governance/export_datapulse_surface_runtime_hit_evidence.py --bundle-dir config/modelbus/datapulse",
+                    "required_runtime_hit_targets": [
+                        {
+                            "surface": "delivery_summary",
+                            "expected_evidence_status": "verified",
+                            "release_scope": "shadow",
+                        },
+                        {
+                            "surface": "report_draft",
+                            "expected_evidence_status": "verified_fail_closed",
+                            "release_scope": "required",
+                        },
+                    ],
+                },
+                "surfaces": [
+                    {
+                        "surface": "delivery_summary",
+                        "evidence_status": "verified",
+                        "request_id": "delivery-1",
+                        "served_by_alias": "dp.delivery.summary",
+                        "contract_id": "datapulse_ai_delivery_summary.v1",
+                        "fail_closed": False,
+                    },
+                    {
+                        "surface": "report_draft",
+                        "evidence_status": "verified_fail_closed",
+                        "request_id": "report-1",
+                        "served_by_alias": "dp.report.draft",
+                        "contract_id": "",
+                        "fail_closed": True,
+                    },
+                ],
+                "release_level_prerequisites": {
+                    "bundle_first_default_ready": True,
+                    "shadow_change_prerequisites_met": True,
+                    "required_change_prerequisites_met": True,
+                    "promotion_discussion_allowed": True,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    release_sidecar_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "release_sidecar.v1",
+                "generated_at_utc": "2026-03-30T04:29:33Z",
+                "release": {"tag": "v0.8.0"},
+                "git": {
+                    "head": "3b2b5add9073be37d244a586e30ff71bb3abba59",
+                    "workspace_clean": True,
+                },
+                "governed_ai_release_readiness": {
+                    "runtime_hit_evidence_available": True,
+                    "required_change_prerequisites_met": True,
+                    "promotion_discussion_allowed": True,
+                },
+                "promotion_readiness": {
+                    "structured_release_bundle_available": True,
+                    "reasons": [],
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(release_window_attestation_module, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(release_window_attestation_module, "utc_now", lambda: "2026-03-30T04:29:40Z")
+    monkeypatch.setattr(
+        release_window_attestation_module,
+        "parse_args",
+        lambda: release_window_attestation_module.argparse.Namespace(
+            bundle_dir=bundle_dir,
+            runtime_hit_json=runtime_hit_path,
+            release_sidecar_json=release_sidecar_path,
+            output=output_path,
+            max_source_age_seconds=900,
+            max_inter_source_skew_seconds=300,
+            stdout=False,
+        ),
+    )
+
+    assert release_window_attestation_module.main() == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+
+    assert payload["attestation_status"] == "attested"
+    assert payload["blocking_reasons"] == []
+    assert payload["same_window"]["same_bundle_dir_required"] is False
+    assert payload["same_window"]["same_runtime_bundle_required"] is True
+    assert payload["runtime_hit_evidence"]["runtime_bundle_dir"] == str(runtime_bundle_dir.resolve())
+    assert payload["bundle_identity"]["runtime_bundle_source_dir"] == str(runtime_bundle_dir.resolve())
+    assert {row["source"] for row in payload["freshness"]["sources"]} == {
+        "structured_release_bundle_manifest",
+        "runtime_hit_evidence",
+        "release_sidecar",
+    }
 
 
 def test_persist_and_load_promotion_auto_repair_request(governance_loop, monkeypatch, tmp_path: Path) -> None:

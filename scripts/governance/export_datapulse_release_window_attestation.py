@@ -7,8 +7,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from datapulse.governance_paths import EVIDENCE_BUNDLE_ROOT, read_root as resolve_governance_read_root
-from datapulse_loop_contracts import DEFAULT_OUT_DIR, REPO_ROOT, display_path, git_output, read_json, utc_now, write_json
+from datapulse_loop_contracts import (
+    DEFAULT_OUT_DIR,
+    REPO_ROOT,
+    display_path,
+    git_output,
+    read_json,
+    utc_now,
+    write_json,
+)
+
+from datapulse.governance_paths import EVIDENCE_BUNDLE_ROOT
+from datapulse.governance_paths import read_root as resolve_governance_read_root
 
 DEFAULT_BUNDLE_DIR = resolve_governance_read_root(EVIDENCE_BUNDLE_ROOT, repo_root=REPO_ROOT)
 DEFAULT_OUTPUT_PATH = DEFAULT_OUT_DIR / "datapulse_release_window_attestation.draft.json"
@@ -101,6 +111,18 @@ def _string(value: Any) -> str:
     return str(value).strip() if value is not None else ""
 
 
+def normalize_repo_path(raw_value: Any) -> str:
+    value = _string(raw_value)
+    if not value:
+        return ""
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = (REPO_ROOT / path).resolve()
+    else:
+        path = path.resolve()
+    return display_path(path)
+
+
 def build_runtime_section(runtime_hit_payload: dict[str, Any], runtime_hit_path: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     bundle_default = dict(runtime_hit_payload.get("bundle_default", {})) if isinstance(runtime_hit_payload.get("bundle_default"), dict) else {}
     closure = dict(runtime_hit_payload.get("closure", {})) if isinstance(runtime_hit_payload.get("closure"), dict) else {}
@@ -142,7 +164,7 @@ def build_runtime_section(runtime_hit_payload: dict[str, Any], runtime_hit_path:
             "schema_version": _string(runtime_hit_payload.get("schema_version")),
             "generated_at_utc": _string(runtime_hit_payload.get("generated_at_utc")),
             "bundle_default_strategy": _string(bundle_default.get("strategy")),
-            "runtime_bundle_dir": _string(bundle_default.get("runtime_bundle_dir")),
+            "runtime_bundle_dir": normalize_repo_path(bundle_default.get("runtime_bundle_dir")),
             "closure_replay_entrypoint": _string(closure.get("replay_entrypoint")),
             "release_level_prerequisites": dict(runtime_hit_payload.get("release_level_prerequisites", {}))
             if isinstance(runtime_hit_payload.get("release_level_prerequisites"), dict)
@@ -286,6 +308,7 @@ def main() -> int:
     runtime_hit_evidence, runtime_surface_rows = build_runtime_section(runtime_hit_payload, runtime_hit_path)
     release_sidecar_truth = build_release_sidecar_truth(release_sidecar_payload, release_sidecar_path)
     runtime_bundle_source_dir, runtime_bundle_files = bundle_runtime_source(structured_manifest, bundle_dir=bundle_dir)
+    normalized_runtime_bundle_source_dir = normalize_repo_path(runtime_bundle_source_dir)
     bundle_identity = {
         "bundle_dir": display_path(bundle_dir),
         "evidence_bundle_dir": display_path(bundle_dir),
@@ -295,7 +318,7 @@ def main() -> int:
         "bundle_manifest_path": display_path(bundle_manifest_path.resolve()),
         "bundle_id": _string(bundle_manifest.get("bundle_id")),
         "consumer_id": _string(bundle_manifest.get("consumer_id")),
-        "runtime_bundle_source_dir": runtime_bundle_source_dir,
+        "runtime_bundle_source_dir": normalized_runtime_bundle_source_dir,
         "runtime_bundle_files": runtime_bundle_files,
         "bundle_files": list(structured_manifest.get("files", [])) if isinstance(structured_manifest.get("files"), list) else [],
     }
@@ -335,7 +358,6 @@ def main() -> int:
         attestation_time,
         [
             ("structured_release_bundle_manifest", structured_manifest_path, bundle_identity["structured_manifest_generated_at_utc"]),
-            ("bundle_manifest", bundle_manifest_path, _string(bundle_manifest.get("generated_at_utc"))),
             ("runtime_hit_evidence", runtime_hit_path, _string(runtime_hit_payload.get("generated_at_utc"))),
             ("release_sidecar", release_sidecar_path, _string(release_sidecar_payload.get("generated_at_utc"))),
         ],
@@ -359,7 +381,7 @@ def main() -> int:
     if not runtime_hit_replay_entrypoint or not (REPO_ROOT / "scripts/governance/export_datapulse_surface_runtime_hit_evidence.py").exists():
         blocking_reasons.append("missing_runtime_hit_replay")
 
-    runtime_bundle_dir = _string(runtime_hit_evidence.get("runtime_bundle_dir"))
+    runtime_bundle_dir = normalize_repo_path(runtime_hit_evidence.get("runtime_bundle_dir"))
     expected_runtime_bundle_dir = _string(bundle_identity.get("runtime_bundle_source_dir")) or bundle_identity["bundle_dir"]
     if runtime_bundle_dir and expected_runtime_bundle_dir and runtime_bundle_dir != expected_runtime_bundle_dir:
         blocking_reasons.append("bundle_runtime_dir_mismatch")
@@ -403,7 +425,7 @@ def main() -> int:
         "same_window": {
             "required": True,
             "same_head_required": True,
-            "same_bundle_dir_required": expected_runtime_bundle_dir == bundle_identity["bundle_dir"],
+            "same_bundle_dir_required": False,
             "same_runtime_bundle_required": True,
             "proven": attestation_status == "attested" and bool(freshness.get("all_sources_fresh", False)),
             "reasons": [] if attestation_status == "attested" else blocking_reasons,
