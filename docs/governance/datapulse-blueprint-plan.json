@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-29T11:05:11Z",
+  "generated_at_utc": "2026-03-30T06:20:00Z",
   "status": "in_progress",
   "activation": {
     "wired": true,
@@ -21,9 +21,10 @@
       "The QNAIGC search-provider follow-up wave is now fully completed in repo truth through L18.4.",
       "The feed-bundle and digest-delivery hardening wave is now fully completed in repo truth through L19.6.",
       "This wave corrected the repo-read: DataPulse already had packs, feed exports, and digest builders, so the real gap was replayable feed_bundle semantics, deterministic digest payloads, prompt override order, shared onboarding defaults, and Telegram delivery hardening.",
-      "A new L20 governance-snapshot decoupling wave is now open in repo truth to separate blueprint truth, stable runtime bundle truth, and same-window evidence truth.",
-      "L20.2 now freezes the concrete path-resolution and runtime-versus-evidence contract in repo truth, and L20.3 lands the shared compatibility layer across reader, loop, and activation tooling.",
-      "The next manual ignition target is now L20.4, which moves stable runtime truth and same-window evidence onto separate planes without breaking the current ignition wrapper.",
+      "The L20 governance-snapshot decoupling wave is now completed in repo truth through L20.5, so resolver-owned runtime bundle roots and same-window evidence roots are no longer coupled to tracked out/* truth.",
+      "A new L21 ModelBus repo-prep wave is now open in repo truth to translate the 2026-03-30 external feedback into DataPulse-owned ignition boundaries without regressing L20 path semantics.",
+      "L21.1 and L21.2 are now landed in repo truth: public-surface runtime-hit and same-window attestation closure covers mission_suggest, triage_assist, claim_draft, delivery_summary, plus report_draft=verified_fail_closed.",
+      "The next manual ignition target is now L21.3, which stages internal research working-slice boundaries and records the exact post-fix joint-debug entry criteria while keeping web_research non-public.",
       "Operator review should treat post-CI closeout churn as a coupling bug to remove, not as a reason to invent another parallel loop or runtime control plane."
     ]
   }

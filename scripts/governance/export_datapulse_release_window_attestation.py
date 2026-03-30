@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from datapulse_loop_contracts import (
+    AI_RUNTIME_REQUIRED_SURFACE_TARGETS,
     DEFAULT_OUT_DIR,
     REPO_ROOT,
     display_path,
@@ -123,6 +124,18 @@ def normalize_repo_path(raw_value: Any) -> str:
     return display_path(path)
 
 
+def runtime_hit_expected_result() -> str:
+    return " and ".join(
+        f"{row['surface']}={row['expected_evidence_status']}" for row in AI_RUNTIME_REQUIRED_SURFACE_TARGETS
+    )
+
+
+def runtime_surface_blocker(surface: str, expected_status: str) -> str:
+    if expected_status == "verified_fail_closed":
+        return f"{surface}_not_verified_fail_closed"
+    return f"{surface}_not_verified"
+
+
 def build_runtime_section(runtime_hit_payload: dict[str, Any], runtime_hit_path: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     bundle_default = dict(runtime_hit_payload.get("bundle_default", {})) if isinstance(runtime_hit_payload.get("bundle_default"), dict) else {}
     closure = dict(runtime_hit_payload.get("closure", {})) if isinstance(runtime_hit_payload.get("closure"), dict) else {}
@@ -139,17 +152,18 @@ def build_runtime_section(runtime_hit_payload: dict[str, Any], runtime_hit_path:
     }
 
     ordered_surfaces: list[dict[str, Any]] = []
-    for surface_name in ["delivery_summary", "report_draft"]:
+    for target in AI_RUNTIME_REQUIRED_SURFACE_TARGETS:
+        surface_name = target["surface"]
         row = surface_rows.get(surface_name, {})
-        target = target_rows.get(surface_name, {})
+        target_row = target_rows.get(surface_name, {})
         observed = _string(row.get("evidence_status"))
-        expected = _string(target.get("expected_evidence_status"))
+        expected = _string(target_row.get("expected_evidence_status")) or _string(target.get("expected_evidence_status"))
         ordered_surfaces.append(
             {
                 "surface": surface_name,
                 "expected_evidence_status": expected,
                 "observed_evidence_status": observed,
-                "release_scope": _string(target.get("release_scope")),
+                "release_scope": _string(target_row.get("release_scope")) or _string(target.get("release_scope")),
                 "request_id": _string(row.get("request_id")),
                 "served_by_alias": _string(row.get("served_by_alias")),
                 "contract_id": _string(row.get("contract_id")),
@@ -305,7 +319,7 @@ def main() -> int:
     runtime_hit_payload = load_optional_json(runtime_hit_path)
     release_sidecar_payload = load_optional_json(release_sidecar_path)
 
-    runtime_hit_evidence, runtime_surface_rows = build_runtime_section(runtime_hit_payload, runtime_hit_path)
+    runtime_hit_evidence, _runtime_surface_rows = build_runtime_section(runtime_hit_payload, runtime_hit_path)
     release_sidecar_truth = build_release_sidecar_truth(release_sidecar_payload, release_sidecar_path)
     runtime_bundle_source_dir, runtime_bundle_files = bundle_runtime_source(structured_manifest, bundle_dir=bundle_dir)
     normalized_runtime_bundle_source_dir = normalize_repo_path(runtime_bundle_source_dir)
@@ -339,7 +353,7 @@ def main() -> int:
             "kind": "runtime_hit_export",
             "entrypoint": runtime_hit_replay_entrypoint,
             "bundle_dir": _string(runtime_hit_evidence.get("runtime_bundle_dir")) or display_path(bundle_dir),
-            "expected_result": "delivery_summary=verified and report_draft=verified_fail_closed",
+            "expected_result": runtime_hit_expected_result(),
         },
         "ha_recovery_replay": {
             "kind": "manual_remote_smoke_replay",
@@ -388,12 +402,15 @@ def main() -> int:
     if _string(release_sidecar_truth.get("git_head")) and git_head and _string(release_sidecar_truth.get("git_head")) != git_head:
         blocking_reasons.append("git_head_mismatch")
 
-    delivery_row = runtime_surface_rows.get("delivery_summary", {})
-    report_row = runtime_surface_rows.get("report_draft", {})
-    if _string(delivery_row.get("evidence_status")) != "verified":
-        blocking_reasons.append("delivery_summary_not_verified")
-    if _string(report_row.get("evidence_status")) != "verified_fail_closed":
-        blocking_reasons.append("report_draft_not_verified_fail_closed")
+    for item in runtime_hit_evidence.get("required_surfaces", []):
+        if not isinstance(item, dict):
+            continue
+        surface_name = _string(item.get("surface"))
+        expected_status = _string(item.get("expected_evidence_status"))
+        if not surface_name or not expected_status:
+            continue
+        if not bool(item.get("satisfied", False)):
+            blocking_reasons.append(runtime_surface_blocker(surface_name, expected_status))
 
     bundle_files = [str(item).strip() for item in bundle_identity.get("bundle_files", []) if str(item).strip()]
     if Path(runtime_hit_evidence["path"]).name not in bundle_files:

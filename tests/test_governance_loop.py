@@ -441,12 +441,24 @@ def test_build_code_landing_status_accepts_verified_fail_closed_attestation(loop
             "runtime_hit_evidence": {
                 "required_surfaces": [
                     {
-                        "surface": "delivery_summary",
+                        "surface": "mission_suggest",
+                        "observed_evidence_status": "verified",
+                    },
+                    {
+                        "surface": "triage_assist",
+                        "observed_evidence_status": "verified",
+                    },
+                    {
+                        "surface": "claim_draft",
                         "observed_evidence_status": "verified",
                     },
                     {
                         "surface": "report_draft",
                         "observed_evidence_status": "verified_fail_closed",
+                    },
+                    {
+                        "surface": "delivery_summary",
+                        "observed_evidence_status": "verified",
                     },
                 ]
             },
@@ -479,12 +491,24 @@ def test_build_code_landing_status_rejects_cross_head_attestation(loop_contracts
             "runtime_hit_evidence": {
                 "required_surfaces": [
                     {
-                        "surface": "delivery_summary",
+                        "surface": "mission_suggest",
+                        "observed_evidence_status": "verified",
+                    },
+                    {
+                        "surface": "triage_assist",
+                        "observed_evidence_status": "verified",
+                    },
+                    {
+                        "surface": "claim_draft",
                         "observed_evidence_status": "verified",
                     },
                     {
                         "surface": "report_draft",
                         "observed_evidence_status": "verified_fail_closed",
+                    },
+                    {
+                        "surface": "delivery_summary",
+                        "observed_evidence_status": "verified",
                     },
                 ]
             },
@@ -516,12 +540,24 @@ def test_build_code_landing_status_rejects_stale_attestation(loop_contracts, mon
             "runtime_hit_evidence": {
                 "required_surfaces": [
                     {
-                        "surface": "delivery_summary",
+                        "surface": "mission_suggest",
+                        "observed_evidence_status": "verified",
+                    },
+                    {
+                        "surface": "triage_assist",
+                        "observed_evidence_status": "verified",
+                    },
+                    {
+                        "surface": "claim_draft",
                         "observed_evidence_status": "verified",
                     },
                     {
                         "surface": "report_draft",
                         "observed_evidence_status": "verified_fail_closed",
+                    },
+                    {
+                        "surface": "delivery_summary",
+                        "observed_evidence_status": "verified",
                     },
                 ]
             },
@@ -552,8 +588,11 @@ def test_build_code_landing_status_uses_explicit_attestation_path(loop_contracts
             "freshness": {"all_sources_fresh": True, "sources": []},
             "runtime_hit_evidence": {
                 "required_surfaces": [
-                    {"surface": "delivery_summary", "observed_evidence_status": "verified"},
+                    {"surface": "mission_suggest", "observed_evidence_status": "verified"},
+                    {"surface": "triage_assist", "observed_evidence_status": "verified"},
+                    {"surface": "claim_draft", "observed_evidence_status": "verified"},
                     {"surface": "report_draft", "observed_evidence_status": "verified_fail_closed"},
+                    {"surface": "delivery_summary", "observed_evidence_status": "verified"},
                 ]
             },
         }
@@ -794,7 +833,17 @@ def test_release_window_attestation_decouples_stable_runtime_bundle_from_same_wi
                     "replay_entrypoint": "python3 scripts/governance/export_datapulse_surface_runtime_hit_evidence.py --bundle-dir config/modelbus/datapulse",
                     "required_runtime_hit_targets": [
                         {
-                            "surface": "delivery_summary",
+                            "surface": "mission_suggest",
+                            "expected_evidence_status": "verified",
+                            "release_scope": "shadow",
+                        },
+                        {
+                            "surface": "triage_assist",
+                            "expected_evidence_status": "verified",
+                            "release_scope": "shadow",
+                        },
+                        {
+                            "surface": "claim_draft",
                             "expected_evidence_status": "verified",
                             "release_scope": "shadow",
                         },
@@ -803,15 +852,36 @@ def test_release_window_attestation_decouples_stable_runtime_bundle_from_same_wi
                             "expected_evidence_status": "verified_fail_closed",
                             "release_scope": "required",
                         },
+                        {
+                            "surface": "delivery_summary",
+                            "expected_evidence_status": "verified",
+                            "release_scope": "shadow",
+                        },
                     ],
                 },
                 "surfaces": [
                     {
-                        "surface": "delivery_summary",
+                        "surface": "mission_suggest",
                         "evidence_status": "verified",
-                        "request_id": "delivery-1",
-                        "served_by_alias": "dp.delivery.summary",
-                        "contract_id": "datapulse_ai_delivery_summary.v1",
+                        "request_id": "mission-1",
+                        "served_by_alias": "dp.mission.suggest",
+                        "contract_id": "datapulse_ai_watch_suggestion.v1",
+                        "fail_closed": False,
+                    },
+                    {
+                        "surface": "triage_assist",
+                        "evidence_status": "verified",
+                        "request_id": "triage-1",
+                        "served_by_alias": "dp.triage.assist",
+                        "contract_id": "datapulse_ai_triage_explain.v1",
+                        "fail_closed": False,
+                    },
+                    {
+                        "surface": "claim_draft",
+                        "evidence_status": "verified",
+                        "request_id": "claim-1",
+                        "served_by_alias": "dp.claim.draft",
+                        "contract_id": "datapulse_ai_claim_draft.v1",
                         "fail_closed": False,
                     },
                     {
@@ -821,6 +891,14 @@ def test_release_window_attestation_decouples_stable_runtime_bundle_from_same_wi
                         "served_by_alias": "dp.report.draft",
                         "contract_id": "",
                         "fail_closed": True,
+                    },
+                    {
+                        "surface": "delivery_summary",
+                        "evidence_status": "verified",
+                        "request_id": "delivery-1",
+                        "served_by_alias": "dp.delivery.summary",
+                        "contract_id": "datapulse_ai_delivery_summary.v1",
+                        "fail_closed": False,
                     },
                 ],
                 "release_level_prerequisites": {

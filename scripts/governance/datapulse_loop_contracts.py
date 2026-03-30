@@ -46,6 +46,38 @@ WORKFLOW_RUN_FIELDS = [
     "url",
 ]
 
+AI_RUNTIME_REQUIRED_SURFACE_TARGETS = [
+    {
+        "surface": "mission_suggest",
+        "expected_evidence_status": "verified",
+        "release_scope": "shadow",
+    },
+    {
+        "surface": "triage_assist",
+        "expected_evidence_status": "verified",
+        "release_scope": "shadow",
+    },
+    {
+        "surface": "claim_draft",
+        "expected_evidence_status": "verified",
+        "release_scope": "shadow",
+    },
+    {
+        "surface": "report_draft",
+        "expected_evidence_status": "verified_fail_closed",
+        "release_scope": "required",
+    },
+    {
+        "surface": "delivery_summary",
+        "expected_evidence_status": "verified",
+        "release_scope": "shadow",
+    },
+]
+AI_RUNTIME_REQUIRED_SURFACE_IDS = [row["surface"] for row in AI_RUNTIME_REQUIRED_SURFACE_TARGETS]
+AI_RUNTIME_EXPECTED_STATUS_BY_SURFACE = {
+    row["surface"]: row["expected_evidence_status"] for row in AI_RUNTIME_REQUIRED_SURFACE_TARGETS
+}
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -426,6 +458,11 @@ def parse_release_window_attestation(path: Path | None = None) -> dict[str, Any]
             "expected_evidence_status": str(item.get("expected_evidence_status", "")),
             "observed_evidence_status": str(item.get("observed_evidence_status", "")),
             "release_scope": str(item.get("release_scope", "")),
+            "request_id": str(item.get("request_id", "")),
+            "served_by_alias": str(item.get("served_by_alias", "")),
+            "contract_id": str(item.get("contract_id", "")),
+            "fail_closed": bool(item.get("fail_closed", False)),
+            "satisfied": bool(item.get("satisfied", False)),
         }
         for item in runtime_hit.get("required_surfaces", [])
         if isinstance(item, dict)
@@ -505,8 +542,24 @@ def summarize_release_window_attestation(report: dict[str, Any] | None, *, curre
         for item in report.get("runtime_hit_evidence", {}).get("required_surfaces", [])
         if isinstance(item, dict) and str(item.get("surface", "")).strip()
     }
-    delivery_ok = surface_rows.get("delivery_summary", {}).get("observed_evidence_status") == "verified"
-    report_fail_closed_ok = surface_rows.get("report_draft", {}).get("observed_evidence_status") == "verified_fail_closed"
+    runtime_closure_complete = all(
+        bool(surface_rows.get(surface_id))
+        and (
+            bool(surface_rows[surface_id].get("satisfied", False))
+            or (
+                str(
+                    surface_rows[surface_id].get("expected_evidence_status", "")
+                    or AI_RUNTIME_EXPECTED_STATUS_BY_SURFACE.get(surface_id, "")
+                ).strip()
+                and str(surface_rows[surface_id].get("observed_evidence_status", "")).strip()
+                == str(
+                    surface_rows[surface_id].get("expected_evidence_status", "")
+                    or AI_RUNTIME_EXPECTED_STATUS_BY_SURFACE.get(surface_id, "")
+                ).strip()
+            )
+        )
+        for surface_id in AI_RUNTIME_REQUIRED_SURFACE_IDS
+    )
     current_head_match = bool(current_head and report.get("git_head") and report.get("git_head") == current_head)
     same_window_proven = bool(report.get("same_window", {}).get("proven", False))
     all_sources_fresh = bool(report.get("freshness", {}).get("all_sources_fresh", False))
@@ -527,7 +580,7 @@ def summarize_release_window_attestation(report: dict[str, Any] | None, *, curre
         "current_head_match": current_head_match,
         "same_window_proven": same_window_proven,
         "all_sources_fresh": all_sources_fresh,
-        "runtime_closure_complete": bool(delivery_ok and report_fail_closed_ok),
+        "runtime_closure_complete": runtime_closure_complete,
         "window_id": str(report.get("window_id", "")),
         "git_head": str(report.get("git_head", "")),
         "generated_at_utc": str(report.get("generated_at_utc", "")),

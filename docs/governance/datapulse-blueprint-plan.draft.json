@@ -2,8 +2,8 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-30T00:00:00Z",
-  "status": "completed",
+  "generated_at_utc": "2026-03-30T06:20:00Z",
+  "status": "in_progress",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -83,7 +83,8 @@
     "L17": "completed",
     "L18": "completed",
     "L19": "completed",
-    "L20": "completed"
+    "L20": "completed",
+    "L21": "in_progress"
   },
   "phases": [
     {
@@ -2707,14 +2708,93 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L21",
+      "title": "ModelBus repo-prep and five-surface ignition alignment",
+      "goal": "Promote the 2026-03-30 ModelBus feedback into repo truth without regressing the resolver-owned bundle-first path or prematurely publishing web_research.",
+      "status": "in_progress",
+      "slices": [
+        {
+          "id": "L21.1",
+          "title": "Land the repo-scoped ModelBus repo-prep blueprint and ignition boundary",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-modelbus-repo-prep-blueprint.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "exit_condition": "The external 2026-03-30 ModelBus feedback is rewritten as DataPulse repo truth: preserve resolver-owned bundle-first roots, keep the public AI surface set at five, do not publish web_research early, and state the next ignition target explicitly.",
+          "notes": [
+            "Do not import the external repo's out/ha_latest_release_bundle wording as-is; L20 already moved canonical runtime truth to resolver-owned roots with legacy out/* kept as compatibility fallback only.",
+            "The purpose of this slice is to translate external feedback into DataPulse-owned blueprint truth rather than to reopen the bridge or runtime contract from scratch."
+          ]
+        },
+        {
+          "id": "L21.2",
+          "title": "Expand runtime-hit and same-window attestation closure to all five public AI surfaces",
+          "category": "manual",
+          "execution_profile": "runtime_validation",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "uv run pytest tests/test_delivery.py tests/test_governance_loop.py -q",
+            "uv run python scripts/governance/export_datapulse_surface_runtime_hit_evidence.py --bundle-dir config/modelbus/datapulse --stdout"
+          ],
+          "artifacts": [
+            "scripts/governance/datapulse_loop_contracts.py",
+            "scripts/governance/export_datapulse_surface_runtime_hit_evidence.py",
+            "scripts/governance/export_datapulse_release_window_attestation.py",
+            "tests/test_delivery.py",
+            "tests/test_governance_loop.py",
+            "docs/governance/datapulse-release-window-attestation-contract.md"
+          ],
+          "exit_condition": "Machine-readable runtime-hit evidence and same-window attestation now require mission_suggest, triage_assist, claim_draft, and delivery_summary to verify in the same window while preserving report_draft=verified_fail_closed as required runtime closure.",
+          "notes": [
+            "This slice raises repo-local ignition readiness without claiming that web_research is already a published DataPulse surface.",
+            "The attestation must stay fail-closed and should use the same bundle-first runtime root semantics that L20 froze."
+          ]
+        },
+        {
+          "id": "L21.3",
+          "title": "Stage internal research working-slice boundaries and formal post-fix joint-debug entry criteria",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "draft_artifacts": [
+            "docs/governance/datapulse-modelbus-repo-prep-blueprint.md",
+            "docs/intelligence_lifecycle_contract.md",
+            "docs/governance/datapulse-modelbus-ai-governance-blueprint.md"
+          ],
+          "exit_condition": "DataPulse names research_packet, evidence_bundle, ReportBrief, and CitationBundle as repo-local working-slice objects, keeps web_research non-public until CLI/contract/runtime evidence align, and records the exact handoff criteria for the next ModelBus same-window joint-debug window.",
+          "notes": [
+            "Treat ReportBrief and CitationBundle as already-landed repo objects; the new work is the repo-prep boundary, provenance wording, and post-fix joint-debug gate definition.",
+            "Do not bind provider-specific aliases or downstream provider keys directly into DataPulse business modules as part of this slice."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
+    "id": "L21.3",
+    "title": "Stage internal research working-slice boundaries and formal post-fix joint-debug entry criteria",
+    "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-30T06:20:00Z",
+      "slice_id": "L21.2",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-30T06:16:00Z",
+      "slice_id": "L21.1",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-30T00:00:00Z",
       "slice_id": "L20.4",

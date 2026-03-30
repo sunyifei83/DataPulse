@@ -321,13 +321,70 @@ def test_ai_delivery_summary_returns_contract_bound_alert_event_payload(tmp_path
     assert "dispatch_explanation" in payload["output"]["payload"]
 
 
-def test_runtime_hit_evidence_export_verifies_delivery_and_report_fail_closed(tmp_path):
+def test_runtime_hit_evidence_export_verifies_public_surfaces_and_report_fail_closed(tmp_path):
     script_path = Path(__file__).resolve().parents[1] / "scripts/governance/export_datapulse_surface_runtime_hit_evidence.py"
     output_path = tmp_path / "datapulse_surface_runtime_hit_evidence.draft.json"
     bundle_dir = tmp_path / "modelbus-bundle"
     _write_modelbus_bundle(
         bundle_dir,
         [
+            {
+                "surface_id": "mission_suggest",
+                "requested_alias": "dp.mission.suggest",
+                "admission_status": "admitted",
+                "admitted_alias": "dp.mission.suggest",
+                "mode_admission": {"off": "manual_only", "assist": "admitted", "review": "admitted"},
+                "schema_contract": "datapulse_ai_watch_suggestion.v1",
+                "manual_fallback": "manual_or_deterministic_behavior",
+                "degraded_result_allowed": True,
+                "must_expose_runtime_facts": [
+                    "served_by_alias",
+                    "fallback_used",
+                    "degraded",
+                    "schema_valid",
+                    "manual_override_required",
+                    "request_id",
+                ],
+                "rejectable_gaps": [],
+            },
+            {
+                "surface_id": "triage_assist",
+                "requested_alias": "dp.triage.assist",
+                "admission_status": "admitted",
+                "admitted_alias": "dp.triage.assist",
+                "mode_admission": {"off": "manual_only", "assist": "admitted", "review": "admitted"},
+                "schema_contract": "datapulse_ai_triage_explain.v1",
+                "manual_fallback": "manual_or_deterministic_behavior",
+                "degraded_result_allowed": True,
+                "must_expose_runtime_facts": [
+                    "served_by_alias",
+                    "fallback_used",
+                    "degraded",
+                    "schema_valid",
+                    "manual_override_required",
+                    "request_id",
+                ],
+                "rejectable_gaps": [],
+            },
+            {
+                "surface_id": "claim_draft",
+                "requested_alias": "dp.claim.draft",
+                "admission_status": "admitted",
+                "admitted_alias": "dp.claim.draft",
+                "mode_admission": {"off": "manual_only", "assist": "admitted", "review": "admitted"},
+                "schema_contract": "datapulse_ai_claim_draft.v1",
+                "manual_fallback": "manual_or_deterministic_behavior",
+                "degraded_result_allowed": False,
+                "must_expose_runtime_facts": [
+                    "served_by_alias",
+                    "fallback_used",
+                    "degraded",
+                    "schema_valid",
+                    "manual_override_required",
+                    "request_id",
+                ],
+                "rejectable_gaps": [],
+            },
             {
                 "surface_id": "delivery_summary",
                 "requested_alias": "dp.delivery.summary",
@@ -395,12 +452,35 @@ def test_runtime_hit_evidence_export_verifies_delivery_and_report_fail_closed(tm
     assert payload["release_level_prerequisites"]["bundle_first_default_ready"] is True
     assert payload["release_level_prerequisites"]["shadow_change_prerequisites_met"] is True
     assert payload["release_level_prerequisites"]["required_change_prerequisites_met"] is True
+    assert payload["release_level_prerequisites"]["promotion_discussion_allowed"] is True
+
+    mission = surfaces["mission_suggest"]
+    assert mission["evidence_status"] == "verified"
+    assert mission["schema_valid"] is True
+    assert mission["served_by_alias"] == "dp.mission.suggest"
+    assert mission["request_id"]
+    assert mission["missing_runtime_facts"] == []
+
+    triage = surfaces["triage_assist"]
+    assert triage["evidence_status"] == "verified"
+    assert triage["schema_valid"] is True
+    assert triage["served_by_alias"] == "dp.triage.assist"
+    assert triage["request_id"]
+    assert triage["missing_runtime_facts"] == []
+
+    claim = surfaces["claim_draft"]
+    assert claim["evidence_status"] == "verified"
+    assert claim["schema_valid"] is True
+    assert claim["served_by_alias"] == "dp.claim.draft"
+    assert claim["request_id"]
+    assert claim["missing_runtime_facts"] == []
 
     delivery = surfaces["delivery_summary"]
     assert delivery["evidence_status"] == "verified"
     assert delivery["schema_valid"] is True
     assert delivery["served_by_alias"] == "dp.delivery.summary"
     assert delivery["request_id"]
+    assert delivery["missing_runtime_facts"] == []
 
     report = surfaces["report_draft"]
     assert report["evidence_status"] == "verified_fail_closed"
@@ -408,6 +488,7 @@ def test_runtime_hit_evidence_export_verifies_delivery_and_report_fail_closed(tm
     assert report["fail_closed"] is True
     assert report["served_by_alias"] == "dp.report.draft"
     assert report["request_id"]
+    assert report["missing_runtime_facts"] == []
 
 
 def test_report_delivery_package_is_deterministic_and_dispatch_records_are_attributable(tmp_path, monkeypatch):

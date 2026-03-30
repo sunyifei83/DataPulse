@@ -69,7 +69,8 @@ Normative top-level shape:
   "same_window": {
     "required": true,
     "same_head_required": true,
-    "same_bundle_dir_required": true,
+    "same_bundle_dir_required": false,
+    "same_runtime_bundle_required": true,
     "proven": true,
     "reasons": []
   },
@@ -145,11 +146,14 @@ Each `required_surfaces[]` row must include:
 Runtime rules:
 
 1. `bundle_default_strategy` must be `bundle_first`.
-2. `runtime_bundle_dir` must equal `bundle_identity.bundle_dir`.
-3. `delivery_summary` must be present with `expected_evidence_status=verified` and `observed_evidence_status=verified`.
-4. `report_draft` must be present with `expected_evidence_status=verified_fail_closed` and `observed_evidence_status=verified_fail_closed`.
-5. `report_draft` fail-closed evidence is valid required runtime closure and must not be rewritten as a success-only admission state.
-6. `closure_replay_entrypoint` is required and must remain visible in the attestation.
+2. `runtime_bundle_dir` must equal `bundle_identity.runtime_bundle_source_dir`.
+3. `mission_suggest` must be present with `expected_evidence_status=verified` and `observed_evidence_status=verified`.
+4. `triage_assist` must be present with `expected_evidence_status=verified` and `observed_evidence_status=verified`.
+5. `claim_draft` must be present with `expected_evidence_status=verified` and `observed_evidence_status=verified`.
+6. `report_draft` must be present with `expected_evidence_status=verified_fail_closed` and `observed_evidence_status=verified_fail_closed`.
+7. `delivery_summary` must be present with `expected_evidence_status=verified` and `observed_evidence_status=verified`.
+8. `report_draft` fail-closed evidence is valid required runtime closure and must not be rewritten as a success-only admission state.
+9. `closure_replay_entrypoint` is required and must remain visible in the attestation.
 
 ## Release Sidecar Truth Section
 
@@ -252,6 +256,9 @@ The attestation must use machine-readable blocker strings. At minimum, the expor
 - `missing_runtime_hit_replay`
 - `bundle_runtime_dir_mismatch`
 - `git_head_mismatch`
+- `mission_suggest_not_verified`
+- `triage_assist_not_verified`
+- `claim_draft_not_verified`
 - `delivery_summary_not_verified`
 - `report_draft_not_verified_fail_closed`
 - `structured_release_bundle_not_available`
@@ -266,7 +273,7 @@ The attestation must use machine-readable blocker strings. At minimum, the expor
 `same_window.proven=true` is allowed only when all of the following are true:
 
 1. top-level `git_head` matches `release_sidecar_truth.git_head`
-2. `bundle_identity.bundle_dir` matches `runtime_hit_evidence.runtime_bundle_dir`
+2. `bundle_identity.runtime_bundle_source_dir` matches `runtime_hit_evidence.runtime_bundle_dir`
 3. `bundle_identity.bundle_dir` matches `replay_binding.primary_bundle_replay.bundle_dir`
 4. `runtime_hit_evidence.closure_replay_entrypoint` matches `replay_binding.runtime_hit_replay.entrypoint`
 5. freshness checks pass for every bound source
