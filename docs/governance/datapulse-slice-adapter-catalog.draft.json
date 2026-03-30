@@ -532,6 +532,47 @@
         "Keep the existing deterministic factuality gate as the stable fallback when the backend is unavailable or disabled.",
         "Backend verdicts and signals should stay operator-visible and additive rather than silently replacing current reasoning."
       ]
+    },
+    "L22.2": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Add grapheme-aware truncation utilities and use them in shared excerpt-sensitive surfaces before any browser-only measurement work.",
+      "candidate_commands": [
+        "sed -n '120,180p' datapulse/core/utils.py",
+        "sed -n '180,240p' tests/test_utils.py",
+        "sed -n '1,240p' docs/governance/datapulse-console-text-measurement-blueprint.md",
+        "uv run pytest tests/test_utils.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/core/utils.py",
+        "tests/test_utils.py",
+        "docs/governance/datapulse-console-text-measurement-blueprint.md"
+      ],
+      "notes": [
+        "Keep the first ignition target deterministic and shared across CLI, Reader, Markdown export, and console surfaces.",
+        "Do not split emoji or grapheme clusters just to preserve previous character-count behavior."
+      ]
+    },
+    "L22.3": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Add cached canvas width fitting for dense console labels, chips, and rail summaries where CSS ellipsis is insufficient.",
+      "candidate_commands": [
+        "sed -n '1,240p' docs/governance/datapulse-console-text-measurement-blueprint.md",
+        "sed -n '1000,1068p' docs/gui_intelligence_console_plan.md",
+        "uv run pytest tests/test_console_server.py -q",
+        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
+      ],
+      "target_artifacts": [
+        "datapulse/console_markup.py",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py",
+        "docs/gui_intelligence_console_plan.md"
+      ],
+      "notes": [
+        "Apply pixel-fit measurement only to dense populated surfaces with proven readability issues.",
+        "Keep canvas fitting optional and retain a deterministic truncation fallback when measurement is unavailable."
+      ]
     }
   }
 }

@@ -1060,3 +1060,22 @@ Current browser landing for `R5`:
 - the delivery rail now also projects persisted delivery subscriptions, report package audit, and route-backed dispatch attempts inside the same console shell
 
 With the report-production wave now landed, the next repo-relevant extension is not a richer report editor. The next wave is route-backed delivery and normalized subscriptions for authoritative report outputs. That promoted follow-up blueprint now lives in `docs/governance/datapulse-report-delivery-subscription-blueprint.md`.
+
+## Console Text Measurement Follow-up
+
+Another repo-relevant follow-up now exists below the shell and lifecycle layer: text measurement and multilingual layout hardening.
+
+The current browser shell already has responsive contract work, current-object workbench structure, and populated-state verification. The remaining gap is not another browser-shell rewrite. The gap is mixed-script text behavior in dense populated states. Current repo behavior still depends on character-count excerpts in `datapulse/core/utils.py` and CSS ellipsis in `datapulse/console_markup.py`, which is not a strong enough boundary for emoji, CJK, and mixed-script labels.
+
+The promoted repo-scoped blueprint for this follow-up now lives in `docs/governance/datapulse-console-text-measurement-blueprint.md`.
+
+Recommended ignition order:
+
+- `L22.2` add grapheme-aware truncation utilities across shared excerpt-sensitive surfaces
+- `L22.3` add cached canvas label fitting for dense console chips, rail labels, and summaries where CSS ellipsis is insufficient
+- `L22.4` evaluate optional precomputed multiline layout only after a real hotspot is proven
+
+Judgment:
+
+- keep this wave as presentation and operator-ergonomics infrastructure, not a new lifecycle or frontend rewrite
+- prefer deterministic shared clamping first, then browser measurement, then optional deeper layout work

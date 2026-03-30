@@ -2,7 +2,7 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-30T06:20:00Z",
+  "generated_at_utc": "2026-03-30T10:11:17Z",
   "status": "completed",
   "activation": {
     "wired": false,
@@ -2777,14 +2777,125 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L22",
+      "title": "Console text measurement and multilingual layout hardening",
+      "goal": "Harden mixed-script truncation, dense-label fitting, and optional hotspot-driven layout behavior in the existing Reader-backed console without importing a second text engine or GUI-only state model.",
+      "status": "in_progress",
+      "slices": [
+        {
+          "id": "L22.1",
+          "title": "Land the repo-scoped console text measurement blueprint and manual ignition map",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "test -f docs/governance/datapulse-console-text-measurement-blueprint.md",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-console-text-measurement-blueprint.md",
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "exit_condition": "The repository contains a repo-scoped console text-measurement blueprint that narrows the work to grapheme-safe truncation, cached pixel-fit label measurement, and optional hotspot-driven prelayout, and the active blueprint truth now exposes a new manual ignition target beyond the completed L21 wave.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划内/pretext_text_measurement_extraction_for_datapulse.md",
+            "/Users/sunyifei/DataPulse/docs/pretext_text_measurement_extraction_for_datapulse.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-30T10:11:17Z",
+            "source_count": 2,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划内/pretext_text_measurement_extraction_for_datapulse.md",
+              "frontmatter_title": "",
+              "first_heading": "Pretext 文本测量引擎摘取（供 Datapulse 落库）",
+              "selected_heading": "",
+              "wikilink_name": "pretext_text_measurement_extraction_for_datapulse"
+            }
+          },
+          "notes": [
+            "Treat the extracted value as presentation and text-infrastructure hardening rather than as a justification for a frontend-stack rewrite or a second text-domain model.",
+            "The resulting ignition map should make L22.2 the next narrow implementation target, with grapheme-safe truncation landing before any browser-only canvas measurement cache."
+          ]
+        },
+        {
+          "id": "L22.2",
+          "title": "Add grapheme-aware truncation utilities and adopt them in excerpt-sensitive surfaces",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "uv run pytest tests/test_utils.py -q"
+          ],
+          "artifacts": [
+            "datapulse/core/utils.py",
+            "tests/test_utils.py"
+          ],
+          "exit_condition": "Mixed-script, emoji, and CJK text truncation no longer splits grapheme clusters in shared excerpt helpers, and the repo has deterministic regression coverage for the new behavior.",
+          "notes": [
+            "Keep the first ignition target narrow: fix shared truncation semantics before adding browser-only measurement logic.",
+            "Prefer deterministic fallback behavior that remains safe for CLI, Reader, and Markdown-export surfaces."
+          ]
+        },
+        {
+          "id": "L22.3",
+          "title": "Add cached canvas width fitting for dense console labels and chips",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_markup.py",
+            "uv run pytest tests/test_console_server.py -q"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "tests/test_console_server.py",
+            "scripts/datapulse_console_browser_smoke.py"
+          ],
+          "exit_condition": "The console can apply cached pixel-fit measurement to selected dense labels, chips, or rail summaries without introducing GUI-only business state or cross-panel reflow churn.",
+          "notes": [
+            "Measure only where CSS ellipsis is demonstrably misleading for dense populated states.",
+            "Keep canvas-dependent fitting optional and fall back cleanly when measurement is unavailable."
+          ]
+        },
+        {
+          "id": "L22.4",
+          "title": "Evaluate hotspot-driven prelayout only for proven dense-panel multiline cases",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "docs/governance/datapulse-console-text-measurement-blueprint.md",
+            "docs/gui_intelligence_console_plan.md"
+          ],
+          "exit_condition": "DataPulse names whether a prepare-layout style cache is actually required for any dense multiline hotspot and keeps that work out of the active implementation path unless real evidence justifies it.",
+          "notes": [
+            "Do not import a full Pretext-class engine until a real console hotspot exists.",
+            "If this slice opens for implementation later, keep the scope to repo-proven multiline hotspots rather than broad speculative layout infrastructure."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
+    "id": "L22.2",
+    "title": "Add grapheme-aware truncation utilities and adopt them in excerpt-sensitive surfaces",
+    "reason": "The new console text-measurement wave is now open, and grapheme-safe truncation is the narrowest shared improvement before any browser-only measurement cache opens."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-30T10:11:17Z",
+      "slice_id": "L22.1",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-30T06:13:55Z",
       "slice_id": "L21.3",
@@ -3131,5 +3242,5 @@
       "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-30T06:13:55Z"
+  "last_updated_utc": "2026-03-30T10:11:17Z"
 }
