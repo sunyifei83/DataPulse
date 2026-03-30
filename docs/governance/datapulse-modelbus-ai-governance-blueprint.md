@@ -103,6 +103,29 @@ Bridge rules for this phase:
 - missing alias mapping, missing `bus_key`, or invalid bridge output must fail closed to manual or deterministic behavior.
 - runtime fallback and degradation must come back as visible runtime facts so later slices can project them into scorecards and operator views.
 
+## Internal Research Staging Boundary For Current Repo-Prep
+
+The current repo-prep wave also fixes what DataPulse may name internally without widening its published surface set:
+
+- `ReportBrief` and `CitationBundle` remain landed repo-backed report objects.
+- `research_packet` and repo-local research `evidence_bundle` are repo-local working-slice objects that stage inputs toward those landed objects.
+- those staging nouns are not public AI surfaces, not stable CLI/MCP/API contract nouns, and not substitutes for runtime admission evidence.
+- `web_research` remains a non-public candidate surface until CLI surface enumeration, lifecycle/AI-governance contract language, and same-window runtime evidence align.
+
+## Post-Fix ModelBus Joint-Debug Entry Criteria
+
+The next same-window joint-debug window should open only when all of the following are true:
+
+1. ModelBus bundle truth, DataPulse CLI surface enumeration, and repo contract language describe the same published public AI surface set for the debug window.
+2. If the aligned public set is still five surfaces, `web_research` remains internal-only and is not treated as admitted or operator-visible.
+3. `research_packet` and repo-local research `evidence_bundle` are described as staging-only working-slice nouns, while `ReportBrief` and `CitationBundle` remain the landed repo-backed objects they feed.
+4. same-window machine-readable runtime evidence exists for `mission_suggest`, `triage_assist`, `claim_draft`, `report_draft`, and `delivery_summary`.
+5. `mission_suggest`, `triage_assist`, `claim_draft`, and `delivery_summary` verify as `verified`, while `report_draft` verifies as `verified_fail_closed`.
+6. runtime provenance exposes `admission_source=modelbus_bundle`, `served_by_alias`, `request_id`, `degraded`, `fallback_used`, `schema_valid`, and `manual_override_required`.
+7. the debug-prep slice does not bind provider-specific aliases or downstream provider credentials directly into DataPulse business modules.
+
+Only after this gate is met should a later slice discuss whether `web_research` graduates from internal staging language into a published surface.
+
 ## High-Value Facts To Promote
 
 ### 1. DataPulse already has the right governance rails for AI assistance

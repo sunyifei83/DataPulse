@@ -67,6 +67,8 @@ The lifecycle is additive, not branchless:
 - one `Report` can be exported through multiple `ExportProfile` shapes
 - delivery can consume either mission-level alert facts, profile scope pull outputs, or report outputs
 
+Internal research prep may use repo-local working-slice envelopes between `Story` and `ReportBrief`, but those envelopes do not change the canonical public lifecycle nouns unless a later governance slice admits them explicitly.
+
 AI assistance is also additive:
 
 - AI surfaces attach to existing lifecycle objects; they do not create a second object chain.
@@ -189,6 +191,29 @@ The report layer is additive and starts above `Story` instead of replacing it.
 - fields: profile name, field mapping, rendering policy, delivery metadata
 - invariants: changing a profile changes output shape only; it never rewrites underlying story, claim, or report facts
 
+### 5A. Internal research working-slice boundary: `research_packet` and repo-local research `evidence_bundle`
+
+These are repo-local working-slice objects for current internal research prep. They are not yet canonical public lifecycle objects.
+
+#### `research_packet`
+
+- purpose: internal staging envelope that binds candidate research intake to one `ReportBrief` scope and one or more `CitationBundle` candidates
+- fields: intended `ReportBrief` scope, bounded source-story set, working notes, citation assembly inputs, and staging provenance
+- invariants: must resolve toward landed repo-backed objects instead of replacing them; it must not be projected as a public AI surface or cross-surface runtime contract noun
+
+#### repo-local research `evidence_bundle`
+
+- purpose: internal staging package attached to a `research_packet` for research evidence packaging before report-layer normalization
+- fields: candidate evidence references, citation notes, provenance annotations, and staging metadata needed to form later `CitationBundle` or governance exports
+- invariants: is distinct from the governance same-window evidence bundle written under `artifacts/governance/release_bundle/`; it must not be treated as runtime admission proof by itself
+
+Contract rules:
+
+- `ReportBrief` and `CitationBundle` remain the landed repo-backed objects that internal research staging must resolve into.
+- `research_packet` and repo-local research `evidence_bundle` are repo-local working-slice nouns only; naming them does not publish a new DataPulse public surface.
+- `web_research` remains non-public until CLI surface enumeration, lifecycle/AI-governance contract language, and runtime admission evidence align in the same window.
+- any future publication of `web_research` must land as an admitted surface contract slice rather than by broadening internal staging nouns.
+
 ### 6. Delivery and distribution: `Report` plus route-backed event observation
 
 The delivery layer now binds authoritative report output kinds, push triggers, and route observations:
@@ -231,6 +256,7 @@ Current admission posture:
 
 - `mission_suggest`, `triage_assist`, `claim_draft`, and `delivery_summary` are currently admitted surfaces
 - `report_draft` remains runtime-visible but governance-rejected / fail-closed until a structured contract is admitted
+- `web_research` is not an admitted or published DataPulse public surface; internal research staging nouns do not change that status
 
 ### Switch semantics
 
