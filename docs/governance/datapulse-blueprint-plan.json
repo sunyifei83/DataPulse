@@ -1,8 +1,8 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-31T12:05:00Z",
-  "status": "completed",
+  "generated_at_utc": "2026-03-31T13:14:57Z",
+  "status": "in_progress",
   "activation": {
     "wired": true,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -12,7 +12,7 @@
     }
   },
   "governance_mode": {
-    "kind": "active_manual_no_open_slice",
+    "kind": "active_manual_open_slice",
     "notes": [
       "This overlay keeps the repository blueprint truth active while leaving continuation in explicit manual mode.",
       "The report-production and report-delivery waves remain part of active blueprint truth.",
@@ -28,8 +28,9 @@
       "The L23 console text-overflow runtime-evidence wave remains completed in repo truth through L23.2, so the console-text lane itself stays closed unless a new evidence-backed text wave is opened.",
       "The L24 console interaction-clarity wave is now completed in repo truth through L24.5.",
       "The L25 workflow-first console simplification wave is now completed in repo truth through L25.5.",
-      "Current repo truth has no open structured slice; any follow-up should reopen through a new blueprint wave or evidence-backed regression.",
-      "This closeout keeps the current command chamber organized around workflow order and owned outputs without reopening frontend-stack decisions or introducing a GUI-only control plane.",
+      "A new L26 console modularity-and-traceability follow-up wave is now opened in repo truth through L26.1.",
+      "The next manual ignition target is L26.2, which freezes the shared console client boundary, stage-linked output trace, signal badge ownership, and bounded frontend-escalation criteria before implementation begins.",
+      "This reopen keeps the current command chamber organized around workflow order and owned outputs, and does not reopen shell-order simplification or force a frontend-stack migration.",
       "Operator review should treat post-CI closeout churn as a coupling bug to remove, not as a reason to invent another parallel loop or runtime control plane."
     ]
   }

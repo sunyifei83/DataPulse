@@ -2,8 +2,8 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-31T12:05:00Z",
-  "status": "completed",
+  "generated_at_utc": "2026-03-31T13:14:57Z",
+  "status": "in_progress",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -88,7 +88,8 @@
     "L22": "completed",
     "L23": "completed",
     "L24": "completed",
-    "L25": "completed"
+    "L25": "completed",
+    "L26": "in_progress"
   },
   "phases": [
     {
@@ -3241,14 +3242,162 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L26",
+      "title": "Console client boundary, traceability, and signal contract follow-up",
+      "goal": "Turn the remaining GUI follow-up gaps into repo truth by introducing a shared console client boundary, stage-linked output trace surfaces, a standard signal badge taxonomy, and a bounded frontend-escalation decision after the completed `L25` shell-order wave.",
+      "status": "in_progress",
+      "slices": [
+        {
+          "id": "L26.1",
+          "title": "Land the repo-scoped console modularity-and-traceability blueprint and fact promotion",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "test -f docs/governance/datapulse-console-modularity-traceability-blueprint.md",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.json",
+            "python3 -m json.tool docs/governance/datapulse-slice-adapter-catalog.draft.json"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-console-modularity-traceability-blueprint.md",
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json",
+            "docs/governance/datapulse-slice-adapter-catalog.draft.json"
+          ],
+          "exit_condition": "The repository contains a repo-scoped console modularity-and-traceability blueprint that reopens the next GUI follow-up around client boundary, stage-linked traceability, signal ownership, and bounded frontend escalation, and active blueprint truth exposes `L26.2` as the next manual ignition target after the completed `L25` wave.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31.md",
+            "/Users/sunyifei/DataPulse/docs/gui_intelligence_console_plan.md",
+            "/Users/sunyifei/DataPulse/docs/governance/datapulse-console-workflow-simplification-blueprint.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-31T13:14:57Z",
+            "source_count": 3,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31.md",
+              "frontmatter_title": "DataPulse + agent-skills-hub 前端交互清晰化补强清单",
+              "first_heading": "DataPulse + agent-skills-hub 前端交互清晰化补强清单",
+              "selected_heading": "2026-03-31 刷新：仓内蓝图对齐复核",
+              "wikilink_name": "DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31"
+            }
+          },
+          "notes": [
+            "Open a new wave because `L25` is already completed; do not pretend shell-order simplification is still in progress.",
+            "Use this slice to make `L26.2` the unambiguous next contract-freeze target before any narrower follow-up implementation begins."
+          ]
+        },
+        {
+          "id": "L26.2",
+          "title": "Freeze the console client-boundary, traceability, signal, and frontend-escalation contract",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "docs/governance/datapulse-console-modularity-traceability-blueprint.md",
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "exit_condition": "Repo truth explicitly names the canonical console client boundary, the minimum stage-linked output trace, the shared signal classes and explanation owners, and the bounded frontend-escalation criteria before implementation begins.",
+          "notes": [
+            "Do not reopen `L25` shell-order questions inside this slice unless a direct contradiction is proven.",
+            "This slice should freeze the remaining GUI follow-up contract without requiring a frontend-stack migration decision."
+          ]
+        },
+        {
+          "id": "L26.3",
+          "title": "Extract a shared console API client boundary and reduce repeated fetch wiring",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_server.py",
+            "python3 -m py_compile datapulse/console_client.py",
+            "uv run pytest tests/test_console_server.py -q",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
+          ],
+          "artifacts": [
+            "datapulse/console_api_client.py",
+            "datapulse/console_client.py",
+            "datapulse/console_server.py",
+            "tests/test_console_server.py",
+            "scripts/datapulse_console_browser_smoke.py"
+          ],
+          "exit_condition": "The shell no longer assembles most shared `/api/...` calls ad hoc across render surfaces, and one canonical client boundary now owns repeated request construction and response normalization.",
+          "notes": [
+            "Keep Reader and HTTP truth canonical; client-boundary extraction must not invent browser-only lifecycle semantics.",
+            "Treat this slice as maintainability hardening inside the current shell rather than as a hidden migration trigger."
+          ]
+        },
+        {
+          "id": "L26.4",
+          "title": "Add stage-linked output trace surfaces and shared signal taxonomy",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_server.py",
+            "python3 -m py_compile datapulse/console_client.py",
+            "uv run pytest tests/test_console_server.py -q",
+            "uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "datapulse/console_client.py",
+            "tests/test_console_server.py",
+            "scripts/datapulse_console_browser_smoke.py"
+          ],
+          "exit_condition": "Operators can see a stage-linked trace from mission or start action through review and delivery outcome or explicit stop reason, and shared signal badges expose owned explanations instead of decorative status-only chips.",
+          "notes": [
+            "The trace surface should answer workflow progression, not become a generic audit dump.",
+            "Every shared signal must map to an owned explanation or next-action surface backed by real facts."
+          ]
+        },
+        {
+          "id": "L26.5",
+          "title": "Reassess standalone frontend escalation only after the narrower follow-up lands and harden acceptance",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "bash scripts/datapulse_console_smoke.sh",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+            "uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py"
+          ],
+          "artifacts": [
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-console-modularity-traceability-blueprint.md",
+            "tests/test_console_server.py",
+            "scripts/datapulse_console_browser_smoke.py"
+          ],
+          "exit_condition": "Repo truth explicitly records whether standalone frontend engineering remains deferred or should reopen after the narrower follow-up, and acceptance proves operators can follow the client-backed trace and signal surfaces without reopening shell-order confusion.",
+          "notes": [
+            "Do not force a frontend-stack migration here; reopen only if the narrower follow-up provides evidence that the current shell still cannot evolve safely enough.",
+            "Acceptance should verify comprehension and maintenance outcomes, not only route reachability."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "All current slices are completed in repo truth."
+    "id": "L26.2",
+    "title": "Freeze the console client-boundary, traceability, signal, and frontend-escalation contract",
+    "reason": "The modularity-and-traceability follow-up wave is now opened through `L26.1`, and the next safe ignition point is the narrow contract freeze before client-boundary and traceability implementation begins."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-31T13:14:57Z",
+      "slice_id": "L26.1",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-31T12:05:00Z",
       "slice_id": "L25.5",
@@ -3670,5 +3819,5 @@
       "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-31T12:05:00Z"
+  "last_updated_utc": "2026-03-31T13:14:57Z"
 }

@@ -1,6 +1,6 @@
 # DataPulse Console Workflow-First Simplification Blueprint
 
-Status: repo-scoped follow-up blueprint, `L25.1` and `L25.2` repo truth landed
+Status: repo-scoped follow-up blueprint, `L25` repo truth completed through `L25.5`; no open slice
 
 Created: 2026-03-31
 
@@ -227,7 +227,7 @@ This wave must not:
 
 ## L25.2 Frozen Workflow-First Shell Contract
 
-`L25.2` lands the repo truth that `L25.3` and `L25.4` must implement.
+`L25.2` froze the repo truth that `L25.3` and `L25.4` later implemented.
 
 ### Stage Map
 
@@ -322,19 +322,39 @@ Before `L25.3` is considered landed, the repo must preserve these comprehension 
 Recommended order:
 
 1. `L25.2` landed
-2. `L25.3`
-3. `L25.4`
-4. `L25.5`
+2. `L25.3` landed
+3. `L25.4` landed
+4. `L25.5` landed
+
+## Completion Handoff
+
+`L25` is now complete in repo truth through `L25.5`.
+
+What landed in this wave:
+
+- workflow-first shell order around `Start / Monitor / Review / Deliver`
+- first-rank versus demoted surface rules
+- stage-owned output visibility and empty-state ownership
+- stage-local feedback ownership for no-result, warning, blocked, and completion states
+- browser smoke and acceptance hardening around workflow order and next-step discoverability
+
+What this wave does not reopen automatically:
+
+- a React or Vite migration
+- a GUI-only control plane
+- additional surface promotion just because a capability already exists
+
+Current repo truth for this wave now has no open structured slice.
 
 ## Manual Ignition Boundary
 
-With `L25.2` landed, the next manual ignition target should be `L25.3`.
+The next manual ignition target no longer lives inside `L25`.
 
 Reason:
 
 - the repo already has the clarity primitives needed from `L24`
-- the contract freeze now names stage order, output ownership, and feedback ownership in repo truth
-- the next risk is implementation drift while simplifying the shell, not missing helper infrastructure
+- the workflow-first shell follow-up is already closed in repo truth through `L25.5`
+- any further change should reopen through a new blueprint wave or evidence-backed regression rather than pretending `L25` is still in flight
 
 After the blueprint landing is committed and the repo is back to a clean baseline, the normal local ignition entrypoint stays:
 
@@ -342,7 +362,7 @@ After the blueprint landing is committed and the repo is back to a clean baselin
 bash scripts/governance/ignite_datapulse_codex_loop.sh
 ```
 
-Expected next slice after this contract landing: `L25.3`
+Expected next slice after this closeout: `no-open-slice`
 
 ## Fact Sources
 
@@ -361,9 +381,9 @@ Expected next slice after this contract landing: `L25.3`
 
 ## Success Condition
 
-DataPulse enters the next GUI wave with repo-owned judgment that is narrower than a frontend rewrite and sharper than generic usability cleanup:
+DataPulse completed the workflow-first GUI wave without reopening frontend architecture:
 
-- the top-level shell is ready to be simplified around workflow order
-- output visibility and next-step discovery are explicit design obligations
-- advanced surfaces are candidates for demotion by rule, not by taste
-- next ignition is unambiguous: `L25.3`
+- the top-level shell is simplified around workflow order
+- output visibility and next-step discovery are explicit repo-owned obligations
+- advanced surfaces are demoted by rule rather than by taste
+- there is no current open structured slice inside this wave

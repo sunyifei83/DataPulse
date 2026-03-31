@@ -1146,7 +1146,7 @@ Judgment:
 
 Current blueprint reopening target:
 
-- `L24` is closed; the follow-up wave now lives in `L25`, and the current reopening target is `L25.3`
+- `L24` is closed; the follow-up wave now lives in `L25`, which is now completed through `L25.5`
 
 ## Console Workflow Simplification Follow-up
 
@@ -1167,9 +1167,9 @@ Recommended ignition order:
 
 - `L25.1` promote the workflow-first shell simplification blueprint; landed
 - `L25.2` freeze top-level workflow stages, promotion/demotion rules, output visibility, and feedback ownership; landed
-- `L25.3` simplify the shell around workflow order rather than capability pile-up
-- `L25.4` move no-result, warning, completion, and blocked-state semantics onto stage-owned surfaces
-- `L25.5` harden browser smoke and acceptance around stage order, next-step discoverability, and owned outputs
+- `L25.3` simplify the shell around workflow order rather than capability pile-up; landed
+- `L25.4` move no-result, warning, completion, and blocked-state semantics onto stage-owned surfaces; landed
+- `L25.5` harden browser smoke and acceptance around stage order, next-step discoverability, and owned outputs; landed
 
 Target product judgment for this wave:
 
@@ -1194,4 +1194,37 @@ Target product judgment for this wave:
 
 Current blueprint reopening target:
 
-- `L25.3`
+- `no-open-slice`
+
+## Console Modularity And Traceability Follow-up
+
+The workflow-first shell wave solved the "what rank should the major surfaces have and how should the operator move through them?" problem.
+
+It did not solve the next follow-up problems:
+
+- shared `/api/...` request wiring is still more distributed than a mature console client boundary should allow
+- operators still do not have one stage-linked trace surface that explains how work progressed from mission through review and delivery
+- quality, delivery, overflow, and trust-style signal semantics still lack one repo-owned taxonomy
+- the frontend-engineering question still needs a bounded reopen rule so it does not drift back into generic rewrite talk
+
+The promoted repo-scoped blueprint for this follow-up now lives in `docs/governance/datapulse-console-modularity-traceability-blueprint.md`.
+
+Recommended ignition order:
+
+- `L26.1` promote the modularity-and-traceability follow-up blueprint; landed
+- `L26.2` freeze the console client-boundary, traceability, signal, and frontend-escalation contract
+- `L26.3` extract a shared console API client boundary and reduce repeated fetch wiring
+- `L26.4` add stage-linked output trace surfaces and shared signal taxonomy
+- `L26.5` reassess standalone frontend escalation only after the narrower follow-up lands and harden acceptance
+
+Target product judgment for this wave:
+
+- keep the workflow-first shell order from `L25`
+- keep the browser Reader-backed and command-chamber specific
+- solve shared client boundary and stage-linked traceability before reopening any frontend-stack question
+- make signal badges factual, owned, and expandable into explanation rather than decorative
+- reopen standalone frontend engineering only if evidence from the narrower follow-up shows the current shell still cannot evolve safely enough
+
+Current blueprint reopening target:
+
+- `L26.2`

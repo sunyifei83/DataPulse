@@ -1,7 +1,7 @@
 {
   "schema_version": "slice_adapter_catalog.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-31T10:40:56Z",
+  "generated_at_utc": "2026-03-31T13:14:57Z",
   "wired": false,
   "slices": {
     "L4.1": {
@@ -780,6 +780,111 @@
       "notes": [
         "Smoke should prove stage order, stage-owned outputs, next-step clarity, and recovery from no-result or blocked states.",
         "Treat comprehension regressions as first-class failures; route reachability alone is not sufficient for this slice."
+      ]
+    },
+    "L26.1": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_edit",
+      "summary": "Promote the remaining GUI follow-up gaps into repo truth through a new modularity-and-traceability blueprint wave.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-console-modularity-traceability-blueprint.md",
+        "tail -n 60 docs/gui_intelligence_console_plan.md",
+        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+        "python3 -m json.tool docs/governance/datapulse-slice-adapter-catalog.draft.json"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-console-modularity-traceability-blueprint.md",
+        "docs/gui_intelligence_console_plan.md",
+        "docs/governance/datapulse-blueprint-plan.draft.json",
+        "docs/governance/datapulse-blueprint-plan.json",
+        "docs/governance/datapulse-slice-adapter-catalog.draft.json"
+      ],
+      "notes": [
+        "Open a new wave because `L25` is already completed; do not stretch the shell-order wave to hold unrelated follow-up structure work.",
+        "Use this slice to make `L26.2` the unambiguous next ignition target before implementation begins."
+      ]
+    },
+    "L26.2": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_edit",
+      "summary": "Freeze the console client-boundary, traceability, signal, and frontend-escalation contract before the next GUI follow-up implementation slice lands.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-console-modularity-traceability-blueprint.md",
+        "tail -n 60 docs/gui_intelligence_console_plan.md",
+        "sed -n '1,260p' docs/governance/datapulse-blueprint-plan.draft.json",
+        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-console-modularity-traceability-blueprint.md",
+        "docs/gui_intelligence_console_plan.md",
+        "docs/governance/datapulse-blueprint-plan.draft.json"
+      ],
+      "notes": [
+        "Freeze the remaining GUI follow-up contract before implementation so client-boundary and traceability work do not drift.",
+        "Do not reopen shell-order simplification or frontend-stack migration questions inside this slice unless a direct conflict is proven."
+      ]
+    },
+    "L26.3": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Extract a shared console API client boundary and reduce repeated fetch wiring inside the current shell.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-console-modularity-traceability-blueprint.md",
+        "sed -n '1,260p' datapulse/console_client.py",
+        "uv run pytest tests/test_console_server.py -q",
+        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
+      ],
+      "target_artifacts": [
+        "datapulse/console_api_client.py",
+        "datapulse/console_client.py",
+        "datapulse/console_server.py",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py"
+      ],
+      "notes": [
+        "Keep Reader-backed lifecycle truth canonical while reducing repeated browser fetch wiring.",
+        "Treat extraction as a maintainability boundary, not as a hidden justification for a framework migration."
+      ]
+    },
+    "L26.4": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Add stage-linked output trace surfaces and a shared operator-visible signal taxonomy.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-console-modularity-traceability-blueprint.md",
+        "sed -n '1,260p' datapulse/console_markup.py",
+        "uv run pytest tests/test_console_server.py -q",
+        "uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py"
+      ],
+      "target_artifacts": [
+        "datapulse/console_markup.py",
+        "datapulse/console_client.py",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py"
+      ],
+      "notes": [
+        "The trace surface should explain workflow progression rather than becoming an undifferentiated audit panel.",
+        "Shared signal badges must map to owned explanations and must not be decorative-only."
+      ]
+    },
+    "L26.5": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_verification",
+      "summary": "Reassess standalone frontend escalation only after the narrower follow-up lands and harden acceptance around the new client and trace contracts.",
+      "candidate_commands": [
+        "bash scripts/datapulse_console_smoke.sh",
+        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+        "uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py"
+      ],
+      "target_artifacts": [
+        "docs/gui_intelligence_console_plan.md",
+        "docs/governance/datapulse-console-modularity-traceability-blueprint.md",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py"
+      ],
+      "notes": [
+        "Reopen standalone frontend engineering only if the narrower follow-up proves the current shell still cannot evolve safely enough.",
+        "Acceptance should verify operator comprehension and traceability, not only basic route reachability."
       ]
     }
   }
