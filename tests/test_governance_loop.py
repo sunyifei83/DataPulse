@@ -305,6 +305,15 @@ def test_refresh_governance_snapshots_treats_quick_test_as_best_effort(
     ]
 
 
+def test_parse_args_defaults_to_dirty_worktree_fallback(governance_loop, monkeypatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["run_codex_blueprint_loop.py"])
+
+    args = governance_loop.parse_args()
+
+    assert args.allow_existing_dirty_worktree is True
+    assert args.dirty_worktree_settle_max_attempts == governance_loop.DEFAULT_DIRTY_WORKTREE_SETTLE_MAX_ATTEMPTS
+
+
 def test_supports_auto_repo_landed_for_workspace_dirty_reopen(governance_loop) -> None:
     runtime = {
         "status": "blocked",
@@ -1107,7 +1116,136 @@ def test_resume_promotion_auto_repair_keeps_request_on_failure(governance_loop, 
     assert "resume stdout" in payload["stdout_tail"]
 
 
-def test_maybe_auto_promote_persists_repair_request_on_pre_promotion_gate_failure(
+def test_maybe_auto_promote_defers_dirty_worktree_settle_before_fallback(
+    governance_loop, monkeypatch, tmp_path: Path
+) -> None:
+    stdout_path = tmp_path / "gate.stdout.log"
+    stderr_path = tmp_path / "gate.stderr.log"
+    monkeypatch.setattr(governance_loop, "load_plan", lambda path: {})
+    monkeypatch.setattr(
+        governance_loop,
+        "run_pre_promotion_gate",
+        lambda **kwargs: (
+            [
+                {
+                    "command": "uv run python scripts/governance/run_datapulse_quick_test_gate.py",
+                    "stdout_path": str(stdout_path),
+                    "stderr_path": str(stderr_path),
+                    "exit_code": 1,
+                }
+            ],
+            False,
+        ),
+    )
+    monkeypatch.setattr(governance_loop, "workspace_status_lines", lambda: [" M datapulse/reader.py"])
+
+    runtime = {
+        "status": "blocked",
+        "reason": "next_slice_blocked",
+        "effective_blocking_facts": ["workspace_dirty"],
+        "remaining_promotion_gates": ["workspace_dirty", "repo_landed_false", "head_not_pushed"],
+        "current_level": "manual_only",
+        "next_slice": {
+            "id": "L16.4",
+            "title": "Structured contracts",
+            "phase_id": "L16",
+            "category": "manual",
+            "execution_profile": "workflow_change",
+        },
+    }
+    settle_attempts: dict[str, int] = {}
+
+    returned_runtime, _snapshots, _plan, promotions = governance_loop.maybe_auto_promote(
+        runtime=runtime,
+        slice_execution_brief={"id": "L16.4"},
+        round_index=1,
+        output_dir=tmp_path / "out",
+        baseline_dirty_paths=["datapulse/reader.py"],
+        promotion_mode="auto",
+        allow_existing_dirty_worktree=True,
+        dirty_worktree_settle_attempts=settle_attempts,
+        dirty_worktree_settle_max_attempts=3,
+        plan_path=tmp_path / "plan.json",
+        catalog_path=tmp_path / "catalog.json",
+        bundle_dir=tmp_path / "bundle",
+        tracked_snapshots=False,
+        code_landing_status_output=tmp_path / "code_landing_status.json",
+        project_loop_state_output=tmp_path / "project_loop_state.json",
+        push_remote="origin",
+        poll_interval_seconds=1,
+        ci_timeout_seconds=1,
+        pre_promotion_gate_command="uv run python scripts/governance/run_datapulse_quick_test_gate.py",
+        dry_run=False,
+    )
+
+    carryover = governance_loop.dirty_worktree_carryover_payload(promotions)
+    assert returned_runtime == runtime
+    assert carryover is not None
+    assert carryover["step"] == governance_loop.DIRTY_WORKTREE_SETTLE_DEFERRED_STEP
+    assert carryover["settle_attempt"] == 1
+    assert governance_loop.supports_dirty_worktree_round_continuation(runtime, promotions) is True
+    assert settle_attempts[governance_loop.dirty_worktree_settle_signature(runtime, [" M datapulse/reader.py"])] == 1
+
+
+def test_maybe_auto_promote_uses_dirty_worktree_fallback_after_retry_budget(
+    governance_loop, monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(governance_loop, "load_plan", lambda path: {})
+    monkeypatch.setattr(
+        governance_loop,
+        "run_pre_promotion_gate",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("fallback should skip another gate run")),
+    )
+    monkeypatch.setattr(governance_loop, "workspace_status_lines", lambda: [" M datapulse/reader.py"])
+
+    runtime = {
+        "status": "blocked",
+        "reason": "next_slice_blocked",
+        "effective_blocking_facts": ["workspace_dirty"],
+        "remaining_promotion_gates": ["workspace_dirty", "repo_landed_false", "head_not_pushed"],
+        "current_level": "manual_only",
+        "next_slice": {
+            "id": "L16.4",
+            "title": "Structured contracts",
+            "phase_id": "L16",
+            "category": "manual",
+            "execution_profile": "workflow_change",
+        },
+    }
+    settle_attempts = {
+        governance_loop.dirty_worktree_settle_signature(runtime, [" M datapulse/reader.py"]): 3,
+    }
+
+    _runtime, _snapshots, _plan, promotions = governance_loop.maybe_auto_promote(
+        runtime=runtime,
+        slice_execution_brief={"id": "L16.4"},
+        round_index=2,
+        output_dir=tmp_path / "out",
+        baseline_dirty_paths=["datapulse/reader.py"],
+        promotion_mode="auto",
+        allow_existing_dirty_worktree=True,
+        dirty_worktree_settle_attempts=settle_attempts,
+        dirty_worktree_settle_max_attempts=3,
+        plan_path=tmp_path / "plan.json",
+        catalog_path=tmp_path / "catalog.json",
+        bundle_dir=tmp_path / "bundle",
+        tracked_snapshots=False,
+        code_landing_status_output=tmp_path / "code_landing_status.json",
+        project_loop_state_output=tmp_path / "project_loop_state.json",
+        push_remote="origin",
+        poll_interval_seconds=1,
+        ci_timeout_seconds=1,
+        pre_promotion_gate_command="uv run python scripts/governance/run_datapulse_quick_test_gate.py",
+        dry_run=False,
+    )
+
+    carryover = governance_loop.dirty_worktree_carryover_payload(promotions)
+    assert carryover is not None
+    assert carryover["step"] == governance_loop.DIRTY_WORKTREE_CARRYOVER_FALLBACK_STEP
+    assert carryover["settle_attempt"] == 3
+
+
+def test_maybe_auto_promote_persists_repair_request_after_dirty_worktree_settle_budget_exhausts_in_strict_mode(
     governance_loop, monkeypatch, tmp_path: Path
 ) -> None:
     request_path = tmp_path / "promotion_auto_repair_request.json"
@@ -1157,7 +1295,9 @@ def test_maybe_auto_promote_persists_repair_request_on_pre_promotion_gate_failur
             output_dir=tmp_path / "out",
             baseline_dirty_paths=["datapulse/reader.py"],
             promotion_mode="auto",
-            allow_existing_dirty_worktree=True,
+            allow_existing_dirty_worktree=False,
+            dirty_worktree_settle_attempts={},
+            dirty_worktree_settle_max_attempts=1,
             plan_path=tmp_path / "plan.json",
             catalog_path=tmp_path / "catalog.json",
             bundle_dir=tmp_path / "bundle",

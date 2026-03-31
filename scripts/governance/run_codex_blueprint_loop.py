@@ -37,6 +37,7 @@ DEFAULT_MODEL = "gpt-5.4"
 DEFAULT_MODEL_REASONING_EFFORT = "high"
 DEFAULT_APPROVAL_POLICY = "never"
 DEFAULT_PROMOTION_MODE = "manual"
+DEFAULT_DIRTY_WORKTREE_SETTLE_MAX_ATTEMPTS = 3
 DEFAULT_PRE_PROMOTION_GATE_COMMAND = "uv run python scripts/governance/run_datapulse_quick_test_gate.py"
 DEFAULT_SYNC_TRACKED_GOVERNANCE_ON_STOP = True
 BLOCKED_EXIT_CODE = 2
@@ -56,6 +57,8 @@ AUTO_CI_HARD_STOP_GATES = {
     "structured_release_bundle_missing",
 }
 AUTO_REPO_LANDED_REOPEN_BLOCKERS = {"workspace_dirty"}
+DIRTY_WORKTREE_SETTLE_DEFERRED_STEP = "dirty_worktree_settle_deferred"
+DIRTY_WORKTREE_CARRYOVER_FALLBACK_STEP = "dirty_worktree_carryover_fallback"
 WORKFLOW_RUN_FIELDS = [
     "databaseId",
     "headSha",
@@ -170,8 +173,21 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--allow-existing-dirty-worktree",
-        action="store_true",
-        help="Permit auto-promotion to commit a worktree that was already dirty before this loop run started.",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Permit dirty-worktree carryover fallback after round-boundary auto-settle retries are exhausted. "
+            "Disable with --no-allow-existing-dirty-worktree for strict clean-baseline supervision."
+        ),
+    )
+    parser.add_argument(
+        "--dirty-worktree-settle-max-attempts",
+        type=int,
+        default=DEFAULT_DIRTY_WORKTREE_SETTLE_MAX_ATTEMPTS,
+        help=(
+            "Maximum auto-settle attempts for a repeated dirty-worktree boundary before the loop falls back to "
+            "dirty-worktree carryover."
+        ),
     )
     parser.add_argument(
         "--poll-interval-seconds",
@@ -332,6 +348,70 @@ def changed_paths_from_status_lines(status_lines: list[str]) -> list[str]:
         seen.add(item)
         deduped.append(item)
     return deduped
+
+
+def dirty_worktree_settle_signature(runtime: dict[str, Any], status_lines: list[str]) -> str:
+    next_slice = dict(runtime.get("next_slice") or {})
+    payload = {
+        "next_slice_id": _to_text(next_slice.get("id")),
+        "status_lines": sorted(_to_text(line) for line in status_lines if _to_text(line)),
+    }
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+
+def record_dirty_worktree_settle_attempt(
+    attempts_by_signature: dict[str, int],
+    *,
+    runtime: dict[str, Any],
+    status_lines: list[str],
+) -> tuple[str, int]:
+    signature = dirty_worktree_settle_signature(runtime, status_lines)
+    attempts = int(attempts_by_signature.get(signature, 0)) + 1
+    attempts_by_signature[signature] = attempts
+    return signature, attempts
+
+
+def clear_dirty_worktree_settle_attempts(
+    attempts_by_signature: dict[str, int],
+    *,
+    runtime: dict[str, Any] | None = None,
+    status_lines: list[str] | None = None,
+) -> None:
+    if runtime is None or status_lines is None:
+        attempts_by_signature.clear()
+        return
+    signature = dirty_worktree_settle_signature(runtime, status_lines)
+    attempts_by_signature.pop(signature, None)
+
+
+def dirty_worktree_settle_attempts_for(
+    attempts_by_signature: dict[str, int],
+    *,
+    runtime: dict[str, Any],
+    status_lines: list[str],
+) -> int:
+    signature = dirty_worktree_settle_signature(runtime, status_lines)
+    return int(attempts_by_signature.get(signature, 0))
+
+
+def dirty_worktree_carryover_payload(promotions: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for payload in reversed(promotions):
+        if _to_text(payload.get("promotion")) != "repo_landed":
+            continue
+        step = _to_text(payload.get("step"))
+        if step in {DIRTY_WORKTREE_SETTLE_DEFERRED_STEP, DIRTY_WORKTREE_CARRYOVER_FALLBACK_STEP}:
+            return payload
+    return None
+
+
+def supports_dirty_worktree_round_continuation(runtime: dict[str, Any], promotions: list[dict[str, Any]]) -> bool:
+    if dirty_worktree_carryover_payload(promotions) is None:
+        return False
+    if _to_text(runtime.get("status")) != "blocked":
+        return False
+    if _to_text(runtime.get("reason")) != "next_slice_blocked":
+        return False
+    return _effective_blocker_set(runtime) == AUTO_REPO_LANDED_REOPEN_BLOCKERS
 
 
 def stage_and_commit_all(commit_message: str, *, dry_run: bool) -> dict[str, Any]:
@@ -881,6 +961,8 @@ def maybe_auto_promote(
     baseline_dirty_paths: list[str],
     promotion_mode: str,
     allow_existing_dirty_worktree: bool,
+    dirty_worktree_settle_attempts: dict[str, int],
+    dirty_worktree_settle_max_attempts: int,
     plan_path: Path,
     catalog_path: Path,
     bundle_dir: Path,
@@ -897,18 +979,46 @@ def maybe_auto_promote(
     snapshots: dict[str, str] = {}
     plan = load_plan(plan_path)
     current_runtime = runtime
+    settle_max_attempts = max(int(dirty_worktree_settle_max_attempts or 0), 1)
 
     if _to_text(promotion_mode).lower() != "auto":
         return current_runtime, snapshots, plan, promotions
 
     while supports_auto_repo_landed(current_runtime):
-        if baseline_dirty_paths and not allow_existing_dirty_worktree:
-            raise RuntimeError(
-                "auto repo_landed promotion blocked by preexisting dirty worktree; rerun with --allow-existing-dirty-worktree"
-            )
         status_lines = workspace_status_lines()
         if not status_lines:
             raise RuntimeError("auto repo_landed promotion selected but workspace has no changes to commit")
+        continue_on_dirty_round_boundary = (
+            _to_text(current_runtime.get("status")) == "blocked"
+            and _to_text(current_runtime.get("reason")) == "next_slice_blocked"
+            and _effective_blocker_set(current_runtime) == AUTO_REPO_LANDED_REOPEN_BLOCKERS
+        )
+        existing_attempts = dirty_worktree_settle_attempts_for(
+            dirty_worktree_settle_attempts,
+            runtime=current_runtime,
+            status_lines=status_lines,
+        )
+        if continue_on_dirty_round_boundary and allow_existing_dirty_worktree and existing_attempts >= settle_max_attempts:
+            carryover_payload = {
+                "promotion": "repo_landed",
+                "step": DIRTY_WORKTREE_CARRYOVER_FALLBACK_STEP,
+                "round": round_index,
+                "changed_paths": changed_paths_from_status_lines(status_lines),
+                "baseline_dirty_paths": list(baseline_dirty_paths),
+                "settle_attempt": existing_attempts,
+                "settle_max_attempts": settle_max_attempts,
+            }
+            promotions.append(carryover_payload)
+            print(
+                json.dumps(
+                    {
+                        "status": "dirty_worktree_carryover_fallback_active",
+                        **carryover_payload,
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            break
         gate_results, gate_ok = run_pre_promotion_gate(
             command_text=pre_promotion_gate_command,
             output_dir=output_dir,
@@ -928,6 +1038,47 @@ def maybe_auto_promote(
                 )
             )
         if not gate_ok:
+            _signature, attempt = record_dirty_worktree_settle_attempt(
+                dirty_worktree_settle_attempts,
+                runtime=current_runtime,
+                status_lines=status_lines,
+            )
+            should_retry_settle = continue_on_dirty_round_boundary and attempt < settle_max_attempts
+            should_fallback_to_carryover = (
+                continue_on_dirty_round_boundary
+                and allow_existing_dirty_worktree
+                and attempt >= settle_max_attempts
+            )
+            if should_retry_settle or should_fallback_to_carryover:
+                carryover_payload = {
+                    "promotion": "repo_landed",
+                    "step": (
+                        DIRTY_WORKTREE_SETTLE_DEFERRED_STEP
+                        if should_retry_settle
+                        else DIRTY_WORKTREE_CARRYOVER_FALLBACK_STEP
+                    ),
+                    "round": round_index,
+                    "changed_paths": changed_paths_from_status_lines(status_lines),
+                    "baseline_dirty_paths": list(baseline_dirty_paths),
+                    "settle_attempt": attempt,
+                    "settle_max_attempts": settle_max_attempts,
+                    "failed_command": _to_text(_failed_verification_result(gate_results).get("command")),
+                }
+                promotions.append(carryover_payload)
+                print(
+                    json.dumps(
+                        {
+                            "status": (
+                                "dirty_worktree_settle_retry_scheduled"
+                                if should_retry_settle
+                                else "dirty_worktree_carryover_fallback_active"
+                            ),
+                            **carryover_payload,
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+                return current_runtime, snapshots, plan, promotions
             request_path = _persist_promotion_auto_repair_request(
                 reason="pre_promotion_gate_failed",
                 detail="pre_promotion_gate_failed",
@@ -959,6 +1110,7 @@ def maybe_auto_promote(
             "promotion": "repo_landed",
             **stage_and_commit_all(commit_message, dry_run=dry_run),
         }
+        clear_dirty_worktree_settle_attempts(dirty_worktree_settle_attempts)
         promotions.append(promotion_payload)
         print(json.dumps({"status": "promotion_executed", **promotion_payload}, ensure_ascii=False))
 
@@ -1209,6 +1361,7 @@ def main() -> int:
                 return BLOCKED_EXIT_CODE
 
         baseline_dirty_paths = changed_paths_from_status_lines(workspace_status_lines())
+        dirty_worktree_settle_attempts: dict[str, int] = {}
         snapshots, runtime, plan = refresh_runtime(
             plan_path=args.plan,
             catalog_path=args.catalog,
@@ -1227,7 +1380,7 @@ def main() -> int:
         print(json.dumps({"status": "runtime_refreshed", **initial_payload}, ensure_ascii=False))
 
         try:
-            runtime, promotion_snapshots, plan, _ = maybe_auto_promote(
+            runtime, promotion_snapshots, plan, initial_promotions = maybe_auto_promote(
                 runtime=runtime,
                 slice_execution_brief=dict(runtime.get("slice_execution_brief") or runtime.get("adapter_entry") or {}),
                 round_index=None,
@@ -1235,6 +1388,8 @@ def main() -> int:
                 baseline_dirty_paths=baseline_dirty_paths,
                 promotion_mode=str(args.promotion_mode),
                 allow_existing_dirty_worktree=bool(args.allow_existing_dirty_worktree),
+                dirty_worktree_settle_attempts=dirty_worktree_settle_attempts,
+                dirty_worktree_settle_max_attempts=int(args.dirty_worktree_settle_max_attempts),
                 plan_path=args.plan,
                 catalog_path=args.catalog,
                 bundle_dir=bundle_dir,
@@ -1266,9 +1421,24 @@ def main() -> int:
             print(json.dumps({"status": "blocked", "reason": "auto_promotion_blocked", "detail": str(exc)}, ensure_ascii=False))
             return BLOCKED_EXIT_CODE
 
+        initial_carryover = dirty_worktree_carryover_payload(initial_promotions)
+        if initial_carryover is not None:
+            print(
+                json.dumps(
+                    {
+                        "status": "dirty_worktree_boundary_state",
+                        "phase": "initial",
+                        **initial_carryover,
+                    },
+                    ensure_ascii=False,
+                )
+            )
         if _to_text(runtime.get("status")) == "blocked":
-            print(json.dumps(stop_snapshot(runtime), ensure_ascii=False))
-            return BLOCKED_EXIT_CODE
+            if supports_dirty_worktree_round_continuation(runtime, initial_promotions):
+                baseline_dirty_paths = changed_paths_from_status_lines(workspace_status_lines())
+            else:
+                print(json.dumps(stop_snapshot(runtime), ensure_ascii=False))
+                return BLOCKED_EXIT_CODE
         if _to_text(runtime.get("status")) == "stopped":
             tracked_snapshots = refresh_stop_outputs_on_terminal_state(
                 runtime=runtime,
@@ -1393,17 +1563,19 @@ def main() -> int:
                     baseline_dirty_paths=baseline_dirty_paths,
                     promotion_mode=str(args.promotion_mode),
                     allow_existing_dirty_worktree=bool(args.allow_existing_dirty_worktree),
+                    dirty_worktree_settle_attempts=dirty_worktree_settle_attempts,
+                    dirty_worktree_settle_max_attempts=int(args.dirty_worktree_settle_max_attempts),
                     plan_path=args.plan,
                     catalog_path=args.catalog,
-                        bundle_dir=bundle_dir,
-                        tracked_snapshots=tracked_snapshots_enabled,
-                        code_landing_status_output=code_landing_status_output,
-                        project_loop_state_output=project_loop_state_output,
-                        push_remote=str(args.push_remote),
-                        poll_interval_seconds=int(args.poll_interval_seconds),
-                        ci_timeout_seconds=int(args.ci_timeout_seconds),
-                        pre_promotion_gate_command=str(args.pre_promotion_gate_command),
-                        dry_run=bool(args.dry_run),
+                    bundle_dir=bundle_dir,
+                    tracked_snapshots=tracked_snapshots_enabled,
+                    code_landing_status_output=code_landing_status_output,
+                    project_loop_state_output=project_loop_state_output,
+                    push_remote=str(args.push_remote),
+                    poll_interval_seconds=int(args.poll_interval_seconds),
+                    ci_timeout_seconds=int(args.ci_timeout_seconds),
+                    pre_promotion_gate_command=str(args.pre_promotion_gate_command),
+                    dry_run=bool(args.dry_run),
                 )
                 if promotions and promotion_snapshots:
                     snapshots = promotion_snapshots
@@ -1432,6 +1604,7 @@ def main() -> int:
                 return BLOCKED_EXIT_CODE
 
             status_text = _to_text(runtime.get("status"))
+            carryover_payload = dirty_worktree_carryover_payload(promotions)
             progress_payload = {
                 "status": "continue",
                 "round": round_index,
@@ -1441,10 +1614,14 @@ def main() -> int:
                 "runtime_reason": _to_text(runtime.get("reason")),
                 "snapshots_refreshed": snapshots,
             }
+            if carryover_payload is not None:
+                progress_payload["dirty_worktree_boundary"] = carryover_payload
             print(json.dumps(progress_payload, ensure_ascii=False))
             baseline_dirty_paths = changed_paths_from_status_lines(workspace_status_lines())
 
             if status_text == "blocked":
+                if supports_dirty_worktree_round_continuation(runtime, promotions):
+                    continue
                 payload = stop_snapshot(runtime)
                 payload["round"] = round_index
                 print(json.dumps(payload, ensure_ascii=False))

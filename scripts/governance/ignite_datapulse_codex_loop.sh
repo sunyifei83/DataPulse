@@ -8,8 +8,13 @@ export SYSTEM_VERSION_COMPAT="${SYSTEM_VERSION_COMPAT:-1}"
 cd "$ROOT_DIR"
 
 EXTRA_ARGS=()
-if [[ "${DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE:-0}" == "1" ]]; then
+if [[ "${DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE:-1}" == "0" ]]; then
+  EXTRA_ARGS+=(--no-allow-existing-dirty-worktree)
+else
   EXTRA_ARGS+=(--allow-existing-dirty-worktree)
+fi
+if [[ -n "${DATAPULSE_CODEX_DIRTY_WORKTREE_SETTLE_MAX_ATTEMPTS:-}" ]]; then
+  EXTRA_ARGS+=(--dirty-worktree-settle-max-attempts "${DATAPULSE_CODEX_DIRTY_WORKTREE_SETTLE_MAX_ATTEMPTS}")
 fi
 
 exec uv run python scripts/governance/run_codex_blueprint_loop.py \

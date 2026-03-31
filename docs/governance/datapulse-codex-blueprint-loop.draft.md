@@ -59,17 +59,18 @@ The `L20.2` contract freezes three resolver-owned roots that later implementatio
 
 Legacy `out/governance`, `out/release_bundle`, and `out/ha_latest_release_bundle` remain read-fallbacks during migration, but closeout refresh now targets the canonical resolver roots instead of treating those `out/*` directories as permanent tracked truth.
 
-After each Codex round, the runner now enforces four control-plane checks before continuing:
+After each Codex round, the runner now enforces six control-plane checks before continuing:
 
 1. run the current slice's `verification_commands` when declared
 2. stop on `no_progress_detected` if the round leaves the slice, plan state, promotion gates, and workspace state unchanged
-3. before any automatic `repo_landed` promotion, run the strict local quick gate so `lint/typecheck/console smoke` regressions are caught before commit/push instead of by remote CI
-4. when `--promotion-mode auto` is enabled, first auto-resolve local `repo_landed`, then attempt the lowest-coupling `ci_proven` path that matches the current change scope:
+3. when a round closes on a `workspace_dirty`-only `repo_landed` boundary, first try to auto-settle that dirty worktree by running the strict local quick gate before any commit so `lint/typecheck/console smoke` regressions are caught before commit/push instead of by remote CI
+4. if that dirty-worktree auto-settle keeps failing on the same round boundary, keep retrying up to `--dirty-worktree-settle-max-attempts`; once the retry budget is exhausted, the default ignition path falls back to dirty-worktree carryover so the next round can keep running without manual intervention. Use `--no-allow-existing-dirty-worktree` to keep the old strict-stop behavior after the retry budget is exhausted.
+5. when `--promotion-mode auto` is enabled, first auto-resolve local `repo_landed`, then attempt the lowest-coupling `ci_proven` path that matches the current change scope:
    - non-docs changes: `git push` and wait for the real `CI` workflow run for the current `HEAD`
    - docs-only changes: `git push`, dispatch `.github/workflows/governance-evidence.yml`, and wait for that run to succeed for the current `HEAD`
-5. once the loop reaches a terminal `stopped` state, refresh the resolved governance snapshot and evidence-bundle roots for the current repository contract; canonical closeout now lands in `artifacts/governance/snapshots/` and `artifacts/governance/release_bundle/`, while legacy `out/*` roots remain compatibility fallbacks only
+6. once the loop reaches a terminal `stopped` state, refresh the resolved governance snapshot and evidence-bundle roots for the current repository contract; canonical closeout now lands in `artifacts/governance/snapshots/` and `artifacts/governance/release_bundle/`, while legacy `out/*` roots remain compatibility fallbacks only
 
-That pre-promotion quick gate still covers explicit dirty-worktree takeover, but the normal ignition path now assumes the repo is already back at a clean baseline.
+That dirty-worktree auto-settle path only applies when the runtime is already on a `repo_landed` candidate boundary. The loop does not synthesize checkpoint commits for unfinished slices just to force a clean worktree, because that would blur slice-completion truth.
 
 The local loop log directory `out/codex_blueprint_loop/` is also treated as ignored operational output so blueprint-only or closeout-only runs do not reopen the repository by themselves.
 
@@ -79,10 +80,22 @@ Recommended trigger:
 bash scripts/governance/ignite_datapulse_codex_loop.sh
 ```
 
-The ignition wrapper now keeps clean-baseline ignition as the default. Only enable dirty-worktree takeover when you are intentionally recovering or supervising a pre-existing local change set:
+The ignition wrapper now assumes a dedicated, machine-exclusive loop worktree. By default it enables dirty-worktree carryover fallback only after the auto-settle retry budget is exhausted:
 
 ```bash
-DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=1 bash scripts/governance/ignite_datapulse_codex_loop.sh
+bash scripts/governance/ignite_datapulse_codex_loop.sh
+```
+
+Tune the retry budget when you want the loop to spend longer trying to auto-clean the round boundary before it falls back:
+
+```bash
+DATAPULSE_CODEX_DIRTY_WORKTREE_SETTLE_MAX_ATTEMPTS=5 bash scripts/governance/ignite_datapulse_codex_loop.sh
+```
+
+Disable dirty-worktree carryover fallback only when you intentionally want strict clean-baseline supervision:
+
+```bash
+DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=0 bash scripts/governance/ignite_datapulse_codex_loop.sh
 ```
 
 Equivalent expanded command:
@@ -108,9 +121,10 @@ SYSTEM_VERSION_COMPAT=1 uv run python scripts/governance/run_codex_blueprint_loo
 - After each round, governance truth must be refreshed before deciding whether to continue.
 - If the slice catalog is missing an entry for the current slice, use the synthesized execution brief instead of inventing prose-only instructions.
 - `--promotion-mode auto` now means "allow local repo_landed auto-promotion, then auto-resolve the current `ci_proven` path by pushing and waiting for real GitHub workflow evidence". It still does not mean release/tag autopilot.
+- Dirty-worktree auto-settle is limited to `repo_landed` candidate boundaries; it must not manufacture checkpoint commits for an unfinished slice solely to make the worktree look clean.
 - The local Codex loop now keeps in-round evaluation ephemeral, but on a terminal `stopped` result it refreshes the resolver-addressed governance and evidence outputs so local truth does not lag behind the last successful run.
 - Legacy `out/governance` and `out/*release_bundle*` directories are no longer required tracked stop-truth surfaces; they are ignored compatibility fallbacks.
-- The ignition wrapper now expects a clean baseline by default; use `DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=1` only as an explicit recovery path.
+- The ignition wrapper now defaults to auto-settle retries plus dirty-worktree carryover fallback; use `DATAPULSE_CODEX_ALLOW_EXISTING_DIRTY_WORKTREE=0` only when you intentionally want the old strict stop after the retry budget is exhausted.
 - Hard-stop gates such as `workflow_dispatch_missing`, `structured_release_bundle_missing`, `ci_run_failed`, or `governance_evidence_failed` must stop the loop instead of being auto-overridden.
 
 ## Why This Matters
