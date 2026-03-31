@@ -1049,9 +1049,9 @@ Recommended stage preview:
 
 Current blueprint reopening target:
 
-- `L15.7` `Harden verification for route-backed report delivery, subscription normalization, and delivery audit flows`
+- `L23.2` `Add runtime overflow hit evidence for residual console text surfaces before any broader text-layout follow-up opens`
 
-The repository is now positioned on a manual ignition target beyond the completed report-production wave, with delivery/subscription follow-up documentation landing in `docs/governance/datapulse-report-delivery-subscription-blueprint.md`.
+The repository is now positioned on a manual ignition target beyond the completed `L22` text-measurement wave, with runtime-evidence follow-up documentation landing in `docs/governance/datapulse-console-text-overflow-evidence-blueprint.md`.
 
 Current browser landing for `R5`:
 
@@ -1082,3 +1082,17 @@ Judgment:
 - keep this wave as presentation and operator-ergonomics infrastructure, not a new lifecycle or frontend rewrite
 - prefer deterministic shared clamping first, then browser measurement, then optional deeper layout work
 - keep multiline prelayout off the active path unless a future dense multiline hotspot still fails after the narrower pixel-fit layer
+
+## Console Text Overflow Runtime Evidence Follow-up
+
+With `L22` landed, the next repo-relevant extension is not more text measurement machinery. The next wave is runtime evidence for any residual overflow hotspots that survive the current grapheme-safe truncation and canvas-fit baseline. That promoted repo-scoped blueprint now lives in `docs/governance/datapulse-console-text-overflow-evidence-blueprint.md`.
+
+Recommended ignition order:
+
+- `L23.2` add operator-visible or smoke-exportable overflow-hit evidence for residual console text surfaces; next manual ignition target
+
+Judgment:
+
+- reopen console text work only when current surfaces still show residual overflow after the landed fit-and-truncate baseline
+- use runtime evidence to decide whether a later adapter-normalization wave is warranted
+- keep multiline or `prepare/layout`-style work closed until this narrower evidence proves the current single-line strategy is insufficient

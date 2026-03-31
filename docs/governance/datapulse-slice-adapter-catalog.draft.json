@@ -573,6 +573,28 @@
         "Apply pixel-fit measurement only to dense populated surfaces with proven readability issues.",
         "Keep canvas fitting optional and retain a deterministic truncation fallback when measurement is unavailable."
       ]
+    },
+    "L23.2": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Add repo-owned runtime overflow evidence for residual console text surfaces after the landed grapheme-safe truncation and cached fit layers run.",
+      "candidate_commands": [
+        "sed -n '1,220p' docs/governance/datapulse-console-text-overflow-evidence-blueprint.md",
+        "sed -n '1,260p' datapulse/console_markup.py",
+        "sed -n '1,260p' scripts/datapulse_console_browser_smoke.py",
+        "uv run pytest tests/test_console_server.py -q",
+        "uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py"
+      ],
+      "target_artifacts": [
+        "datapulse/console_markup.py",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py",
+        "docs/governance/datapulse-console-text-overflow-evidence-blueprint.md"
+      ],
+      "notes": [
+        "Prefer evidence that names residual hotspots and survivor counts over screenshot-only inspection.",
+        "Keep this slice local to console ergonomics; do not overload the AI-surface runtime-hit exporters with unrelated text-overflow semantics unless later reuse pressure proves it is the right home."
+      ]
     }
   }
 }

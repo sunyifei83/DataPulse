@@ -85,7 +85,8 @@
     "L19": "completed",
     "L20": "completed",
     "L21": "completed",
-    "L22": "completed"
+    "L22": "completed",
+    "L23": "in_progress"
   },
   "phases": [
     {
@@ -2886,14 +2887,90 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L23",
+      "title": "Console text overflow runtime evidence and admission gating",
+      "goal": "Collect repo-owned runtime evidence for any residual console text overflow hotspots so future adapter normalization or multiline-measurement work only opens when the current fit-and-truncate baseline proves insufficient.",
+      "status": "in_progress",
+      "slices": [
+        {
+          "id": "L23.1",
+          "title": "Land the repo-scoped console text overflow runtime-evidence blueprint and reopen manual ignition",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "test -f docs/governance/datapulse-console-text-overflow-evidence-blueprint.md",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-console-text-overflow-evidence-blueprint.md",
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json",
+            "docs/governance/datapulse-slice-adapter-catalog.draft.json"
+          ],
+          "exit_condition": "The repository contains a repo-scoped console text-overflow runtime-evidence blueprint that narrows the next wave to measuring residual hotspots after the landed `L22` fix set, and active blueprint truth now exposes a fresh manual ignition target beyond the completed text-measurement wave.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划内/DataPulse_下一波blueprint候选切片_2026-03-31.md",
+            "/Users/sunyifei/DataPulse/docs/governance/datapulse-console-text-measurement-blueprint.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-31T00:00:00Z",
+            "source_count": 2,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划内/DataPulse_下一波blueprint候选切片_2026-03-31.md",
+              "frontmatter_title": "",
+              "first_heading": "DataPulse 下一波 blueprint 候选切片",
+              "selected_heading": "",
+              "wikilink_name": "DataPulse_下一波blueprint候选切片_2026-03-31"
+            }
+          },
+          "notes": [
+            "Treat this wave as admission and evidence hardening for residual console text hotspots, not as a reason to reopen the now-landed `L22` fix set.",
+            "The resulting ignition map should make `L23.2` the next narrow implementation target, with repo-owned overflow-hit evidence landing before any adapter normalization or multiline escalation opens."
+          ]
+        },
+        {
+          "id": "L23.2",
+          "title": "Add runtime overflow hit evidence for residual console text surfaces",
+          "category": "manual",
+          "execution_profile": "runtime_validation",
+          "promotion_scope": "none",
+          "status": "in_progress",
+          "verification_commands": [
+            "uv run pytest tests/test_console_server.py -q",
+            "uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "tests/test_console_server.py",
+            "scripts/datapulse_console_browser_smoke.py",
+            "docs/governance/datapulse-console-text-overflow-evidence-blueprint.md"
+          ],
+          "exit_condition": "The console names which text surfaces still overflow after the current grapheme-safe truncation and pixel-fit layers run, and that evidence is operator-visible or smoke-exportable so future follow-up waves only open on repo-proven hotspots.",
+          "notes": [
+            "Prefer narrow evidence that names surfaces and survivor counts over screenshot-only review.",
+            "Do not overload existing AI-surface runtime-hit governance outputs with unrelated console-text semantics; keep this evidence local to console ergonomics unless later reuse pressure proves otherwise."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
+    "id": "L23.2",
+    "title": "Add runtime overflow hit evidence for residual console text surfaces",
+    "reason": "L22 closed the highest-value text fixes; the next repo-owned question is which console surfaces still overflow after those fixes, and that should be answered with runtime evidence before broader follow-up work opens."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-31T00:00:00Z",
+      "slice_id": "L23.1",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-30T12:00:38Z",
       "slice_id": "L22.4",

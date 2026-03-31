@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-30T10:11:17Z",
+  "generated_at_utc": "2026-03-31T00:00:00Z",
   "status": "in_progress",
   "activation": {
     "wired": true,
@@ -24,8 +24,9 @@
       "The L20 governance-snapshot decoupling wave is now completed in repo truth through L20.5, so resolver-owned runtime bundle roots and same-window evidence roots are no longer coupled to tracked out/* truth.",
       "The L21 ModelBus repo-prep wave is now completed in repo truth through L21.3, preserving resolver-owned bundle-first semantics while keeping web_research non-public.",
       "L21.1 and L21.2 are now landed in repo truth: public-surface runtime-hit and same-window attestation closure covers mission_suggest, triage_assist, claim_draft, delivery_summary, plus report_draft=verified_fail_closed.",
-      "A new L22 console text-measurement hardening wave is now open in repo truth to translate the Pretext extraction into DataPulse-owned mixed-script truncation and dense-panel layout improvements without importing a second text engine.",
-      "The next manual ignition target is now L22.2, which lands grapheme-aware truncation in shared excerpt helpers before any browser-only canvas measurement cache opens.",
+      "The L22 console text-measurement hardening wave is now completed in repo truth through L22.4, leaving grapheme-safe truncation and dense single-line canvas-fit handling as the current baseline.",
+      "A new L23 console text-overflow runtime-evidence wave is now open in repo truth to quantify any residual hotspots before adapter normalization or multiline measurement work opens.",
+      "The next manual ignition target is now L23.2, which collects repo-owned overflow-hit evidence from existing console surfaces rather than adding new measurement machinery first.",
       "Operator review should treat post-CI closeout churn as a coupling bug to remove, not as a reason to invent another parallel loop or runtime control plane."
     ]
   }
