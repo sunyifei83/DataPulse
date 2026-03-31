@@ -1122,10 +1122,21 @@ The promoted repo-scoped blueprint for this follow-up now lives in `docs/governa
 
 Recommended ignition order:
 
-- `L24.2` freeze the workspace-state, section-summary, and guidance contract
-- `L24.3` add URL-restorable context and section-level success or blocker cards
-- `L24.4` centralize guidance and explanation surfaces across mission, triage, story, and route lanes
+- `L24.2` freeze the workspace-state, section-summary, and guidance contract; landed
+- `L24.3` add URL-restorable context and section-level success or blocker cards; landed
+- `L24.4` centralize guidance and explanation surfaces across mission, triage, story, and route lanes; landed
 - `L24.5` extract console client or state helpers and harden restored-context browser smoke
+
+`L24.2` implementation contract:
+
+- URL-restorable context stays limited to canonical shareable workspace state: section hash, `watch_search`/`watch_id`, `triage_filter`/`triage_search`/`triage_id`, and `story_view`/`story_filter`/`story_sort`/`story_search`/`story_id`/`story_mode`.
+- Active workspace mode still derives from section focus. This wave should not add a second route model or a parallel query param for workspace selection.
+- Saved views and context-lens links keep storing the full canonical URL as their payload. They should not create extra first-class params for pinned state, saved-view naming, or local history.
+- Keep `Deploy Mission` drafts, command-palette recent/query state, context-link history, saved-view catalog preferences, language choice, transient modals, toasts, and reversible mutation stacks out of URL state.
+- `L24.3` required summary coverage is `section-intake`, `section-board`, `section-cockpit`, `section-triage`, `section-story`, and `section-ops`. Each section needs one objective frame, one success card, and one blocker or next-unsatisfied-prerequisite card backed by current Reader facts.
+- `section-claims` and `section-report-studio` may reuse the same summary schema later, but they are not admission blockers for the `L24.3` slice.
+- Reader/API-backed runtime explanations remain the owner for retry guidance, duplicate explain, route-health remediation, and other fact-derived reasoning. `docs/datapulse_console_parameter_guide.md` remains the static owner for field semantics and parameter help.
+- Toast-only feedback, one-off inline hints, or browser-only heuristics must not become the canonical explanation surface. `L24.4` has now centralized the implementation through shared operator-guidance surfaces in `datapulse/console_markup.py`, while preserving the ownership split frozen here.
 
 Judgment:
 
@@ -1135,4 +1146,4 @@ Judgment:
 
 Current blueprint reopening target:
 
-- `L24.2`
+- `L24.5`

@@ -1945,6 +1945,35 @@ def _wait_for_active_rail(page: Page, nav_id: str, expected_hash: str) -> None:
     )
 
 
+def _wait_for_section_summary(page: Page, section_id: str) -> None:
+    page.wait_for_function(
+        """(sectionId) => {
+            const root = document.querySelector(`[data-section-summary="${sectionId}"]`);
+            const objective = root?.querySelector('[data-section-summary-kind="objective"]')?.textContent?.trim();
+            const success = root?.querySelector('[data-section-summary-kind="success"]')?.textContent?.trim();
+            const blocker = root?.querySelector('[data-section-summary-kind="blocker"]')?.textContent?.trim();
+            return !!root && !!objective && !!success && !!blocker;
+        }""",
+        arg=section_id,
+        timeout=10000,
+    )
+
+
+def _wait_for_operator_guidance_surface(page: Page, surface_id: str) -> None:
+    page.wait_for_function(
+        """(surfaceId) => {
+            const root = document.querySelector(`#${surfaceId}`);
+            const columns = root ? Array.from(root.querySelectorAll('[data-guidance-column]')) : [];
+            const visibleColumns = columns.filter((column) => (column.textContent || '').trim());
+            const items = root ? Array.from(root.querySelectorAll('[data-guidance-kind]')) : [];
+            const visibleItems = items.filter((item) => (item.textContent || '').trim());
+            return !!root && visibleColumns.length > 0 && visibleItems.length > 0;
+        }""",
+        arg=surface_id,
+        timeout=10000,
+    )
+
+
 def _wait_for_responsive_contract(
     page: Page,
     *,
@@ -2284,12 +2313,25 @@ def _launch_browser(playwright: Playwright):
 
 def _exercise_deep_link_and_existing_flow(page: Page, base_url: str) -> None:
     _log("[console-browser-smoke] deep-link watch")
-    _goto(page, f"{base_url}/?watch_search=Launch#section-cockpit")
+    _goto(page, f"{base_url}/?watch_search=Launch&watch_id=launch-ops#section-cockpit")
     _wait_for_console_ready(page)
     page.wait_for_function("() => window.location.hash === '#section-cockpit'", timeout=10000)
     page.wait_for_function("() => window.location.search.includes('watch_search=Launch')", timeout=10000)
+    page.wait_for_function("() => window.location.search.includes('watch_id=launch-ops')", timeout=10000)
     page.wait_for_function("() => document.querySelector('[data-watch-search]')?.value === 'Launch'", timeout=10000)
     page.wait_for_function("() => document.querySelector('#watch-detail')?.textContent?.includes('Launch Ops')", timeout=10000)
+    _wait_for_section_summary(page, "section-cockpit")
+    _wait_for_operator_guidance_surface(page, "cockpit-guidance-surface")
+    page.wait_for_function(
+        """() => {
+            const railStep = document.querySelector('[data-context-object-step="mission"] .context-object-step-value');
+            const summary = document.querySelector('#context-summary');
+            return (railStep?.textContent || '').includes('Launch Ops')
+                && (summary?.textContent || '').trim().length > 0
+                && summary?.getAttribute('title') === summary?.textContent;
+        }""",
+        timeout=10000,
+    )
 
     _log("[console-browser-smoke] palette run-due")
     page.evaluate("openCommandPalette()")
@@ -2317,12 +2359,16 @@ def _exercise_navigation_convergence(page: Page) -> None:
     _wait_for_active_rail(page, "nav-missions", "#section-cockpit")
     _click(page, "#nav-review")
     _wait_for_active_rail(page, "nav-review", "#section-triage")
+    _wait_for_section_summary(page, "section-triage")
     _click(page, "#nav-delivery")
     _wait_for_active_rail(page, "nav-delivery", "#section-ops")
+    _wait_for_section_summary(page, "section-ops")
     _click(page, "#nav-intake")
     _wait_for_active_rail(page, "nav-intake", "#section-intake")
+    _wait_for_section_summary(page, "section-intake")
     _click(page, "#nav-missions")
     _wait_for_active_rail(page, "nav-missions", "#section-board")
+    _wait_for_section_summary(page, "section-board")
 
 
 def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
@@ -2333,6 +2379,7 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
     page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
     page.wait_for_function("() => window.location.search.includes('triage_filter=verified')", timeout=10000)
     page.wait_for_function("() => !!document.querySelector('[data-triage-card=\"item-2\"]')", timeout=10000)
+    _wait_for_section_summary(page, "section-triage")
     _click(page, "#context-summary")
     page.wait_for_function("() => document.querySelector('#context-summary')?.getAttribute('aria-expanded') === 'true'", timeout=10000)
     page.fill("#context-save-name", saved_view_name)
@@ -2365,6 +2412,8 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
     next_page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
     next_page.wait_for_function("() => window.location.search.includes('triage_filter=verified')", timeout=10000)
     next_page.wait_for_function("() => document.querySelector('[data-triage-card=\"item-2\"]')?.classList.contains('selected')", timeout=10000)
+    _wait_for_section_summary(next_page, "section-triage")
+    _wait_for_operator_guidance_surface(next_page, "triage-guidance-surface")
     next_page.wait_for_function(
         """(expectedName) => {
             const button = document.querySelector('[data-context-dock-open="0"]');
@@ -2421,6 +2470,8 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
     next_page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
     next_page.wait_for_function("() => window.location.search.includes('triage_filter=verified')", timeout=10000)
     _wait_for_active_rail(next_page, "nav-review", "#section-triage")
+    _wait_for_section_summary(next_page, "section-triage")
+    _wait_for_operator_guidance_surface(next_page, "triage-guidance-surface")
     return next_page
 
 
@@ -2429,6 +2480,7 @@ def _exercise_route_crud(page: Page) -> None:
     page.evaluate("jumpToSection('section-ops')")
     page.wait_for_function("() => window.location.hash === '#section-ops'", timeout=10000)
     _wait_for_active_rail(page, "nav-delivery", "#section-ops")
+    _wait_for_section_summary(page, "section-ops")
     page.wait_for_function(
         """() => {
             const primary = document.querySelector('[data-card-action-primary] button[data-route-edit="ops-webhook"]');
@@ -2470,6 +2522,7 @@ def _exercise_triage_to_story(page: Page, base_url: str) -> None:
     _wait_for_console_ready(page)
     page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
     _wait_for_active_rail(page, "nav-review", "#section-triage")
+    _wait_for_section_summary(page, "section-triage")
     page.wait_for_function(
         """() => {
             const primary = document.querySelector('[data-card-action-primary] button[data-triage-state="escalated"][data-triage-id="item-1"]');
@@ -2492,7 +2545,10 @@ def _exercise_triage_to_story(page: Page, base_url: str) -> None:
     _click(page, "[data-triage-story='item-2']")
     page.wait_for_timeout(2000)
     assert page.evaluate("() => window.location.hash === '#section-story'"), "triage-to-story flow did not jump to section-story"
+    page.wait_for_function("() => window.location.search.includes('story_id=story-triage-seed')", timeout=10000)
+    page.wait_for_function("() => window.location.search.includes('story_mode=editor')", timeout=10000)
     _wait_for_active_rail(page, "nav-review", "#section-story")
+    _wait_for_section_summary(page, "section-story")
     assert page.evaluate("() => document.querySelector('[data-story-card=\"story-triage-seed\"]')?.classList.contains('selected')"), "story-triage-seed was not selected after create"
     assert page.evaluate("() => document.querySelector('#story-list')?.textContent?.includes('Triage Seed')"), "story list did not include Triage Seed"
     assert page.evaluate("() => document.querySelector('#story-detail')?.textContent?.includes('Seeded from triage queue.')"), "story detail did not show seeded summary"

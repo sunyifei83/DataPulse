@@ -1,8 +1,10 @@
 # DataPulse Console Interaction Clarity Blueprint
 
-Status: repo-scoped follow-up blueprint, manual ignition ready
+Status: repo-scoped follow-up blueprint, `L24.2` contract freeze landed
 
 Created: 2026-03-31
+
+Updated: 2026-03-31
 
 ## Goal
 
@@ -71,6 +73,75 @@ This wave should not reopen:
 - lifecycle reshaping that breaks Reader parity in exchange for page-level neatness
 - duplicated explanation logic that reimplements existing retry, duplicate, or route-health semantics without reusing them
 
+## L24.2 Contract Freeze
+
+`L24.2` is now the repo-owned contract freeze for three things:
+
+1. which console context is shareable and restorable through the URL
+2. which section-level summary cards are required before the next shell implementation slice lands
+3. which source owns operator guidance and explanation copy
+
+### URL-Restorable Workspace State
+
+Only shareable operating context belongs in the canonical URL.
+
+| Scope | Canonical URL contract | Why it belongs in URL state | Explicitly not URL state |
+| --- | --- | --- | --- |
+| Active shell section | hash-based section focus: `#section-intake`, `#section-board`, `#section-cockpit`, `#section-triage`, `#section-story`, `#section-claims`, `#section-report-studio`, `#section-ops` | lets operators refresh or share the current lane without introducing a second routing tree | a separate workspace-mode query param; workspace mode continues to derive from section focus |
+| Mission workspace | `watch_search`, `watch_id` | preserves the mission search and selected mission context that operators actually review | unsaved `Deploy Mission` draft fields, mission deck collapse state, transient success toasts |
+| Triage workspace | `triage_filter`, `triage_search`, `triage_id` | preserves queue scope and the currently inspected inbox item | temporary keyboard focus, modal open state, note composer cursor state |
+| Story workspace | `story_view`, `story_filter`, `story_sort`, `story_search`, `story_id`, `story_mode` | preserves the story board or editor context that operators may need to reopen or share | unsaved editor text, one-off inspector expansions, temporary export preview toggles |
+| Saved views and deep links | saved views and context-lens share links store the full canonical URL as their payload | keeps one canonical state contract instead of inventing separate share payload schemas | extra first-class params for pinned views, saved-view names, or link-history bookkeeping |
+
+Local-only convenience state stays outside the URL contract:
+
+- `create-watch-draft`, command-palette recent items or query text, context-link history, and the saved-view catalog remain local storage concerns
+- language preference remains local preference, not shareable workspace truth
+- reversible mutation history, toast visibility, modal open or close state, and dismissible helper banners remain transient UI state
+- `L24.3` should only add a new URL parameter if the state is operator-meaningful, stable across refresh, and safe to share as repo truth
+
+### Required Section Summary Cards
+
+`L24.3` must add one summary frame per required section with:
+
+1. the current objective
+2. one success card showing what is already working
+3. one blocker card showing the dominant blocker or next unsatisfied prerequisite
+
+These are the required sections for admission in this wave:
+
+| Section | Objective frame must answer | Success card must answer | Blocker card must answer | Current fact inputs |
+| --- | --- | --- | --- | --- |
+| `section-intake` | what mission or route-aware watch the operator is preparing to launch | whether the current draft can already map to a valid mission or reusable preset/clone source | which required field or route prerequisite is still missing before create or clone should proceed | current deploy form state, preset/clone source, available named routes |
+| `section-board` | which mission set is currently under review | whether there are missions or search hits worth continuing into cockpit | whether the board is empty, filtered to zero, or missing the next mission context needed for inspection | watch list, search term, selected mission |
+| `section-cockpit` | what the selected mission is doing now | whether recent runs, results, or current alert settings show the mission is inspectable and alive | whether there is no selected mission, the latest run failed, or retry guidance indicates the next operator action | selected watch detail, recent runs, latest failure, retry guidance |
+| `section-triage` | which inbox slice requires review | whether the current queue or selected item is moving toward verification, duplicate resolution, or story promotion | whether backlog pressure, duplicate uncertainty, or missing selection is blocking the next review action | triage stats, selected item, duplicate explain, review state |
+| `section-story` | which story or evidence package is being advanced | whether the selected story has enough evidence, timeline, or export-ready context to move forward | whether missing story selection, unresolved contradiction, or evidence gaps are blocking promotion or export | story detail, conflicts, evidence stack, export preview |
+| `section-ops` | which route or delivery posture the operator is supervising | whether daemon, route health, and recent delivery observations show the lane is healthy enough to trust | whether degraded or missing routes, collector trouble, or delivery failures require remediation | daemon status, route health, alerts, ops summary |
+
+Additional rules:
+
+- these cards must be backed by current Reader-derived or persisted facts, not browser-only heuristics
+- when a hard blocker does not exist, the blocker slot should show the next unsatisfied prerequisite or dominant operational risk rather than decorative reassurance
+- `section-claims` and `section-report-studio` may adopt the same card schema later, but they are not required admission blockers for `L24.3`
+
+### Operator Guidance Ownership
+
+Operator guidance must stay attributable to one canonical owner per copy class.
+
+| Copy class | Canonical owner | Examples | Must not happen |
+| --- | --- | --- | --- |
+| Runtime explanation facts | Reader/API-backed guidance already exposed by the shell | mission retry guidance, duplicate explain, route-health remediation, server-derived mission suggestions | the browser invents a conflicting explanation from local-only heuristics |
+| Static field semantics and parameter help | `docs/datapulse_console_parameter_guide.md` | alert-rule field meaning, route vs domain semantics, shared `digest_profile` defaults, prompt-pack provenance rules | ad hoc inline labels become the only place where parameter meaning is defined |
+| Cross-section summary framing and shared operator wording | this blueprint now; later implemented as one shared shell contract in `L24.4` | success-card headings, blocker-card tone, explanation ownership across mission, triage, story, and route lanes | each lane drifts into separate wording or toast-only explanation rules |
+| Saved-view and deep-link summaries | the shell's canonical context descriptor built from current URL plus current facts | context-lens summaries, saved-view chip summaries, share-link labels | separate summary builders per storage feature with incompatible wording |
+
+Guardrails:
+
+- toasts, local dismissals, and command-palette hints may echo canonical guidance, but they cannot be the only owner of explanation copy
+- bilingual operator guidance must stay paired inside the same repo-owned source for each copy class
+- `L24.4` may centralize implementation, but it must not change the ownership boundaries frozen here
+
 ## L24 Slice Map
 
 | Slice | Outcome | Why it exists |
@@ -99,13 +170,13 @@ This order keeps the next work narrow:
 
 ## Manual Ignition Boundary
 
-The next manual ignition target should be `L24.2`, not `L24.3` or `L24.5`.
+With `L24.2` landed, the next manual ignition target should be `L24.3`, not `L24.4` or `L24.5`.
 
 Reason:
 
 - current DataPulse already has mission presets, route snaps, retry guidance, and duplicate explain fragments
-- the immediate gap is contract clarity, not more heuristics
-- URL state, section summary cards, and guidance ownership should be explicit before implementation spreads across markup, docs, tests, and smoke flows
+- the contract is now explicit enough to implement against without reopening copy or URL-boundary questions
+- the next highest-value gap is to land the restorable context plus required summary cards inside the current shell
 
 After the blueprint landing is committed and the repo is back to a clean baseline, the normal local ignition entrypoint stays:
 
@@ -113,7 +184,7 @@ After the blueprint landing is committed and the repo is back to a clean baselin
 bash scripts/governance/ignite_datapulse_codex_loop.sh
 ```
 
-Expected next slice after this blueprint landing: `L24.2`
+Expected next slice after this contract freeze: `L24.3`
 
 ## Fact Sources
 

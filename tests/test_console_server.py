@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
+from datapulse.console_client import render_console_client_script
 from datapulse.console_server import CONSOLE_TITLE, create_app
 from datapulse.core.alerts import AlertEvent
 from datapulse.core.models import DataPulseItem, SourceType
@@ -1527,6 +1528,12 @@ def test_console_index_serves_shell():
     assert "context-lens-close" in response.text
     assert "context-save-form" in response.text
     assert "context-view-dock" in response.text
+    assert "intake-section-summary" in response.text
+    assert "board-section-summary" in response.text
+    assert "cockpit-section-summary" in response.text
+    assert "triage-section-summary" in response.text
+    assert "story-section-summary" in response.text
+    assert "ops-section-summary" in response.text
     assert 'data-fit-text="context-summary"' in response.text
     assert 'data-fit-text="dock-summary"' in response.text
     assert 'data-fit-text="context-object-value"' in response.text
@@ -1562,6 +1569,28 @@ def test_console_index_serves_shell():
     assert "let lastViewportWidth = window.innerWidth" in response.text
     assert "window.setInterval(() => {" in response.text
     assert "function renderCardActionHierarchy" in response.text
+    assert "function renderIntakeSectionSummary" in response.text
+    assert "function renderBoardSectionSummary" in response.text
+    assert "function renderCockpitSectionSummary" in response.text
+    assert "function renderTriageSectionSummary" in response.text
+    assert "function renderStorySectionSummary" in response.text
+    assert "function renderOpsSectionSummary" in response.text
+    assert "data-section-summary-kind" in response.text
+    assert "function renderOperatorGuidanceSurface" in response.text
+    assert "function buildMissionGuidanceSurface" in response.text
+    assert "function buildCockpitGuidanceSurface" in response.text
+    assert "function buildTriageGuidanceSurface" in response.text
+    assert "function buildStoryGuidanceSurface" in response.text
+    assert "function buildRouteGuidanceSurface" in response.text
+    assert "data-operator-guidance-surface" in response.text
+    assert "mission-guidance-surface" in response.text
+    assert "cockpit-guidance-surface" in response.text
+    assert "triage-guidance-surface" in response.text
+    assert "story-guidance-surface" in response.text
+    assert "route-guidance-surface" in response.text
+    assert "data-guidance-column" in response.text
+    assert "data-guidance-kind" in response.text
+    assert "section summary" in response.text
     assert "function getMissionCardActionHierarchy" in response.text
     assert "function getTriageCardActionHierarchy" in response.text
     assert "function getStoryCardActionHierarchy" in response.text
@@ -1614,6 +1643,17 @@ def test_console_index_serves_shell():
     assert "Delivery Continuity" in response.text
     assert "build stories from CLI/MCP" not in response.text
     assert "datapulse --story-build / MCP story tools first" not in response.text
+
+
+def test_console_client_script_keeps_restored_context_and_guidance_contract():
+    script = render_console_client_script("{}")
+
+    assert "watch_search" in script
+    assert "triage_filter" in script
+    assert "story_view" in script
+    assert "restoreContextSavedViewByName" in script
+    assert "buildCockpitGuidanceSurface" in script
+    assert "buildTriageGuidanceSurface" in script
 
 
 def test_console_brand_hero_serves_jpeg():
