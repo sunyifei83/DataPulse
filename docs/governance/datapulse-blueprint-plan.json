@@ -1,8 +1,8 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-31T00:00:00Z",
-  "status": "completed",
+  "generated_at_utc": "2026-03-31T07:35:00Z",
+  "status": "in_progress",
   "activation": {
     "wired": true,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -12,7 +12,7 @@
     }
   },
   "governance_mode": {
-    "kind": "active_manual_no_open_slice",
+    "kind": "active_manual_open_slice",
     "notes": [
       "This overlay keeps the repository blueprint truth active while leaving continuation in explicit manual mode.",
       "The report-production and report-delivery waves remain part of active blueprint truth.",
@@ -25,8 +25,10 @@
       "The L21 ModelBus repo-prep wave is now completed in repo truth through L21.3, preserving resolver-owned bundle-first semantics while keeping web_research non-public.",
       "L21.1 and L21.2 are now landed in repo truth: public-surface runtime-hit and same-window attestation closure covers mission_suggest, triage_assist, claim_draft, delivery_summary, plus report_draft=verified_fail_closed.",
       "The L22 console text-measurement hardening wave is now completed in repo truth through L22.4, leaving grapheme-safe truncation and dense single-line canvas-fit handling as the current baseline.",
-      "The L23 console text-overflow runtime-evidence wave is now completed in repo truth through L23.2, so the current console-text lane returns to `no-open-slice`.",
-      "There is no current manual ignition target for console text follow-up work; any further adapter normalization or multiline measurement work must reopen as a new blueprint wave rather than by re-igniting L23.2.",
+      "The L23 console text-overflow runtime-evidence wave remains completed in repo truth through L23.2, so the console-text lane itself stays closed unless a new evidence-backed text wave is opened.",
+      "A new L24 console interaction-clarity wave is now opened in repo truth through L24.1.",
+      "The next manual ignition target is L24.2, which freezes URL-restorable workspace state, section-level success or blocker framing, and operator-guidance ownership before implementation resumes.",
+      "This wave should harden interaction semantics over the existing command chamber rather than reopen frontend-stack decisions or introduce a GUI-only control plane.",
       "Operator review should treat post-CI closeout churn as a coupling bug to remove, not as a reason to invent another parallel loop or runtime control plane."
     ]
   }

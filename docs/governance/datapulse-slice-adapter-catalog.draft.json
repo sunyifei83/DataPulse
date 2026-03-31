@@ -595,6 +595,89 @@
         "Prefer evidence that names residual hotspots and survivor counts over screenshot-only inspection.",
         "Keep this slice local to console ergonomics; do not overload the AI-surface runtime-hit exporters with unrelated text-overflow semantics unless later reuse pressure proves it is the right home."
       ]
+    },
+    "L24.2": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_edit",
+      "summary": "Freeze the URL-restorable workspace-state, section-summary, and operator-guidance contract before the next console-clarity implementation slice lands.",
+      "candidate_commands": [
+        "sed -n '1,240p' docs/governance/datapulse-console-interaction-clarity-blueprint.md",
+        "sed -n '1020,1160p' docs/gui_intelligence_console_plan.md",
+        "sed -n '1,260p' docs/datapulse_console_parameter_guide.md",
+        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-console-interaction-clarity-blueprint.md",
+        "docs/gui_intelligence_console_plan.md",
+        "docs/datapulse_console_parameter_guide.md"
+      ],
+      "notes": [
+        "Preserve the existing command chamber shell and current lifecycle nouns.",
+        "Treat this slice as a contract freeze for URL state, section summary semantics, and guidance ownership rather than as a fresh implementation burst."
+      ]
+    },
+    "L24.3": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Add URL-restorable workspace context and section-level success or blocker cards to the current console shell.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-console-interaction-clarity-blueprint.md",
+        "sed -n '2560,3320p' datapulse/console_markup.py",
+        "uv run pytest tests/test_console_server.py -q",
+        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
+      ],
+      "target_artifacts": [
+        "datapulse/console_markup.py",
+        "datapulse/console_server.py",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py"
+      ],
+      "notes": [
+        "Extend the current hash and story parameter model instead of replacing it with a second routing system.",
+        "Section summary cards should expose current objective plus success or blocker signals without introducing GUI-only domain logic."
+      ]
+    },
+    "L24.4": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Centralize operator guidance and action-explanation surfaces across mission, triage, story, and route lanes.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-console-interaction-clarity-blueprint.md",
+        "sed -n '1,260p' docs/datapulse_console_parameter_guide.md",
+        "sed -n '2200,2520p' datapulse/console_markup.py",
+        "uv run pytest tests/test_console_server.py -q"
+      ],
+      "target_artifacts": [
+        "datapulse/console_markup.py",
+        "docs/datapulse_console_parameter_guide.md",
+        "docs/gui_intelligence_console_plan.md",
+        "tests/test_console_server.py"
+      ],
+      "notes": [
+        "Reuse existing retry guidance, duplicate explain, and deck suggestion semantics instead of re-deriving explanations from scratch.",
+        "Keep the text contract operator-facing, explicit, and shared across surfaces."
+      ]
+    },
+    "L24.5": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Extract console client or state helpers and harden restored-context browser smoke after the new interaction contract lands.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-console-interaction-clarity-blueprint.md",
+        "sed -n '1,260p' datapulse/console_server.py",
+        "sed -n '1,260p' scripts/datapulse_console_browser_smoke.py",
+        "uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py"
+      ],
+      "target_artifacts": [
+        "datapulse/console_markup.py",
+        "datapulse/console_server.py",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py"
+      ],
+      "notes": [
+        "Treat extraction as maintainability hardening, not as a justification for a new frontend stack.",
+        "Smoke should prove restored-context behavior, not only basic page load and route reachability."
+      ]
     }
   }
 }

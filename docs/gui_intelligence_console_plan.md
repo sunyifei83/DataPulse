@@ -1097,3 +1097,42 @@ Judgment:
 - reopen console text work only when current surfaces still show residual overflow after the landed fit-and-truncate baseline
 - use runtime evidence to decide whether a later adapter-normalization wave is warranted
 - keep multiline or `prepare/layout`-style work closed until this narrower evidence proves the current single-line strategy is insufficient
+
+## Console Interaction Clarity Follow-up
+
+Another repo-relevant follow-up now exists above the text-fit lane but still below any frontend-stack rewrite question: console interaction clarity and restorable workspace state.
+
+The current browser shell already has the right operating nouns and several useful interaction primitives:
+
+- lifecycle rail and section jumps
+- mission deck presets plus route or platform suggestions
+- duplicate explain and retry guidance
+- command palette, action history, and current-object context
+
+That changes the missing layer.
+
+The next gap is not "build a new frontend." The next gap is to make the existing shell easier to understand, easier to resume, and easier to verify:
+
+- restore important workspace context cleanly from URL state instead of leaving it split across hash, local storage, and in-memory state
+- expose section-level success signals and blocker signals so operators can see what to do next without scanning the whole shell
+- centralize operator guidance and action explanations instead of scattering them across inline hints
+- reduce future console iteration risk by introducing clearer client and state boundaries
+
+The promoted repo-scoped blueprint for this follow-up now lives in `docs/governance/datapulse-console-interaction-clarity-blueprint.md`.
+
+Recommended ignition order:
+
+- `L24.2` freeze the workspace-state, section-summary, and guidance contract
+- `L24.3` add URL-restorable context and section-level success or blocker cards
+- `L24.4` centralize guidance and explanation surfaces across mission, triage, story, and route lanes
+- `L24.5` extract console client or state helpers and harden restored-context browser smoke
+
+Judgment:
+
+- keep this wave as interaction-semantics hardening over the current Reader-backed shell
+- extend existing mission presets, retry guidance, and duplicate explain instead of replacing them
+- do not use this wave as a backdoor justification for a React rewrite or another GUI-only control plane
+
+Current blueprint reopening target:
+
+- `L24.2`
