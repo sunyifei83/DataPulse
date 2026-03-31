@@ -1,6 +1,6 @@
 # DataPulse Console Text Overflow Runtime Evidence Blueprint
 
-Status: repo-scoped follow-up blueprint, manual ignition ready
+Status: repo-scoped follow-up blueprint, completed in repo truth
 
 Created: 2026-03-31
 
@@ -60,17 +60,18 @@ Landing shape for this slice:
 - surface survivor counts and named hotspots in `Ops Snapshot`
 - export the same structured evidence through `scripts/datapulse_console_browser_smoke.py`
 
-This is the next manual ignition target because it produces the missing admission evidence for whether any later text-fit adapter normalization or multiline escalation is justified.
+This slice was the manual ignition target for this wave because it produced the missing admission evidence for whether any later text-fit adapter normalization or multiline escalation is justified.
 
 ## Manual Ignition Boundary
 
-The next manual ignition target should be `L23.2`.
+This follow-up no longer has an open manual ignition target.
 
-Reason:
+Current repo conclusion after the `L23.2` landing:
 
 - `L22` already closed the highest-value implementation fixes
-- the next unknown is not "how to measure text better" but "which surfaces still need help after the current fix set"
-- evidence should open future work, not architecture preference
+- `L23.2` added the missing runtime-evidence boundary for residual console-text hotspots
+- current blueprint truth for this lane returns to `no-open-slice`
+- any later adapter normalization or multiline escalation must reopen as a new blueprint wave rather than by re-igniting `L23.2`
 
 After the blueprint landing is committed and the repo is back to a clean baseline, the normal local ignition entrypoint stays:
 
@@ -78,7 +79,7 @@ After the blueprint landing is committed and the repo is back to a clean baselin
 bash scripts/governance/ignite_datapulse_codex_loop.sh
 ```
 
-Expected next slice after this blueprint landing: `L23.2`
+Expected next slice after this blueprint closeout: `no-open-slice`
 
 ## Fact Sources
 

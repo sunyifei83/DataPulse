@@ -1049,9 +1049,9 @@ Recommended stage preview:
 
 Current blueprint reopening target:
 
-- `L23.2` `Add runtime overflow hit evidence for residual console text surfaces before any broader text-layout follow-up opens`
+- none; current repo truth for this lane is `no-open-slice`
 
-The repository is now positioned on a manual ignition target beyond the completed `L22` text-measurement wave, with runtime-evidence follow-up documentation landing in `docs/governance/datapulse-console-text-overflow-evidence-blueprint.md`.
+The repository is no longer positioned on an active manual ignition target for this lane. `L23` is completed in repo truth, and any further console-text follow-up now requires a new blueprint wave rather than re-igniting `L23.2`.
 
 Current browser landing for `R5`:
 
@@ -1085,14 +1085,15 @@ Judgment:
 
 ## Console Text Overflow Runtime Evidence Follow-up
 
-With `L22` landed, the next repo-relevant extension is not more text measurement machinery. The next wave is runtime evidence for any residual overflow hotspots that survive the current grapheme-safe truncation and canvas-fit baseline. That promoted repo-scoped blueprint now lives in `docs/governance/datapulse-console-text-overflow-evidence-blueprint.md`.
+With `L22` landed, the next repo-relevant extension was runtime evidence for any residual overflow hotspots that survive the current grapheme-safe truncation and canvas-fit baseline. That promoted repo-scoped blueprint lives in `docs/governance/datapulse-console-text-overflow-evidence-blueprint.md`, and the wave is now closed in repo truth through `L23.2`.
 
-Recommended ignition order:
+Completed landing order:
 
-- `L23.2` add operator-visible or smoke-exportable overflow-hit evidence for residual console text surfaces; next manual ignition target
+- `L23.2` add operator-visible or smoke-exportable overflow-hit evidence for residual console text surfaces; landed
 
 Judgment:
 
+- this follow-up wave is now closed and does not expose a current manual ignition target
 - reopen console text work only when current surfaces still show residual overflow after the landed fit-and-truncate baseline
 - use runtime evidence to decide whether a later adapter-normalization wave is warranted
 - keep multiline or `prepare/layout`-style work closed until this narrower evidence proves the current single-line strategy is insufficient
