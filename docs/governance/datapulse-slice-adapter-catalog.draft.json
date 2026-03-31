@@ -1,7 +1,7 @@
 {
   "schema_version": "slice_adapter_catalog.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-09T00:00:00Z",
+  "generated_at_utc": "2026-03-31T10:40:56Z",
   "wired": false,
   "slices": {
     "L4.1": {
@@ -677,6 +677,109 @@
       "notes": [
         "Treat extraction as maintainability hardening, not as a justification for a new frontend stack.",
         "Smoke should prove restored-context behavior, not only basic page load and route reachability."
+      ]
+    },
+    "L25.1": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_edit",
+      "summary": "Promote the workflow-first shell simplification judgment into repo truth and reopen the next console wave through a narrow new blueprint.",
+      "candidate_commands": [
+        "sed -n '1,280p' docs/governance/datapulse-console-workflow-simplification-blueprint.md",
+        "sed -n '1150,1205p' docs/gui_intelligence_console_plan.md",
+        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+        "python3 -m json.tool docs/governance/datapulse-slice-adapter-catalog.draft.json"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-console-workflow-simplification-blueprint.md",
+        "docs/gui_intelligence_console_plan.md",
+        "docs/governance/datapulse-blueprint-plan.draft.json",
+        "docs/governance/datapulse-blueprint-plan.json",
+        "docs/governance/datapulse-slice-adapter-catalog.draft.json"
+      ],
+      "notes": [
+        "Open a new wave because `L24` is already completed; do not overload the interaction-clarity wave with shell-shape simplification.",
+        "Use this slice to make `L25.2` the unambiguous next ignition target before any shell rewrite begins."
+      ]
+    },
+    "L25.2": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_edit",
+      "summary": "Freeze the workflow-first shell contract, first-rank versus demoted surface rules, stage-owned outputs, and feedback ownership.",
+      "candidate_commands": [
+        "sed -n '1,320p' docs/governance/datapulse-console-workflow-simplification-blueprint.md",
+        "sed -n '1150,1205p' docs/gui_intelligence_console_plan.md",
+        "sed -n '1,260p' docs/governance/datapulse-blueprint-plan.draft.json",
+        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-console-workflow-simplification-blueprint.md",
+        "docs/gui_intelligence_console_plan.md",
+        "docs/governance/datapulse-blueprint-plan.draft.json"
+      ],
+      "notes": [
+        "Freeze structure before implementation so the shell does not drift while simplifying same-rank surfaces.",
+        "Do not reopen frontend-stack migration or URL-state contract questions inside this slice unless the new workflow-first contract proves a direct conflict."
+      ]
+    },
+    "L25.3": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Reorganize the default shell around workflow-first stages and demote advanced surfaces that should not compete for first-rank attention.",
+      "candidate_commands": [
+        "sed -n '1,320p' docs/governance/datapulse-console-workflow-simplification-blueprint.md",
+        "sed -n '2200,3200p' datapulse/console_markup.py",
+        "uv run pytest tests/test_console_server.py -q",
+        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
+      ],
+      "target_artifacts": [
+        "datapulse/console_markup.py",
+        "datapulse/console_server.py",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py"
+      ],
+      "notes": [
+        "Preserve the command chamber identity and canonical lifecycle nouns while simplifying shell rank and sequence.",
+        "Prefer nested detail views, drawers, or stage-owned tabs over continuing to expose every capability at the same default rank."
+      ]
+    },
+    "L25.4": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Move no-result, warning, completion, and blocked-state semantics onto the stage or card that owns the work instead of relying on toasts alone.",
+      "candidate_commands": [
+        "sed -n '1,320p' docs/governance/datapulse-console-workflow-simplification-blueprint.md",
+        "sed -n '5600,6500p' datapulse/console_markup.py",
+        "uv run pytest tests/test_console_server.py -q",
+        "uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py"
+      ],
+      "target_artifacts": [
+        "datapulse/console_markup.py",
+        "datapulse/console_server.py",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py"
+      ],
+      "notes": [
+        "Keep toasts for temporary acknowledgements, but move persistent or corrective states onto the owned surface.",
+        "Empty-state, warning, and blocked-state copy should tell operators why the surface is empty and what to do next."
+      ]
+    },
+    "L25.5": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_verification",
+      "summary": "Harden browser smoke and acceptance around workflow order, owned outputs, and next-step discoverability after the shell is simplified.",
+      "candidate_commands": [
+        "bash scripts/datapulse_console_smoke.sh",
+        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+        "uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py"
+      ],
+      "target_artifacts": [
+        "scripts/datapulse_console_smoke.sh",
+        "scripts/datapulse_console_browser_smoke.py",
+        "tests/test_console_server.py"
+      ],
+      "notes": [
+        "Smoke should prove stage order, stage-owned outputs, next-step clarity, and recovery from no-result or blocked states.",
+        "Treat comprehension regressions as first-class failures; route reachability alone is not sufficient for this slice."
       ]
     }
   }

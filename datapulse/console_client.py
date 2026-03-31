@@ -83,6 +83,12 @@ def render_console_client_script(initial_state: str) -> str:
       createWatchSuggestions: null,
       createWatchSuggestionTimer: 0,
       actionLog: [],
+      stageFeedback: {{
+        start: null,
+        monitor: null,
+        review: null,
+        deliver: null,
+      }},
       language: "en",
       contextLensOpen: false,
       contextLinkHistory: [],
@@ -625,6 +631,7 @@ def render_console_client_script(initial_state: str) -> str:
       review: ["section-triage", "section-story", "section-claims", "section-report-studio"],
       delivery: ["section-ops"],
     }};
+    const reviewAdvancedSectionIds = ["section-claims", "section-report-studio"];
 
     function copy(enText, zhText) {{
       return state.language === "zh" ? zhText : enText;
@@ -1454,6 +1461,10 @@ def render_console_client_script(initial_state: str) -> str:
     function setRouteDraft(nextDraft, editingId = state.routeEditingId) {{
       state.routeDraft = normalizeRouteDraft(nextDraft || defaultRouteDraft());
       state.routeEditingId = String(editingId || "").trim();
+      const deliveryFeedback = state.stageFeedback?.deliver;
+      if (deliveryFeedback && ["blocked", "warning", "no_result"].includes(String(deliveryFeedback.kind || "").trim().toLowerCase())) {{
+        state.stageFeedback.deliver = null;
+      }}
       renderRouteDeck();
     }}
 
@@ -1552,6 +1563,10 @@ def render_console_client_script(initial_state: str) -> str:
 
     function setStoryDraft(nextDraft) {{
       state.storyDraft = normalizeStoryDraft(nextDraft || defaultStoryDraft());
+      const reviewFeedback = state.stageFeedback?.review;
+      if (reviewFeedback && ["blocked", "warning", "no_result"].includes(String(reviewFeedback.kind || "").trim().toLowerCase())) {{
+        state.stageFeedback.review = null;
+      }}
       renderStoryCreateDeck();
     }}
 
@@ -2107,6 +2122,23 @@ def render_console_client_script(initial_state: str) -> str:
       const draft = collectStoryDraft(form);
       state.storyDraft = draft;
       if (!draft.title.trim()) {{
+        setStageFeedback("review", {{
+          kind: "blocked",
+          title: copy("Story draft still needs a title", "故事草稿仍然缺少标题"),
+          copy: copy("Add a story title before this brief can move into the review lane.", "补上故事标题后，这条简报才能进入审阅阶段。"),
+          actionHierarchy: {{
+            primary: {{
+              label: copy("Complete Story Intake", "继续补全故事录入"),
+              attrs: {{ "data-empty-focus": "story", "data-empty-field": "title" }},
+            }},
+            secondary: [
+              {{
+                label: copy("Open Triage", "打开分诊"),
+                attrs: {{ "data-empty-jump": "section-triage" }},
+              }},
+            ],
+          }},
+        }});
         showToast(copy("Provide a story title before creating a brief.", "创建故事前请先填写标题。"), "error");
         focusStoryDeck("title");
         return;
@@ -2140,6 +2172,26 @@ def render_console_client_script(initial_state: str) -> str:
         state.selectedStoryId = created.id;
         state.storyDetails[created.id] = created;
         renderStories();
+        setStageFeedback("review", {{
+          kind: "completion",
+          title: state.language === "zh" ? `故事已创建：${{created.title}}` : `Story created: ${{created.title}}`,
+          copy: copy(
+            "The review lane now has a persisted story object. Refine it in the workspace or inspect delivery readiness next.",
+            "审阅阶段现在已经拥有持久化故事对象；下一步可以继续在工作台里完善它，或检查交付就绪度。"
+          ),
+          actionHierarchy: {{
+            primary: {{
+              label: copy("Open Story Workspace", "打开故事工作台"),
+              attrs: {{ "data-empty-jump": "section-story" }},
+            }},
+            secondary: [
+              {{
+                label: copy("Open Delivery Lane", "打开交付工作线"),
+                attrs: {{ "data-empty-jump": "section-ops" }},
+              }},
+            ],
+          }},
+        }});
         showToast(
           state.language === "zh" ? `故事已创建：${{created.title}}` : `Story created: ${{created.title}}`,
           "success",
@@ -3413,73 +3465,305 @@ def render_console_client_script(initial_state: str) -> str:
       const descriptors = {{
         intake: {{
           id: "intake",
-          label: copy("Intake", "录入"),
+          label: copy("Start", "开始"),
           kicker: copy("Start", "开始"),
           summary: copy(
-            "Keep mission intake as the clean landing surface so the first decision is just what to monitor next.",
-            "把任务录入单独作为落地面，确保进入控制台后的第一个判断只是下一步要监测什么。"
+            "Keep mission intake as the clean starting surface so the first decision stays focused on what to monitor next.",
+            "把任务录入单独作为起始界面，确保进入控制台后的第一个判断仍然只是下一步要监测什么。"
           ),
           modules: [
-            copy("Mission Intake", "任务录入"),
+            {{
+              sectionId: "section-intake",
+              title: copy("Mission Intake", "任务录入"),
+              summary: copy(
+                "Start from one mission draft and keep the first move narrow: define the watch, then hand it into monitoring.",
+                "从一个任务草稿开始，把第一步收窄成定义监测对象，然后再交给监测阶段。"
+              ),
+              output: copy("Readiness state and current checklist", "就绪状态和当前清单"),
+              nextAction: copy("Create one mission", "创建一个任务"),
+              cta: copy("Open Start Surface", "打开开始视图"),
+            }},
           ],
+          advancedActions: [],
           landingSection: "section-intake",
-          footnote: copy("Best for starting or cloning one mission without downstream noise.", "适合在不受下游噪音干扰的情况下新建或复制任务。"),
-          topbarSubtitle: copy("Lifecycle rail | Intake -> Missions -> Review -> Delivery", "生命周期主轨 | 录入 -> 任务 -> 审阅 -> 交付"),
+          footnote: copy("Keep this stage narrow: readiness first, downstream detail later.", "这个阶段只保留最小必要范围：先确认就绪，再进入下游细节。"),
+          topbarSubtitle: copy("Workflow stages | Start -> Monitor -> Review -> Deliver", "工作流阶段 | 开始 -> 监测 -> 审阅 -> 交付"),
         }},
         missions: {{
           id: "missions",
-          label: copy("Missions", "任务"),
-          kicker: copy("Run", "执行"),
+          label: copy("Monitor", "监测"),
+          kicker: copy("Monitor", "监测"),
           summary: copy(
-            "Keep board control and cockpit inspection in one lane so dispatch, recent evidence, and downstream handoff facts stay together.",
-            "把任务列表和任务详情收进同一条工作线，让执行、近期证据和下游交接事实保持连贯。"
+            "Keep mission selection and cockpit inspection in one monitoring lane so run posture, recent evidence, and handoff facts stay together.",
+            "把任务选择和任务详情收进同一条监测工作线，让执行姿态、近期证据和交接事实保持连贯。"
           ),
           modules: [
-            copy("Mission Board", "任务列表"),
-            copy("Cockpit", "任务详情"),
+            {{
+              sectionId: "section-board",
+              title: copy("Mission Board", "任务列表"),
+              summary: copy(
+                "Choose the current mission, confirm readiness, and keep due or degraded watches visible without diving into every detail at once.",
+                "先选定当前任务，确认就绪度，并把待执行或降级任务保持可见，而不是一开始就展开全部细节。"
+              ),
+              output: copy("Mission posture, due state, and latest lane status", "任务姿态、待执行状态和最近工作线状态"),
+              nextAction: copy("Select one mission", "选中一个任务"),
+              cta: copy("Open Mission Board", "打开任务列表"),
+            }},
+            {{
+              sectionId: "section-cockpit",
+              title: copy("Mission Cockpit", "任务详情"),
+              summary: copy(
+                "Inspect one mission's run history, results, and route handoff facts once it becomes the current work object.",
+                "当某个任务成为当前工作对象后，在这里查看它的执行历史、结果和路由交接事实。"
+              ),
+              output: copy("Latest run outcome and stored results", "最新运行结果和已存储结果"),
+              nextAction: copy("Inspect the selected mission", "查看当前任务详情"),
+              cta: copy("Open Cockpit", "打开任务详情"),
+            }},
           ],
+          advancedActions: [],
           landingSection: "section-board",
-          footnote: copy("Best for dispatch, inspection, and alert-rule tuning.", "适合执行任务、查看结果和调整告警规则。"),
-          topbarSubtitle: copy("Missions | Board -> Cockpit", "任务 | 列表 -> 详情"),
+          footnote: copy("Stay on the current mission until the run outcome and next handoff are obvious.", "围绕当前任务工作，直到运行结果和下一步交接都清晰为止。"),
+          topbarSubtitle: copy("Monitor | Mission Board -> Cockpit", "监测 | 任务列表 -> 任务详情"),
         }},
         review: {{
           id: "review",
           label: copy("Review", "审阅"),
           kicker: copy("Review", "审阅"),
           summary: copy(
-            "Keep triage, stories, claims, and report composition in one evidence lane so review can move into exportable judgment without losing context.",
-            "把分诊、故事、主张装配和报告编排收进同一条证据工作线，让审阅可以在不丢上下文的前提下推进成可导出的判断。"
+            "Keep triage and story work first-rank so evidence review can progress before claim composition and report assembly are needed.",
+            "把分诊和故事工作保持在第一层级，让证据审阅先完成，再按需进入主张装配和报告编排。"
           ),
           modules: [
-            copy("Triage", "分诊"),
-            copy("Stories", "故事"),
-            copy("Claim Composer", "主张装配"),
-            copy("Report Studio", "报告工作台"),
+            {{
+              sectionId: "section-triage",
+              title: copy("Triage Queue", "分诊队列"),
+              summary: copy(
+                "Review the inbox and keep the selected evidence workbench visible before promoting anything downstream.",
+                "先处理收件队列，并让选中的证据工作台保持可见，再决定是否向下游提升。"
+              ),
+              output: copy("Queue state and selected evidence", "队列状态和当前证据"),
+              nextAction: copy("Verify or promote evidence", "核验或提升证据"),
+              cta: copy("Open Triage", "打开分诊"),
+            }},
+            {{
+              sectionId: "section-story",
+              title: copy("Story Workspace", "故事工作台"),
+              summary: copy(
+                "Keep the promoted story, contradictions, and delivery readiness in one place before editorial packaging begins.",
+                "在进入编辑包装前，把已提升故事、冲突点和交付就绪度收进同一个工作台。"
+              ),
+              output: copy("Promoted story candidate and readiness state", "已提升故事候选和就绪状态"),
+              nextAction: copy("Refine the current story", "完善当前故事"),
+              cta: copy("Open Story Workspace", "打开故事工作台"),
+            }},
+          ],
+          advancedActions: [
+            {{
+              sectionId: "section-claims",
+              label: copy("Open Claim Composer", "打开主张装配"),
+            }},
+            {{
+              sectionId: "section-report-studio",
+              label: copy("Open Report Studio", "打开报告工作台"),
+            }},
           ],
           landingSection: "section-triage",
-          footnote: copy("Best for evidence review, claim composition, and report assembly.", "适合证据审阅、主张装配与报告编排。"),
-          topbarSubtitle: copy("Review | Triage -> Stories -> Claims -> Report Studio", "审阅 | 分诊 -> 故事 -> 主张 -> 报告"),
+          footnote: copy("Claims and reports remain available, but they should not compete with the current evidence object by default.", "主张和报告仍然可用，但默认不再与当前证据对象争夺第一层级注意力。"),
+          topbarSubtitle: copy("Review | Triage -> Stories -> Advanced Review", "审阅 | 分诊 -> 故事 -> 高级审阅"),
         }},
         delivery: {{
           id: "delivery",
-          label: copy("Delivery", "交付"),
+          label: copy("Deliver", "交付"),
           kicker: copy("Deliver", "交付"),
           summary: copy(
-            "Keep alerting missions, route-backed delivery, and output health in one lane so downstream status stays visible without backtracking.",
-            "把触发告警的任务、路由交付和输出健康收进同一条工作线，让下游状态保持可见而不用来回跳转。"
+            "Keep route posture, dispatch state, and delivery history first-rank so downstream status stays visible without exposing every diagnostic surface by default.",
+            "把路由姿态、分发状态和交付历史保留在第一层级，让下游状态保持可见，而不是默认把所有诊断面板都展开。"
           ),
           modules: [
-            copy("Ops Snapshot", "运行状态"),
-            copy("Alert Stream", "告警动态"),
-            copy("Route Manager", "路由管理"),
-            copy("Distribution Health", "分发健康"),
+            {{
+              sectionId: "section-ops",
+              title: copy("Delivery Lane", "交付工作线"),
+              summary: copy(
+                "Watch route posture, recent alert flow, and dispatch history in one owned delivery surface before opening diagnostics.",
+                "先在一个交付面板里查看路由姿态、近期告警流和分发历史，再按需打开诊断视图。"
+              ),
+              output: copy("Dispatch posture and delivery history", "分发姿态和交付历史"),
+              nextAction: copy("Inspect routes or dispatch output", "查看路由或分发输出"),
+              cta: copy("Open Delivery Lane", "打开交付工作线"),
+            }},
+          ],
+          advancedActions: [
+            {{
+              shellId: "delivery-advanced-shell",
+              label: copy("Open Advanced Delivery Surfaces", "打开高级交付面板"),
+            }},
           ],
           landingSection: "section-ops",
-          footnote: copy("Best for delivery sinks, route health, and operator setup.", "适合交付路由、分发健康和配置维护。"),
-          topbarSubtitle: copy("Delivery | Ops -> Alerts -> Routes", "交付 | 运行状态 -> 告警 -> 路由"),
+          footnote: copy("Keep delivery diagnostics available on demand instead of leaving them in the default scan path.", "让交付诊断面按需可见，而不是继续留在默认扫描路径上。"),
+          topbarSubtitle: copy("Deliver | Route posture -> Dispatch -> History", "交付 | 路由姿态 -> 分发 -> 历史"),
         }},
       }};
       return descriptors[normalized] || descriptors.intake;
+    }}
+
+    function workspaceModeCurrentObjectLabel(activeSectionId) {{
+      if (activeSectionId === "section-intake") {{
+        const draftName = String(state.createWatchDraft?.name || "").trim();
+        const draftQuery = String(state.createWatchDraft?.query || "").trim();
+        return clampLabel(draftName || draftQuery || copy("Mission draft not started", "任务草稿尚未开始"), 42);
+      }}
+      if (activeSectionId === "section-board" || activeSectionId === "section-cockpit") {{
+        const selectedWatch = state.watchDetails[state.selectedWatchId] || state.watches.find((watch) => watch.id === state.selectedWatchId);
+        return clampLabel(selectedWatch?.name || selectedWatch?.id || copy("No mission selected", "未选择任务"), 42);
+      }}
+      if (activeSectionId === "section-triage") {{
+        const triageFocus = state.triage.find((item) => item.id === state.selectedTriageId);
+        return clampLabel(triageFocus?.title || triageFocus?.id || copy("No evidence selected", "未选择证据"), 42);
+      }}
+      if (activeSectionId === "section-story") {{
+        const selectedStory = getStoryRecord(state.selectedStoryId);
+        return clampLabel(selectedStory?.title || selectedStory?.id || copy("No story selected", "未选择故事"), 42);
+      }}
+      if (activeSectionId === "section-claims") {{
+        const selectedClaim = getSelectedClaimCard();
+        const selectedReport = getSelectedReportRecord();
+        return clampLabel(
+          getClaimCardLabel(selectedClaim) || selectedReport?.title || selectedReport?.id || copy("No claim target selected", "未选择主张目标"),
+          42,
+        );
+      }}
+      if (activeSectionId === "section-report-studio") {{
+        const selectedReport = getSelectedReportRecord();
+        return clampLabel(selectedReport?.title || selectedReport?.id || copy("No report selected", "未选择报告"), 42);
+      }}
+      const selectedSubscription = getSelectedDeliverySubscription();
+      const routeName = normalizeRouteName(state.contextRouteName) || selectedSubscription?.route_names?.[0] || state.routes[0]?.name || "";
+      return clampLabel(
+        summarizeDeliverySubject(selectedSubscription) || routeName || copy("No delivery object selected", "未选择交付对象"),
+        42,
+      );
+    }}
+
+    function workspaceModeOwnedOutputLabel(modeId, activeSectionId) {{
+      if (modeId === "intake") {{
+        const hasRequiredInput = Boolean(String(state.createWatchDraft?.name || "").trim() && String(state.createWatchDraft?.query || "").trim());
+        return hasRequiredInput
+          ? copy("Mission draft ready to create", "任务草稿已具备创建条件")
+          : copy("Waiting for Name + Query", "等待填写名称和查询词");
+      }}
+      if (modeId === "missions") {{
+        const selectedWatch = state.watchDetails[state.selectedWatchId] || state.watches.find((watch) => watch.id === state.selectedWatchId);
+        const resultStats = selectedWatch?.result_stats || state.watchDetails[state.selectedWatchId]?.result_stats || null;
+        if (!selectedWatch) {{
+          return copy("Select one mission to inspect its latest run", "选中一个任务后才能查看它的最新运行结果");
+        }}
+        return phrase(
+          "{{status}} | {{count}} stored results",
+          "{{status}} | {{count}} 条已存储结果",
+          {{
+            status: localizeWord(selectedWatch.last_run_status || "waiting"),
+            count: Number(resultStats?.stored_result_count || resultStats?.returned_result_count || 0),
+          }},
+        );
+      }}
+      if (modeId === "review") {{
+        if (activeSectionId === "section-story" || activeSectionId === "section-claims" || activeSectionId === "section-report-studio") {{
+          const selectedStory = getStoryRecord(state.selectedStoryId);
+          const selectedReport = getSelectedReportRecord();
+          const quality = getReportComposition(selectedReport?.id || "")?.quality || null;
+          if (activeSectionId === "section-story" && selectedStory) {{
+            return phrase(
+              "{{status}} | {{count}} evidence items",
+              "{{status}} | {{count}} 条证据",
+              {{
+                status: localizeWord(selectedStory.status || "active"),
+                count: Number(selectedStory.item_count || 0),
+              }},
+            );
+          }}
+          if (selectedReport) {{
+            return phrase(
+              "{{status}} | {{count}} sections",
+              "{{status}} | {{count}} 个章节",
+              {{
+                status: localizeWord(quality?.status || selectedReport.status || "draft"),
+                count: getReportSectionsForReport(selectedReport.id).length,
+              }},
+            );
+          }}
+        }}
+        return phrase(
+          "{{count}} open items in triage",
+          "分诊中有 {{count}} 条待处理项",
+          {{ count: Number(state.triageStats?.open_count || 0) }},
+        );
+      }}
+      const routeSummary = state.ops?.route_summary || {{}};
+      return phrase(
+        "{{healthy}} healthy routes | {{alerts}} alerts",
+        "{{healthy}} 条健康路由 | {{alerts}} 条告警",
+        {{
+          healthy: Number(routeSummary.healthy || 0),
+          alerts: Number(state.alerts.length || 0),
+        }},
+      );
+    }}
+
+    function workspaceModeNextActionLabel(modeId, activeSectionId) {{
+      if (modeId === "intake") {{
+        const hasRequiredInput = Boolean(String(state.createWatchDraft?.name || "").trim() && String(state.createWatchDraft?.query || "").trim());
+        return hasRequiredInput
+          ? copy("Create the mission", "创建任务")
+          : copy("Fill the required mission input", "补全任务必填信息");
+      }}
+      if (modeId === "missions") {{
+        return state.selectedWatchId
+          ? copy("Open Cockpit or run the mission", "打开任务详情或立即执行任务")
+          : copy("Select one mission from the board", "先从列表选中一个任务");
+      }}
+      if (modeId === "review") {{
+        if (activeSectionId === "section-claims" || activeSectionId === "section-report-studio") {{
+          return getSelectedReportRecord()
+            ? copy("Refresh composition or attach claims", "刷新编排或挂接主张")
+            : copy("Choose a report target first", "先选择一个报告目标");
+        }}
+        return state.selectedStoryId
+          ? copy("Refine the story and confirm readiness", "完善故事并确认交付就绪度")
+          : (state.selectedTriageId
+              ? copy("Verify or promote the selected evidence", "核验或提升当前证据")
+              : copy("Pick one evidence item from triage", "先从分诊队列选中一条证据"));
+      }}
+      return state.routes.length
+        ? copy("Inspect route posture or dispatch current output", "查看路由姿态或分发当前输出")
+        : copy("Create a named route", "创建一个命名路由");
+    }}
+
+    function syncAdvancedSurfaceShells() {{
+      const activeSectionId = normalizeSectionId(state.activeSectionId);
+      const reviewShell = $("review-advanced-shell");
+      if (reviewShell instanceof HTMLDetailsElement) {{
+        if (reviewAdvancedSectionIds.includes(activeSectionId)) {{
+          reviewShell.open = true;
+        }} else if (state.activeWorkspaceMode !== "review") {{
+          reviewShell.open = false;
+        }}
+      }}
+      const deliveryShell = $("delivery-advanced-shell");
+      if (deliveryShell instanceof HTMLDetailsElement && state.activeWorkspaceMode !== "delivery") {{
+        deliveryShell.open = false;
+      }}
+    }}
+
+    function openAdvancedSurfaceShell(shellId) {{
+      const shell = $(shellId);
+      if (!(shell instanceof HTMLElement)) {{
+        return;
+      }}
+      if (shell instanceof HTMLDetailsElement) {{
+        shell.open = true;
+      }}
+      shell.scrollIntoView({{ block: "start", behavior: "smooth" }});
     }}
 
     function renderWorkspaceModeShell() {{
@@ -3487,8 +3771,74 @@ def render_console_client_script(initial_state: str) -> str:
       if (!root) {{
         return;
       }}
-      root.hidden = true;
-      root.innerHTML = "";
+      const activeSectionId = normalizeSectionId(state.activeSectionId);
+      const modeDescriptor = workspaceModeDescriptor(state.activeWorkspaceMode);
+      const currentObject = workspaceModeCurrentObjectLabel(activeSectionId);
+      const ownedOutput = workspaceModeOwnedOutputLabel(modeDescriptor.id, activeSectionId);
+      const nextAction = workspaceModeNextActionLabel(modeDescriptor.id, activeSectionId);
+      const cards = Array.isArray(modeDescriptor.modules) ? modeDescriptor.modules : [];
+      const advancedActions = Array.isArray(modeDescriptor.advancedActions) ? modeDescriptor.advancedActions : [];
+
+      root.hidden = false;
+      root.innerHTML = `
+        <div class="workspace-mode-head">
+          <div class="workspace-mode-summary">
+            <div class="workspace-mode-kicker">${{escapeHtml(modeDescriptor.kicker)}}</div>
+            <div class="workspace-mode-title">${{escapeHtml(modeDescriptor.label)}}</div>
+            <div class="workspace-mode-copy">${{escapeHtml(modeDescriptor.summary)}}</div>
+          </div>
+          <div class="workspace-mode-meta">
+            <span class="chip">${{copy("Current surface", "当前视图")}}: ${{escapeHtml(activeSectionLabel(activeSectionId))}}</span>
+            <span class="chip ok">${{copy("Current object", "当前对象")}}: ${{escapeHtml(currentObject)}}</span>
+            <span class="chip">${{copy("Owned output", "阶段产出")}}: ${{escapeHtml(ownedOutput)}}</span>
+            <span class="chip hot">${{copy("Next action", "下一步动作")}}: ${{escapeHtml(nextAction)}}</span>
+          </div>
+        </div>
+        <div class="workspace-mode-grid">
+          ${{cards.map((card) => {{
+            const sectionId = normalizeSectionId(card.sectionId || modeDescriptor.landingSection);
+            const active = sectionId === activeSectionId;
+            return `
+              <button class="workspace-mode-card ${{active ? "active" : ""}}" type="button" data-workspace-jump="${{sectionId}}">
+                <div class="workspace-mode-card-head">
+                  <div>
+                    <div class="workspace-mode-kicker">${{escapeHtml(modeDescriptor.label)}}</div>
+                    <div class="workspace-mode-title">${{escapeHtml(card.title || activeSectionLabel(sectionId))}}</div>
+                  </div>
+                  <span class="chip ${{active ? "ok" : ""}}">${{active ? copy("Current", "当前") : copy("Open", "打开")}}</span>
+                </div>
+                <div class="workspace-mode-copy">${{escapeHtml(card.summary || "")}}</div>
+                <div class="workspace-mode-modules">
+                  <span class="workspace-mode-module">${{copy("Owned output", "阶段产出")}} · ${{escapeHtml(card.output || "")}}</span>
+                  <span class="workspace-mode-module">${{copy("Next action", "下一步动作")}} · ${{escapeHtml(card.nextAction || "")}}</span>
+                </div>
+                <div class="workspace-mode-foot">
+                  <span>${{copy("Surface", "视图")}} · ${{escapeHtml(activeSectionLabel(sectionId))}}</span>
+                  <span>${{escapeHtml(card.cta || copy("Open surface", "打开视图"))}}</span>
+                </div>
+              </button>
+            `;
+          }}).join("")}}
+        </div>
+        <div class="workspace-mode-foot">
+          <span>${{escapeHtml(modeDescriptor.footnote)}}</span>
+          ${{advancedActions.map((action) => action.sectionId
+            ? `<button class="chip-btn" type="button" data-workspace-jump="${{escapeHtml(action.sectionId)}}">${{escapeHtml(action.label)}}</button>`
+            : `<button class="chip-btn" type="button" data-workspace-advanced-open="${{escapeHtml(action.shellId || "")}}">${{escapeHtml(action.label)}}</button>`
+          ).join("")}}
+        </div>
+      `;
+      root.querySelectorAll("[data-workspace-jump]").forEach((button) => {{
+        button.addEventListener("click", () => {{
+          jumpToSection(String(button.dataset.workspaceJump || "").trim());
+        }});
+      }});
+      root.querySelectorAll("[data-workspace-advanced-open]").forEach((button) => {{
+        button.addEventListener("click", () => {{
+          openAdvancedSurfaceShell(String(button.dataset.workspaceAdvancedOpen || "").trim());
+        }});
+      }});
+      scheduleCanvasTextFit(root);
     }}
 
     function renderWorkspaceModeChrome() {{
@@ -3508,6 +3858,7 @@ def render_console_client_script(initial_state: str) -> str:
         button.setAttribute("aria-current", active ? "page" : "false");
       }});
       setText("topbar-subtitle", modeDescriptor.topbarSubtitle);
+      syncAdvancedSurfaceShells();
       renderWorkspaceModeShell();
     }}
 
@@ -4242,7 +4593,9 @@ def render_console_client_script(initial_state: str) -> str:
       const heroActions = selectedWatch ? [
         {{ label: copy("Open Cockpit", "打开任务详情"), section: "section-cockpit" }},
         {{ label: copy("Open Triage", "打开分诊"), section: "section-triage" }},
-        {{ label: copy("Run Mission", "立即执行任务"), runWatch: selectedWatch.id }},
+        selectedWatch.enabled
+          ? {{ label: copy("Run Mission", "立即执行任务"), runWatch: selectedWatch.id }}
+          : {{ label: copy("Enable Mission", "启用任务"), toggleWatch: selectedWatch.id, watchEnabled: "0" }},
       ] : [
         {{ label: copy("Create Mission", "新建任务"), focus: "mission", field: "name" }},
         {{ label: copy("Open Mission Board", "打开任务列表"), section: "section-board" }},
@@ -4253,6 +4606,8 @@ def render_console_client_script(initial_state: str) -> str:
               class="btn-primary"
               type="button"
               ${{action.runWatch ? `data-empty-run-watch="${{escapeHtml(action.runWatch)}}"` : ""}}
+              ${{action.toggleWatch ? `data-watch-toggle="${{escapeHtml(action.toggleWatch)}}"` : ""}}
+              ${{action.watchEnabled ? `data-watch-enabled="${{escapeHtml(action.watchEnabled)}}"` : ""}}
               ${{action.section ? `data-empty-jump="${{escapeHtml(action.section)}}"` : ""}}
               ${{action.focus ? `data-empty-focus="${{escapeHtml(action.focus)}}"` : ""}}
               ${{action.field ? `data-empty-field="${{escapeHtml(action.field)}}"` : ""}}
@@ -4569,10 +4924,10 @@ def render_console_client_script(initial_state: str) -> str:
       document.body.dataset.lang = state.language;
       document.title = state.language === "zh" ? "DataPulse 情报控制台" : initial.title;
       setText("topbar-title", copy("DataPulse Operations Console", "DataPulse 情报控制台"));
-      setText("nav-intake", copy("Intake", "录入"));
-      setText("nav-missions", copy("Missions", "任务"));
+      setText("nav-intake", copy("Start", "开始"));
+      setText("nav-missions", copy("Monitor", "监测"));
       setText("nav-review", copy("Review", "审阅"));
-      setText("nav-delivery", copy("Delivery", "交付"));
+      setText("nav-delivery", copy("Deliver", "交付"));
       setText("context-lens-title", copy("Workspace Context", "工作上下文"));
       setText("context-lens-copy", copy("See the current rail, active filters, and save or share the current workspace state.", "查看当前主轨、正在生效的筛选条件，并保存或分享当前工作区状态。"));
       setText("context-lens-close", copy("Close", "关闭"));
@@ -4601,9 +4956,9 @@ def render_console_client_script(initial_state: str) -> str:
       setText("guide-step-4-title", copy("Set Route And Watch Delivery", "配置路由并观察交付"));
       setText("guide-step-4-copy", copy("Route Manager creates reusable sinks; mission alert rules attach them when stories are ready to notify downstream.", "路由管理先创建可复用的交付目标；当故事准备好触发下游通知时，再从任务告警规则里把它接上。"));
       setText("guide-kicker", copy("Operator Guidance", "操作提示"));
-      setText("guide-panel-title", copy("Browser Lifecycle", "浏览器生命周期"));
-      setText("guide-chip", copy("Mission -> Triage -> Story -> Claim -> Report -> Route", "任务 -> 分诊 -> 故事 -> 主张 -> 报告 -> 路由"));
-      setText("guide-panel-copy", copy("Create or clone a mission here. The board runs it, triage reviews incoming evidence, stories promote verified signal, Claim Composer binds judgments, Report Studio checks guardrails, and routes turn delivery on.", "先在这里创建或复制任务；任务列表负责执行，分诊队列负责审阅证据，故事工作台负责沉淀信号，主张装配负责绑定判断，报告工作台负责检查门禁，路由则在需要时开启交付。"));
+      setText("guide-panel-title", copy("Workflow Stages", "工作流阶段"));
+      setText("guide-chip", copy("Start -> Monitor -> Review -> Deliver", "开始 -> 监测 -> 审阅 -> 交付"));
+      setText("guide-panel-copy", copy("Create or clone a mission here. Monitoring owns runs and results, Review owns triage and stories, and advanced claim or report workspaces stay nested until they are needed.", "先在这里创建或复制任务；监测阶段负责运行和结果，审阅阶段负责分诊和故事，而主张与报告工作区会等到真正需要时再进入。"));
       setText("shortcut-focus", copy("/ focus draft", "/ 聚焦任务草稿"));
       setText("shortcut-preset", copy("1-4 load preset", "1-4 套用预设"));
       setText("shortcut-submit", copy("Cmd/Ctrl+Enter deploy", "Cmd/Ctrl+Enter 提交"));
@@ -4669,6 +5024,12 @@ def render_console_client_script(initial_state: str) -> str:
       setText("delivery-workspace-title", copy("Delivery Workspace", "交付工作区"));
       setText("delivery-workspace-copy", copy("Subscribe to persisted outputs, inspect one report package, and dispatch it through named routes without leaving the shell.", "在不离开当前 shell 的前提下完成持久化订阅、报告输出包审计和命名路由 dispatch。"));
       setText("delivery-workspace-mode", copy("Editable", "可编辑"));
+      setText("review-advanced-title", copy("Advanced Review Surfaces", "高级审阅面板"));
+      setText("review-advanced-copy", copy("Claim composition and report assembly stay available here without competing with triage and story work by default.", "主张装配和报告编排仍然可用，但默认不再与分诊和故事工作争夺同一级注意力。"));
+      setText("review-advanced-chip", copy("Claim Composer + Report Studio", "主张装配 + 报告工作台"));
+      setText("delivery-advanced-title", copy("Advanced Delivery Surfaces", "高级交付面板"));
+      setText("delivery-advanced-copy", copy("AI projection inspection and route-health drill-down stay available here without competing with dispatch posture and delivery history by default.", "AI 投影视图和路由健康钻取仍然可用，但默认不再与分发姿态和交付历史争夺同一级注意力。"));
+      setText("delivery-advanced-chip", copy("AI Assistance + Distribution Health", "AI 辅助 + 分发健康"));
       setText("triage-title", copy("Triage Queue", "分诊队列"));
       setText("triage-copy", copy("Review open items with one selected evidence workbench, keep analyst reasoning visible, and hand verified signal into stories without leaving the queue.", "通过一个选中证据工作台完成审阅，持续看到分析师推理，并在不离开队列的前提下把已核验信号交接给故事。"));
       setText("story-title", copy("Story Workspace", "故事工作台"));
@@ -4840,6 +5201,10 @@ def render_console_client_script(initial_state: str) -> str:
       state.createWatchDraft = normalizeCreateWatchDraft(nextDraft || defaultCreateWatchDraft());
       state.createWatchPresetId = presetId;
       state.createWatchEditingId = String(editingId || "").trim();
+      const startFeedback = state.stageFeedback?.start;
+      if (startFeedback && ["blocked", "warning", "no_result"].includes(String(startFeedback.kind || "").trim().toLowerCase())) {{
+        state.stageFeedback.start = null;
+      }}
       syncCreateWatchForm();
       persistCreateWatchDraft();
       renderCreateWatchDeck();
@@ -6099,6 +6464,26 @@ def render_console_client_script(initial_state: str) -> str:
       renderActionHistory();
     }}
 
+    function updateActionEntry(entryId, patch = {{}}) {{
+      if (!entryId) {{
+        return;
+      }}
+      let changed = false;
+      state.actionLog = state.actionLog.map((entry) => {{
+        if (entry.id !== entryId) {{
+          return entry;
+        }}
+        changed = true;
+        return {{
+          ...entry,
+          ...patch,
+        }};
+      }});
+      if (changed) {{
+        renderActionHistory();
+      }}
+    }}
+
     function buildAlertRules({{ route = "", keyword = "", domain = "", minScore = 0, minConfidence = 0 }}) {{
       const cleanedRoute = String(route || "").trim();
       const cleanedKeyword = String(keyword || "").trim();
@@ -6138,6 +6523,8 @@ def render_console_client_script(initial_state: str) -> str:
               ${{action.field ? `data-empty-field="${{escapeHtml(action.field)}}"` : ""}}
               ${{action.watch ? `data-empty-watch="${{escapeHtml(action.watch)}}"` : ""}}
               ${{action.runWatch ? `data-empty-run-watch="${{escapeHtml(action.runWatch)}}"` : ""}}
+              ${{action.toggleWatch ? `data-watch-toggle="${{escapeHtml(action.toggleWatch)}}"` : ""}}
+              ${{action.watchEnabled ? `data-watch-enabled="${{escapeHtml(action.watchEnabled)}}"` : ""}}
             >${{escapeHtml(action.label || "")}}</button>
           `).join("")}}</div>`
         : "";
@@ -6155,6 +6542,263 @@ def render_console_client_script(initial_state: str) -> str:
           ${{actionsHtml}}
         </div>
       `;
+    }}
+
+    function getWatchRecord(identifier) {{
+      const normalized = String(identifier || "").trim();
+      if (!normalized) {{
+        return null;
+      }}
+      return state.watchDetails[normalized] || state.watches.find((watch) => watch.id === normalized) || null;
+    }}
+
+    async function triggerWatchRun(identifier) {{
+      const normalized = String(identifier || "").trim();
+      if (!normalized) {{
+        return;
+      }}
+      const watch = getWatchRecord(normalized);
+      if (watch && watch.enabled === false) {{
+        setStageFeedback("monitor", {{
+          kind: "blocked",
+          title: copy("Mission is paused and cannot run yet", "任务已暂停，当前无法执行"),
+          copy: copy("Enable the selected mission first, then rerun it from the monitoring lane.", "请先在监测阶段重新启用该任务，再发起执行。"),
+          actionHierarchy: {{
+            primary: {{
+              label: copy("Enable Mission", "启用任务"),
+              attrs: {{ "data-watch-toggle": normalized, "data-watch-enabled": "0" }},
+            }},
+            secondary: [
+              {{
+                label: copy("Open Mission Board", "打开任务列表"),
+                attrs: {{ "data-empty-jump": "section-board" }},
+              }},
+            ],
+          }},
+        }});
+        showToast(copy("Mission is paused. Enable it before running.", "任务已停用，请先启用后再执行。"), "error");
+        return;
+      }}
+      const watchLabel = String((watch && (watch.name || watch.id)) || normalized).trim() || normalized;
+      const actionId = `mission-run-${{normalized}}-${{Date.now()}}`;
+      pushActionEntry({{
+        id: actionId,
+        status: "pending",
+        kind: copy("mission run", "任务执行"),
+        label: state.language === "zh" ? `执行中：${{watchLabel}}` : `Running: ${{watchLabel}}`,
+        detail: copy("Fetching sources and waiting for mission results.", "正在抓取来源并等待任务结果返回。"),
+      }});
+      showToast(
+        state.language === "zh" ? `任务开始执行：${{watchLabel}}` : `Mission started: ${{watchLabel}}`,
+        "info",
+      );
+      try {{
+        const payload = await api(`/api/watches/${{normalized}}/run`, {{ method: "POST" }});
+        const run = payload && typeof payload === "object" && payload.run && typeof payload.run === "object" ? payload.run : {{}};
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        const alertEvents = Array.isArray(payload?.alert_events) ? payload.alert_events : [];
+        const itemCount = items.length || Number(run.item_count || 0);
+        const alertCount = alertEvents.length;
+        const outcomeDetail = itemCount > 0
+          ? state.language === "zh"
+            ? `执行完成，返回 ${{itemCount}} 条结果${{alertCount ? `，触发 ${{alertCount}} 条告警` : ""}}。`
+            : `Run finished with ${{itemCount}} result(s)${{alertCount ? ` and ${{alertCount}} alert event(s)` : ""}}.`
+          : state.language === "zh"
+            ? "执行完成，但没有返回结果。可调整查询词、平台或阈值后重试。"
+            : "Run finished with no results. Adjust the query, platform, or thresholds and try again.";
+        updateActionEntry(actionId, {{
+          status: "ready",
+          label: state.language === "zh" ? `任务完成：${{watchLabel}}` : `Mission completed: ${{watchLabel}}`,
+          detail: outcomeDetail,
+        }});
+        await refreshBoard();
+        setStageFeedback("monitor", itemCount > 0
+          ? {{
+              kind: "completion",
+              title: state.language === "zh"
+                ? `任务已完成并返回 ${{itemCount}} 条结果`
+                : `Mission completed with ${{itemCount}} result(s)`,
+              copy: alertCount > 0
+                ? copy(
+                    "Monitoring already produced usable results and alert activity. Review the evidence lane or inspect Cockpit for the full outcome.",
+                    "监测阶段已经产出可用结果并触发了告警活动；下一步可以进入审阅工作线，或回到驾驶舱查看完整结果。"
+                  )
+                : copy(
+                    "Monitoring produced usable results. Review the evidence lane next or inspect Cockpit for the full outcome.",
+                    "监测阶段已经产出可用结果；下一步可以进入审阅工作线，或回到驾驶舱查看完整结果。"
+                  ),
+              facts: [
+                {{ label: copy("Results", "结果数"), value: String(itemCount) }},
+                {{ label: copy("Alerts", "告警数"), value: String(alertCount) }},
+              ],
+              actionHierarchy: {{
+                primary: {{
+                  label: copy("Open Triage", "打开分诊"),
+                  attrs: {{ "data-empty-jump": "section-triage" }},
+                }},
+                secondary: [
+                  {{
+                    label: copy("Open Cockpit", "打开任务详情"),
+                    attrs: {{ "data-empty-jump": "section-cockpit" }},
+                  }},
+                ],
+              }},
+            }}
+          : {{
+              kind: "no_result",
+              title: copy("Mission completed with no results", "任务执行完成，但没有结果"),
+              copy: copy(
+                "The mission finished, but the current query, platform, or thresholds did not return usable evidence. Adjust the draft, then rerun it.",
+                "任务已经执行完成，但当前查询词、平台或阈值没有返回可用证据。请调整草稿后再重跑。"
+              ),
+              facts: [
+                {{ label: copy("Mission", "任务"), value: watchLabel }},
+                {{ label: copy("Alerts", "告警数"), value: String(alertCount) }},
+              ],
+              actionHierarchy: {{
+                primary: {{
+                  label: copy("Edit Mission Draft", "编辑任务草稿"),
+                  attrs: {{ "data-empty-focus": "mission", "data-empty-field": "query" }},
+                }},
+                secondary: [
+                  {{
+                    label: copy("Open Cockpit", "打开任务详情"),
+                    attrs: {{ "data-empty-jump": "section-cockpit" }},
+                  }},
+                ],
+              }},
+            }});
+        showToast(
+          itemCount > 0
+            ? (state.language === "zh" ? `任务完成：${{itemCount}} 条结果` : `Mission completed: ${{itemCount}} result(s)`)
+            : copy("Mission completed with no results.", "任务执行完成，但没有结果。"),
+          itemCount > 0 ? "success" : "info",
+        );
+        return payload;
+      }} catch (error) {{
+        const message = error && error.message ? error.message : String(error || "Unknown error");
+        updateActionEntry(actionId, {{
+          status: "error",
+          label: state.language === "zh" ? `任务失败：${{watchLabel}}` : `Mission failed: ${{watchLabel}}`,
+          detail: message,
+        }});
+        setStageFeedback("monitor", {{
+          kind: "blocked",
+          title: state.language === "zh" ? `任务执行失败：${{watchLabel}}` : `Mission failed: ${{watchLabel}}`,
+          copy: message,
+          actionHierarchy: {{
+            primary: {{
+              label: copy("Open Cockpit", "打开任务详情"),
+              attrs: {{ "data-empty-jump": "section-cockpit" }},
+            }},
+            secondary: [
+              {{
+                label: copy("Open Delivery Lane", "打开交付工作线"),
+                attrs: {{ "data-empty-jump": "section-ops" }},
+              }},
+            ],
+          }},
+        }});
+        throw error;
+      }}
+    }}
+
+    async function handleWatchToggle(button) {{
+      const identifier = String(button?.dataset?.watchToggle || "").trim();
+      if (!identifier) {{
+        return;
+      }}
+      const isEnabled = String(button.dataset.watchEnabled || "1") === "1";
+      const previousWatch = state.watches.find((watch) => watch.id === identifier);
+      const previousDetail = state.watchDetails[identifier] ? {{ ...state.watchDetails[identifier] }} : null;
+      button.disabled = true;
+      if (previousWatch) {{
+        previousWatch.enabled = !isEnabled;
+      }}
+      if (state.watchDetails[identifier]) {{
+        state.watchDetails[identifier].enabled = !isEnabled;
+      }}
+      renderWatches();
+      renderWatchDetail();
+      try {{
+        await api(`/api/watches/${{identifier}}/${{isEnabled ? "disable" : "enable"}}`, {{ method: "POST" }});
+        pushActionEntry({{
+          kind: "mission state",
+          label: `${{isEnabled ? "Disabled" : "Enabled"}} ${{previousWatch && previousWatch.name ? previousWatch.name : identifier}}`,
+          detail: `${{identifier}} switched to ${{isEnabled ? "disabled" : "enabled"}}.`,
+          undoLabel: isEnabled ? "Re-enable" : "Disable again",
+          undo: async () => {{
+            await api(`/api/watches/${{identifier}}/${{isEnabled ? "enable" : "disable"}}`, {{ method: "POST" }});
+            await refreshBoard();
+            showToast(`Mission ${{isEnabled ? "re-enabled" : "disabled"}}: ${{identifier}}`, "success");
+          }},
+        }});
+        await refreshBoard();
+        setStageFeedback("monitor", isEnabled
+          ? {{
+              kind: "warning",
+              title: state.language === "zh" ? `任务已暂停：${{identifier}}` : `Mission paused: ${{identifier}}`,
+              copy: copy(
+                "The mission now stays out of monitoring until it is enabled again.",
+                "这条任务会从监测阶段暂停，直到再次被启用。"
+              ),
+              actionHierarchy: {{
+                primary: {{
+                  label: copy("Enable Mission", "启用任务"),
+                  attrs: {{ "data-watch-toggle": identifier, "data-watch-enabled": "0" }},
+                }},
+                secondary: [
+                  {{
+                    label: copy("Open Mission Board", "打开任务列表"),
+                    attrs: {{ "data-empty-jump": "section-board" }},
+                  }},
+                ],
+              }},
+            }}
+          : {{
+              kind: "completion",
+              title: state.language === "zh" ? `任务已启用：${{identifier}}` : `Mission enabled: ${{identifier}}`,
+              copy: copy(
+                "The mission is back in the monitoring lane and can be run immediately.",
+                "这条任务已经重新回到监测阶段，现在可以立即执行。"
+              ),
+              actionHierarchy: {{
+                primary: {{
+                  label: copy("Run Mission", "执行任务"),
+                  attrs: {{ "data-empty-run-watch": identifier }},
+                }},
+                secondary: [
+                  {{
+                    label: copy("Open Cockpit", "打开任务详情"),
+                    attrs: {{ "data-empty-jump": "section-cockpit" }},
+                  }},
+                ],
+              }},
+            }});
+      }} catch (error) {{
+        if (previousWatch) {{
+          previousWatch.enabled = isEnabled;
+        }}
+        if (previousDetail) {{
+          state.watchDetails[identifier] = previousDetail;
+        }}
+        renderWatches();
+        renderWatchDetail();
+        reportError(error, `${{isEnabled ? "Disable" : "Enable"}} mission`);
+      }} finally {{
+        button.disabled = false;
+      }}
+    }}
+
+    function bindWatchToggleButtons(root) {{
+      if (!root) {{
+        return;
+      }}
+      root.querySelectorAll("[data-watch-toggle]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          await handleWatchToggle(button);
+        }});
+      }});
     }}
 
     function wireLifecycleGuideActions(root) {{
@@ -6238,8 +6882,7 @@ def render_console_client_script(initial_state: str) -> str:
           }}
           button.disabled = true;
           try {{
-            await api(`/api/watches/${{identifier}}/run`, {{ method: "POST" }});
-            await refreshBoard();
+            await triggerWatchRun(identifier);
           }} catch (error) {{
             reportError(error, copy("Run mission", "执行任务"));
           }} finally {{
@@ -6247,6 +6890,7 @@ def render_console_client_script(initial_state: str) -> str:
           }}
         }});
       }});
+      bindWatchToggleButtons(root);
     }}
 
     function getGovernanceSignals() {{
@@ -6365,6 +7009,8 @@ def render_console_client_script(initial_state: str) -> str:
               ${{action.field ? `data-empty-field="${{escapeHtml(action.field)}}"` : ""}}
               ${{action.watch ? `data-empty-watch="${{escapeHtml(action.watch)}}"` : ""}}
               ${{action.runWatch ? `data-empty-run-watch="${{escapeHtml(action.runWatch)}}"` : ""}}
+              ${{action.toggleWatch ? `data-watch-toggle="${{escapeHtml(action.toggleWatch)}}"` : ""}}
+              ${{action.watchEnabled ? `data-watch-enabled="${{escapeHtml(action.watchEnabled)}}"` : ""}}
             >${{escapeHtml(action.label || "")}}</button>
           `).join("")}}</div>`
         : "";
@@ -6394,6 +7040,103 @@ def render_console_client_script(initial_state: str) -> str:
         "section-ops": "ops-section-summary",
       }};
       return map[normalizeSectionId(sectionId)] || "";
+    }}
+
+    function stageFeedbackIdForSection(sectionId) {{
+      const normalizedSectionId = normalizeSectionId(sectionId);
+      const map = {{
+        "section-intake": "start",
+        "section-board": "monitor",
+        "section-cockpit": "monitor",
+        "section-triage": "review",
+        "section-story": "review",
+        "section-claims": "review",
+        "section-report-studio": "review",
+        "section-ops": "deliver",
+      }};
+      return map[normalizedSectionId] || normalizedSectionId;
+    }}
+
+    function getStageFeedback(stageOrSectionId) {{
+      const stageId = stageFeedbackIdForSection(stageOrSectionId);
+      return state.stageFeedback?.[stageId] || null;
+    }}
+
+    function refreshStageFeedbackSurfaces(stageId) {{
+      const normalizedStageId = stageFeedbackIdForSection(stageId);
+      if (normalizedStageId === "start") {{
+        renderCreateWatchDeck();
+        return;
+      }}
+      if (normalizedStageId === "monitor") {{
+        renderWatches();
+        renderWatchDetail();
+        return;
+      }}
+      if (normalizedStageId === "review") {{
+        renderTriage();
+        renderStories();
+        return;
+      }}
+      if (normalizedStageId === "deliver") {{
+        renderStatus();
+      }}
+    }}
+
+    function setStageFeedback(stageOrSectionId, payload = null) {{
+      const stageId = stageFeedbackIdForSection(stageOrSectionId);
+      if (!stageId || !state.stageFeedback) {{
+        return;
+      }}
+      state.stageFeedback[stageId] = payload
+        ? {{
+            stageId,
+            kind: String(payload.kind || "info").trim().toLowerCase() || "info",
+            title: String(payload.title || "").trim(),
+            copy: String(payload.copy || "").trim(),
+            tone: String(payload.tone || "").trim(),
+            facts: Array.isArray(payload.facts) ? payload.facts : [],
+            actionHierarchy: payload.actionHierarchy && typeof payload.actionHierarchy === "object"
+              ? payload.actionHierarchy
+              : null,
+          }}
+        : null;
+      refreshStageFeedbackSurfaces(stageId);
+    }}
+
+    function stageFeedbackKindLabel(kind = "") {{
+      const labels = {{
+        completion: copy("completion", "完成状态"),
+        warning: copy("warning", "警告"),
+        blocked: copy("blocked", "阻塞状态"),
+        no_result: copy("no result", "无结果"),
+        info: copy("stage note", "阶段说明"),
+      }};
+      return labels[String(kind || "").trim().toLowerCase()] || copy("stage note", "阶段说明");
+    }}
+
+    function renderStageFeedbackCard(feedback = {{}}, sectionId = "") {{
+      if (!feedback || !(feedback.title || feedback.copy)) {{
+        return "";
+      }}
+      const stageId = stageFeedbackIdForSection(feedback.stageId || sectionId);
+      const kind = String(feedback.kind || "info").trim().toLowerCase() || "info";
+      const tone = String(feedback.tone || "").trim()
+        || (kind === "completion" ? "ok" : ["warning", "blocked"].includes(kind) ? "hot" : "");
+      return `
+        <div class="section-summary-feedback ${{escapeHtml(tone)}}" data-stage-feedback-stage="${{escapeHtml(stageId)}}" data-stage-feedback-kind="${{escapeHtml(kind)}}">
+          <div class="section-summary-feedback-head">
+            <div>
+              <div class="section-summary-kicker">${{escapeHtml(stageFeedbackKindLabel(kind))}}</div>
+              <div class="section-summary-title">${{escapeHtml(feedback.title || copy("Stage feedback", "阶段反馈"))}}</div>
+            </div>
+            <span class="chip ${{escapeHtml(tone)}}">${{escapeHtml(stageFeedbackKindLabel(kind))}}</span>
+          </div>
+          <div class="section-summary-feedback-copy">${{escapeHtml(feedback.copy || "")}}</div>
+          ${{renderSectionSummaryFacts(feedback.facts)}}
+          ${{feedback.actionHierarchy ? renderCardActionHierarchy(feedback.actionHierarchy) : ""}}
+        </div>
+      `;
     }}
 
     function renderSectionSummaryFacts(facts = []) {{
@@ -6439,6 +7182,7 @@ def render_console_client_script(initial_state: str) -> str:
 
     function renderSectionSummaryFrame({{ sectionId = "", title = "", summary = "", objective = {{}}, success = {{}}, blocker = {{}} }} = {{}}) {{
       const normalizedSectionId = normalizeSectionId(sectionId);
+      const feedback = getStageFeedback(normalizedSectionId);
       return `
         <div class="card section-summary-card" data-section-summary="${{escapeHtml(normalizedSectionId)}}">
           <div class="card-top">
@@ -6449,6 +7193,7 @@ def render_console_client_script(initial_state: str) -> str:
             <span class="chip">${{escapeHtml(activeSectionLabel(normalizedSectionId))}}</span>
           </div>
           <div class="panel-sub">${{escapeHtml(summary)}}</div>
+          ${{feedback ? renderStageFeedbackCard(feedback, normalizedSectionId) : ""}}
           <div class="section-summary-grid">
             ${{renderSectionSummarySignal("objective", objective)}}
             ${{renderSectionSummarySignal("success", success)}}
@@ -7458,7 +8203,11 @@ def render_console_client_script(initial_state: str) -> str:
         actionHierarchy: {{
           primary: retryAdvice
             ? makeSurfaceAction(copy("Open Delivery Lane", "打开交付工作线"), {{ "data-empty-jump": "section-ops" }})
-            : makeSurfaceAction(recentResults.length ? copy("Open Triage", "打开分诊") : copy("Run Mission", "执行任务"), recentResults.length ? {{ "data-empty-jump": "section-triage" }} : {{ "data-empty-run-watch": watch?.id || "" }}),
+            : recentResults.length
+              ? makeSurfaceAction(copy("Open Triage", "打开分诊"), {{ "data-empty-jump": "section-triage" }})
+              : watch?.enabled === false
+                ? makeSurfaceAction(copy("Enable Mission", "启用任务"), {{ "data-watch-toggle": watch?.id || "", "data-watch-enabled": "0" }})
+                : makeSurfaceAction(copy("Run Mission", "执行任务"), {{ "data-empty-run-watch": watch?.id || "" }}),
           secondary: [
             makeSurfaceAction(copy("Open Mission Board", "打开任务列表"), {{ "data-empty-jump": "section-board" }}),
             makeSurfaceAction(copy("Focus Alert Rules", "聚焦告警规则"), {{ "data-empty-focus": "mission", "data-empty-field": "route" }}),
@@ -8102,10 +8851,13 @@ def render_console_client_script(initial_state: str) -> str:
 
       root.querySelectorAll("[data-run-watch]").forEach((button) => {{
         button.addEventListener("click", async () => {{
+          const identifier = String(button.dataset.runWatch || "").trim();
+          if (!identifier) {{
+            return;
+          }}
           button.disabled = true;
           try {{
-            await api(`/api/watches/${{button.dataset.runWatch}}/run`, {{ method: "POST" }});
-            await refreshBoard();
+            await triggerWatchRun(identifier);
           }} catch (error) {{
             reportError(error, copy("Run mission", "执行任务"));
           }} finally {{
@@ -8114,50 +8866,7 @@ def render_console_client_script(initial_state: str) -> str:
         }});
       }});
 
-      root.querySelectorAll("[data-watch-toggle]").forEach((button) => {{
-        button.addEventListener("click", async () => {{
-          const identifier = String(button.dataset.watchToggle || "").trim();
-          const isEnabled = String(button.dataset.watchEnabled || "1") === "1";
-          const previousWatch = state.watches.find((watch) => watch.id === identifier);
-          const previousDetail = state.watchDetails[identifier] ? {{ ...state.watchDetails[identifier] }} : null;
-          button.disabled = true;
-          if (previousWatch) {{
-            previousWatch.enabled = !isEnabled;
-          }}
-          if (state.watchDetails[identifier]) {{
-            state.watchDetails[identifier].enabled = !isEnabled;
-          }}
-          renderWatches();
-          renderWatchDetail();
-          try {{
-            await api(`/api/watches/${{identifier}}/${{isEnabled ? "disable" : "enable"}}`, {{ method: "POST" }});
-            pushActionEntry({{
-              kind: "mission state",
-              label: `${{isEnabled ? "Disabled" : "Enabled"}} ${{previousWatch && previousWatch.name ? previousWatch.name : identifier}}`,
-              detail: `${{identifier}} switched to ${{isEnabled ? "disabled" : "enabled"}}.`,
-              undoLabel: isEnabled ? "Re-enable" : "Disable again",
-              undo: async () => {{
-                await api(`/api/watches/${{identifier}}/${{isEnabled ? "enable" : "disable"}}`, {{ method: "POST" }});
-                await refreshBoard();
-                showToast(`Mission ${{isEnabled ? "re-enabled" : "disabled"}}: ${{identifier}}`, "success");
-              }},
-            }});
-            await refreshBoard();
-          }} catch (error) {{
-            if (previousWatch) {{
-              previousWatch.enabled = isEnabled;
-            }}
-            if (previousDetail) {{
-              state.watchDetails[identifier] = previousDetail;
-            }}
-            renderWatches();
-            renderWatchDetail();
-            reportError(error, `${{isEnabled ? "Disable" : "Enable"}} mission`);
-          }} finally {{
-            button.disabled = false;
-          }}
-        }});
-      }});
+      bindWatchToggleButtons(root);
 
       root.querySelectorAll("[data-delete-watch]").forEach((button) => {{
         button.addEventListener("click", async () => {{
@@ -8331,9 +9040,15 @@ def render_console_client_script(initial_state: str) -> str:
         : `
             <div class="card">
               <div class="mono">${{copy("no run yet", "尚未执行")}}</div>
-              <div class="panel-sub">${{copy("Run this mission once to seed the triage queue, story workspace, and alert history with real evidence.", "先执行一次这个任务，分诊队列、故事工作台和告警历史才会开始出现真实证据。")}}</div>
+              <div class="panel-sub">${{watch.enabled
+                ? copy("Run this mission once to seed the triage queue, story workspace, and alert history with real evidence.", "先执行一次这个任务，分诊队列、故事工作台和告警历史才会开始出现真实证据。")
+                : copy("This mission is paused. Enable it first so triage, story, and alert surfaces can start receiving real evidence again.", "这条任务当前已停用。请先启用，再让分诊、故事和告警面开始接收真实证据。")}}</div>
               <div class="actions" style="margin-top:12px;">
-                <button class="btn-primary" type="button" data-empty-run-watch="${{escapeHtml(watch.id)}}">${{copy("Run Mission Now", "立即执行任务")}}</button>
+                ${{
+                  watch.enabled
+                    ? `<button class="btn-primary" type="button" data-empty-run-watch="${{escapeHtml(watch.id)}}">${{copy("Run Mission Now", "立即执行任务")}}</button>`
+                    : `<button class="btn-primary" type="button" data-watch-toggle="${{escapeHtml(watch.id)}}" data-watch-enabled="0">${{copy("Enable Mission", "启用任务")}}</button>`
+                }}
                 <button class="btn-secondary" type="button" data-empty-jump="section-triage">${{copy("Open Triage", "打开分诊")}}</button>
               </div>
             </div>
@@ -8571,7 +9286,11 @@ def render_console_client_script(initial_state: str) -> str:
           </div>
           <div class="actions" style="margin-top:12px;">
             <button class="btn-secondary" type="button" data-watch-edit="${{watch.id}}">${{copy("Edit Mission", "编辑任务")}}</button>
-            <button class="btn-secondary" type="button" data-empty-run-watch="${{escapeHtml(watch.id)}}">${{copy("Run Mission", "执行任务")}}</button>
+            ${{
+              watch.enabled
+                ? `<button class="btn-secondary" type="button" data-empty-run-watch="${{escapeHtml(watch.id)}}">${{copy("Run Mission", "执行任务")}}</button>`
+                : `<button class="btn-secondary" type="button" data-watch-toggle="${{escapeHtml(watch.id)}}" data-watch-enabled="0">${{copy("Enable Mission", "启用任务")}}</button>`
+            }}
             <button class="btn-secondary" type="button" data-empty-jump="section-triage">${{copy("Open Triage", "打开分诊")}}</button>
             <button class="btn-secondary" type="button" data-empty-focus="route" data-empty-field="name">${{copy("Focus Route Manager", "聚焦路由管理")}}</button>
           </div>
@@ -8815,31 +9534,97 @@ def render_console_client_script(initial_state: str) -> str:
       try {{
         headers = parseRouteHeaders(draft.headers_json);
       }} catch (error) {{
+        setStageFeedback("deliver", {{
+          kind: "blocked",
+          title: copy("Route draft is blocked by header formatting", "路由草稿被请求头格式阻塞"),
+          copy: error.message,
+          actionHierarchy: {{
+            primary: {{
+              label: copy("Fix Route Headers", "修正路由请求头"),
+              attrs: {{ "data-empty-focus": "route", "data-empty-field": "headers_json" }},
+            }},
+          }},
+        }});
         showToast(error.message, "error");
         focusRouteDeck("headers_json");
         return;
       }}
       if (!draft.name.trim()) {{
+        setStageFeedback("deliver", {{
+          kind: "blocked",
+          title: copy("Route draft still needs a name", "路由草稿仍然缺少名称"),
+          copy: copy("Give the route a stable name before it can become a delivery surface.", "先给路由一个稳定名称，它才能成为可复用的交付目标。"),
+          actionHierarchy: {{
+            primary: {{
+              label: copy("Complete Route Draft", "继续补全路由草稿"),
+              attrs: {{ "data-empty-focus": "route", "data-empty-field": "name" }},
+            }},
+          }},
+        }});
         showToast(copy("Provide a route name before saving.", "保存前请先填写路由名称。"), "error");
         focusRouteDeck("name");
         return;
       }}
       if (draft.channel === "webhook" && !draft.webhook_url.trim()) {{
+        setStageFeedback("deliver", {{
+          kind: "blocked",
+          title: copy("Webhook route needs a destination", "Webhook 路由仍缺少目标地址"),
+          copy: copy("Provide the webhook URL before this route can own delivery traffic.", "补上 webhook URL 后，这条路由才能承接交付流量。"),
+          actionHierarchy: {{
+            primary: {{
+              label: copy("Add Webhook URL", "填写 Webhook URL"),
+              attrs: {{ "data-empty-focus": "route", "data-empty-field": "webhook_url" }},
+            }},
+          }},
+        }});
         showToast(copy("Webhook routes need a webhook URL.", "Webhook 路由需要填写 webhook URL。"), "error");
         focusRouteDeck("webhook_url");
         return;
       }}
       if (draft.channel === "feishu" && !draft.feishu_webhook.trim()) {{
+        setStageFeedback("deliver", {{
+          kind: "blocked",
+          title: copy("Feishu route needs a destination", "飞书路由仍缺少目标地址"),
+          copy: copy("Provide the Feishu webhook URL before this route can deliver alerts.", "补上飞书 webhook URL 后，这条路由才能投递告警。"),
+          actionHierarchy: {{
+            primary: {{
+              label: copy("Add Feishu URL", "填写飞书地址"),
+              attrs: {{ "data-empty-focus": "route", "data-empty-field": "feishu_webhook" }},
+            }},
+          }},
+        }});
         showToast(copy("Feishu routes need a webhook URL.", "飞书路由需要填写 webhook URL。"), "error");
         focusRouteDeck("feishu_webhook");
         return;
       }}
       if (draft.channel === "telegram" && !draft.telegram_chat_id.trim()) {{
+        setStageFeedback("deliver", {{
+          kind: "blocked",
+          title: copy("Telegram route needs a chat target", "Telegram 路由仍缺少会话目标"),
+          copy: copy("Provide the chat ID before this route can deliver Telegram messages.", "补上 chat ID 后，这条路由才能投递 Telegram 消息。"),
+          actionHierarchy: {{
+            primary: {{
+              label: copy("Add Chat ID", "填写 Chat ID"),
+              attrs: {{ "data-empty-focus": "route", "data-empty-field": "telegram_chat_id" }},
+            }},
+          }},
+        }});
         showToast(copy("Telegram routes need a chat ID.", "Telegram 路由需要填写 chat ID。"), "error");
         focusRouteDeck("telegram_chat_id");
         return;
       }}
       if (draft.channel === "telegram" && !editingId && !draft.telegram_bot_token.trim()) {{
+        setStageFeedback("deliver", {{
+          kind: "blocked",
+          title: copy("Telegram route needs a bot token", "Telegram 路由仍缺少机器人 token"),
+          copy: copy("A new Telegram route needs the bot token before it can become reusable.", "新建 Telegram 路由前必须提供 bot token，它才能成为可复用目标。"),
+          actionHierarchy: {{
+            primary: {{
+              label: copy("Add Bot Token", "填写 Bot Token"),
+              attrs: {{ "data-empty-focus": "route", "data-empty-field": "telegram_bot_token" }},
+            }},
+          }},
+        }});
         showToast(copy("Telegram routes need a bot token when created.", "创建 Telegram 路由时必须填写 bot token。"), "error");
         focusRouteDeck("telegram_bot_token");
         return;
@@ -8848,6 +9633,17 @@ def render_console_client_script(initial_state: str) -> str:
       if (draft.timeout_seconds.trim()) {{
         timeoutSeconds = Number(draft.timeout_seconds);
         if (!(timeoutSeconds > 0)) {{
+          setStageFeedback("deliver", {{
+            kind: "blocked",
+            title: copy("Route timeout is invalid", "路由超时时间无效"),
+            copy: copy("Set the timeout to a value greater than zero before saving the route.", "保存路由前，请把超时时间设为大于零的值。"),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Fix Timeout", "修正超时时间"),
+                attrs: {{ "data-empty-focus": "route", "data-empty-field": "timeout_seconds" }},
+              }},
+            }},
+          }});
           showToast(copy("Timeout must be greater than 0.", "超时时间必须大于 0。"), "error");
           focusRouteDeck("timeout_seconds");
           return;
@@ -8904,6 +9700,26 @@ def render_console_client_script(initial_state: str) -> str:
               : `Channel: ${{routeChannelLabel(updated.channel)}}`,
           }});
           await refreshBoard();
+          setStageFeedback("deliver", {{
+            kind: "completion",
+            title: state.language === "zh" ? `路由已更新：${{updated.name}}` : `Route updated: ${{updated.name}}`,
+            copy: copy(
+              "The delivery lane now exposes the updated route posture. Reuse it from monitoring when missions need downstream delivery.",
+              "交付阶段现在已经反映更新后的路由姿态；当监测任务需要下游交付时，可以直接复用它。"
+            ),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Open Delivery Lane", "打开交付工作线"),
+                attrs: {{ "data-empty-jump": "section-ops" }},
+              }},
+              secondary: [
+                {{
+                  label: copy("Use In Mission Draft", "用于任务草稿"),
+                  attrs: {{ "data-empty-focus": "mission", "data-empty-field": "route" }},
+                }},
+              ],
+            }},
+          }});
           showToast(
             state.language === "zh" ? `路由已更新：${{updated.name}}` : `Route updated: ${{updated.name}}`,
             "success",
@@ -8934,6 +9750,26 @@ def render_console_client_script(initial_state: str) -> str:
           }},
         }});
         await refreshBoard();
+        setStageFeedback("deliver", {{
+          kind: "completion",
+          title: state.language === "zh" ? `路由已创建：${{created.name}}` : `Route created: ${{created.name}}`,
+          copy: copy(
+            "The route now belongs to the delivery lane and can be attached from Mission Intake or Cockpit.",
+            "这条路由现在已经进入交付阶段，可以直接从任务录入区或驾驶舱里挂接。"
+          ),
+          actionHierarchy: {{
+            primary: {{
+              label: copy("Use In Mission Draft", "用于任务草稿"),
+              attrs: {{ "data-empty-focus": "mission", "data-empty-field": "route" }},
+            }},
+            secondary: [
+              {{
+                label: copy("Open Delivery Lane", "打开交付工作线"),
+                attrs: {{ "data-empty-jump": "section-ops" }},
+              }},
+            ],
+          }},
+        }});
         showToast(
           state.language === "zh" ? `路由已创建：${{created.name}}` : `Route created: ${{created.name}}`,
           "success",
@@ -8986,6 +9822,47 @@ def render_console_client_script(initial_state: str) -> str:
             : copy("Unused route removed from the delivery surface.", "未使用路由已从交付面移除。"),
         }});
         await refreshBoard();
+        setStageFeedback("deliver", usageNames.length
+          ? {{
+              kind: "warning",
+              title: state.language === "zh" ? `路由已删除：${{deleted.name}}` : `Route deleted: ${{deleted.name}}`,
+              copy: copy(
+                "The deleted route was still referenced by missions. Review mission alert rules before the next delivery run.",
+                "被删除的路由此前仍被任务引用；请在下一次交付前检查相关任务的告警规则。"
+              ),
+              actionHierarchy: {{
+                primary: {{
+                  label: copy("Review Mission Drafts", "检查任务草稿"),
+                  attrs: {{ "data-empty-focus": "mission", "data-empty-field": "route" }},
+                }},
+                secondary: [
+                  {{
+                    label: copy("Open Delivery Lane", "打开交付工作线"),
+                    attrs: {{ "data-empty-jump": "section-ops" }},
+                  }},
+                ],
+              }},
+            }}
+          : {{
+              kind: "completion",
+              title: state.language === "zh" ? `路由已删除：${{deleted.name}}` : `Route deleted: ${{deleted.name}}`,
+              copy: copy(
+                "The unused route has been removed from the delivery lane.",
+                "这条未使用路由已经从交付阶段移除。"
+              ),
+              actionHierarchy: {{
+                primary: {{
+                  label: copy("Create Route", "创建路由"),
+                  attrs: {{ "data-empty-focus": "route", "data-empty-field": "name" }},
+                }},
+                secondary: [
+                  {{
+                    label: copy("Open Delivery Lane", "打开交付工作线"),
+                    attrs: {{ "data-empty-jump": "section-ops" }},
+                  }},
+                ],
+              }},
+            }});
         showToast(
           state.language === "zh" ? `路由已删除：${{deleted.name}}` : `Route deleted: ${{deleted.name}}`,
           "success",
@@ -9783,6 +10660,23 @@ def render_console_client_script(initial_state: str) -> str:
         const nextDraft = collectDigestProfileDraft(digestForm);
         state.digestProfileDraft = nextDraft;
         if (!nextDraft.default_delivery_target.ref) {{
+          setStageFeedback("deliver", {{
+            kind: "blocked",
+            title: copy("Shared digest defaults still need a named route", "共享 digest 默认值仍缺少命名路由"),
+            copy: copy("Pick one named route before this delivery default can persist on the stage-owned surface.", "请先选择一个命名路由，这组交付默认值才能持久化到当前阶段。"),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Focus Route Draft", "聚焦路由草稿"),
+                attrs: {{ "data-empty-focus": "route", "data-empty-field": "name" }},
+              }},
+              secondary: [
+                {{
+                  label: copy("Open Delivery Lane", "打开交付工作线"),
+                  attrs: {{ "data-empty-jump": "section-ops" }},
+                }},
+              ],
+            }},
+          }});
           showToast(copy("Choose one named route before saving shared digest defaults.", "保存共享 digest 默认值前请先选择一个命名路由。"), "error");
           return;
         }}
@@ -9797,6 +10691,20 @@ def render_console_client_script(initial_state: str) -> str:
           }});
           state.digestProfileDraft = normalizeDigestProfileDraft(updated?.profile || nextDraft);
           await loadDigestConsole({{ preserveDraft: false }});
+          setStageFeedback("deliver", {{
+            kind: "completion",
+            title: copy("Shared digest defaults saved", "共享 digest 默认值已保存"),
+            copy: copy(
+              "The delivery lane now keeps the shared digest route on the owned surface instead of leaving it in toast history.",
+              "交付阶段现在已经把共享 digest 路由保留在拥有它的面板上，而不是只留在 toast 历史里。"
+            ),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Refresh Digest Preview", "刷新摘要预览"),
+                attrs: {{ "data-digest-refresh": true }},
+              }},
+            }},
+          }});
           showToast(copy("Shared digest defaults saved.", "共享 digest 默认值已保存。"), "success");
         }} catch (error) {{
           reportError(error, copy("Save digest profile", "保存 digest 配置"));
@@ -9856,10 +10764,38 @@ def render_console_client_script(initial_state: str) -> str:
         const nextDraft = collectDeliveryDraft(form);
         state.deliveryDraft = nextDraft;
         if (!nextDraft.subject_ref) {{
+          setStageFeedback("deliver", {{
+            kind: "blocked",
+            title: copy("Delivery subscription still needs a subject", "交付订阅仍缺少主体对象"),
+            copy: copy("Pick the report, story, profile, or mission that this delivery lane should own.", "请选择这条交付工作线要负责的报告、故事、配置或任务对象。"),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Open Delivery Lane", "打开交付工作线"),
+                attrs: {{ "data-empty-jump": "section-ops" }},
+              }},
+            }},
+          }});
           showToast(copy("Pick one subject before saving the subscription.", "保存订阅前请先选择一个主体对象。"), "error");
           return;
         }}
         if (nextDraft.delivery_mode === "push" && !nextDraft.route_names.length) {{
+          setStageFeedback("deliver", {{
+            kind: "blocked",
+            title: copy("Push delivery still needs a named route", "推送交付仍缺少命名路由"),
+            copy: copy("Attach at least one named route before this subscription can dispatch downstream.", "请至少绑定一个命名路由，这条订阅才能向下游发送。"),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Focus Route Draft", "聚焦路由草稿"),
+                attrs: {{ "data-empty-focus": "route", "data-empty-field": "name" }},
+              }},
+              secondary: [
+                {{
+                  label: copy("Open Delivery Lane", "打开交付工作线"),
+                  attrs: {{ "data-empty-jump": "section-ops" }},
+                }},
+              ],
+            }},
+          }});
           showToast(copy("Push delivery needs at least one named route.", "推送交付至少需要绑定一个命名路由。"), "error");
           return;
         }}
@@ -9884,6 +10820,20 @@ def render_console_client_script(initial_state: str) -> str:
               : `Output: ${{formatDeliveryOutputKind(created.output_kind)}}`,
           }});
           await refreshBoard();
+          setStageFeedback("deliver", {{
+            kind: "completion",
+            title: copy("Delivery subscription created", "交付订阅已创建"),
+            copy: copy(
+              "The delivery lane now owns a persisted subscription record. Inspect its package or dispatch it next.",
+              "交付阶段现在已经拥有持久化订阅记录；下一步可以检查输出包，或直接执行 dispatch。"
+            ),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Open Delivery Lane", "打开交付工作线"),
+                attrs: {{ "data-empty-jump": "section-ops" }},
+              }},
+            }},
+          }});
           showToast(copy("Delivery subscription created.", "交付订阅已创建。"), "success");
         }} catch (error) {{
           reportError(error, copy("Create delivery subscription", "创建交付订阅"));
@@ -9977,6 +10927,20 @@ def render_console_client_script(initial_state: str) -> str:
               : `Profile: ${{profileId || "default"}}`,
           }});
           await refreshBoard();
+          setStageFeedback("deliver", {{
+            kind: "completion",
+            title: copy("Delivery dispatch completed", "交付 dispatch 已完成"),
+            copy: copy(
+              "Dispatch results are now part of the delivery lane history. Inspect the audit timeline or route posture next.",
+              "dispatch 结果现在已经进入交付阶段历史；下一步可以查看审计时间线或路由姿态。"
+            ),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Open Delivery Lane", "打开交付工作线"),
+                attrs: {{ "data-empty-jump": "section-ops" }},
+              }},
+            }},
+          }});
           showToast(copy("Delivery dispatch completed.", "交付 dispatch 已完成。"), "success");
         }} catch (error) {{
           reportError(error, copy("Dispatch delivery subscription", "执行交付订阅"));
@@ -10020,6 +10984,29 @@ def render_console_client_script(initial_state: str) -> str:
               body: JSON.stringify({{ status: nextStatus }}),
             }});
             await refreshBoard();
+            setStageFeedback("deliver", nextStatus === "paused"
+              ? {{
+                  kind: "warning",
+                  title: copy("Delivery subscription paused", "交付订阅已暂停"),
+                  copy: copy("This subscription will stop dispatching until it is resumed from the delivery lane.", "这条订阅会停止 dispatch，直到在交付阶段重新恢复。"),
+                  actionHierarchy: {{
+                    primary: {{
+                      label: copy("Open Delivery Lane", "打开交付工作线"),
+                      attrs: {{ "data-empty-jump": "section-ops" }},
+                    }},
+                  }},
+                }}
+              : {{
+                  kind: "completion",
+                  title: copy("Delivery subscription resumed", "交付订阅已恢复"),
+                  copy: copy("The subscription is back in the delivery lane and can dispatch again.", "这条订阅已经重新回到交付阶段，可以再次 dispatch。"),
+                  actionHierarchy: {{
+                    primary: {{
+                      label: copy("Open Delivery Lane", "打开交付工作线"),
+                      attrs: {{ "data-empty-jump": "section-ops" }},
+                    }},
+                  }},
+                }});
             showToast(
               nextStatus === "paused"
                 ? copy("Delivery subscription paused.", "交付订阅已暂停。")
@@ -10053,6 +11040,17 @@ def render_console_client_script(initial_state: str) -> str:
               state.selectedDeliverySubscriptionId = "";
             }}
             await refreshBoard();
+            setStageFeedback("deliver", {{
+              kind: "completion",
+              title: copy("Delivery subscription deleted", "交付订阅已删除"),
+              copy: copy("The selected subscription has been removed from the delivery lane inventory.", "当前选中的订阅已经从交付阶段库存中移除。"),
+              actionHierarchy: {{
+                primary: {{
+                  label: copy("Open Delivery Lane", "打开交付工作线"),
+                  attrs: {{ "data-empty-jump": "section-ops" }},
+                }},
+              }},
+            }});
             showToast(copy("Delivery subscription deleted.", "交付订阅已删除。"), "success");
           }} catch (error) {{
             reportError(error, copy("Delete delivery subscription", "删除交付订阅"));
@@ -10695,6 +11693,32 @@ def render_console_client_script(initial_state: str) -> str:
           }},
         }});
         await refreshBoard();
+        setStageFeedback("review", {{
+          kind: "completion",
+          title: state.language === "zh"
+            ? `已将 ${{itemId}} 标记为 ${{localizeWord(nextState)}}`
+            : `Marked ${{itemId}} as ${{nextState}}`,
+          copy: copy(
+            "The queue state is now persisted on the review lane. Continue in triage or hand the evidence into story work next.",
+            "这条队列状态已经在审阅阶段持久化；下一步可以继续留在分诊，或把证据交给故事工作台。"
+          ),
+          actionHierarchy: {{
+            primary: {{
+              label: ["verified", "escalated"].includes(String(nextState || "").trim().toLowerCase())
+                ? copy("Open Story Workspace", "打开故事工作台")
+                : copy("Continue In Triage", "继续处理分诊"),
+              attrs: ["verified", "escalated"].includes(String(nextState || "").trim().toLowerCase())
+                ? {{ "data-empty-jump": "section-story" }}
+                : {{ "data-empty-jump": "section-triage" }},
+            }},
+            secondary: [
+              {{
+                label: copy("Review Queue", "查看分诊队列"),
+                attrs: {{ "data-empty-jump": "section-triage" }},
+              }},
+            ],
+          }},
+        }});
       }} catch (error) {{
         if (currentItem) {{
           currentItem.review_state = previousState;
@@ -10778,6 +11802,28 @@ def render_console_client_script(initial_state: str) -> str:
       await refreshBoard();
       await loadStory(created.id, {{ mode: "editor", syncUrl: true }});
       jumpToSection("section-story");
+      setStageFeedback("review", {{
+        kind: "completion",
+        title: state.language === "zh"
+          ? `已从 ${{normalizedIds.length}} 条分诊记录生成故事`
+          : `Created story from ${{normalizedIds.length}} triage item(s)`,
+        copy: copy(
+          "The review lane now owns a promoted story candidate. Refine it in the workspace before delivery.",
+          "审阅阶段现在已经拥有被提升的故事候选；下一步先在工作台里完善，再进入交付。"
+        ),
+        actionHierarchy: {{
+          primary: {{
+            label: copy("Open Story Workspace", "打开故事工作台"),
+            attrs: {{ "data-empty-jump": "section-story" }},
+          }},
+          secondary: [
+            {{
+              label: copy("Open Delivery Lane", "打开交付工作线"),
+              attrs: {{ "data-empty-jump": "section-ops" }},
+            }},
+          ],
+        }},
+      }});
       showToast(
         state.language === "zh"
           ? `已从 ${{normalizedIds.length}} 条分诊记录生成故事`
@@ -10836,6 +11882,28 @@ def render_console_client_script(initial_state: str) -> str:
           }},
         }});
         await refreshBoard();
+        setStageFeedback("review", {{
+          kind: "completion",
+          title: state.language === "zh"
+            ? `已批量处理 ${{itemIds.length}} 条分诊记录`
+            : `Processed ${{itemIds.length}} triage items`,
+          copy: copy(
+            "The selected queue slice is now updated in place. Continue review or hand the verified evidence into stories.",
+            "当前选中的队列切片已经原位更新；下一步可以继续审阅，或把已核验证据交给故事工作台。"
+          ),
+          actionHierarchy: {{
+            primary: {{
+              label: copy("Open Triage", "打开分诊"),
+              attrs: {{ "data-empty-jump": "section-triage" }},
+            }},
+            secondary: [
+              {{
+                label: copy("Open Story Workspace", "打开故事工作台"),
+                attrs: {{ "data-empty-jump": "section-story" }},
+              }},
+            ],
+          }},
+        }});
         showToast(
           state.language === "zh"
             ? `已批量处理 ${{itemIds.length}} 条分诊记录`
@@ -12733,6 +13801,26 @@ def render_console_client_script(initial_state: str) -> str:
             await attachClaimToReport(claimId, reportId, sectionId);
             state.selectedClaimId = claimId;
             await refreshBoard();
+            setStageFeedback("review", {{
+              kind: "completion",
+              title: copy("Claim attached to the current report target", "主张已挂接到当前报告目标"),
+              copy: copy(
+                "The review lane now shows that this claim is attached to the selected report target.",
+                "审阅阶段现在已经明确显示，这条主张已挂接到当前选中的报告目标。"
+              ),
+              actionHierarchy: {{
+                primary: {{
+                  label: copy("Open Report Studio", "打开报告工作台"),
+                  attrs: {{ "data-empty-jump": "section-report-studio" }},
+                }},
+                secondary: [
+                  {{
+                    label: copy("Open Claim Composer", "打开主张装配"),
+                    attrs: {{ "data-empty-jump": "section-claims" }},
+                  }},
+                ],
+              }},
+            }});
             showToast(copy("Claim attached to the current report target.", "主张已挂接到当前报告目标。"), "success");
           }} catch (error) {{
             reportError(error, copy("Attach claim", "挂接主张"));
@@ -12967,6 +14055,17 @@ def render_console_client_script(initial_state: str) -> str:
         const form = new FormData(event.target);
         const title = String(form.get("title") || "").trim();
         if (!title) {{
+          setStageFeedback("review", {{
+            kind: "blocked",
+            title: copy("Report still needs a title", "报告仍缺少标题"),
+            copy: copy("Add a title before this report can become a persisted review object.", "补上标题后，这份报告才能成为持久化的审阅对象。"),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Open Report Studio", "打开报告工作台"),
+                attrs: {{ "data-empty-jump": "section-report-studio" }},
+              }},
+            }},
+          }});
           showToast(copy("Provide a report title before saving.", "保存前请先填写报告标题。"), "error");
           return;
         }}
@@ -12988,6 +14087,26 @@ def render_console_client_script(initial_state: str) -> str:
           state.selectedReportId = String(created.id || "").trim();
           state.selectedReportSectionId = "";
           await refreshBoard();
+          setStageFeedback("review", {{
+            kind: "completion",
+            title: state.language === "zh" ? `报告已创建：${{title}}` : `Report created: ${{title}}`,
+            copy: copy(
+              "The review lane now owns a persisted report object. Add sections or attach claims next.",
+              "审阅阶段现在已经拥有一份持久化报告对象；下一步可以继续创建章节，或挂接主张。"
+            ),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Open Report Studio", "打开报告工作台"),
+                attrs: {{ "data-empty-jump": "section-report-studio" }},
+              }},
+              secondary: [
+                {{
+                  label: copy("Open Claim Composer", "打开主张装配"),
+                  attrs: {{ "data-empty-jump": "section-claims" }},
+                }},
+              ],
+            }},
+          }});
           showToast(
             state.language === "zh"
               ? `报告已创建：${{title}}`
@@ -13015,6 +14134,17 @@ def render_console_client_script(initial_state: str) -> str:
           summary: String(form.get("summary") || "").trim(),
         }};
         if (!payload.title) {{
+          setStageFeedback("review", {{
+            kind: "blocked",
+            title: copy("Report save is blocked by a missing title", "报告保存被缺失标题阻塞"),
+            copy: copy("Keep the report title populated before saving changes in the review lane.", "请先保留报告标题，再在审阅阶段保存修改。"),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Open Report Studio", "打开报告工作台"),
+                attrs: {{ "data-empty-jump": "section-report-studio" }},
+              }},
+            }},
+          }});
           showToast(copy("Provide a report title before saving.", "保存前请先填写报告标题。"), "error");
           return;
         }}
@@ -13029,6 +14159,20 @@ def render_console_client_script(initial_state: str) -> str:
             body: JSON.stringify(payload),
           }});
           await refreshBoard();
+          setStageFeedback("review", {{
+            kind: "completion",
+            title: copy("Report saved", "报告已保存"),
+            copy: copy(
+              "The persisted report object is updated in place on the review lane.",
+              "这份持久化报告对象已经在审阅阶段原位更新。"
+            ),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Open Report Studio", "打开报告工作台"),
+                attrs: {{ "data-empty-jump": "section-report-studio" }},
+              }},
+            }},
+          }});
           showToast(copy("Report saved.", "报告已保存。"), "success");
         }} catch (error) {{
           reportError(error, copy("Save report", "保存报告"));
@@ -13049,6 +14193,17 @@ def render_console_client_script(initial_state: str) -> str:
         const form = new FormData(event.target);
         const title = String(form.get("title") || "").trim();
         if (!title) {{
+          setStageFeedback("review", {{
+            kind: "blocked",
+            title: copy("Report section still needs a title", "报告章节仍缺少标题"),
+            copy: copy("Add a section title before this report structure can advance.", "补上章节标题后，这份报告结构才能继续推进。"),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Open Report Studio", "打开报告工作台"),
+                attrs: {{ "data-empty-jump": "section-report-studio" }},
+              }},
+            }},
+          }});
           showToast(copy("Provide a section title before saving.", "保存前请先填写章节标题。"), "error");
           return;
         }}
@@ -13077,6 +14232,26 @@ def render_console_client_script(initial_state: str) -> str:
           }});
           state.selectedReportSectionId = String(created.id || "").trim();
           await refreshBoard();
+          setStageFeedback("review", {{
+            kind: "completion",
+            title: copy("Report section created", "报告章节已创建"),
+            copy: copy(
+              "The report now exposes a persisted section that can receive claims from the review lane.",
+              "这份报告现在已经拥有一个持久化章节，可以继续从审阅阶段接收主张。"
+            ),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Open Claim Composer", "打开主张装配"),
+                attrs: {{ "data-empty-jump": "section-claims" }},
+              }},
+              secondary: [
+                {{
+                  label: copy("Open Report Studio", "打开报告工作台"),
+                  attrs: {{ "data-empty-jump": "section-report-studio" }},
+                }},
+              ],
+            }},
+          }});
           showToast(copy("Report section created.", "报告章节已创建。"), "success");
         }} catch (error) {{
           reportError(error, copy("Create report section", "创建报告章节"));
@@ -13311,6 +14486,28 @@ def render_console_client_script(initial_state: str) -> str:
       persistCreateWatchDraft();
       renderCreateWatchDeck();
       if (!(draft.name.trim() && draft.query.trim())) {{
+        const missingField = draft.name.trim() ? "query" : "name";
+        setStageFeedback("start", {{
+          kind: "blocked",
+          title: String(state.createWatchEditingId || "").trim()
+            ? copy("Mission edit is still blocked by required fields", "任务修改仍被必填字段阻塞")
+            : copy("Mission draft is still blocked by required fields", "任务草稿仍被必填字段阻塞"),
+          copy: draft.name.trim()
+            ? copy("Add the query before this draft can move into monitoring.", "补上查询词后，这份草稿才能进入监测阶段。")
+            : copy("Add a mission name before this draft can move into monitoring.", "补上任务名称后，这份草稿才能进入监测阶段。"),
+          actionHierarchy: {{
+            primary: {{
+              label: copy("Complete Mission Draft", "继续补全任务草稿"),
+              attrs: {{ "data-empty-focus": "mission", "data-empty-field": missingField }},
+            }},
+            secondary: [
+              {{
+                label: copy("Open Mission Board", "打开任务列表"),
+                attrs: {{ "data-empty-jump": "section-board" }},
+              }},
+            ],
+          }},
+        }});
         showToast(
           String(state.createWatchEditingId || "").trim()
             ? copy("Provide both Name and Query before saving changes.", "保存修改前请同时填写名称和查询词。")
@@ -13356,6 +14553,26 @@ def render_console_client_script(initial_state: str) -> str:
             detail: state.language === "zh" ? `任务 ID：${{editingId}}` : `Mission id: ${{editingId}}`,
           }});
           await refreshBoard();
+          setStageFeedback("start", {{
+            kind: "completion",
+            title: state.language === "zh" ? `任务已更新：${{payload.name}}` : `Mission updated: ${{payload.name}}`,
+            copy: copy(
+              "The updated mission now lives in the monitoring lane. Inspect its board posture or open Cockpit to verify the next run.",
+              "更新后的任务已经进入监测阶段；下一步可以查看任务列表姿态，或直接打开驾驶舱确认下一次执行。"
+            ),
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Open Mission Board", "打开任务列表"),
+                attrs: {{ "data-empty-jump": "section-board" }},
+              }},
+              secondary: [
+                {{
+                  label: copy("Open Cockpit", "打开任务详情"),
+                  attrs: {{ "data-empty-jump": "section-cockpit" }},
+                }},
+              ],
+            }},
+          }});
           showToast(
             state.language === "zh" ? `任务已更新：${{payload.name}}` : `Mission updated: ${{payload.name}}`,
             "success",
@@ -13411,6 +14628,26 @@ def render_console_client_script(initial_state: str) -> str:
           }},
         }});
         await refreshBoard();
+        setStageFeedback("start", {{
+          kind: "completion",
+          title: state.language === "zh" ? `任务已创建：${{payload.name}}` : `Watch created: ${{payload.name}}`,
+          copy: copy(
+            "The new mission now owns a slot in monitoring. Select it on the board or open Cockpit to inspect the first run.",
+            "新任务现在已经进入监测阶段；下一步可以在任务列表中选中它，或直接打开驾驶舱查看第一次执行。"
+          ),
+          actionHierarchy: {{
+            primary: {{
+              label: copy("Open Mission Board", "打开任务列表"),
+              attrs: {{ "data-empty-jump": "section-board" }},
+            }},
+            secondary: [
+              {{
+                label: copy("Open Cockpit", "打开任务详情"),
+                attrs: {{ "data-empty-jump": "section-cockpit" }},
+              }},
+            ],
+          }},
+        }});
         showToast(
           state.language === "zh" ? `任务已创建：${{payload.name}}` : `Watch created: ${{payload.name}}`,
           "success",

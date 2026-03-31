@@ -1477,18 +1477,26 @@ def test_console_index_serves_shell():
     assert "Run And Inspect" in response.text
     assert "Triage And Promote" in response.text
     assert "Set Route And Watch Delivery" in response.text
-    assert "Browser Lifecycle" in response.text
-    assert "The board runs it, the triage queue reviews incoming evidence" in response.text
+    assert "Workflow Stages" in response.text
+    assert "Monitoring owns runs and results, Review owns triage and stories" in response.text
+    assert "Current object" in response.text
+    assert "Owned output" in response.text
+    assert "Next action" in response.text
     assert "language-switch" in response.text
     assert "palette-open" in response.text
     assert "section-intake" in response.text
     assert "section-claims" in response.text
     assert "section-report-studio" in response.text
-    assert "Primary Lifecycle Rail" in response.text
+    assert "Primary Workflow Stages" in response.text
+    assert "Start -&gt; Monitor -&gt; Review -&gt; Deliver" in response.text
     assert 'data-context-object-step="report"' in response.text
     assert "Claim Composer" in response.text
     assert "Report Studio" in response.text
     assert "Delivery Workspace" in response.text
+    assert "review-advanced-shell" in response.text
+    assert "delivery-advanced-shell" in response.text
+    assert "Advanced Review Surfaces" in response.text
+    assert "Advanced Delivery Surfaces" in response.text
     assert "delivery-workspace-shell" in response.text
     assert "Subscription Intake" in response.text
     assert "Report Package Audit" in response.text
@@ -1575,7 +1583,16 @@ def test_console_index_serves_shell():
     assert "function renderTriageSectionSummary" in response.text
     assert "function renderStorySectionSummary" in response.text
     assert "function renderOpsSectionSummary" in response.text
+    assert "function setStageFeedback" in response.text
+    assert "function renderStageFeedbackCard" in response.text
+    assert "data-stage-feedback-kind" in response.text
+    assert "data-stage-feedback-stage" in response.text
+    assert "section-summary-feedback" in response.text
     assert "data-section-summary-kind" in response.text
+    assert "Mission completed with no results" in response.text
+    assert "Edit Mission Draft" in response.text
+    assert "Story draft still needs a title" in response.text
+    assert "Route draft still needs a name" in response.text
     assert "function renderOperatorGuidanceSurface" in response.text
     assert "function buildMissionGuidanceSurface" in response.text
     assert "function buildCockpitGuidanceSurface" in response.text
@@ -1654,6 +1671,11 @@ def test_console_client_script_keeps_restored_context_and_guidance_contract():
     assert "restoreContextSavedViewByName" in script
     assert "buildCockpitGuidanceSurface" in script
     assert "buildTriageGuidanceSurface" in script
+    assert "function syncAdvancedSurfaceShells" in script
+    assert "function openAdvancedSurfaceShell" in script
+    assert "function workspaceModeOwnedOutputLabel" in script
+    assert "function stageFeedbackIdForSection" in script
+    assert "function stageFeedbackKindLabel" in script
 
 
 def test_console_brand_hero_serves_jpeg():

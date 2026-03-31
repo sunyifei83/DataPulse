@@ -1125,7 +1125,7 @@ Recommended ignition order:
 - `L24.2` freeze the workspace-state, section-summary, and guidance contract; landed
 - `L24.3` add URL-restorable context and section-level success or blocker cards; landed
 - `L24.4` centralize guidance and explanation surfaces across mission, triage, story, and route lanes; landed
-- `L24.5` extract console client or state helpers and harden restored-context browser smoke
+- `L24.5` extract console client or state helpers and harden restored-context browser smoke; landed
 
 `L24.2` implementation contract:
 
@@ -1146,4 +1146,52 @@ Judgment:
 
 Current blueprint reopening target:
 
-- `L24.5`
+- `L24` is closed; the follow-up wave now lives in `L25`, and the current reopening target is `L25.3`
+
+## Console Workflow Simplification Follow-up
+
+The interaction-clarity wave solved the "can operators understand, restore, and explain the current shell?" problem.
+
+It did not solve the next problem:
+
+- too many same-rank surfaces still compete in the default browser shell
+- duplicated onboarding and lifecycle copy still competes with live work objects
+- advanced surfaces are still promoted too early for most operators
+- stage outputs and no-result states are still less visible than they should be
+
+The next repo-relevant question is therefore not more guidance copy. It is workflow-first shell simplification.
+
+The promoted repo-scoped blueprint for this next wave now lives in `docs/governance/datapulse-console-workflow-simplification-blueprint.md`.
+
+Recommended ignition order:
+
+- `L25.1` promote the workflow-first shell simplification blueprint; landed
+- `L25.2` freeze top-level workflow stages, promotion/demotion rules, output visibility, and feedback ownership; landed
+- `L25.3` simplify the shell around workflow order rather than capability pile-up
+- `L25.4` move no-result, warning, completion, and blocked-state semantics onto stage-owned surfaces
+- `L25.5` harden browser smoke and acceptance around stage order, next-step discoverability, and owned outputs
+
+Target product judgment for this wave:
+
+- keep the browser as the primary operating surface
+- preserve Reader-backed lifecycle nouns and command chamber visual identity
+- reduce top-level shell complexity by reorganizing around `Start / Monitor / Review / Deliver`
+- demote `Claim Composer`, `Report Studio`, `AI Assistance Surfaces`, and `Distribution Health` from first-rank default shell status unless the active stage truly requires them
+- reserve tabs for related detail views such as mission detail internals, not for top-level lifecycle navigation
+- keep toasts as temporary acknowledgements, but move actionable or stateful feedback onto page-level, tab-level, card-level, or empty-state surfaces
+
+`L25.2` frozen contract:
+
+- top-level shell order stays `Start / Monitor / Review / Deliver`
+- `Start` owns readiness framing, checklist state, and the primary start action
+- `Monitor` owns mission creation, mission list and detail, latest run outcome, result count, and no-result explanation
+- `Review` owns triage disposition, story advancement, contradiction handling, and analyst readiness to deliver
+- `Deliver` owns route posture, dispatch outcome, delivery history, and current downstream blocker state
+- mission list/detail, triage queue, story workspace, route posture, workflow progress, and per-stage owned outputs remain first-rank
+- `Claim Composer`, `Report Studio`, `AI Assistance Surfaces`, `Distribution Health`, and repeated onboarding copy are demoted behind nested surfaces unless the active stage directly requires them
+- toasts are only for transient started or completed acknowledgements; actionable warnings, blocked states, and no-result explanations belong to the stage-owned message or empty-state surface
+- empty states must name why the stage is empty, the primary next action, and where that action lives
+
+Current blueprint reopening target:
+
+- `L25.3`

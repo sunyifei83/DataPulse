@@ -2,7 +2,7 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-31T08:24:01Z",
+  "generated_at_utc": "2026-03-31T12:05:00Z",
   "status": "completed",
   "activation": {
     "wired": false,
@@ -87,7 +87,8 @@
     "L21": "completed",
     "L22": "completed",
     "L23": "completed",
-    "L24": "completed"
+    "L24": "completed",
+    "L25": "completed"
   },
   "phases": [
     {
@@ -3099,14 +3100,180 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L25",
+      "title": "Workflow-first console shell simplification",
+      "goal": "Reduce top-level cognitive load in the existing Reader-backed console by reorganizing the shell around workflow order, stage-owned outputs, and surface-owned feedback without reopening frontend-stack decisions or inventing a GUI-only control plane.",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "L25.1",
+          "title": "Land the repo-scoped workflow-first console simplification blueprint and fact promotion",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "test -f docs/governance/datapulse-console-workflow-simplification-blueprint.md",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.json",
+            "python3 -m json.tool docs/governance/datapulse-slice-adapter-catalog.draft.json"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-console-workflow-simplification-blueprint.md",
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json",
+            "docs/governance/datapulse-slice-adapter-catalog.draft.json"
+          ],
+          "exit_condition": "The repository contains a repo-scoped workflow-first console simplification blueprint that reopens the next GUI wave around workflow order, stage-owned outputs, and feedback ownership, and active blueprint truth exposes `L25.2` as the next manual ignition target after the completed `L24` wave.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31.md",
+            "/Users/sunyifei/DataPulse/docs/gui_intelligence_console_plan.md",
+            "/Users/sunyifei/DataPulse/docs/governance/datapulse-console-workflow-simplification-blueprint.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-03-31T10:40:56Z",
+            "source_count": 3,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31.md",
+              "frontmatter_title": "DataPulse + agent-skills-hub 前端交互清晰化补强清单",
+              "first_heading": "DataPulse + agent-skills-hub 前端交互清晰化补强清单",
+              "selected_heading": "2026-03-31 升维补充：从交互清晰化走向 workflow-first shell simplification",
+              "wikilink_name": "DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31"
+            }
+          },
+          "notes": [
+            "Treat this wave as shell-shape simplification over the current Reader-backed command chamber rather than as a reason to reopen frontend-stack or GUI-only state decisions.",
+            "The resulting ignition map should make `L25.2` the next narrow contract-freeze target before shell simplification work changes the top-level workflow shape."
+          ]
+        },
+        {
+          "id": "L25.2",
+          "title": "Freeze the workflow-first shell contract, promotion or demotion rules, and output visibility ownership",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-console-workflow-simplification-blueprint.md",
+            "docs/gui_intelligence_console_plan.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "exit_condition": "Repo truth explicitly names the top-level workflow stages, the first-rank versus demoted surfaces, the per-stage owned outputs, and the feedback ownership rules before shell simplification implementation begins.",
+          "notes": [
+            "Do not reopen URL-state or guidance ownership debates that were already closed in `L24` unless the workflow-first contract proves a direct conflict.",
+            "This slice should freeze shell structure and feedback ownership without requiring a frontend-stack migration decision."
+          ]
+        },
+        {
+          "id": "L25.3",
+          "title": "Simplify the top-level shell into workflow-first stages and reduce same-rank surfaces",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_server.py",
+            "python3 -m py_compile datapulse/console_markup.py",
+            "uv run pytest tests/test_console_server.py -q",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "datapulse/console_server.py",
+            "tests/test_console_server.py",
+            "scripts/datapulse_console_browser_smoke.py"
+          ],
+          "exit_condition": "The default browser shell is reorganized around workflow-first stages, advanced surfaces no longer compete at the same visual rank by default, and operators can see the current object plus next action without scanning the full capability pile.",
+          "notes": [
+            "Preserve canonical lifecycle nouns and the command chamber visual language while simplifying the shell shape.",
+            "Prefer moving advanced or secondary semantics behind nested views instead of deleting useful capability surfaces outright."
+          ]
+        },
+        {
+          "id": "L25.4",
+          "title": "Move no-result, warning, completion, and blocked states onto stage-owned surfaces",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_server.py",
+            "python3 -m py_compile datapulse/console_markup.py",
+            "uv run pytest tests/test_console_server.py -q",
+            "uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py"
+          ],
+          "artifacts": [
+            "datapulse/console_markup.py",
+            "datapulse/console_server.py",
+            "tests/test_console_server.py",
+            "scripts/datapulse_console_browser_smoke.py"
+          ],
+          "exit_condition": "Each workflow stage exposes no-result, warning, completion, and blocked states through owned message or empty-state surfaces with one clear next action, instead of relying on toast history alone.",
+          "notes": [
+            "Keep transient toasts for acknowledgements, but move actionable or stateful outcomes onto the stage that owns the work.",
+            "Use the workflow-first contract to decide where feedback belongs instead of adding more global alerts by default."
+          ]
+        },
+        {
+          "id": "L25.5",
+          "title": "Harden browser smoke and acceptance around workflow order, stage outputs, and next-step discoverability",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "completed",
+          "verification_commands": [
+            "bash scripts/datapulse_console_smoke.sh",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+            "uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py"
+          ],
+          "artifacts": [
+            "scripts/datapulse_console_smoke.sh",
+            "scripts/datapulse_console_browser_smoke.py",
+            "tests/test_console_server.py"
+          ],
+          "exit_condition": "Browser smoke and acceptance prove operators can identify the current stage, current object, owned output, primary next action, and empty-state recovery path after the workflow-first shell changes land.",
+          "notes": [
+            "Verification should check comprehension and recovery paths, not only route reachability or page load.",
+            "Keep the manual ignition boundary narrow: once this slice passes, future reopenings should require evidence-backed regressions or a new blueprint wave."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
     "id": "no-open-slice",
     "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
+    "reason": "All current slices are completed in repo truth."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-03-31T12:05:00Z",
+      "slice_id": "L25.5",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-31T11:30:42Z",
+      "slice_id": "L25.4",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-31T11:14:08Z",
+      "slice_id": "L25.3",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-31T10:53:44Z",
+      "slice_id": "L25.2",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-03-31T10:40:56Z",
+      "slice_id": "L25.1",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-03-31T08:24:01Z",
       "slice_id": "L24.4",
@@ -3503,5 +3670,5 @@
       "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-03-31T08:36:51Z"
+  "last_updated_utc": "2026-03-31T12:05:00Z"
 }

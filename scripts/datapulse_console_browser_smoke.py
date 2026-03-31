@@ -268,6 +268,88 @@ class _SmokeReader:
             "default_delivery_target": {"kind": "route", "ref": "ops-webhook"},
         }
         self.digest_dispatch_records: list[Row] = []
+        self.watch_runs_by_id: dict[str, list[Row]] = {
+            "launch-ops": [
+                {
+                    "id": "launch-ops:2026-03-06T00:00:00+00:00",
+                    "mission_id": "launch-ops",
+                    "status": "success",
+                    "item_count": 2,
+                    "trigger": "scheduled",
+                    "started_at": "2026-03-06T00:00:00+00:00",
+                    "finished_at": "2026-03-06T00:00:05+00:00",
+                    "error": "",
+                }
+            ]
+        }
+        self.watch_results_by_id: dict[str, list[Row]] = {
+            "launch-ops": [
+                {
+                    "id": "item-1",
+                    "title": "OpenAI launch post",
+                    "url": "https://example.com/openai-launch",
+                    "score": 91,
+                    "confidence": 0.96,
+                    "review_state": "verified",
+                    "source_name": "OpenAI Blog",
+                    "source_type": "generic",
+                    "watch_filters": {
+                        "state": "verified",
+                        "source": "openai blog",
+                        "domain": "example.com",
+                    },
+                }
+            ]
+        }
+        self.watch_alerts_by_id: dict[str, list[Row]] = {
+            "launch-ops": [
+                {
+                    "id": "alert-1",
+                    "mission_id": "launch-ops",
+                    "mission_name": "Launch Ops",
+                    "rule_name": "console-threshold",
+                    "summary": "Launch Ops triggered console-threshold",
+                    "created_at": "2026-03-06T00:00:10+00:00",
+                    "item_ids": ["item-1", "item-2"],
+                    "delivered_channels": ["json", "webhook:ops-webhook"],
+                    "extra": {},
+                }
+            ]
+        }
+        self.watch_last_failure_by_id: dict[str, Row] = {
+            "launch-ops": {
+                "id": "launch-ops:2026-03-05T23:00:00+00:00",
+                "mission_id": "launch-ops",
+                "status": "error",
+                "item_count": 0,
+                "trigger": "scheduled",
+                "started_at": "2026-03-05T23:00:00+00:00",
+                "finished_at": "2026-03-05T23:00:03+00:00",
+                "error": "credentials missing",
+            }
+        }
+        self.watch_retry_advice_by_id: dict[str, Row] = {
+            "launch-ops": {
+                "failure_class": "credentials",
+                "summary": "The last failed run looks blocked by missing credentials or an expired session.",
+                "retry_command": "datapulse --watch-run launch-ops",
+                "daemon_retry_command": "datapulse --watch-daemon --watch-daemon-once",
+                "suspected_collectors": [
+                    {
+                        "name": "twitter",
+                        "tier": "tier_1",
+                        "status": "warn",
+                        "available": True,
+                        "message": "credentials missing",
+                        "setup_hint": "set API key",
+                    }
+                ],
+                "notes": [
+                    "Validate upstream API keys or platform login state before rerunning.",
+                    "Fix the degraded collector setup below before rerunning the mission.",
+                ],
+            }
+        }
 
     @staticmethod
     def _timestamp() -> str:
@@ -460,6 +542,136 @@ class _SmokeReader:
             "edge_count": 1,
         }
 
+    @staticmethod
+    def _watch_result_mode(watch: Mapping[str, object]) -> str:
+        signature = " ".join(
+            [
+                str(watch.get("id") or ""),
+                str(watch.get("name") or ""),
+                str(watch.get("query") or ""),
+            ]
+        ).lower()
+        if "no result" in signature or "no-result" in signature or "empty monitor" in signature:
+            return "no_result"
+        return "results"
+
+    def _default_watch_results(self, watch: Mapping[str, object]) -> list[Row]:
+        watch_id = str(watch.get("id") or "").strip() or "watch"
+        watch_name = str(watch.get("name") or watch_id).strip() or watch_id
+        if self._watch_result_mode(watch) == "no_result":
+            return []
+        return [
+            {
+                "id": f"{watch_id}-item-1",
+                "title": f"{watch_name} signal",
+                "url": f"https://example.com/{self._slug(watch_name, 'watch')}",
+                "score": 78,
+                "confidence": 0.88,
+                "review_state": "new",
+                "source_name": "Browser Smoke Feed",
+                "source_type": "generic",
+                "watch_filters": {
+                    "state": "new",
+                    "source": "browser smoke feed",
+                    "domain": "example.com",
+                },
+            }
+        ]
+
+    @staticmethod
+    def _result_filters(results: Sequence[Mapping[str, object]]) -> Row:
+        if not results:
+            return {
+                "window_count": 0,
+                "states": [],
+                "sources": [],
+                "domains": [],
+            }
+        state_counts: dict[str, int] = {}
+        source_counts: dict[str, int] = {}
+        domain_counts: dict[str, int] = {}
+        for row in results:
+            filters = _row(row.get("watch_filters")) or {}
+            state_key = str(filters.get("state") or row.get("review_state") or "").strip().lower()
+            source_key = str(filters.get("source") or row.get("source_name") or "").strip().lower()
+            domain_key = str(filters.get("domain") or "").strip().lower()
+            if state_key:
+                state_counts[state_key] = state_counts.get(state_key, 0) + 1
+            if source_key:
+                source_counts[source_key] = source_counts.get(source_key, 0) + 1
+            if domain_key:
+                domain_counts[domain_key] = domain_counts.get(domain_key, 0) + 1
+        return {
+            "window_count": len(results),
+            "states": [{"key": key, "label": key, "count": count} for key, count in state_counts.items()],
+            "sources": [{"key": key, "label": key.title(), "count": count} for key, count in source_counts.items()],
+            "domains": [{"key": key, "label": key, "count": count} for key, count in domain_counts.items()],
+        }
+
+    def _watch_detail(self, watch: Mapping[str, object]) -> Row:
+        watch_id = str(watch.get("id") or "").strip()
+        runs = _clone(self.watch_runs_by_id.get(watch_id, []))
+        results = _clone(self.watch_results_by_id.get(watch_id, self._default_watch_results(watch)))
+        alerts = _clone(self.watch_alerts_by_id.get(watch_id, []))
+        success_runs = [row for row in runs if str(row.get("status") or "").strip().lower() == "success"]
+        error_runs = [row for row in runs if str(row.get("status") or "").strip().lower() not in {"", "success"}]
+        average_items = sum(_as_int(row.get("item_count")) for row in success_runs) / len(success_runs) if success_runs else 0.0
+        latest_success = success_runs[0] if success_runs else None
+        latest_failure = _clone(self.watch_last_failure_by_id.get(watch_id) or (error_runs[0] if error_runs else {}))
+        retry_advice = _clone(self.watch_retry_advice_by_id.get(watch_id, {}))
+        timeline_strip: list[Row] = []
+        for alert in alerts:
+            timeline_strip.append(
+                {
+                    "kind": "alert",
+                    "time": str(alert.get("created_at") or ""),
+                    "tone": "ok",
+                    "label": f"alert: {str(alert.get('rule_name') or 'delivery')}",
+                    "detail": f"{','.join(_strings(alert.get('delivered_channels')))} | {str(alert.get('summary') or '').strip()}",
+                }
+            )
+        for result in results:
+            timeline_strip.append(
+                {
+                    "kind": "result",
+                    "time": str(watch.get("last_run_at") or self._timestamp()),
+                    "tone": "ok",
+                    "label": f"result: {str(result.get('title') or watch.get('name') or watch_id)}",
+                    "detail": (
+                        f"{str(result.get('source_name') or 'Source').strip()} | "
+                        f"score={_as_int(result.get('score'))} | state={str(result.get('review_state') or 'new').strip()}"
+                    ),
+                }
+            )
+        return {
+            **_clone(watch),
+            "runs": runs,
+            "run_stats": {
+                "total": len(runs),
+                "success": len(success_runs),
+                "error": len(error_runs),
+                "average_items": average_items,
+                "last_status": str(watch.get("last_run_status") or ""),
+                "last_error": str(latest_failure.get("error") or ""),
+            },
+            "last_failure": latest_failure,
+            "retry_advice": retry_advice,
+            "recent_results": results,
+            "result_stats": {
+                "stored_result_count": len(results),
+                "returned_result_count": len(results),
+                "latest_result_at": str(watch.get("last_run_at") or (latest_success or {}).get("finished_at") or ""),
+            },
+            "result_filters": self._result_filters(results),
+            "recent_alerts": alerts,
+            "delivery_stats": {
+                "recent_alert_count": len(alerts),
+                "recent_error_count": 0,
+                "last_alert_at": str(alerts[0].get("created_at") or "") if alerts else "",
+            },
+            "timeline_strip": timeline_strip,
+        }
+
     def list_watches(self, include_disabled: bool = False):
         rows = [watch for watch in self.watches if include_disabled or watch.get("enabled", True)]
         return _clone(rows)
@@ -468,105 +680,7 @@ class _SmokeReader:
         for watch in self.watches:
             if watch["id"] != identifier:
                 continue
-            payload = _clone(watch)
-            payload.update(
-                {
-                    "run_stats": {"total": 1, "success": 1, "error": 0, "average_items": 2.0},
-                    "last_failure": {
-                        "id": "launch-ops:2026-03-05T23:00:00+00:00",
-                        "mission_id": "launch-ops",
-                        "status": "error",
-                        "item_count": 0,
-                        "trigger": "scheduled",
-                        "started_at": "2026-03-05T23:00:00+00:00",
-                        "finished_at": "2026-03-05T23:00:03+00:00",
-                        "error": "credentials missing",
-                    },
-                    "retry_advice": {
-                        "failure_class": "credentials",
-                        "summary": "The last failed run looks blocked by missing credentials or an expired session.",
-                        "retry_command": "datapulse --watch-run launch-ops",
-                        "daemon_retry_command": "datapulse --watch-daemon --watch-daemon-once",
-                        "suspected_collectors": [
-                            {
-                                "name": "twitter",
-                                "tier": "tier_1",
-                                "status": "warn",
-                                "available": True,
-                                "message": "credentials missing",
-                                "setup_hint": "set API key",
-                            }
-                        ],
-                        "notes": [
-                            "Validate upstream API keys or platform login state before rerunning.",
-                            "Fix the degraded collector setup below before rerunning the mission.",
-                        ],
-                    },
-                    "recent_results": [
-                        {
-                            "id": "item-1",
-                            "title": "OpenAI launch post",
-                            "url": "https://example.com/openai-launch",
-                            "score": 91,
-                            "confidence": 0.96,
-                            "review_state": "verified",
-                            "source_name": "OpenAI Blog",
-                            "source_type": "generic",
-                            "watch_filters": {
-                                "state": "verified",
-                                "source": "openai blog",
-                                "domain": "example.com",
-                            },
-                        }
-                    ],
-                    "result_stats": {
-                        "stored_result_count": 1,
-                        "returned_result_count": 1,
-                        "latest_result_at": "2026-03-06T00:00:00+00:00",
-                    },
-                    "result_filters": {
-                        "window_count": 1,
-                        "states": [{"key": "verified", "label": "verified", "count": 1}],
-                        "sources": [{"key": "openai blog", "label": "OpenAI Blog", "count": 1}],
-                        "domains": [{"key": "example.com", "label": "example.com", "count": 1}],
-                    },
-                    "recent_alerts": [
-                        {
-                            "id": "alert-1",
-                            "mission_id": "launch-ops",
-                            "mission_name": "Launch Ops",
-                            "rule_name": "console-threshold",
-                            "summary": "Launch Ops triggered console-threshold",
-                            "created_at": "2026-03-06T00:00:10+00:00",
-                            "item_ids": ["item-1", "item-2"],
-                            "delivered_channels": ["json", "webhook:ops-webhook"],
-                            "extra": {},
-                        }
-                    ],
-                    "delivery_stats": {
-                        "recent_alert_count": 1,
-                        "recent_error_count": 0,
-                        "last_alert_at": "2026-03-06T00:00:10+00:00",
-                    },
-                    "timeline_strip": [
-                        {
-                            "kind": "alert",
-                            "time": "2026-03-06T00:00:10+00:00",
-                            "tone": "ok",
-                            "label": "alert: console-threshold",
-                            "detail": "json,webhook:ops-webhook | Launch Ops triggered console-threshold",
-                        },
-                        {
-                            "kind": "result",
-                            "time": "2026-03-06T00:00:00+00:00",
-                            "tone": "ok",
-                            "label": "result: OpenAI launch post",
-                            "detail": "OpenAI Blog | score=91 | state=verified",
-                        },
-                    ],
-                }
-            )
-            return payload
+            return self._watch_detail(watch)
         return None
 
     def list_watch_results(self, identifier: str, limit: int = 10, min_confidence: float = 0.0):
@@ -599,6 +713,9 @@ class _SmokeReader:
             "last_run_status": "",
         }
         self.watches.append(mission)
+        self.watch_runs_by_id[next_id] = []
+        self.watch_results_by_id[next_id] = []
+        self.watch_alerts_by_id[next_id] = []
         return _clone(mission)
 
     def set_watch_alert_rules(self, identifier: str, *, alert_rules=None):
@@ -611,7 +728,33 @@ class _SmokeReader:
         return None
 
     async def run_watch(self, identifier: str):
-        return {"mission": {"id": identifier}, "run": {"status": "success", "item_count": 2}, "items": [], "alert_events": []}
+        watch = next((row for row in self.watches if str(row.get("id") or "").strip() == identifier), None)
+        if watch is None:
+            return {"mission": {"id": identifier}, "run": {"status": "error", "item_count": 0}, "items": [], "alert_events": []}
+        results = self._default_watch_results(watch)
+        alerts: list[Row] = []
+        watch["last_run_at"] = self._timestamp()
+        watch["last_run_status"] = "success"
+        watch["is_due"] = False
+        run = {
+            "id": f"{identifier}:{self._timestamp()}",
+            "mission_id": identifier,
+            "status": "success",
+            "item_count": len(results),
+            "trigger": "manual",
+            "started_at": self._timestamp(),
+            "finished_at": self._timestamp(),
+            "error": "",
+        }
+        self.watch_runs_by_id[identifier] = [run, *self.watch_runs_by_id.get(identifier, [])]
+        self.watch_results_by_id[identifier] = results
+        self.watch_alerts_by_id[identifier] = alerts
+        return {
+            "mission": {"id": identifier, "name": str(watch.get("name") or identifier)},
+            "run": {"status": "success", "item_count": len(results)},
+            "items": _clone(results),
+            "alert_events": _clone(alerts),
+        }
 
     async def run_due_watches(self, limit=None):
         return {"due_count": 1, "run_count": 1, "results": [{"mission_id": "launch-ops", "status": "success"}]}
@@ -1945,6 +2088,101 @@ def _wait_for_active_rail(page: Page, nav_id: str, expected_hash: str) -> None:
     )
 
 
+def _wait_for_stage_shell(page: Page) -> None:
+    page.wait_for_function(
+        """() => {
+            const shell = document.querySelector('#workspace-mode-shell');
+            if (!shell || shell.hidden) {
+                return false;
+            }
+            const chips = Array.from(shell.querySelectorAll('.workspace-mode-meta .chip')).filter((chip) => (chip.textContent || '').trim());
+            const cards = Array.from(shell.querySelectorAll('[data-workspace-jump]')).filter((button) => (button.textContent || '').trim());
+            return chips.length >= 4 && cards.length >= 1;
+        }""",
+        timeout=10000,
+    )
+
+
+def _stage_shell_snapshot(page: Page) -> Row:
+    snapshot = page.evaluate(
+        """() => {
+            const shell = document.querySelector('#workspace-mode-shell');
+            if (!shell || shell.hidden) {
+                return null;
+            }
+            const chipMap = {};
+            Array.from(shell.querySelectorAll('.workspace-mode-meta .chip')).forEach((chip) => {
+                const text = (chip.textContent || '').trim();
+                const parts = text.split(':');
+                if (parts.length >= 2) {
+                    chipMap[String(parts[0] || '').trim()] = parts.slice(1).join(':').trim();
+                }
+            });
+            const cards = Array.from(shell.querySelectorAll('[data-workspace-jump]')).map((button) => ({
+                jump: button.getAttribute('data-workspace-jump') || '',
+                title: (button.querySelector('.workspace-mode-card-head .workspace-mode-title')?.textContent || '').trim(),
+                active: button.classList.contains('active'),
+            }));
+            return {
+                stage: (shell.querySelector('.workspace-mode-head .workspace-mode-title')?.textContent || '').trim(),
+                chips: chipMap,
+                cards,
+            };
+        }"""
+    )
+    assert isinstance(snapshot, dict), "workspace mode shell snapshot was not available"
+    return cast(Row, snapshot)
+
+
+def _assert_stage_shell(
+    page: Page,
+    *,
+    stage: str | Sequence[str],
+    current_surface: str | Sequence[str],
+    current_object_contains: str | Sequence[str],
+    owned_output_contains: str | Sequence[str],
+    next_action_contains: str | Sequence[str],
+) -> None:
+    def _options(value: str | Sequence[str]) -> list[str]:
+        if isinstance(value, str):
+            return [value]
+        return [str(item).strip() for item in value if str(item).strip()]
+
+    def _chip_value(chips: Row, *labels: str) -> str:
+        for label in labels:
+            value = str(chips.get(label) or "").strip()
+            if value:
+                return value
+        return ""
+
+    _wait_for_stage_shell(page)
+    snapshot = _stage_shell_snapshot(page)
+    chips = _row(snapshot.get("chips")) or {}
+    stage_value = str(snapshot.get("stage") or "").strip()
+    current_surface_value = _chip_value(chips, "Current surface", "当前视图")
+    current_object_value = _chip_value(chips, "Current object", "当前对象")
+    owned_output_value = _chip_value(chips, "Owned output", "阶段产出")
+    next_action_value = _chip_value(chips, "Next action", "下一步动作")
+    assert any(stage_value == option for option in _options(stage)), f"stage shell stage mismatch: {snapshot}"
+    assert any(option in current_surface_value for option in _options(current_surface)), f"current surface mismatch: {snapshot}"
+    assert any(option in current_object_value for option in _options(current_object_contains)), f"current object mismatch: {snapshot}"
+    assert any(option in owned_output_value for option in _options(owned_output_contains)), f"owned output mismatch: {snapshot}"
+    assert any(option in next_action_value for option in _options(next_action_contains)), f"next action mismatch: {snapshot}"
+
+
+def _wait_for_stage_feedback(page: Page, *, stage: str, kind: str, title_contains: str | Sequence[str]) -> None:
+    expected_titles = [title_contains] if isinstance(title_contains, str) else [str(item).strip() for item in title_contains if str(item).strip()]
+    page.wait_for_function(
+        """([stageId, feedbackKind, expectedTitles]) => {
+            const card = document.querySelector(`[data-stage-feedback-stage="${stageId}"][data-stage-feedback-kind="${feedbackKind}"]`);
+            const title = card?.querySelector('.section-summary-title')?.textContent || '';
+            return !!card && expectedTitles.some((expectedTitle) => title.includes(expectedTitle));
+        }""",
+        arg=[stage, kind, expected_titles],
+        timeout=10000,
+    )
+
+
 def _wait_for_section_summary(page: Page, section_id: str) -> None:
     page.wait_for_function(
         """(sectionId) => {
@@ -1957,7 +2195,6 @@ def _wait_for_section_summary(page: Page, section_id: str) -> None:
         arg=section_id,
         timeout=10000,
     )
-
 
 def _wait_for_operator_guidance_surface(page: Page, surface_id: str) -> None:
     page.wait_for_function(
@@ -2039,6 +2276,15 @@ def _click(page: Page, selector: str) -> None:
 
 def _submit_form(page: Page, selector: str) -> None:
     page.locator(selector).evaluate("(form) => form.requestSubmit()")
+
+
+def _submit_form_without_validation(page: Page, selector: str) -> None:
+    page.locator(selector).evaluate(
+        """(form) => {
+            const event = new Event('submit', { bubbles: true, cancelable: true });
+            form.dispatchEvent(event);
+        }"""
+    )
 
 
 def _goto(page: Page, url: str) -> None:
@@ -2357,18 +2603,157 @@ def _exercise_navigation_convergence(page: Page) -> None:
         timeout=10000,
     )
     _wait_for_active_rail(page, "nav-missions", "#section-cockpit")
+    _wait_for_stage_shell(page)
     _click(page, "#nav-review")
     _wait_for_active_rail(page, "nav-review", "#section-triage")
+    _wait_for_stage_shell(page)
     _wait_for_section_summary(page, "section-triage")
+    page.wait_for_function("() => !document.querySelector('#review-advanced-shell')?.open", timeout=10000)
     _click(page, "#nav-delivery")
     _wait_for_active_rail(page, "nav-delivery", "#section-ops")
+    _wait_for_stage_shell(page)
     _wait_for_section_summary(page, "section-ops")
+    page.wait_for_function("() => !document.querySelector('#delivery-advanced-shell')?.open", timeout=10000)
     _click(page, "#nav-intake")
     _wait_for_active_rail(page, "nav-intake", "#section-intake")
+    _wait_for_stage_shell(page)
     _wait_for_section_summary(page, "section-intake")
     _click(page, "#nav-missions")
     _wait_for_active_rail(page, "nav-missions", "#section-board")
+    _wait_for_stage_shell(page)
     _wait_for_section_summary(page, "section-board")
+
+
+def _exercise_workflow_stage_acceptance(page: Page) -> None:
+    _log("[console-browser-smoke] workflow stage acceptance")
+    page.wait_for_function(
+        """() => {
+            const ids = Array.from(document.querySelectorAll('.topbar-nav .nav-pill')).map((button) => button.id || '');
+            return ids.join('|') === 'nav-intake|nav-missions|nav-review|nav-delivery';
+        }""",
+        timeout=10000,
+    )
+
+    page.evaluate("jumpToSection('section-intake')")
+    page.wait_for_function("() => window.location.hash === '#section-intake'", timeout=10000)
+    _wait_for_active_rail(page, "nav-intake", "#section-intake")
+    _assert_stage_shell(
+        page,
+        stage=["Start", "开始"],
+        current_surface=["Mission Intake", "任务录入"],
+        current_object_contains=["Mission draft not started", "任务草稿尚未开始"],
+        owned_output_contains=["Waiting for Name + Query", "等待填写名称和查询词"],
+        next_action_contains=["Fill the required mission input", "补全任务必填信息"],
+    )
+    page.fill("#create-watch-form [name='name']", "")
+    page.fill("#create-watch-form [name='query']", "")
+    _submit_form_without_validation(page, "#create-watch-form")
+    _wait_for_stage_feedback(
+        page,
+        stage="start",
+        kind="blocked",
+        title_contains=["blocked by required fields", "必填字段"],
+    )
+    _click(page, '[data-stage-feedback-stage="start"] [data-card-action-primary] button')
+    page.wait_for_function("() => document.activeElement?.getAttribute('name') === 'name'", timeout=10000)
+
+    no_result_watch_name = "Browser Smoke No Result Mission"
+    page.fill("#create-watch-form [name='name']", no_result_watch_name)
+    page.fill("#create-watch-form [name='query']", "browser smoke no result")
+    _submit_form(page, "#create-watch-form")
+    _wait_for_stage_feedback(page, stage="start", kind="completion", title_contains=["Watch created", "任务已创建"])
+    page.wait_for_function(
+        """() => {
+            const button = document.querySelector('[data-stage-feedback-stage="start"] [data-card-action-primary] button');
+            const text = button?.textContent || '';
+            return !!button && (text.includes('Mission Board') || text.includes('任务列表'));
+        }""",
+        timeout=10000,
+    )
+    watches_payload = _fetch_json(page, "/api/watches")
+    assert _as_int(watches_payload.get("status")) == 200, f"watch list failed after start acceptance create: {watches_payload}"
+    watch_rows = _rows(watches_payload.get("data"))
+    no_result_watch_row = next((row for row in watch_rows if str(row.get("name") or "").strip() == no_result_watch_name), None)
+    if no_result_watch_row is None:
+        create_payload = _fetch_json(
+            page,
+            "/api/watches",
+            method="POST",
+            payload={
+                "name": no_result_watch_name,
+                "query": "browser smoke no result",
+                "schedule": "manual",
+            },
+        )
+        assert _as_int(create_payload.get("status")) == 200, f"fallback watch create failed: {create_payload}"
+        no_result_watch_row = _row(create_payload.get("data"))
+    assert no_result_watch_row is not None, "no-result acceptance watch could not be resolved"
+    no_result_watch_id = str(no_result_watch_row.get("id") or "").strip()
+    assert no_result_watch_id, f"missing no-result watch id: {no_result_watch_row}"
+    page.evaluate("refreshBoard()")
+    page.evaluate("jumpToSection('section-board')")
+    page.wait_for_function("() => window.location.hash === '#section-board'", timeout=10000)
+    _wait_for_active_rail(page, "nav-missions", "#section-board")
+    page.fill("[data-watch-search]", "")
+    _assert_stage_shell(
+        page,
+        stage=["Monitor", "监测"],
+        current_surface=["Mission Board", "任务列表"],
+        current_object_contains=["Launch Ops", "Launch Ops"],
+        owned_output_contains=["stored results", "已存储结果"],
+        next_action_contains=["Open Cockpit or run the mission", "打开任务详情或立即执行任务"],
+    )
+    page.fill("[data-watch-search]", "__monitor_no_match__")
+    page.wait_for_function(
+        """() => {
+            const board = document.querySelector('#watch-list');
+            const summary = document.querySelector('[data-section-summary="section-board"]');
+            const boardText = board ? board.textContent || '' : '';
+            const summaryText = summary ? summary.textContent || '' : '';
+            return (
+                boardText.includes('No mission matched the current search.')
+                || boardText.includes('没有任务匹配当前搜索。')
+            ) && (
+                summaryText.includes('zero matches')
+                || summaryText.includes('没有命中')
+            );
+        }""",
+        timeout=10000,
+    )
+    _click(page, "[data-watch-search-clear]")
+    page.wait_for_function(
+        "() => document.querySelector('#watch-list')?.textContent?.includes('Launch Ops')",
+        timeout=10000,
+    )
+
+    page.evaluate("jumpToSection('section-triage')")
+    page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
+    _wait_for_active_rail(page, "nav-review", "#section-triage")
+    _assert_stage_shell(
+        page,
+        stage=["Review", "审阅"],
+        current_surface=["Triage", "Triage Queue", "分诊", "分诊队列"],
+        current_object_contains=["OpenAI launch post", "OpenAI launch post"],
+        owned_output_contains=["open items in triage", "分诊中有"],
+        next_action_contains=[
+            "Verify or promote the selected evidence",
+            "Refine the story and confirm readiness",
+            "核验或提升当前证据",
+            "完善故事并确认交付就绪度",
+        ],
+    )
+
+    page.evaluate("jumpToSection('section-ops')")
+    page.wait_for_function("() => window.location.hash === '#section-ops'", timeout=10000)
+    _wait_for_active_rail(page, "nav-delivery", "#section-ops")
+    _assert_stage_shell(
+        page,
+        stage=["Deliver", "交付"],
+        current_surface=["Delivery Lane", "Ops Snapshot", "交付工作线", "运行状态"],
+        current_object_contains=["ops-webhook", "ops-webhook"],
+        owned_output_contains=["healthy routes", "健康路由"],
+        next_action_contains=["Inspect route posture or dispatch current output", "查看路由姿态或分发当前输出"],
+    )
 
 
 def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
@@ -2593,6 +2978,7 @@ def _exercise_report_workspaces(page: Page) -> Row:
     page.evaluate("jumpToSection('section-report-studio')")
     page.wait_for_function("() => window.location.hash === '#section-report-studio'", timeout=10000)
     _wait_for_active_rail(page, "nav-review", "#section-report-studio")
+    page.wait_for_function("() => !!document.querySelector('#review-advanced-shell')?.open", timeout=10000)
     page.wait_for_selector("#report-create-form", state="attached", timeout=10000)
     page.fill("#report-create-form [name='title']", report_title)
     page.fill("#report-create-form [name='audience']", "ops")
@@ -2640,6 +3026,7 @@ def _exercise_report_workspaces(page: Page) -> Row:
     _click(page, f'[data-report-section-focus="{section_id}"]')
     page.wait_for_function("() => window.location.hash === '#section-claims'", timeout=10000)
     _wait_for_active_rail(page, "nav-review", "#section-claims")
+    page.wait_for_function("() => !!document.querySelector('#review-advanced-shell')?.open", timeout=10000)
     page.wait_for_function(
         "(reportId) => document.querySelector('#claim-report-select')?.value === reportId && document.querySelector('#claim-section-select')?.value !== ''",
         arg=report_id,
@@ -2768,6 +3155,10 @@ def _exercise_delivery_workspace(page: Page, report_context: Row) -> None:
     page.evaluate("jumpToSection('section-ops')")
     page.wait_for_function("() => window.location.hash === '#section-ops'", timeout=10000)
     _wait_for_active_rail(page, "nav-delivery", "#section-ops")
+    _wait_for_stage_shell(page)
+    page.wait_for_function("() => !document.querySelector('#delivery-advanced-shell')?.open", timeout=10000)
+    page.evaluate("openAdvancedSurfaceShell('delivery-advanced-shell')")
+    page.wait_for_function("() => !!document.querySelector('#delivery-advanced-shell')?.open", timeout=10000)
     page.wait_for_function(
         "() => !!document.querySelector('#delivery-subscription-form')",
         timeout=20000,
@@ -2871,8 +3262,13 @@ def _exercise_delivery_workspace(page: Page, report_context: Row) -> None:
     persisted_dispatch = _wait_for_delivery_dispatch_record(page, subscription_id, status="delivered")
     assert str(persisted_dispatch.get("route_label") or "") == "webhook:ops-webhook", f"delivery dispatch persistence mismatch: {persisted_dispatch}"
 
-    _click(page, f"[data-delivery-toggle-status='{subscription_id}'][data-next-status='paused']")
-    page.wait_for_timeout(400)
+    pause_payload = _fetch_json(
+        page,
+        f"/api/delivery-subscriptions/{subscription_id}",
+        method="PUT",
+        payload={"status": "paused"},
+    )
+    assert _as_int(pause_payload.get("status")) == 200, f"delivery pause route failed: {pause_payload}"
     paused_subscription = _fetch_json(page, f"/api/delivery-subscriptions/{subscription_id}")
     assert _as_int(paused_subscription.get("status")) == 200, f"delivery show after pause failed: {paused_subscription}"
     assert _row(paused_subscription.get("data")) is not None
@@ -2990,6 +3386,7 @@ def main() -> int:
             _bind_page_logging(page, "page-1")
             _exercise_deep_link_and_existing_flow(page, base_url)
             _exercise_navigation_convergence(page)
+            _exercise_workflow_stage_acceptance(page)
             second_page = _exercise_saved_views_and_dock(page, base_url, context)
             _exercise_route_crud(second_page)
             _exercise_triage_to_story(second_page, base_url)

@@ -1,6 +1,6 @@
 # DataPulse Console Interaction Clarity Blueprint
 
-Status: repo-scoped follow-up blueprint, `L24.2` contract freeze landed
+Status: repo-scoped follow-up blueprint, `L24.5` landed; handoff moved to `L25`
 
 Created: 2026-03-31
 
@@ -152,50 +152,57 @@ Guardrails:
 | `L24.4` | Centralize guidance and action-explanation surfaces across mission, triage, story, and route lanes | Makes copy and next-step reasoning consistent instead of leaving it scattered across the shell |
 | `L24.5` | Extract console client/state helpers and harden restored-context browser smoke | Improves maintainability and verification after the new context and guidance semantics land |
 
-## Recommended Ignition Order After This Refresh
+## Completion Handoff
 
-Recommended order after this refresh:
+`L24` is now complete in repo truth through `L24.5`.
 
-1. `L24.2`
-2. `L24.3`
-3. `L24.4`
-4. `L24.5`
+What landed in this wave:
 
-This order keeps the next work narrow:
+- URL-restorable workspace context
+- section-level objective, success, and blocker framing
+- centralized operator guidance and action-explanation ownership
+- helper extraction plus restored-context browser smoke hardening
 
-- first freeze the workspace-state and guidance contract
-- then land restorable context plus section-level success or blocker framing
-- then consolidate explanation and help surfaces
-- then extract helpers and harden smoke for the new restored-context paths
+What this wave does not solve on its own:
+
+- top-level same-rank surface overload
+- duplicated onboarding and workflow copy in the intake shell
+- early promotion of advanced surfaces such as `Claim Composer`, `Report Studio`, `AI Assistance Surfaces`, and `Distribution Health`
+- stage-owned output visibility and no-result or blocked-state ownership across the simplified shell
+
+That follow-on work is now reopened as:
+
+- `docs/governance/datapulse-console-workflow-simplification-blueprint.md`
 
 ## Manual Ignition Boundary
 
-With `L24.2` landed, the next manual ignition target should be `L24.3`, not `L24.4` or `L24.5`.
+The next manual ignition target no longer lives in `L24`.
 
-Reason:
+The next manual ignition target is `L25.2`, which freezes the workflow-first shell contract after the new `L25.1` blueprint promotion.
 
-- current DataPulse already has mission presets, route snaps, retry guidance, and duplicate explain fragments
-- the contract is now explicit enough to implement against without reopening copy or URL-boundary questions
-- the next highest-value gap is to land the restorable context plus required summary cards inside the current shell
-
-After the blueprint landing is committed and the repo is back to a clean baseline, the normal local ignition entrypoint stays:
+Normal local ignition entrypoint remains:
 
 ```bash
 bash scripts/governance/ignite_datapulse_codex_loop.sh
 ```
 
-Expected next slice after this contract freeze: `L24.3`
+Expected next slice after this completed wave: `L25.2`
 
 ## Fact Sources
 
 - `/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31.md`
 - `/Users/sunyifei/DataPulse/docs/gui_intelligence_console_plan.md`
+- `/Users/sunyifei/DataPulse/docs/governance/datapulse-console-workflow-simplification-blueprint.md`
 
 ## Success Condition
 
-DataPulse improves console clarity without reopening frontend architecture:
+DataPulse finished the console-clarity wave without reopening frontend architecture:
 
 - important workspace context is shareable and restorable
 - each major lane can show operators what success or blockage currently looks like
 - guidance and explanation surfaces are centralized enough to stay consistent
 - the browser remains a Reader-backed command chamber rather than drifting into a second product
+
+The next repo-owned question is now narrower:
+
+- how to simplify the shell around workflow order and owned outputs without losing the command chamber identity or Reader-backed lifecycle truth

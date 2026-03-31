@@ -899,6 +899,47 @@ def render_console_html(title: str) -> str:
       color: var(--muted);
       font-size: 0.76rem;
     }}
+    .advanced-surface-shell {{
+      grid-column: 1 / -1;
+      border: 1px solid rgba(147, 181, 215, 0.14);
+      border-radius: 22px;
+      background: rgba(9, 15, 25, 0.74);
+      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.03);
+      overflow: hidden;
+    }}
+    .advanced-surface-shell summary {{
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px;
+      cursor: pointer;
+    }}
+    .advanced-surface-shell summary::-webkit-details-marker {{
+      display: none;
+    }}
+    .advanced-surface-shell[open] summary {{
+      border-bottom: 1px solid rgba(147, 181, 215, 0.12);
+      background: rgba(127, 228, 255, 0.04);
+    }}
+    .advanced-surface-summary-copy {{
+      display: grid;
+      gap: 4px;
+    }}
+    .advanced-surface-title {{
+      font-family: var(--headline);
+      font-size: 1rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }}
+    .advanced-surface-grid {{
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      padding: 0 18px 18px;
+    }}
     .workspace-mode-group {{
       display: grid;
       gap: 18px;
@@ -1497,6 +1538,34 @@ def render_console_html(title: str) -> str:
     .section-summary-copy {{
       font-size: 0.84rem;
       line-height: 1.55;
+      color: var(--muted);
+    }}
+    .section-summary-feedback {{
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(147, 181, 215, 0.16);
+      background: rgba(12, 21, 34, 0.74);
+    }}
+    .section-summary-feedback.ok {{
+      border-color: rgba(127, 228, 255, 0.28);
+      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+    }}
+    .section-summary-feedback.hot {{
+      border-color: rgba(255, 106, 130, 0.28);
+      box-shadow: inset 0 0 0 1px rgba(255, 106, 130, 0.05);
+    }}
+    .section-summary-feedback-head {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: space-between;
+      align-items: start;
+    }}
+    .section-summary-feedback-copy {{
+      font-size: 0.88rem;
+      line-height: 1.6;
       color: var(--muted);
     }}
     .operator-guidance-surface {{
@@ -2105,6 +2174,7 @@ def render_console_html(title: str) -> str:
       }}
       .topbar-nav::-webkit-scrollbar {{ display: none; }}
       .workspace-mode-grid {{ grid-template-columns: 1fr; }}
+      .advanced-surface-grid {{ grid-template-columns: 1fr; }}
       .workspace-mode-group[data-workspace-group="review"] {{
         grid-template-columns: 1fr;
       }}
@@ -2216,14 +2286,14 @@ def render_console_html(title: str) -> str:
         <span class="dot"></span>
         <div class="topbar-copy">
           <strong id="topbar-title">DataPulse Operations Console</strong>
-          <span id="topbar-subtitle">Lifecycle rail | Intake -&gt; Missions -&gt; Review -&gt; Delivery</span>
+          <span id="topbar-subtitle">Workflow stages | Start -&gt; Monitor -&gt; Review -&gt; Deliver</span>
         </div>
       </div>
-      <nav class="topbar-nav" aria-label="Primary Lifecycle Rail">
-        <button class="nav-pill" id="nav-intake" type="button" data-jump-target="section-intake" data-workspace-mode="intake">Intake</button>
-        <button class="nav-pill" id="nav-missions" type="button" data-jump-target="section-board" data-workspace-mode="missions">Missions</button>
+      <nav class="topbar-nav" aria-label="Primary Workflow Stages">
+        <button class="nav-pill" id="nav-intake" type="button" data-jump-target="section-intake" data-workspace-mode="intake">Start</button>
+        <button class="nav-pill" id="nav-missions" type="button" data-jump-target="section-board" data-workspace-mode="missions">Monitor</button>
         <button class="nav-pill" id="nav-review" type="button" data-jump-target="section-triage" data-workspace-mode="review">Review</button>
-        <button class="nav-pill" id="nav-delivery" type="button" data-jump-target="section-ops" data-workspace-mode="delivery">Delivery</button>
+        <button class="nav-pill" id="nav-delivery" type="button" data-jump-target="section-ops" data-workspace-mode="delivery">Deliver</button>
       </nav>
     <div class="topbar-tools">
         <div class="topbar-context" id="context-shell">
@@ -2253,7 +2323,7 @@ def render_console_html(title: str) -> str:
               <span class="context-object-step-value" data-fit-text="context-object-value" data-fit-fallback="18">Not set</span>
             </button>
           </div>
-          <button class="chip context-chip context-chip-button" id="context-summary" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="context-lens-shell" data-fit-text="context-summary" data-fit-fallback="28">Intake | Mission intake</button>
+          <button class="chip context-chip context-chip-button" id="context-summary" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="context-lens-shell" data-fit-text="context-summary" data-fit-fallback="28">Start | Mission intake</button>
         </div>
         <button class="btn-secondary palette-trigger" id="palette-open" type="button">Command Palette</button>
         <button class="btn-secondary" id="context-reset" type="button">Reset Context</button>
@@ -2319,11 +2389,11 @@ def render_console_html(title: str) -> str:
             <div class="card-top">
               <div>
                 <div class="mono" id="guide-kicker">Operator Guidance</div>
-                <h2 class="panel-title" id="guide-panel-title">Browser Lifecycle</h2>
+                <h2 class="panel-title" id="guide-panel-title">Workflow Stages</h2>
               </div>
-              <span class="chip ok" id="guide-chip">Mission -> Triage -> Story -> Route</span>
+              <span class="chip ok" id="guide-chip">Start -> Monitor -> Review -> Deliver</span>
             </div>
-            <div class="panel-sub" id="guide-panel-copy">Create or clone a mission here. The board runs it, the triage queue reviews incoming evidence, stories promote verified signal, and routes turn delivery on.</div>
+            <div class="panel-sub" id="guide-panel-copy">Create or clone a mission here. Monitoring owns runs and results, Review owns triage and stories, and advanced claim or report workspaces stay nested until they are needed.</div>
             <div class="shortcut-strip">
               <span class="chip" id="shortcut-focus">/ focus draft</span>
               <span class="chip" id="shortcut-preset">1-4 load preset</span>
@@ -2522,25 +2592,38 @@ def render_console_html(title: str) -> str:
       </div>
     </section>
 
-    <section class="panel" id="section-claims">
-      <div class="panel-head">
-        <div>
-          <h2 class="panel-title" id="claims-title">Claim Composer</h2>
-          <div class="panel-sub" id="claims-copy">Compose source-bound claims and attach them to report sections without leaving the review lane.</div>
+    <details class="advanced-surface-shell" id="review-advanced-shell">
+      <summary>
+        <div class="advanced-surface-summary-copy">
+          <div class="advanced-surface-title" id="review-advanced-title">Advanced Review Surfaces</div>
+          <div class="panel-sub" id="review-advanced-copy">Claim composition and report assembly stay available here without competing with triage and story work by default.</div>
         </div>
-      </div>
-      <div class="stack" id="claim-composer-shell"></div>
-    </section>
+        <div class="chip-row">
+          <span class="chip" id="review-advanced-chip">Claim Composer + Report Studio</span>
+        </div>
+      </summary>
+      <div class="advanced-surface-grid">
+        <section class="panel" id="section-claims">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title" id="claims-title">Claim Composer</h2>
+              <div class="panel-sub" id="claims-copy">Compose source-bound claims and attach them to report sections without leaving the review lane.</div>
+            </div>
+          </div>
+          <div class="stack" id="claim-composer-shell"></div>
+        </section>
 
-    <section class="panel" id="section-report-studio">
-      <div class="panel-head">
-        <div>
-          <h2 class="panel-title" id="report-studio-title">Report Studio</h2>
-          <div class="panel-sub" id="report-studio-copy">Inspect report sections, quality guardrails, and export previews over persisted report objects.</div>
-        </div>
+        <section class="panel" id="section-report-studio">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title" id="report-studio-title">Report Studio</h2>
+              <div class="panel-sub" id="report-studio-copy">Inspect report sections, quality guardrails, and export previews over persisted report objects.</div>
+            </div>
+          </div>
+          <div class="stack" id="report-studio-shell"></div>
+        </section>
       </div>
-      <div class="stack" id="report-studio-shell"></div>
-    </section>
+    </details>
     </div>
 
     <div class="workspace-mode-group" data-workspace-group="delivery" hidden>
@@ -2554,17 +2637,6 @@ def render_console_html(title: str) -> str:
         </div>
         <div class="section-summary-shell" id="ops-section-summary"></div>
         <div class="status-shell" id="status-card"></div>
-      </article>
-
-      <article class="panel">
-        <div class="panel-head">
-          <div>
-            <h2 class="panel-title" id="ai-surface-title">AI Assistance Surfaces</h2>
-            <div class="panel-sub" id="ai-surface-copy">Inspect the same governed AI projection facts that CLI and MCP expose, without creating browser-only AI state.</div>
-          </div>
-          <span class="chip" id="ai-surface-mode">Read-only</span>
-        </div>
-        <div class="stack" id="ai-surface-shell"></div>
       </article>
 
       <article class="panel">
@@ -2610,6 +2682,41 @@ def render_console_html(title: str) -> str:
         </div>
         <div class="stack" id="delivery-workspace-shell"></div>
       </article>
+
+      <details class="advanced-surface-shell" id="delivery-advanced-shell">
+        <summary>
+          <div class="advanced-surface-summary-copy">
+            <div class="advanced-surface-title" id="delivery-advanced-title">Advanced Delivery Surfaces</div>
+            <div class="panel-sub" id="delivery-advanced-copy">AI projection inspection and route-health drill-down stay available here without competing with dispatch posture and delivery history by default.</div>
+          </div>
+          <div class="chip-row">
+            <span class="chip" id="delivery-advanced-chip">AI Assistance + Distribution Health</span>
+          </div>
+        </summary>
+        <div class="advanced-surface-grid">
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title" id="ai-surface-title">AI Assistance Surfaces</h2>
+                <div class="panel-sub" id="ai-surface-copy">Inspect the same governed AI projection facts that CLI and MCP expose, without creating browser-only AI state.</div>
+              </div>
+              <span class="chip" id="ai-surface-mode">Read-only</span>
+            </div>
+            <div class="stack" id="ai-surface-shell"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title" id="distribution-title">Distribution Health</h2>
+                <div class="panel-sub" id="distribution-copy">See whether named delivery routes are healthy and which upstream work is feeding them.</div>
+              </div>
+              <span class="chip" id="distribution-mode">Read-only</span>
+            </div>
+            <div class="stack" id="route-health"></div>
+          </article>
+        </div>
+      </details>
     </section>
     </div>
 
