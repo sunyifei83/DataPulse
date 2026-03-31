@@ -54,6 +54,12 @@ Next implementation target:
 - expose the resulting facts through browser smoke and/or a draft evidence artifact rather than relying on screenshot-only inspection
 - keep the evidence narrow to console text ergonomics and avoid coupling it to AI-surface admission or unrelated governance exporters
 
+Landing shape for this slice:
+
+- maintain a repo-owned runtime evidence summary keyed by `data-fit-text` surface ids
+- surface survivor counts and named hotspots in `Ops Snapshot`
+- export the same structured evidence through `scripts/datapulse_console_browser_smoke.py`
+
 This is the next manual ignition target because it produces the missing admission evidence for whether any later text-fit adapter normalization or multiline escalation is justified.
 
 ## Manual Ignition Boundary

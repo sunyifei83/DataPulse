@@ -2532,6 +2532,8 @@ def render_console_html(title: str) -> str:
       watches: [],
       watchDetails: {{}},
       watchResultFilters: {{}},
+      consoleOverflowEvidence: null,
+      consoleOverflowEvidenceSignature: "",
       selectedWatchId: "",
       watchSearch: "",
       watchUrlFocusPending: false,
@@ -2708,9 +2710,164 @@ def render_console_html(title: str) -> str:
       ? new Intl.Segmenter(undefined, {{ granularity: "grapheme" }})
       : null;
     const canvasTextWidthCache = new Map();
+    const consoleOverflowEvidenceLedger = new Map();
     let canvasTextMeasureContext = null;
     let pendingTextFitFrame = 0;
+    let pendingOverflowEvidenceRender = 0;
     const pendingTextFitRoots = new Set();
+
+    function defaultConsoleOverflowEvidence() {{
+      return {{
+        surface_count: 0,
+        checked_sample_count: 0,
+        fitted_sample_count: 0,
+        survivor_count: 0,
+        residual_surface_count: 0,
+        surfaces: [],
+        residual_surfaces: [],
+        updated_at: "",
+      }};
+    }}
+
+    function consoleOverflowEvidenceSignature(evidence) {{
+      return JSON.stringify({{
+        surface_count: Number(evidence?.surface_count || 0),
+        checked_sample_count: Number(evidence?.checked_sample_count || 0),
+        fitted_sample_count: Number(evidence?.fitted_sample_count || 0),
+        survivor_count: Number(evidence?.survivor_count || 0),
+        residual_surface_count: Number(evidence?.residual_surface_count || 0),
+        surfaces: Array.isArray(evidence?.surfaces)
+          ? evidence.surfaces.map((surface) => ({{
+              surface_id: String(surface?.surface_id || ""),
+              checked_sample_count: Number(surface?.checked_sample_count || 0),
+              fitted_sample_count: Number(surface?.fitted_sample_count || 0),
+              survivor_count: Number(surface?.survivor_count || 0),
+              sample_labels: Array.isArray(surface?.sample_labels) ? surface.sample_labels : [],
+            }}))
+          : [],
+      }});
+    }}
+
+    function buildConsoleOverflowSampleKey(surfaceId, originalText) {{
+      return `${{surfaceId}}::${{originalText}}`;
+    }}
+
+    function isNodeVisibleForOverflowEvidence(node) {{
+      if (!(node instanceof HTMLElement) || !node.isConnected) {{
+        return false;
+      }}
+      const style = window.getComputedStyle(node);
+      if (style.display === "none" || style.visibility === "hidden") {{
+        return false;
+      }}
+      const rect = node.getBoundingClientRect();
+      return Number(node.clientWidth || rect.width || 0) > 0 && Number(node.clientHeight || rect.height || 0) > 0;
+    }}
+
+    function hasResidualInlineOverflow(node) {{
+      if (!isNodeVisibleForOverflowEvidence(node)) {{
+        return false;
+      }}
+      const clientWidth = Number(node.clientWidth || node.getBoundingClientRect().width || 0);
+      const scrollWidth = Number(node.scrollWidth || 0);
+      return scrollWidth > clientWidth + 1;
+    }}
+
+    function recordConsoleOverflowEvidence(nodes) {{
+      nodes.forEach((node) => {{
+        if (!(node instanceof HTMLElement) || !isNodeVisibleForOverflowEvidence(node)) {{
+          return;
+        }}
+        const surfaceId = String(node.dataset.fitText || "").trim();
+        const originalText = String(node.dataset.fitTextOriginal || node.textContent || "").trim();
+        if (!surfaceId || !originalText) {{
+          return;
+        }}
+        const sampleKey = buildConsoleOverflowSampleKey(surfaceId, originalText);
+        const surface = consoleOverflowEvidenceLedger.get(surfaceId) || {{
+          surface_id: surfaceId,
+          checked_keys: new Set(),
+          fitted_keys: new Set(),
+          survivor_keys: new Set(),
+          sample_labels: [],
+        }};
+        surface.checked_keys.add(sampleKey);
+        if (String(node.dataset.fitApplied || "").trim() === "true") {{
+          surface.fitted_keys.add(sampleKey);
+        }}
+        if (hasResidualInlineOverflow(node)) {{
+          surface.survivor_keys.add(sampleKey);
+          const sampleLabel = clampLabel(originalText, 52);
+          if (sampleLabel && !surface.sample_labels.includes(sampleLabel) && surface.sample_labels.length < 3) {{
+            surface.sample_labels.push(sampleLabel);
+          }}
+        }}
+        consoleOverflowEvidenceLedger.set(surfaceId, surface);
+      }});
+    }}
+
+    function buildConsoleOverflowEvidenceSnapshot() {{
+      const surfaces = Array.from(consoleOverflowEvidenceLedger.values())
+        .map((surface) => ({{
+          surface_id: surface.surface_id,
+          checked_sample_count: surface.checked_keys.size,
+          fitted_sample_count: surface.fitted_keys.size,
+          survivor_count: surface.survivor_keys.size,
+          sample_labels: surface.sample_labels.slice(0, 3),
+        }}))
+        .sort((left, right) => (
+          right.survivor_count - left.survivor_count
+          || right.checked_sample_count - left.checked_sample_count
+          || left.surface_id.localeCompare(right.surface_id)
+        ));
+      const residualSurfaces = surfaces.filter((surface) => surface.survivor_count > 0);
+      return {{
+        surface_count: surfaces.length,
+        checked_sample_count: surfaces.reduce((sum, surface) => sum + surface.checked_sample_count, 0),
+        fitted_sample_count: surfaces.reduce((sum, surface) => sum + surface.fitted_sample_count, 0),
+        survivor_count: surfaces.reduce((sum, surface) => sum + surface.survivor_count, 0),
+        residual_surface_count: residualSurfaces.length,
+        surfaces,
+        residual_surfaces: residualSurfaces,
+        updated_at: new Date().toISOString(),
+      }};
+    }}
+
+    function scheduleConsoleOverflowEvidenceRender() {{
+      if (pendingOverflowEvidenceRender || !$("status-card")) {{
+        return;
+      }}
+      pendingOverflowEvidenceRender = window.requestAnimationFrame(() => {{
+        pendingOverflowEvidenceRender = 0;
+        if ($("status-card") && !(state.loading.board && !state.status && !state.ops)) {{
+          renderStatus();
+        }}
+      }});
+    }}
+
+    function refreshConsoleOverflowEvidence() {{
+      const nodes = Array.from(document.querySelectorAll("[data-fit-text]"));
+      recordConsoleOverflowEvidence(nodes);
+      const nextEvidence = buildConsoleOverflowEvidenceSnapshot();
+      const nextSignature = consoleOverflowEvidenceSignature(nextEvidence);
+      if (nextSignature === state.consoleOverflowEvidenceSignature && state.consoleOverflowEvidence) {{
+        window.__DATAPULSE_CONSOLE_OVERFLOW__ = state.consoleOverflowEvidence;
+        return state.consoleOverflowEvidence;
+      }}
+      state.consoleOverflowEvidence = nextEvidence;
+      state.consoleOverflowEvidenceSignature = nextSignature;
+      if (document.body?.dataset) {{
+        document.body.dataset.consoleOverflowHotspots = String(nextEvidence.residual_surface_count || 0);
+        document.body.dataset.consoleOverflowSurvivors = String(nextEvidence.survivor_count || 0);
+      }}
+      window.__DATAPULSE_CONSOLE_OVERFLOW__ = nextEvidence;
+      scheduleConsoleOverflowEvidenceRender();
+      return nextEvidence;
+    }}
+
+    function getConsoleOverflowEvidence() {{
+      return JSON.parse(JSON.stringify(state.consoleOverflowEvidence || defaultConsoleOverflowEvidence()));
+    }}
 
     function segmentTextForFit(value) {{
       const text = String(value || "").trim();
@@ -2843,6 +3000,7 @@ def render_console_html(title: str) -> str:
         node.textContent = fittedText;
         node.dataset.fitApplied = fittedText !== originalText ? "true" : "false";
       }});
+      refreshConsoleOverflowEvidence();
     }}
 
     function scheduleCanvasTextFit(root = document) {{
@@ -11262,6 +11420,24 @@ def render_console_html(title: str) -> str:
             <div class="mini-item">${{failure.kind}} | ${{failure.mission_name || failure.name || "-"}} | ${{localizeWord(failure.status || "error")}} | ${{failure.error || "-"}}</div>
           `).join("")
         : `<div class="empty">${{copy("No recent failure captured.", "近期没有失败记录。")}}</div>`;
+      const overflowEvidence = state.consoleOverflowEvidence || defaultConsoleOverflowEvidence();
+      const overflowSampledAt = overflowEvidence.updated_at
+        ? formatCompactDateTime(overflowEvidence.updated_at)
+        : copy("not sampled yet", "尚未采样");
+      const overflowResidualBlock = Array.isArray(overflowEvidence.residual_surfaces) && overflowEvidence.residual_surfaces.length
+        ? overflowEvidence.residual_surfaces.map((surface) => {{
+            const samples = Array.isArray(surface.sample_labels) ? surface.sample_labels : [];
+            const sampleLine = samples.length
+              ? `<div class="panel-sub">${{samples.map((label) => escapeHtml(label)).join(" | ")}}</div>`
+              : `<div class="panel-sub">${{copy("No residual sample label captured.", "没有残余样本文本。")}}</div>`;
+            return `
+              <div class="mini-item" data-overflow-surface="${{escapeHtml(surface.surface_id || "")}}">
+                ${{escapeHtml(surface.surface_id || "unknown")}} | survivors=${{surface.survivor_count || 0}} | fitted=${{surface.fitted_sample_count || 0}}/${{surface.checked_sample_count || 0}}
+              </div>
+              ${{sampleLine}}
+            `;
+          }}).join("")
+        : `<div class="empty" data-overflow-surface-empty="true">${{copy("No residual overflow survivors captured in this runtime session.", "当前运行会话没有捕获到残余溢出样本。")}}</div>`;
       const alertSignal = getGovernanceSignal("alert_yield");
       const storySignal = getGovernanceSignal("story_conversion");
       const deliveryContinuityBlock = renderLifecycleContinuityCard({{
@@ -11363,6 +11539,25 @@ def render_console_html(title: str) -> str:
             <span>disabled=${{watchSummary.disabled || 0}}</span>
             <span>due=${{watchSummary.due || 0}}</span>
             <span>rate=${{formatRate(watchMetrics.success_rate)}}</span>
+          </div>
+        </div>
+        <div class="card" id="console-overflow-evidence-card">
+          <div class="mono">${{copy("text overflow evidence", "文本溢出证据")}}</div>
+          <div class="meta" data-console-overflow-summary>
+            <span>surfaces=${{overflowEvidence.surface_count || 0}}</span>
+            <span>checked=${{overflowEvidence.checked_sample_count || 0}}</span>
+            <span>fitted=${{overflowEvidence.fitted_sample_count || 0}}</span>
+            <span>survivors=${{overflowEvidence.survivor_count || 0}}</span>
+            <span>hotspots=${{overflowEvidence.residual_surface_count || 0}}</span>
+            <span>sampled=${{overflowSampledAt}}</span>
+          </div>
+          <div class="panel-sub">${{copy(
+            "Session-scoped evidence for data-fit console text surfaces after the current truncation and canvas-fit layers run.",
+            "会话级证据，覆盖当前截断与 canvas-fit 层运行后的 data-fit 控制台文本表面。"
+          )}}</div>
+          <div class="mini-list" style="margin-top:12px;" data-console-overflow-hotspots>
+            <div class="mono">${{copy("residual hotspots", "残余热点")}}</div>
+            ${{overflowResidualBlock}}
           </div>
         </div>
         <div class="card">
@@ -14429,6 +14624,9 @@ def render_console_html(title: str) -> str:
         }}
       }}
     }});
+
+    state.consoleOverflowEvidence = defaultConsoleOverflowEvidence();
+    window.getConsoleOverflowEvidence = getConsoleOverflowEvidence;
 
     refreshBoard().catch((error) => {{
       reportError(error, copy("Console boot failed", "控制台启动失败"));

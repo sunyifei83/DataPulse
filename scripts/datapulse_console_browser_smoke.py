@@ -2220,6 +2220,54 @@ def _wait_for_report_markdown(
     raise AssertionError(f"timed out waiting for markdown export on {report_id!r}: {last_payload}")
 
 
+def _export_console_overflow_evidence(page: Page) -> Row:
+    _log("[console-browser-smoke] console overflow evidence")
+    page.evaluate("jumpToSection('section-ops')")
+    page.wait_for_function(
+        """() => {
+            return window.location.hash === '#section-ops'
+                && !!document.querySelector('#console-overflow-evidence-card')
+                && !!document.querySelector('[data-console-overflow-summary]')
+                && !!document.querySelector('[data-console-overflow-hotspots]');
+        }""",
+        timeout=10000,
+    )
+    payload = page.evaluate(
+        """() => {
+            const evidence = typeof window.getConsoleOverflowEvidence === "function"
+                ? window.getConsoleOverflowEvidence()
+                : window.__DATAPULSE_CONSOLE_OVERFLOW__;
+            return {
+                evidence,
+                summary_text: document.querySelector("[data-console-overflow-summary]")?.textContent || "",
+                hotspot_lines: Array.from(
+                    document.querySelectorAll("[data-overflow-surface]"),
+                    (node) => node.textContent || "",
+                ),
+                body_hotspots: document.body?.dataset.consoleOverflowHotspots || "",
+                body_survivors: document.body?.dataset.consoleOverflowSurvivors || "",
+            };
+        }"""
+    )
+    if not isinstance(payload, dict):
+        raise AssertionError(f"console overflow evidence payload was not a mapping: {payload!r}")
+    evidence = _row(payload.get("evidence"))
+    if evidence is None:
+        raise AssertionError(f"console overflow evidence was missing: {payload}")
+    if _as_int(evidence.get("surface_count")) <= 0:
+        raise AssertionError(f"console overflow evidence did not sample any surfaces: {payload}")
+    if _as_int(evidence.get("checked_sample_count")) <= 0:
+        raise AssertionError(f"console overflow evidence did not record any checked samples: {payload}")
+    summary_text = str(payload.get("summary_text") or "")
+    if "surfaces=" not in summary_text or "survivors=" not in summary_text:
+        raise AssertionError(f"console overflow summary card was not operator-visible: {payload}")
+    for hotspot in _rows(evidence.get("residual_surfaces")):
+        if not str(hotspot.get("surface_id") or "").strip():
+            raise AssertionError(f"console overflow hotspot omitted a surface id: {payload}")
+    _log(f"[console-browser-smoke] overflow-evidence {json.dumps(payload, ensure_ascii=False, sort_keys=True)}")
+    return cast(Row, payload)
+
+
 def _launch_browser(playwright: Playwright):
     launch_attempts = [
         {"channel": "chrome", "headless": True},
@@ -2892,6 +2940,7 @@ def main() -> int:
             report_context = _exercise_report_workspaces(second_page)
             _exercise_delivery_workspace(second_page, report_context)
             _exercise_responsive_interaction_safety(second_page)
+            _export_console_overflow_evidence(second_page)
             browser.close()
     finally:
         server.should_exit = True

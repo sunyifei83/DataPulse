@@ -1534,6 +1534,9 @@ def test_console_index_serves_shell():
     assert 'data-fit-text="triage-mission-chip"' in response.text
     assert 'data-fit-text="claim-url-chip"' in response.text
     assert 'data-fit-text="report-section-claim-chip"' in response.text
+    assert "console-overflow-evidence-card" in response.text
+    assert "data-console-overflow-summary" in response.text
+    assert "data-console-overflow-hotspots" in response.text
     assert 'data-responsive-viewport="desktop"' in response.text
     assert 'data-density-mode="comfortable"' in response.text
     assert 'data-pane-contract="split"' in response.text
@@ -1549,6 +1552,10 @@ def test_console_index_serves_shell():
     assert "function fitTextToWidth" in response.text
     assert "function applyCanvasTextFit" in response.text
     assert "function scheduleCanvasTextFit" in response.text
+    assert "function defaultConsoleOverflowEvidence" in response.text
+    assert "function recordConsoleOverflowEvidence" in response.text
+    assert "function getConsoleOverflowEvidence" in response.text
+    assert "window.getConsoleOverflowEvidence = getConsoleOverflowEvidence" in response.text
     assert 'window.visualViewport.addEventListener("resize", scheduleContractApply' in response.text
     assert 'window.matchMedia(query)' in response.text
     assert 'media.addEventListener("change", scheduleContractApply)' in response.text
