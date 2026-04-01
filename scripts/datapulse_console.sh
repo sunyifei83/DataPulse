@@ -16,7 +16,7 @@ fi
 PYTHON_CMD=("${DATAPULSE_PYTHON_CMD[@]}")
 
 if ! "${PYTHON_CMD[@]}" - <<'PY' >/dev/null 2>&1
-import importlib
+import importlib.util
 import sys
 
 missing = [name for name in ("fastapi", "uvicorn") if importlib.util.find_spec(name) is None]

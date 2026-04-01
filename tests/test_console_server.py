@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from datapulse.console_api_client import render_console_api_client_script
 from datapulse.console_client import render_console_client_script
 from datapulse.console_server import CONSOLE_TITLE, create_app
 from datapulse.core.alerts import AlertEvent
@@ -1665,6 +1668,9 @@ def test_console_index_serves_shell():
 def test_console_client_script_keeps_restored_context_and_guidance_contract():
     script = render_console_client_script("{}")
 
+    assert "createConsoleApiClient" in script
+    assert "normalizeRequestOptions" in script
+    assert "payload" in script
     assert "watch_search" in script
     assert "triage_filter" in script
     assert "story_view" in script
@@ -1676,6 +1682,31 @@ def test_console_client_script_keeps_restored_context_and_guidance_contract():
     assert "function workspaceModeOwnedOutputLabel" in script
     assert "function stageFeedbackIdForSection" in script
     assert "function stageFeedbackKindLabel" in script
+    assert "wireLifecycleGuideActions(root);" in script
+
+
+def test_console_api_client_script_normalizes_payload_requests():
+    script = render_console_api_client_script()
+
+    assert "function createConsoleApiClient" in script
+    assert '"Content-Type": "application/json"' in script
+    assert "delete normalized.payload" in script
+    assert "JSON.stringify(payload)" in script
+    assert "Request failed:" in script
+
+
+def test_console_wrapper_help_uses_resolved_python_environment():
+    repo_root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        ["bash", "scripts/datapulse_console.sh", "--help"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "--host" in result.stdout
 
 
 def test_console_brand_hero_serves_jpeg():

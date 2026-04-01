@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-03-31T13:14:57Z",
+  "generated_at_utc": "2026-04-01T03:35:00Z",
   "status": "in_progress",
   "activation": {
     "wired": true,
@@ -28,8 +28,8 @@
       "The L23 console text-overflow runtime-evidence wave remains completed in repo truth through L23.2, so the console-text lane itself stays closed unless a new evidence-backed text wave is opened.",
       "The L24 console interaction-clarity wave is now completed in repo truth through L24.5.",
       "The L25 workflow-first console simplification wave is now completed in repo truth through L25.5.",
-      "A new L26 console modularity-and-traceability follow-up wave is now opened in repo truth through L26.1.",
-      "The next manual ignition target is L26.2, which freezes the shared console client boundary, stage-linked output trace, signal badge ownership, and bounded frontend-escalation criteria before implementation begins.",
+      "The L26 console modularity-and-traceability follow-up wave now has repo truth landed through L26.3.",
+      "The next manual ignition target is L26.4, which adds stage-linked output trace surfaces and the shared operator-visible signal taxonomy after the client-boundary extraction landed.",
       "This reopen keeps the current command chamber organized around workflow order and owned outputs, and does not reopen shell-order simplification or force a frontend-stack migration.",
       "Operator review should treat post-CI closeout churn as a coupling bug to remove, not as a reason to invent another parallel loop or runtime control plane."
     ]

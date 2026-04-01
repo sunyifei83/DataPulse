@@ -1212,8 +1212,8 @@ The promoted repo-scoped blueprint for this follow-up now lives in `docs/governa
 Recommended ignition order:
 
 - `L26.1` promote the modularity-and-traceability follow-up blueprint; landed
-- `L26.2` freeze the console client-boundary, traceability, signal, and frontend-escalation contract
-- `L26.3` extract a shared console API client boundary and reduce repeated fetch wiring
+- `L26.2` freeze the console client-boundary, traceability, signal, and frontend-escalation contract; landed
+- `L26.3` extract a shared console API client boundary and reduce repeated fetch wiring; landed
 - `L26.4` add stage-linked output trace surfaces and shared signal taxonomy
 - `L26.5` reassess standalone frontend escalation only after the narrower follow-up lands and harden acceptance
 
@@ -1225,6 +1225,15 @@ Target product judgment for this wave:
 - make signal badges factual, owned, and expandable into explanation rather than decorative
 - reopen standalone frontend engineering only if evidence from the narrower follow-up shows the current shell still cannot evolve safely enough
 
+`L26.2` frozen contract:
+
+- the canonical console client boundary for shared `/api/...` work is the planned `datapulse/console_api_client.py`; until `L26.3` extracts it, `api(...)` and `apiText(...)` inside `datapulse/console_client.py` stay the only provisional owner for shared fetch semantics
+- the minimum operator trace must stay stage-linked across `Start -> Monitor -> Review -> Deliver`, showing the initiating action, latest run outcome, triage or story progression, and delivery outcome or explicit stop reason
+- the shared signal taxonomy is frozen to `Quality`, `Delivery`, `Overflow`, and `Trust`; each class must expand into one owned explanation surface instead of remaining a decorative chip
+- explanation ownership is fixed by fact source: review and report quality surfaces own `Quality`, deliver-stage route or dispatch surfaces own `Delivery`, `console-overflow-evidence-card` owns `Overflow`, and the nearest retry or precheck or route-remediation explainer owns `Trust`
+- standalone frontend escalation stays deferred through `L26.4` and may reopen only in `L26.5` if repo evidence shows the narrower client-boundary and traceability work still cannot land safely in the current shell
+- later acceptance for this wave must check trace comprehension, owned signal expansion, and client-boundary containment rather than page load or route reachability alone
+
 Current blueprint reopening target:
 
-- `L26.2`
+- `L26.4`

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datapulse.console_api_client import render_console_api_client_script
+
 
 def render_console_client_script(initial_state: str) -> str:
     return f"""    const initial = {initial_state};
@@ -118,25 +120,7 @@ def render_console_client_script(initial_state: str) -> str:
     }};
 
     const $ = (id) => document.getElementById(id);
-    const jsonHeaders = {{ "Content-Type": "application/json" }};
-
-    async function api(path, options = {{}}) {{
-      const response = await fetch(path, options);
-      if (!response.ok) {{
-        const detail = await response.text();
-        throw new Error(detail || `Request failed: ${{response.status}}`);
-      }}
-      return response.json();
-    }}
-
-    async function apiText(path, options = {{}}) {{
-      const response = await fetch(path, options);
-      if (!response.ok) {{
-        const detail = await response.text();
-        throw new Error(detail || `Request failed: ${{response.status}}`);
-      }}
-      return response.text();
-    }}
+{render_console_api_client_script()}
 
     function jumpToSection(targetId, {{ updateHash = true }} = {{}}) {{
       const normalized = normalizeSectionId(targetId);
@@ -2103,8 +2087,7 @@ def render_console_client_script(initial_state: str) -> str:
         : (Array.isArray(report?.citation_bundle_ids) ? report.citation_bundle_ids : []);
       await api(`/api/reports/${{normalizedReportId}}`, {{
         method: "PUT",
-        headers: jsonHeaders,
-        body: JSON.stringify({{ claim_card_ids: nextReportClaimIds, citation_bundle_ids: nextReportBundleIds }}),
+        payload: {{ claim_card_ids: nextReportClaimIds, citation_bundle_ids: nextReportBundleIds }},
       }});
       if (normalizedSectionId) {{
         const section = getReportSectionsForReport(normalizedReportId).find((entry) => String(entry.id || "").trim() === normalizedSectionId)
@@ -2112,8 +2095,7 @@ def render_console_client_script(initial_state: str) -> str:
         const nextSectionClaimIds = uniqueValues([...(Array.isArray(section?.claim_card_ids) ? section.claim_card_ids : []), normalizedClaimId]);
         await api(`/api/report-sections/${{normalizedSectionId}}`, {{
           method: "PUT",
-          headers: jsonHeaders,
-          body: JSON.stringify({{ claim_card_ids: nextSectionClaimIds }}),
+          payload: {{ claim_card_ids: nextSectionClaimIds }},
         }});
       }}
     }}
@@ -2150,8 +2132,7 @@ def render_console_client_script(initial_state: str) -> str:
       try {{
         const created = await api("/api/stories", {{
           method: "POST",
-          headers: jsonHeaders,
-          body: JSON.stringify(draft),
+          payload: draft,
         }});
         setStoryDraft(defaultStoryDraft());
         pushActionEntry({{
@@ -2222,8 +2203,7 @@ def render_console_client_script(initial_state: str) -> str:
       try {{
         await api(`/api/stories/${{story.id}}`, {{
           method: "PUT",
-          headers: jsonHeaders,
-          body: JSON.stringify({{ status: targetStatus }}),
+          payload: {{ status: targetStatus }},
         }});
         pushActionEntry({{
           kind: copy("story state", "故事状态"),
@@ -2235,8 +2215,7 @@ def render_console_client_script(initial_state: str) -> str:
           undo: async () => {{
             await api(`/api/stories/${{story.id}}`, {{
               method: "PUT",
-              headers: jsonHeaders,
-              body: JSON.stringify(previousStory),
+              payload: previousStory,
             }});
             await refreshBoard();
             showToast(
@@ -2282,8 +2261,7 @@ def render_console_client_script(initial_state: str) -> str:
           undo: async () => {{
             await api("/api/stories", {{
               method: "POST",
-              headers: jsonHeaders,
-              body: JSON.stringify(snapshot),
+              payload: snapshot,
             }});
             await refreshBoard();
             showToast(
@@ -2355,8 +2333,7 @@ def render_console_client_script(initial_state: str) -> str:
         for (const storyId of normalizedIds) {{
           await api(`/api/stories/${{storyId}}`, {{
             method: "PUT",
-            headers: jsonHeaders,
-            body: JSON.stringify({{ status: nextStatus }}),
+            payload: {{ status: nextStatus }},
           }});
         }}
         state.selectedStoryIds = [];
@@ -2373,8 +2350,7 @@ def render_console_client_script(initial_state: str) -> str:
             for (const storyId of normalizedIds) {{
               await api(`/api/stories/${{storyId}}`, {{
                 method: "PUT",
-                headers: jsonHeaders,
-                body: JSON.stringify({{ status: previousStates[storyId] || "active" }}),
+                payload: {{ status: previousStates[storyId] || "active" }},
               }});
             }}
             await refreshBoard();
@@ -5231,8 +5207,7 @@ def render_console_client_script(initial_state: str) -> str:
       try {{
         state.createWatchSuggestions = await api("/api/console/deck/suggestions", {{
           method: "POST",
-          headers: jsonHeaders,
-          body: JSON.stringify(draft),
+          payload: draft,
         }});
       }} catch (error) {{
         state.createWatchSuggestions = null;
@@ -5897,7 +5872,7 @@ def render_console_client_script(initial_state: str) -> str:
           title: copy("Run Due Missions", "执行到点任务"),
           subtitle: copy("Dispatch every mission currently due.", "立即执行当前所有到点任务。"),
           run: async () => {{
-            await api("/api/watches/run-due", {{ method: "POST", headers: jsonHeaders, body: JSON.stringify({{ limit: 0 }}) }});
+            await api("/api/watches/run-due", {{ method: "POST", payload: {{ limit: 0 }} }});
             await refreshBoard();
             showToast(copy("Due missions dispatched", "到点任务已触发执行"), "success");
           }},
@@ -7213,6 +7188,7 @@ def render_console_client_script(initial_state: str) -> str:
         sectionId,
         ...payload,
       }});
+      wireLifecycleGuideActions(root);
       scheduleCanvasTextFit(root);
     }}
 
@@ -8899,7 +8875,7 @@ def render_console_client_script(initial_state: str) -> str:
                   platforms: Array.isArray(removedWatch.platforms) ? removedWatch.platforms : [],
                   alert_rules: removedDetail && Array.isArray(removedDetail.alert_rules) ? removedDetail.alert_rules : [],
                 }};
-                await api("/api/watches", {{ method: "POST", headers: jsonHeaders, body: JSON.stringify(payload) }});
+                await api("/api/watches", {{ method: "POST", payload }});
                 await refreshBoard();
                 showToast(`Mission restored: ${{payload.name}}`, "success");
               }},
@@ -9457,8 +9433,7 @@ def render_console_client_script(initial_state: str) -> str:
           try {{
             await api(`/api/watches/${{watch.id}}/alert-rules`, {{
               method: "PUT",
-              headers: jsonHeaders,
-              body: JSON.stringify(payload),
+              payload,
             }});
             await refreshBoard();
           }} catch (error) {{
@@ -9473,8 +9448,7 @@ def render_console_client_script(initial_state: str) -> str:
           try {{
             await api(`/api/watches/${{watch.id}}/alert-rules`, {{
               method: "PUT",
-              headers: jsonHeaders,
-              body: JSON.stringify({{ alert_rules: [] }}),
+              payload: {{ alert_rules: [] }},
             }});
             await refreshBoard();
           }} catch (error) {{
@@ -9686,8 +9660,7 @@ def render_console_client_script(initial_state: str) -> str:
         if (editingId) {{
           const updated = await api(`/api/alert-routes/${{editingId}}`, {{
             method: "PUT",
-            headers: jsonHeaders,
-            body: JSON.stringify(payload),
+            payload,
           }});
           setContextRouteName(normalizeRouteName(updated.name), "section-ops");
           state.routeAdvancedOpen = null;
@@ -9728,8 +9701,7 @@ def render_console_client_script(initial_state: str) -> str:
         }}
         const created = await api("/api/alert-routes", {{
           method: "POST",
-          headers: jsonHeaders,
-          body: JSON.stringify({{ name: draft.name.trim(), ...payload }}),
+          payload: {{ name: draft.name.trim(), ...payload }},
         }});
         setContextRouteName(normalizeRouteName(created.name), "section-ops");
         const nextChannel = draft.channel;
@@ -10686,8 +10658,7 @@ def render_console_client_script(initial_state: str) -> str:
         try {{
           const updated = await api("/api/digest-profile", {{
             method: "PUT",
-            headers: jsonHeaders,
-            body: JSON.stringify(nextDraft),
+            payload: nextDraft,
           }});
           state.digestProfileDraft = normalizeDigestProfileDraft(updated?.profile || nextDraft);
           await loadDigestConsole({{ preserveDraft: false }});
@@ -10733,8 +10704,7 @@ def render_console_client_script(initial_state: str) -> str:
         try {{
           state.digestDispatchResult = await api("/api/digest/dispatch", {{
             method: "POST",
-            headers: jsonHeaders,
-            body: JSON.stringify({{ profile: "default", limit: 8 }}),
+            payload: {{ profile: "default", limit: 8 }},
           }});
           renderDeliveryWorkspace();
           showToast(copy("Digest dispatch completed.", "摘要发送已完成。"), "success");
@@ -10805,8 +10775,7 @@ def render_console_client_script(initial_state: str) -> str:
         try {{
           const created = await api("/api/delivery-subscriptions", {{
             method: "POST",
-            headers: jsonHeaders,
-            body: JSON.stringify(nextDraft),
+            payload: nextDraft,
           }});
           state.selectedDeliverySubscriptionId = String(created.id || "").trim();
           state.deliveryDraft = defaultDeliveryDraft();
@@ -10914,8 +10883,7 @@ def render_console_client_script(initial_state: str) -> str:
           const profileId = String(state.deliveryPackageProfileIds[subscriptionId] || "").trim();
           await api(`/api/delivery-subscriptions/${{subscriptionId}}/dispatch`, {{
             method: "POST",
-            headers: jsonHeaders,
-            body: JSON.stringify({{ profile_id: profileId || null }}),
+            payload: {{ profile_id: profileId || null }},
           }});
           pushActionEntry({{
             kind: copy("delivery dispatch", "交付执行"),
@@ -10980,8 +10948,7 @@ def render_console_client_script(initial_state: str) -> str:
           try {{
             await api(`/api/delivery-subscriptions/${{subscriptionId}}`, {{
               method: "PUT",
-              headers: jsonHeaders,
-              body: JSON.stringify({{ status: nextStatus }}),
+              payload: {{ status: nextStatus }},
             }});
             await refreshBoard();
             setStageFeedback("deliver", nextStatus === "paused"
@@ -11643,8 +11610,7 @@ def render_console_client_script(initial_state: str) -> str:
     async function postTriageState(itemId, nextState) {{
       return api(`/api/triage/${{itemId}}/state`, {{
         method: "POST",
-        headers: jsonHeaders,
-        body: JSON.stringify({{ state: nextState, actor: "console" }}),
+        payload: {{ state: nextState, actor: "console" }},
       }});
     }}
 
@@ -11768,11 +11734,10 @@ def render_console_client_script(initial_state: str) -> str:
         .filter(Boolean);
       const created = await api("/api/stories/from-triage", {{
         method: "POST",
-        headers: jsonHeaders,
-        body: JSON.stringify({{
+        payload: {{
           item_ids: normalizedIds,
           status: "monitoring",
-        }}),
+        }},
       }});
       state.storySearch = "";
       state.storyFilter = "all";
@@ -12414,8 +12379,7 @@ def render_console_client_script(initial_state: str) -> str:
           try {{
             await api(`/api/triage/${{itemId}}/note`, {{
               method: "POST",
-              headers: jsonHeaders,
-              body: JSON.stringify({{ note, author: "console" }}),
+              payload: {{ note, author: "console" }},
             }});
             state.triageNoteDrafts[itemId] = "";
             await refreshBoard();
@@ -12956,8 +12920,7 @@ def render_console_client_script(initial_state: str) -> str:
           try {{
             await api(`/api/stories/${{story.id}}`, {{
               method: "PUT",
-              headers: jsonHeaders,
-              body: JSON.stringify(payload),
+              payload,
             }});
             state.storyMarkdown[story.id] = "";
             pushActionEntry({{
@@ -12968,8 +12931,7 @@ def render_console_client_script(initial_state: str) -> str:
               undo: async () => {{
                 await api(`/api/stories/${{story.id}}`, {{
                   method: "PUT",
-                  headers: jsonHeaders,
-                  body: JSON.stringify(previousStory),
+                  payload: previousStory,
                 }});
                 await refreshBoard();
                 showToast(
@@ -13721,38 +13683,35 @@ def render_console_client_script(initial_state: str) -> str:
         try {{
           let createdClaim = await api("/api/claim-cards", {{
             method: "POST",
-            headers: jsonHeaders,
-            body: JSON.stringify({{
+            payload: {{
               statement,
               rationale,
               confidence,
               status,
               brief_id: String(selectedReportRecord?.brief_id || "").trim(),
               source_item_ids: sourceItemIds,
-            }}),
+            }},
           }});
           let createdBundleId = "";
           const bundleNote = String(form.get("bundle_note") || "").trim();
           if (sourceUrls.length || sourceItemIds.length) {{
             const bundle = await api("/api/citation-bundles", {{
               method: "POST",
-              headers: jsonHeaders,
-              body: JSON.stringify({{
+              payload: {{
                 claim_card_id: createdClaim.id,
                 label: `${{statement.slice(0, 42)}} ${{copy("sources", "来源")}}`,
                 source_item_ids: sourceItemIds,
                 source_urls: sourceUrls,
                 note: bundleNote,
-              }}),
+              }},
             }});
             createdBundleId = String(bundle.id || "").trim();
             createdClaim = await api(`/api/claim-cards/${{createdClaim.id}}`, {{
               method: "PUT",
-              headers: jsonHeaders,
-              body: JSON.stringify({{
+              payload: {{
                 source_item_ids: sourceItemIds,
                 citation_bundle_ids: uniqueValues([...(Array.isArray(createdClaim.citation_bundle_ids) ? createdClaim.citation_bundle_ids : []), createdBundleId]),
-              }}),
+              }},
             }});
           }}
           if (reportId) {{
@@ -14081,8 +14040,7 @@ def render_console_client_script(initial_state: str) -> str:
         try {{
           const created = await api("/api/reports", {{
             method: "POST",
-            headers: jsonHeaders,
-            body: JSON.stringify(payload),
+            payload,
           }});
           state.selectedReportId = String(created.id || "").trim();
           state.selectedReportSectionId = "";
@@ -14155,8 +14113,7 @@ def render_console_client_script(initial_state: str) -> str:
         try {{
           await api(`/api/reports/${{selectedReport.id}}`, {{
             method: "PUT",
-            headers: jsonHeaders,
-            body: JSON.stringify(payload),
+            payload,
           }});
           await refreshBoard();
           setStageFeedback("review", {{
@@ -14220,15 +14177,13 @@ def render_console_client_script(initial_state: str) -> str:
         try {{
           const created = await api("/api/report-sections", {{
             method: "POST",
-            headers: jsonHeaders,
-            body: JSON.stringify(payload),
+            payload,
           }});
           await api(`/api/reports/${{selectedReport.id}}`, {{
             method: "PUT",
-            headers: jsonHeaders,
-            body: JSON.stringify({{
+            payload: {{
               section_ids: uniqueValues([...(Array.isArray(selectedReport.section_ids) ? selectedReport.section_ids : []), created.id]),
-            }}),
+            }},
           }});
           state.selectedReportSectionId = String(created.id || "").trim();
           await refreshBoard();
@@ -14467,7 +14422,7 @@ def render_console_client_script(initial_state: str) -> str:
       const button = $("run-due");
       button.disabled = true;
       try {{
-        await api("/api/watches/run-due", {{ method: "POST", headers: jsonHeaders, body: JSON.stringify({{ limit: 0 }}) }});
+        await api("/api/watches/run-due", {{ method: "POST", payload: {{ limit: 0 }} }});
         await refreshBoard();
         showToast(copy("Due missions dispatched", "到点任务已触发执行"), "success");
       }} catch (error) {{
@@ -14539,8 +14494,7 @@ def render_console_client_script(initial_state: str) -> str:
         try {{
           const updated = await api(`/api/watches/${{editingId}}`, {{
             method: "PUT",
-            headers: jsonHeaders,
-            body: JSON.stringify(payload),
+            payload,
           }});
           state.selectedWatchId = updated.id || editingId;
           state.watchDetails[state.selectedWatchId] = updated;
@@ -14609,7 +14563,7 @@ def render_console_client_script(initial_state: str) -> str:
       renderWatches();
       renderWatchDetail();
       try {{
-        const created = await api("/api/watches", {{ method: "POST", headers: jsonHeaders, body: JSON.stringify(payload) }});
+        const created = await api("/api/watches", {{ method: "POST", payload }});
         state.createWatchAdvancedOpen = null;
         setCreateWatchDraft(defaultCreateWatchDraft(), "", "");
         formElement.reset();

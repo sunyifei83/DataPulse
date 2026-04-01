@@ -1,10 +1,10 @@
 # DataPulse Console Modularity And Traceability Blueprint
 
-Status: repo-scoped follow-up blueprint, `L26.1` repo truth landed
+Status: repo-scoped follow-up blueprint, `L26.3` client-boundary extraction landed
 
 Created: 2026-03-31
 
-Updated: 2026-03-31
+Updated: 2026-04-01
 
 ## Goal
 
@@ -122,6 +122,81 @@ This wave must not:
 4. when the frontend-engineering question is allowed to reopen
 5. which comprehension and acceptance checks must pass before the wave can close
 
+## L26.2 Frozen Contract
+
+### Canonical Console Client Boundary
+
+- the canonical browser-side owner for shared `/api/...` request construction, response decoding, and error normalization is the planned `datapulse/console_api_client.py` module
+- until `L26.3` lands that extraction, the existing `api(...)` and `apiText(...)` helpers in `datapulse/console_client.py` remain the only provisional owner for shared fetch semantics
+- render sections, cards, and event handlers may call the canonical boundary, but they must not add new ad hoc fetch wrappers, duplicate response normalization, or browser-only lifecycle truth outside that owner
+- the boundary owns HTTP mechanics only: path construction, headers, JSON or text decoding, and normalized failure handling; it does not own workflow state, lifecycle nouns, or business rules that still belong to Reader and API truth
+
+### Minimum Stage-Linked Output Trace
+
+- one operator-visible trace surface must stay legible across the workflow-first shell order: `Start -> Monitor -> Review -> Deliver`
+- the minimum trace must show these stage-linked facts:
+  1. `Start`: the initiating action, canonical subject identifier, and start time or latest trigger time
+  2. `Monitor`: the latest run outcome plus result count, no-result state, or explicit failure summary
+  3. `Review`: the current triage disposition summary plus story promotion or contradiction status
+  4. `Deliver`: the route-backed delivery outcome, or the explicit stop reason when the flow did not reach delivery
+- action-log rows may provide drill-down evidence, but the operator trace cannot depend on reading the action log in sequence
+- the trace must project Reader or API facts that already exist; it must not infer workflow truth from browser-only heuristics
+
+### Shared Signal Classes And Explanation Owners
+
+The shared operator-visible signal taxonomy is frozen to four classes for this wave:
+
+| Class | Meaning | Owned explanation surface |
+| --- | --- | --- |
+| `Quality` | Review or report readiness, contradictions, and quality-guardrail state | Review and report quality surfaces, including contradiction markers and report quality guardrails |
+| `Delivery` | Route health, package readiness, dispatch outcome, and downstream delivery quality | Deliver-stage route health, package audit, and dispatch-record surfaces |
+| `Overflow` | Residual console text overflow pressure after the landed fit and truncation baseline | The existing `console-overflow-evidence-card` plus named residual hotspot detail |
+| `Trust` | Whether the current mission, route, or governed assist surface is trustworthy enough to continue | The nearest stage-owned trust explainer: retry guidance, AI surface precheck, or route-health remediation |
+
+Shared signal rules:
+
+- no shared badge or chip may introduce a fifth semantic class inside this wave
+- every shared signal must expand into one owned explanation surface and one next action, remediation, or explicit "no operator action" outcome
+- factual claims inside signal expansions must cite real Reader, API, or runtime evidence rather than browser-only guesses
+
+### Frontend Escalation Boundary
+
+- standalone frontend engineering remains deferred during `L26.2`, `L26.3`, and `L26.4`
+- the frontend-stack question may reopen only in `L26.5`, and only if repo evidence from the narrower follow-up shows the current shell still cannot evolve safely enough
+- admissible reopen evidence is narrow:
+  - the shared client boundary still cannot be centralized without unsafe drift
+  - the trace or signal contract cannot be delivered without inventing browser-only lifecycle state
+  - acceptance or smoke evidence shows comprehension or maintainability regressions that the current shell architecture cannot absorb
+- inadmissible reopen reasons are also narrow:
+  - generic preference for React, Vite, or a different frontend stack
+  - visual polish ambitions by themselves
+  - abstract maintainability claims that are not tied to current repo evidence
+
+### Acceptance And Comprehension Checks
+
+- later implementation slices must preserve the workflow-first shell order from `L25` and the current URL-restorable workspace context from `L24`
+- `L26.3` and `L26.4` should be accepted only if no new shared `/api/...` normalization escapes the canonical client owner
+- operators must be able to answer "what happened, where did it stop, and what should I do next?" from the stage-linked trace plus owned signal expansions without reconstructing the flow from raw logs
+- every shared signal shown in a first-rank surface must reveal its owner and explanation path, not only a tone or status word
+- final acceptance for the wave belongs in `L26.5`, but those later checks are frozen here so implementation cannot drift
+
+## L26.3 Landing Note
+
+`L26.3` is now landed in repo code and tests.
+
+What landed:
+
+- shared browser-side request construction now lives in `datapulse/console_api_client.py`
+- `datapulse/console_client.py` now consumes that shared client boundary instead of repeating ad hoc JSON request wiring
+- wrapper and browser smoke acceptance now cover the shell-level console entrypoint and the stage-feedback action path that depends on summary-surface event wiring
+
+Acceptance evidence:
+
+- `python3 -m py_compile datapulse/console_server.py`
+- `python3 -m py_compile datapulse/console_client.py`
+- `uv run pytest tests/test_console_server.py -q`
+- `DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh`
+
 ## L26 Slice Map
 
 | Slice | Outcome | Why it exists |
@@ -143,13 +218,13 @@ Recommended order:
 
 ## Manual Ignition Boundary
 
-With `L26.1` landed, the next manual ignition target should be `L26.2`.
+With `L26.3` landed, the next manual ignition target should be `L26.4`.
 
 Reason:
 
 - `L25` already solved shell order and first-rank surface reduction
-- the next risk is drift in client boundary, traceability shape, and signal ownership
-- freezing those obligations is the narrowest way to reopen GUI work without regressing into frontend-stack debates
+- `L26.2` froze the client boundary, traceability shape, signal ownership, and frontend-escalation guardrails in repo truth
+- `L26.3` removed the shared fetch-wiring drift point, so the next narrow risk is output traceability and signal ownership staying too fragmented across stage surfaces
 
 After the blueprint landing is committed and the repo is back to a clean baseline, the normal local ignition entrypoint stays:
 
@@ -157,7 +232,7 @@ After the blueprint landing is committed and the repo is back to a clean baselin
 bash scripts/governance/ignite_datapulse_codex_loop.sh
 ```
 
-Expected next slice after this blueprint landing: `L26.2`
+Expected next slice after this client-boundary landing: `L26.4`
 
 ## Fact Sources
 
@@ -171,4 +246,5 @@ DataPulse reopens GUI follow-up work without reopening the wrong problem:
 
 - the remaining gaps are narrowed to client boundary, traceability, signal ownership, and bounded frontend escalation
 - `L25` remains closed as the completed shell-order wave
-- next ignition is unambiguous: `L26.2`
+- the contract freeze is landed before implementation and the shared client boundary is now extracted
+- next ignition is unambiguous: `L26.4`
