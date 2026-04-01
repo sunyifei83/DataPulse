@@ -934,7 +934,10 @@ class WatchService:
             delay = max(0.1, float(retry_base_delay))
             while True:
                 try:
-                    payload = await self.run_watch(mission.id, trigger="scheduled")
+                    # Keep scheduled execution routed through the Reader facade so
+                    # surface-level overrides and verification hooks observe the
+                    # same entrypoint as direct watch runs.
+                    payload = await self.owner.run_watch(mission.id, trigger="scheduled")
                     run_payload = payload.get("run", {})
                     alert_events = payload.get("alert_events", [])
                     results.append(
