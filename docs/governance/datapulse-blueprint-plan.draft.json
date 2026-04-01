@@ -2,8 +2,8 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-31T13:41:09Z",
-  "status": "completed",
+  "generated_at_utc": "2026-04-01T07:16:26Z",
+  "status": "in_progress",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -89,7 +89,8 @@
     "L23": "completed",
     "L24": "completed",
     "L25": "completed",
-    "L26": "completed"
+    "L26": "completed",
+    "L27": "pending"
   },
   "phases": [
     {
@@ -3385,12 +3386,162 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L27",
+      "title": "Intelligence runtime kernel and multi-surface projection follow-up",
+      "goal": "Turn the repo's next leverage point into blueprint truth by freezing DataPulse as a Reader-backed intelligence runtime with explicit acquisition adapters, surface projections, governed AI overlay, and repo control-plane boundaries before another feature wave expands duplicated glue.",
+      "status": "pending",
+      "slices": [
+        {
+          "id": "L27.1",
+          "title": "Land the repo-scoped runtime-kernel and surface-projection blueprint plus fact promotion",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "test -f docs/governance/datapulse-intelligence-runtime-surface-projection-blueprint.md",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+            "python3 -m json.tool docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-intelligence-runtime-surface-projection-blueprint.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "exit_condition": "The repository contains a repo-scoped runtime-kernel and surface-projection blueprint that names DataPulse as a Reader-backed intelligence runtime, and active blueprint truth exposes `L27.2` as the next manual ignition target after the completed `L26` wave.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/claudecode-cli.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_运行时中枢能力萃取与L27点火计划_2026-04-01.md",
+            "/Users/sunyifei/DataPulse/datapulse/reader.py",
+            "/Users/sunyifei/DataPulse/datapulse/cli.py",
+            "/Users/sunyifei/DataPulse/datapulse/mcp_server.py",
+            "/Users/sunyifei/DataPulse/datapulse/console_server.py",
+            "/Users/sunyifei/DataPulse/docs/intelligence_lifecycle_contract.md",
+            "/Users/sunyifei/DataPulse/docs/governance/datapulse-modelbus-ai-governance-blueprint.md"
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-04-01T07:16:26Z",
+            "source_count": 8,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_运行时中枢能力萃取与L27点火计划_2026-04-01.md",
+              "frontmatter_title": "DataPulse 运行时中枢能力萃取与 L27 点火计划",
+              "first_heading": "DataPulse 运行时中枢能力萃取与 L27 点火计划",
+              "selected_heading": "建议点火波次：`L27`",
+              "wikilink_name": "DataPulse_运行时中枢能力萃取与L27点火计划_2026-04-01"
+            }
+          },
+          "notes": [
+            "Open a new wave because `L26` is already completed; do not keep treating console follow-up as the highest-leverage delta.",
+            "Use this slice to move the repo narrative from collector growth or UI-only motion toward runtime-kernel and surface-parity leverage."
+          ]
+        },
+        {
+          "id": "L27.2",
+          "title": "Freeze the canonical runtime layer map, ownership rules, and service-seam targets",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "docs/governance/datapulse-intelligence-runtime-surface-projection-blueprint.md",
+            "docs/intelligence_lifecycle_contract.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "exit_condition": "Repo truth explicitly names the acquisition-adapter layer, Reader/lifecycle kernel, surface projections, governed AI overlay, and governance control plane, plus the target service seams and ownership rules for future work.",
+          "notes": [
+            "Do not reopen collector-count or standalone-frontend questions inside this slice unless a direct contradiction is proven.",
+            "This slice should freeze where new capability work belongs before Reader decomposition or surface-catalog work starts."
+          ]
+        },
+        {
+          "id": "L27.3",
+          "title": "Extract domain service seams behind a stable DataPulseReader facade",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/reader.py",
+            "uv run pytest tests/test_reader.py tests/test_cli.py tests/test_mcp_server.py -q"
+          ],
+          "artifacts": [
+            "datapulse/reader.py",
+            "datapulse/core/watchlist.py",
+            "datapulse/core/triage.py",
+            "datapulse/core/story.py",
+            "datapulse/core/report.py",
+            "datapulse/core/alerts.py",
+            "tests/test_reader.py"
+          ],
+          "exit_condition": "Reader no longer carries all lifecycle and surface orchestration in one growing monolith, and explicit domain service seams own mission, triage, story, report, delivery, and AI orchestration while public lifecycle nouns remain stable.",
+          "notes": [
+            "Treat this slice as runtime maintainability and ownership hardening, not as a hidden public-surface redesign.",
+            "Keep CLI, MCP, console, agent, and skill wrappers as projections rather than moving orchestration outward."
+          ]
+        },
+        {
+          "id": "L27.4",
+          "title": "Introduce a machine-readable surface capability catalog and shared projection helpers",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m json.tool docs/governance/datapulse-surface-capability-catalog.draft.json",
+            "python3 -m py_compile datapulse/cli.py",
+            "python3 -m py_compile datapulse/mcp_server.py",
+            "python3 -m py_compile datapulse/console_server.py",
+            "uv run pytest tests/test_cli.py tests/test_mcp_server.py tests/test_console_server.py -q"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-surface-capability-catalog.draft.json",
+            "datapulse/cli.py",
+            "datapulse/mcp_server.py",
+            "datapulse/console_server.py",
+            "datapulse/agent.py",
+            "SKILL.md",
+            "datapulse_skill/manifest.json"
+          ],
+          "exit_condition": "The repo can name one capability once and project availability, guardrails, and expected verification coverage across CLI, MCP, console, agent, and skill surfaces without repeated ad hoc glue.",
+          "notes": [
+            "Surface-specific affordances may still differ, but capability identity and availability must become explicit repo truth.",
+            "Do not invent GUI-only capability nouns or SDK-only aliases in this slice."
+          ]
+        },
+        {
+          "id": "L27.5",
+          "title": "Harden surface-parity verification, runtime introspection, and reopen rules",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "uv run pytest tests/test_runtime.py tests/test_cli.py tests/test_mcp_server.py tests/test_console_server.py tests/test_skill_packaging.py -q",
+            "bash scripts/datapulse_console_smoke.sh"
+          ],
+          "artifacts": [
+            "tests/test_runtime.py",
+            "tests/test_cli.py",
+            "tests/test_mcp_server.py",
+            "tests/test_console_server.py",
+            "tests/test_skill_packaging.py",
+            "docs/governance/datapulse-intelligence-runtime-surface-projection-blueprint.md"
+          ],
+          "exit_condition": "Surface-parity regressions are machine-detectable, operators can inspect runtime capability coverage without reading multiple wrappers by hand, and repo truth records what evidence would justify reopening above this wave.",
+          "notes": [
+            "Acceptance should prove capability coverage and ownership clarity, not only that each wrapper still imports.",
+            "Keep reopen triggers narrow: parity regressions, runtime-boundary contradictions, or a new capability wave above the frozen layer map."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
+    "id": "L27.1",
+    "title": "Land the repo-scoped runtime-kernel and surface-projection blueprint plus fact promotion",
+    "reason": "The completed L26 console follow-up leaves runtime-kernel and multi-surface projection hardening as the next highest-leverage repo wave."
   },
   "progress_log": [
     {
@@ -3839,5 +3990,5 @@
       "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-04-01T05:10:54Z"
+  "last_updated_utc": "2026-04-01T07:16:26Z"
 }
