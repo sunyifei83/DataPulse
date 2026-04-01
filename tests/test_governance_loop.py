@@ -1315,3 +1315,65 @@ def test_maybe_auto_promote_persists_repair_request_after_dirty_worktree_settle_
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     assert payload["failed_command"] == "uv run python scripts/governance/run_datapulse_quick_test_gate.py"
     assert payload["original_next_slice"]["id"] == "L16.4"
+
+
+def test_internal_ai_surface_registry_export_builds_internal_only_registry() -> None:
+    if str(GOVERNANCE_SCRIPTS_DIR) not in sys.path:
+        sys.path.insert(0, str(GOVERNANCE_SCRIPTS_DIR))
+    registry_module = importlib.import_module("export_datapulse_internal_ai_surface_registry")
+
+    payload = registry_module.build_payload(
+        registry_module.DEFAULT_CAPABILITY_CATALOG_PATH,
+        registry_module.DEFAULT_BRIDGE_CONFIG_PATH,
+        registry_module.DEFAULT_SURFACE_ADMISSION_PATH,
+        registry_module.DEFAULT_READER_PATH,
+    )
+
+    assert payload["schema_version"] == "datapulse_internal_ai_surface_registry.v1"
+    assert payload["publication_boundary"]["external_publication_promise"] is False
+    assert payload["surface_ids"] == [
+        "ai_surface_precheck",
+        "mission_suggest",
+        "triage_assist",
+        "claim_draft",
+        "report_draft",
+        "delivery_summary",
+    ]
+
+    surfaces = {row["surface_id"]: row for row in payload["surfaces"]}
+    assert all(row["internal_only"] is True for row in payload["surfaces"])
+    assert surfaces["ai_surface_precheck"]["bound_tools"] == ["ai_surface_precheck"]
+    assert surfaces["ai_surface_precheck"]["bound_aliases"] == []
+    assert surfaces["mission_suggest"]["subject_kind"] == "WatchMission"
+    assert surfaces["mission_suggest"]["bound_aliases"] == ["dp.mission.suggest"]
+    assert surfaces["report_draft"]["bound_aliases"] == ["dp.report.draft"]
+    assert surfaces["report_draft"]["schema_contract_id"] == ""
+    assert surfaces["delivery_summary"]["output_kind"] == "summary"
+
+
+def test_internal_ai_surface_registry_export_main_writes_requested_output(monkeypatch, tmp_path: Path) -> None:
+    if str(GOVERNANCE_SCRIPTS_DIR) not in sys.path:
+        sys.path.insert(0, str(GOVERNANCE_SCRIPTS_DIR))
+    registry_module = importlib.import_module("export_datapulse_internal_ai_surface_registry")
+    output_path = tmp_path / "datapulse-internal-ai-surface-registry.draft.json"
+
+    monkeypatch.setattr(registry_module, "utc_now", lambda: "2026-04-01T15:52:00Z")
+    monkeypatch.setattr(
+        registry_module,
+        "parse_args",
+        lambda: registry_module.argparse.Namespace(
+            capability_catalog=registry_module.DEFAULT_CAPABILITY_CATALOG_PATH,
+            bridge_config=registry_module.DEFAULT_BRIDGE_CONFIG_PATH,
+            surface_admission=registry_module.DEFAULT_SURFACE_ADMISSION_PATH,
+            reader=registry_module.DEFAULT_READER_PATH,
+            output=output_path,
+            stdout=False,
+        ),
+    )
+
+    assert registry_module.main() == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+
+    assert payload["generated_at_utc"] == "2026-04-01T15:52:00Z"
+    assert payload["surface_ids"][0] == "ai_surface_precheck"
+    assert payload["surface_ids"][-1] == "delivery_summary"

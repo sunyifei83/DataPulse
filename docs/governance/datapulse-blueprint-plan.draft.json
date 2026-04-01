@@ -91,7 +91,7 @@
     "L25": "completed",
     "L26": "completed",
     "L27": "completed",
-    "L28": "pending"
+    "L28": "in_progress"
   },
   "phases": [
     {
@@ -3541,7 +3541,7 @@
     {
       "id": "L28",
       "title": "Tri-repo Intake Decomposition",
-      "status": "pending",
+      "status": "in_progress",
       "slices": [
         {
           "id": "L28.1",
@@ -3549,7 +3549,7 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "artifacts": [
             "docs/governance/datapulse-blueprint-plan.draft.json"
           ],
@@ -3576,16 +3576,113 @@
               "wikilink_name": "\u4e09\u4ed3\u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c\u6e05\u5355-2026-04-01"
             }
           }
+        },
+        {
+          "id": "L28.2",
+          "title": "Materialize internal AI surface registry as machine-readable truth",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-internal-ai-surface-registry.draft.json",
+            "scripts/governance/export_datapulse_internal_ai_surface_registry.py"
+          ],
+          "exit_condition": "A repo-native machine-readable registry enumerates ai_surface_precheck, mission_suggest, triage_assist, claim_draft, report_draft, and delivery_summary as the current internal AI surfaces without turning any internal surface into an external publication promise.",
+          "fact_sources": [
+            "/Users/sunyifei/ModelBusProject/out/tri_repo_handoffs/handoff.min_engineering_actions_20260401.datapulse.json",
+            "/Users/sunyifei/ModelBusProject/out/tri_repo_handoffs/handoff.min_engineering_actions_20260401.datapulse.pre_ignite_runbook.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/\u4e09\u4ed3/\u4e09\u4ed3\u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c\u6e05\u5355-2026-04-01.md#\u4e8c\u3001DataPulse \u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c"
+          ],
+          "notes": [
+            "Keep the registry internal-first and machine-readable; do not model an external subscription plane in this slice.",
+            "Scope is limited to the six P1 internal AI surfaces named by the tri-repo intake."
+          ]
+        },
+        {
+          "id": "L28.3",
+          "title": "Export minimal admission verdict rows for each internal AI surface",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "out/governance/datapulse_internal_ai_surface_admission.draft.json",
+            "scripts/governance/export_datapulse_internal_ai_surface_admission.py"
+          ],
+          "exit_condition": "Each internal AI surface now emits machine-readable admission rows containing surface_id, bound_aliases, bound_tools, tool_schema_verdict, tool_policy_verdict, and failure_reason, with report_draft explicitly recorded as fail_closed rather than silently omitted.",
+          "fact_sources": [
+            "/Users/sunyifei/ModelBusProject/out/tri_repo_handoffs/handoff.min_engineering_actions_20260401.datapulse.json",
+            "/Users/sunyifei/ModelBusProject/out/tri_repo_handoffs/handoff.min_engineering_actions_20260401.datapulse.pre_ignite_runbook.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/\u4e09\u4ed3/\u4e09\u4ed3\u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c\u6e05\u5355-2026-04-01.md#\u4e8c\u3001DataPulse \u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c"
+          ],
+          "notes": [
+            "Admission rows should bind current aliases and tool surfaces instead of copying prose-only policy descriptions.",
+            "report_draft must stay rejected/fail_closed until a structured contract is admitted."
+          ]
+        },
+        {
+          "id": "L28.4",
+          "title": "Close one internal runtime evidence bundle for claim_draft or delivery_summary",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "out/governance/datapulse_internal_ai_surface_runtime_evidence.draft.json",
+            "scripts/governance/export_datapulse_internal_ai_surface_runtime_evidence.py"
+          ],
+          "exit_condition": "At least one of claim_draft or delivery_summary has same-window runtime evidence closure with request_id, bound alias, and failure_reason semantics wired into a repo-native bundle while report_draft remains verified only as fail_closed truth.",
+          "fact_sources": [
+            "/Users/sunyifei/ModelBusProject/out/tri_repo_handoffs/handoff.min_engineering_actions_20260401.datapulse.json",
+            "/Users/sunyifei/ModelBusProject/out/tri_repo_handoffs/handoff.min_engineering_actions_20260401.datapulse.pre_ignite_runbook.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/\u4e09\u4ed3/\u4e09\u4ed3\u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c\u6e05\u5355-2026-04-01.md#\u4e8c\u3001DataPulse \u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c"
+          ],
+          "notes": [
+            "Start with one surface only; the tri-repo intake does not require both claim_draft and delivery_summary in the first closure wave.",
+            "Preserve report_draft fail_closed evidence semantics rather than rewriting the surface as admitted."
+          ]
+        },
+        {
+          "id": "L28.5",
+          "title": "Project internal AI surface registry into an external design-only mapping table",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "docs/governance/datapulse-internal-external-surface-projection-table.draft.json"
+          ],
+          "exit_condition": "Blueprint truth records a simple design-only projection table from internal authoring surfaces to future external result surfaces without enabling runtime externalization, subscription gates, or customer-facing claim/report draft publication.",
+          "fact_sources": [
+            "/Users/sunyifei/ModelBusProject/out/tri_repo_handoffs/handoff.min_engineering_actions_20260401.datapulse.json",
+            "/Users/sunyifei/ModelBusProject/out/tri_repo_handoffs/handoff.min_engineering_actions_20260401.datapulse.pre_ignite_runbook.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/\u4e09\u4ed3/\u4e09\u4ed3\u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c\u6e05\u5355-2026-04-01.md#\u4e8c\u3001DataPulse \u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c"
+          ],
+          "notes": [
+            "This slice is design-only and must not activate external runtime or subscription workflows.",
+            "claim_draft and report_draft remain internal authoring surfaces in the current P1 wave."
+          ]
         }
       ]
     }
   ],
   "recommended_next_slice": {
-    "id": "L28.1",
-    "title": "Decompose tri-repo minimal engineering actions into DataPulse repo-relevant follow-up slices",
+    "id": "L28.3",
+    "title": "Export minimal admission verdict rows for each internal AI surface",
     "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-04-01T15:52:00Z",
+      "slice_id": "L28.2",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-04-01T15:36:00Z",
+      "slice_id": "L28.1",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-04-01T08:23:38Z",
       "slice_id": "L27.5",
@@ -4057,5 +4154,5 @@
       "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-04-01T15:24:04Z"
+  "last_updated_utc": "2026-04-01T15:52:00Z"
 }

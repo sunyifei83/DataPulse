@@ -1,0 +1,329 @@
+{
+  "schema_version": "datapulse_internal_ai_surface_registry.v1",
+  "registry_id": "datapulse_internal_ai_surfaces",
+  "generated_at_utc": "2026-04-01T15:47:20Z",
+  "state_kind": "draft_export",
+  "publication_boundary": {
+    "classification": "internal_only",
+    "external_publication_promise": false,
+    "customer_runtime_enabled": false,
+    "notes": [
+      "This registry enumerates current repo-native internal AI surfaces only.",
+      "Presence in this registry must not be interpreted as an external publication or subscription promise."
+    ]
+  },
+  "sources": {
+    "capability_catalog": "docs/governance/datapulse-surface-capability-catalog.draft.json",
+    "bridge_config": "config/modelbus/datapulse/bridge_config.json",
+    "surface_admission": "config/modelbus/datapulse/surface_admission.json",
+    "reader_runtime_contract": "datapulse/reader.py"
+  },
+  "surface_ids": [
+    "ai_surface_precheck",
+    "mission_suggest",
+    "triage_assist",
+    "claim_draft",
+    "report_draft",
+    "delivery_summary"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "ai_surface_precheck",
+      "registry_class": "governance_precheck",
+      "owner_seam": "governed_ai_overlay",
+      "capability_id": "governed_ai_surface_precheck",
+      "governed_ai_surface_id": "",
+      "internal_only": true,
+      "external_publication_promise": false,
+      "customer_runtime_enabled": false,
+      "subject_kind": "GovernedAISurface",
+      "output_kind": "precheck",
+      "schema_contract_id": "",
+      "bound_aliases": [],
+      "bound_tools": [
+        "ai_surface_precheck"
+      ],
+      "projection_layers": [
+        "cli",
+        "mcp",
+        "console"
+      ],
+      "projections": {
+        "cli": {
+          "availability": "available",
+          "entrypoints": [
+            "--ai-surface-precheck SURFACE"
+          ]
+        },
+        "mcp": {
+          "availability": "available",
+          "entrypoints": [
+            "tool:ai_surface_precheck"
+          ]
+        },
+        "console": {
+          "availability": "available",
+          "entrypoints": [
+            "GET /api/ai/surfaces/{surface}/precheck"
+          ]
+        },
+        "agent": {
+          "availability": "unavailable"
+        },
+        "skill": {
+          "availability": "unavailable"
+        }
+      }
+    },
+    {
+      "surface_id": "mission_suggest",
+      "registry_class": "governed_projection",
+      "owner_seam": "governed_ai_overlay",
+      "capability_id": "governed_ai_mission_suggest",
+      "governed_ai_surface_id": "mission_suggest",
+      "internal_only": true,
+      "external_publication_promise": false,
+      "customer_runtime_enabled": false,
+      "subject_kind": "WatchMission",
+      "output_kind": "suggestion",
+      "schema_contract_id": "datapulse_ai_watch_suggestion.v1",
+      "bound_aliases": [
+        "dp.mission.suggest"
+      ],
+      "bound_tools": [
+        "ai_mission_suggest"
+      ],
+      "projection_layers": [
+        "cli",
+        "mcp",
+        "console"
+      ],
+      "projections": {
+        "cli": {
+          "availability": "available",
+          "entrypoints": [
+            "--ai-mission-suggest WATCH"
+          ]
+        },
+        "mcp": {
+          "availability": "available",
+          "entrypoints": [
+            "tool:ai_mission_suggest"
+          ]
+        },
+        "console": {
+          "availability": "available",
+          "entrypoints": [
+            "GET /api/watches/{identifier}/ai/mission-suggest"
+          ]
+        },
+        "agent": {
+          "availability": "unavailable"
+        },
+        "skill": {
+          "availability": "unavailable"
+        }
+      }
+    },
+    {
+      "surface_id": "triage_assist",
+      "registry_class": "governed_projection",
+      "owner_seam": "governed_ai_overlay",
+      "capability_id": "governed_ai_triage_assist",
+      "governed_ai_surface_id": "triage_assist",
+      "internal_only": true,
+      "external_publication_promise": false,
+      "customer_runtime_enabled": false,
+      "subject_kind": "DataPulseItem",
+      "output_kind": "explain",
+      "schema_contract_id": "datapulse_ai_triage_explain.v1",
+      "bound_aliases": [
+        "dp.triage.assist"
+      ],
+      "bound_tools": [
+        "ai_triage_assist"
+      ],
+      "projection_layers": [
+        "cli",
+        "mcp",
+        "console"
+      ],
+      "projections": {
+        "cli": {
+          "availability": "available",
+          "entrypoints": [
+            "--ai-triage-assist ITEM_ID"
+          ]
+        },
+        "mcp": {
+          "availability": "available",
+          "entrypoints": [
+            "tool:ai_triage_assist"
+          ]
+        },
+        "console": {
+          "availability": "available",
+          "entrypoints": [
+            "GET /api/triage/{item_id}/ai/assist"
+          ]
+        },
+        "agent": {
+          "availability": "unavailable"
+        },
+        "skill": {
+          "availability": "unavailable"
+        }
+      }
+    },
+    {
+      "surface_id": "claim_draft",
+      "registry_class": "governed_projection",
+      "owner_seam": "governed_ai_overlay",
+      "capability_id": "governed_ai_claim_draft",
+      "governed_ai_surface_id": "claim_draft",
+      "internal_only": true,
+      "external_publication_promise": false,
+      "customer_runtime_enabled": false,
+      "subject_kind": "Story",
+      "output_kind": "draft",
+      "schema_contract_id": "datapulse_ai_claim_draft.v1",
+      "bound_aliases": [
+        "dp.claim.draft"
+      ],
+      "bound_tools": [
+        "ai_claim_draft"
+      ],
+      "projection_layers": [
+        "cli",
+        "mcp",
+        "console"
+      ],
+      "projections": {
+        "cli": {
+          "availability": "available",
+          "entrypoints": [
+            "--ai-claim-draft STORY"
+          ]
+        },
+        "mcp": {
+          "availability": "available",
+          "entrypoints": [
+            "tool:ai_claim_draft"
+          ]
+        },
+        "console": {
+          "availability": "available",
+          "entrypoints": [
+            "GET /api/stories/{identifier}/ai/claim-draft"
+          ]
+        },
+        "agent": {
+          "availability": "unavailable"
+        },
+        "skill": {
+          "availability": "unavailable"
+        }
+      }
+    },
+    {
+      "surface_id": "report_draft",
+      "registry_class": "governed_projection",
+      "owner_seam": "governed_ai_overlay",
+      "capability_id": "governed_ai_report_draft",
+      "governed_ai_surface_id": "report_draft",
+      "internal_only": true,
+      "external_publication_promise": false,
+      "customer_runtime_enabled": false,
+      "subject_kind": "Report",
+      "output_kind": "draft",
+      "schema_contract_id": "",
+      "bound_aliases": [
+        "dp.report.draft"
+      ],
+      "bound_tools": [
+        "ai_report_draft"
+      ],
+      "projection_layers": [
+        "cli",
+        "mcp",
+        "console"
+      ],
+      "projections": {
+        "cli": {
+          "availability": "available",
+          "entrypoints": [
+            "--ai-report-draft REPORT"
+          ]
+        },
+        "mcp": {
+          "availability": "available",
+          "entrypoints": [
+            "tool:ai_report_draft"
+          ]
+        },
+        "console": {
+          "availability": "available",
+          "entrypoints": [
+            "GET /api/reports/{identifier}/ai/report-draft"
+          ]
+        },
+        "agent": {
+          "availability": "unavailable"
+        },
+        "skill": {
+          "availability": "unavailable"
+        }
+      }
+    },
+    {
+      "surface_id": "delivery_summary",
+      "registry_class": "governed_projection",
+      "owner_seam": "governed_ai_overlay",
+      "capability_id": "governed_ai_delivery_summary",
+      "governed_ai_surface_id": "delivery_summary",
+      "internal_only": true,
+      "external_publication_promise": false,
+      "customer_runtime_enabled": false,
+      "subject_kind": "AlertEvent",
+      "output_kind": "summary",
+      "schema_contract_id": "datapulse_ai_delivery_summary.v1",
+      "bound_aliases": [
+        "dp.delivery.summary"
+      ],
+      "bound_tools": [
+        "ai_delivery_summary"
+      ],
+      "projection_layers": [
+        "cli",
+        "mcp",
+        "console"
+      ],
+      "projections": {
+        "cli": {
+          "availability": "available",
+          "entrypoints": [
+            "--ai-delivery-summary ALERT"
+          ]
+        },
+        "mcp": {
+          "availability": "available",
+          "entrypoints": [
+            "tool:ai_delivery_summary"
+          ]
+        },
+        "console": {
+          "availability": "available",
+          "entrypoints": [
+            "GET /api/alerts/{identifier}/ai/delivery-summary"
+          ]
+        },
+        "agent": {
+          "availability": "unavailable"
+        },
+        "skill": {
+          "availability": "unavailable"
+        }
+      }
+    }
+  ]
+}
