@@ -223,6 +223,19 @@ def test_repo_workspace_clean_ignores_codex_loop_output_prefix(loop_contracts, m
     assert entries == []
 
 
+def test_repo_workspace_clean_ignores_internal_runtime_evidence_output(loop_contracts, monkeypatch) -> None:
+    monkeypatch.setattr(
+        loop_contracts,
+        "git_output",
+        lambda *args: " M out/governance/datapulse_internal_ai_surface_runtime_evidence.draft.json\n",
+    )
+
+    clean, entries = loop_contracts.repo_workspace_clean()
+
+    assert clean is True
+    assert entries == []
+
+
 def test_run_capture_with_mode_raises_for_required_failure(auto_continuation, monkeypatch) -> None:
     def _fake_run(*args, **kwargs):
         return auto_continuation.subprocess.CompletedProcess(
@@ -264,12 +277,20 @@ def test_refresh_governance_snapshots_treats_quick_test_as_best_effort(
 
     assert result == {
         "quick_test_gate": '{"ok": false}',
+        "internal_ai_surface_runtime_evidence": "scripts/governance/export_datapulse_internal_ai_surface_runtime_evidence.py",
         "code_landing_status": "scripts/governance/export_datapulse_code_landing_status.py",
         "project_loop_state": "scripts/governance/export_datapulse_project_loop_state.py",
         "structured_release_bundle": "scripts/governance/export_datapulse_structured_release_bundle.py",
     }
     assert calls == [
         (("python", "scripts/governance/run_datapulse_quick_test_gate.py"), False),
+        (
+            (
+                "python",
+                "scripts/governance/export_datapulse_internal_ai_surface_runtime_evidence.py",
+            ),
+            True,
+        ),
         (
             (
                 "python",

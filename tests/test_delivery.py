@@ -491,6 +491,181 @@ def test_runtime_hit_evidence_export_verifies_public_surfaces_and_report_fail_cl
     assert report["missing_runtime_facts"] == []
 
 
+def test_internal_runtime_evidence_export_closes_claim_and_preserves_report_fail_closed(tmp_path):
+    script_path = (
+        Path(__file__).resolve().parents[1]
+        / "scripts/governance/export_datapulse_internal_ai_surface_runtime_evidence.py"
+    )
+    output_path = tmp_path / "datapulse_internal_ai_surface_runtime_evidence.draft.json"
+    bundle_dir = tmp_path / "modelbus-bundle"
+    registry_path = tmp_path / "registry.json"
+    bridge_config_path = tmp_path / "bridge_config.json"
+    surface_admission_path = tmp_path / "surface_admission.json"
+
+    _write_modelbus_bundle(
+        bundle_dir,
+        [
+            {
+                "surface_id": "claim_draft",
+                "requested_alias": "dp.claim.draft",
+                "admission_status": "admitted",
+                "admitted_alias": "dp.claim.draft",
+                "mode_admission": {"off": "manual_only", "assist": "admitted", "review": "admitted"},
+                "schema_contract": "datapulse_ai_claim_draft.v1",
+                "manual_fallback": "manual_review_of_ai_payload_before_final_state_change",
+                "degraded_result_allowed": False,
+                "must_expose_runtime_facts": [
+                    "served_by_alias",
+                    "fallback_used",
+                    "degraded",
+                    "schema_valid",
+                    "manual_override_required",
+                    "request_id",
+                ],
+                "rejectable_gaps": [],
+            },
+            {
+                "surface_id": "report_draft",
+                "requested_alias": "dp.report.draft",
+                "admission_status": "rejected",
+                "admitted_alias": "",
+                "mode_admission": {"off": "manual_only", "assist": "rejected", "review": "rejected"},
+                "schema_contract": "",
+                "manual_fallback": "manual_or_deterministic_behavior",
+                "degraded_result_allowed": False,
+                "must_expose_runtime_facts": [
+                    "served_by_alias",
+                    "fallback_used",
+                    "degraded",
+                    "schema_valid",
+                    "manual_override_required",
+                    "request_id",
+                ],
+                "rejectable_gaps": [
+                    {
+                        "gap_id": "report_draft.experimental:missing_contract_binding",
+                        "blocking": True,
+                        "reason": "report_draft has no admitted structured payload contract after L16.4 and must fail closed.",
+                    }
+                ],
+            },
+            {
+                "surface_id": "delivery_summary",
+                "requested_alias": "dp.delivery.summary",
+                "admission_status": "admitted",
+                "admitted_alias": "dp.delivery.summary",
+                "mode_admission": {"off": "manual_only", "assist": "admitted", "review": "admitted"},
+                "schema_contract": "datapulse_ai_delivery_summary.v1",
+                "manual_fallback": "manual_review_of_ai_payload_before_final_state_change",
+                "degraded_result_allowed": True,
+                "must_expose_runtime_facts": [
+                    "served_by_alias",
+                    "fallback_used",
+                    "degraded",
+                    "schema_valid",
+                    "manual_override_required",
+                    "request_id",
+                ],
+                "rejectable_gaps": [],
+            },
+        ],
+    )
+    registry_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "datapulse_internal_ai_surface_registry.v1",
+                "surfaces": [
+                    {
+                        "surface_id": "claim_draft",
+                        "bound_aliases": ["dp.claim.draft"],
+                        "bound_tools": ["ai_claim_draft"],
+                        "schema_contract_id": "datapulse_ai_claim_draft.v1",
+                    },
+                    {
+                        "surface_id": "report_draft",
+                        "bound_aliases": ["dp.report.draft"],
+                        "bound_tools": ["ai_report_draft"],
+                        "schema_contract_id": "",
+                    },
+                    {
+                        "surface_id": "delivery_summary",
+                        "bound_aliases": ["dp.delivery.summary"],
+                        "bound_tools": ["ai_delivery_summary"],
+                        "schema_contract_id": "datapulse_ai_delivery_summary.v1",
+                    },
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    bridge_config_path.write_text(
+        json.dumps(
+            {
+                "schema": "modelbus.consumer_bridge_config.v1",
+                "alias_by_surface": {
+                    "claim_draft": "dp.claim.draft",
+                    "report_draft": "dp.report.draft",
+                    "delivery_summary": "dp.delivery.summary",
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    surface_admission_path.write_text((bundle_dir / "surface_admission.json").read_text(encoding="utf-8"), encoding="utf-8")
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(script_path),
+            "--bundle-dir",
+            str(bundle_dir),
+            "--registry",
+            str(registry_path),
+            "--bridge-config",
+            str(bridge_config_path),
+            "--surface-admission",
+            str(surface_admission_path),
+            "--surface",
+            "claim_draft",
+            "--output",
+            str(output_path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    surfaces = {row["surface"]: row for row in payload["surfaces"]}
+
+    assert payload["selected_surface"] == "claim_draft"
+    assert payload["closure"]["same_window_closed"] is True
+    assert payload["closure"]["blocking_reasons"] == []
+    assert payload["repo_native_bundle"]["runtime_bundle_dir"] == str(bundle_dir)
+
+    claim = surfaces["claim_draft"]
+    assert claim["evidence_status"] == "verified"
+    assert claim["served_by_alias"] == "dp.claim.draft"
+    assert claim["binding"]["served_alias_bound"] is True
+    assert claim["binding"]["request_id_present"] is True
+    assert claim["failure_reason"] == ""
+
+    report = surfaces["report_draft"]
+    assert report["evidence_status"] == "verified_fail_closed"
+    assert report["served_by_alias"] == "dp.report.draft"
+    assert report["fail_closed"] is True
+    assert report["binding"]["served_alias_bound"] is True
+    assert report["binding"]["request_id_present"] is True
+    assert report["binding"]["failure_reason_bound"] is True
+    assert "must fail closed" in report["failure_reason"]
+
+
 def test_report_delivery_package_is_deterministic_and_dispatch_records_are_attributable(tmp_path, monkeypatch):
     reader = _reader(tmp_path)
 

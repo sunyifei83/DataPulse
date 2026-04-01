@@ -1,0 +1,163 @@
+{
+  "schema_version": "datapulse_internal_external_surface_projection_table.v1",
+  "table_id": "datapulse_internal_external_surface_projection_table",
+  "generated_at_utc": "2026-04-01T16:20:07Z",
+  "state_kind": "draft_design_map",
+  "source_registry": {
+    "path": "docs/governance/datapulse-internal-ai-surface-registry.draft.json",
+    "registry_id": "datapulse_internal_ai_surfaces"
+  },
+  "design_boundary": {
+    "classification": "design_only",
+    "runtime_externalization_enabled": false,
+    "subscription_gate_modeled": false,
+    "customer_facing_claim_draft_publication": false,
+    "customer_facing_report_draft_publication": false,
+    "notes": [
+      "This table projects current internal authoring and governed AI surfaces into possible future external result surfaces only as design truth.",
+      "No row in this table admits runtime publication, subscription wiring, or customer-facing draft delivery."
+    ]
+  },
+  "projection_rules": [
+    {
+      "id": "internal_registry_is_source_of_truth",
+      "description": "Internal surface ids, aliases, tools, subject kinds, and output kinds continue to derive from the internal registry rather than from this projection table."
+    },
+    {
+      "id": "future_result_surfaces_are_read_only",
+      "description": "Projected external surfaces are future result/read-only endpoints, not authoring surfaces."
+    },
+    {
+      "id": "separate_admission_required",
+      "description": "Any runtime externalization would require separate contract admission, evidence closure, and blueprint slices."
+    }
+  ],
+  "rows": [
+    {
+      "internal_surface_id": "ai_surface_precheck",
+      "internal_subject_kind": "GovernedAISurface",
+      "internal_output_kind": "precheck",
+      "internal_bound_aliases": [],
+      "internal_bound_tools": [
+        "ai_surface_precheck"
+      ],
+      "future_external_result_surface_id": "",
+      "future_external_result_kind": "",
+      "projection_status": "no_external_result_projection",
+      "projection_kind": "internal_gate_only",
+      "future_visibility": "not_applicable",
+      "runtime_enabled": false,
+      "subscription_gate": "not_modeled",
+      "notes": [
+        "Precheck remains an internal governance gate and does not project to a standalone external result surface in this slice."
+      ]
+    },
+    {
+      "internal_surface_id": "mission_suggest",
+      "internal_subject_kind": "WatchMission",
+      "internal_output_kind": "suggestion",
+      "internal_bound_aliases": [
+        "dp.mission.suggest"
+      ],
+      "internal_bound_tools": [
+        "ai_mission_suggest"
+      ],
+      "future_external_result_surface_id": "watch_mission_suggestion_result",
+      "future_external_result_kind": "read_only_result",
+      "projection_status": "design_only_candidate",
+      "projection_kind": "internal_authoring_to_external_result",
+      "future_visibility": "operator_read_only",
+      "runtime_enabled": false,
+      "subscription_gate": "not_modeled",
+      "notes": [
+        "The future external surface would expose the resulting suggestion, not the internal authoring interaction itself."
+      ]
+    },
+    {
+      "internal_surface_id": "triage_assist",
+      "internal_subject_kind": "DataPulseItem",
+      "internal_output_kind": "explain",
+      "internal_bound_aliases": [
+        "dp.triage.assist"
+      ],
+      "internal_bound_tools": [
+        "ai_triage_assist"
+      ],
+      "future_external_result_surface_id": "triage_assistance_result",
+      "future_external_result_kind": "read_only_result",
+      "projection_status": "design_only_candidate",
+      "projection_kind": "internal_authoring_to_external_result",
+      "future_visibility": "operator_read_only",
+      "runtime_enabled": false,
+      "subscription_gate": "not_modeled",
+      "notes": [
+        "The external projection target is a read-only explanation result attached to a triage item."
+      ]
+    },
+    {
+      "internal_surface_id": "claim_draft",
+      "internal_subject_kind": "Story",
+      "internal_output_kind": "draft",
+      "internal_bound_aliases": [
+        "dp.claim.draft"
+      ],
+      "internal_bound_tools": [
+        "ai_claim_draft"
+      ],
+      "future_external_result_surface_id": "story_claim_result",
+      "future_external_result_kind": "reviewed_result",
+      "projection_status": "design_only_candidate",
+      "projection_kind": "internal_authoring_to_external_result",
+      "future_visibility": "operator_read_only",
+      "runtime_enabled": false,
+      "subscription_gate": "not_modeled",
+      "notes": [
+        "claim_draft remains an internal authoring surface in the current wave.",
+        "The projected external target is a future reviewed result surface rather than customer-facing draft publication."
+      ]
+    },
+    {
+      "internal_surface_id": "report_draft",
+      "internal_subject_kind": "Report",
+      "internal_output_kind": "draft",
+      "internal_bound_aliases": [
+        "dp.report.draft"
+      ],
+      "internal_bound_tools": [
+        "ai_report_draft"
+      ],
+      "future_external_result_surface_id": "report_result_bundle",
+      "future_external_result_kind": "reviewed_result",
+      "projection_status": "design_only_blocked_fail_closed",
+      "projection_kind": "internal_authoring_to_external_result",
+      "future_visibility": "operator_read_only",
+      "runtime_enabled": false,
+      "subscription_gate": "not_modeled",
+      "notes": [
+        "report_draft remains internal-only and fail_closed until a structured contract and separate admission land.",
+        "This row records only a future result-oriented target name, not runtime availability."
+      ]
+    },
+    {
+      "internal_surface_id": "delivery_summary",
+      "internal_subject_kind": "AlertEvent",
+      "internal_output_kind": "summary",
+      "internal_bound_aliases": [
+        "dp.delivery.summary"
+      ],
+      "internal_bound_tools": [
+        "ai_delivery_summary"
+      ],
+      "future_external_result_surface_id": "delivery_summary_result",
+      "future_external_result_kind": "read_only_result",
+      "projection_status": "design_only_candidate",
+      "projection_kind": "internal_authoring_to_external_result",
+      "future_visibility": "operator_read_only",
+      "runtime_enabled": false,
+      "subscription_gate": "not_modeled",
+      "notes": [
+        "The external target is the resulting delivery summary payload, not a customer-facing authoring surface."
+      ]
+    }
+  ]
+}

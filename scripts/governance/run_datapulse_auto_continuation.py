@@ -140,6 +140,12 @@ def refresh_governance_snapshots_to_targets(
             ],
             required=False,
         ),
+        "internal_ai_surface_runtime_evidence": run_capture(
+            [
+                *current_python_command(),
+                "scripts/governance/export_datapulse_internal_ai_surface_runtime_evidence.py",
+            ]
+        ),
         "code_landing_status": run_capture(
             [
                 *current_python_command(),
