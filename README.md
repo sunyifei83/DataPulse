@@ -37,6 +37,7 @@ DataPulse 提供一个统一入口，用于：
 | 仓库定位 | DataPulse 已从“多平台解析器集合”演进为本地优先的公开来源情报操作面，主链路是 `collection -> mission -> triage -> story -> report -> delivery -> governance`。 |
 | 已形成闭环 | 公开来源采集、搜索、watch/triage/story、alert/route、ops scorecard、browser console、source/lifecycle/delivery governance 已在仓内形成可运行闭环。 |
 | 正在收敛 | report objects、normalized delivery subscription、report package/dispatch、governed AI surfaces 已进入 Reader / CLI / MCP 运行面，但仍按治理契约逐层收口，而不是伪装成“全自动研究代理”。 |
+| 当前蓝图态 | `L27` runtime-boundary / surface-parity wave 已完成至 `L27.5`；当前 draft blueprint 返回 `recommended_next_slice=no-open-slice`，直到出现新 wave 或 admissible reopen evidence。 |
 | 明确边界 | 本仓不是付费数据库采购系统、线下访谈系统、ERP/CRM 情报中台，也不对抓取合法性做自动法律判断。 |
 | 当前证明面 | `out/ha_latest_release_bundle/` 是当前 canonical 交付证明 bundle；其中 `code_landing_status.snapshot.json`、`release_status.json`、`datapulse-ai-surface-admission.example.json` 分别沉淀代码落地、发布状态与 AI surface admission 真相。 |
 
