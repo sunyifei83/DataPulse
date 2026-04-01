@@ -91,6 +91,7 @@ def render_console_client_script(initial_state: str) -> str:
         review: null,
         deliver: null,
       }},
+      sharedSignalFocus: "quality",
       language: "en",
       contextLensOpen: false,
       contextLinkHistory: [],
@@ -3754,6 +3755,8 @@ def render_console_client_script(initial_state: str) -> str:
       const nextAction = workspaceModeNextActionLabel(modeDescriptor.id, activeSectionId);
       const cards = Array.isArray(modeDescriptor.modules) ? modeDescriptor.modules : [];
       const advancedActions = Array.isArray(modeDescriptor.advancedActions) ? modeDescriptor.advancedActions : [];
+      const traceCard = renderStageLinkedTraceCard();
+      const sharedSignalCard = renderSharedSignalTaxonomyCard();
 
       root.hidden = false;
       root.innerHTML = `
@@ -3769,6 +3772,10 @@ def render_console_client_script(initial_state: str) -> str:
             <span class="chip">${{copy("Owned output", "阶段产出")}}: ${{escapeHtml(ownedOutput)}}</span>
             <span class="chip hot">${{copy("Next action", "下一步动作")}}: ${{escapeHtml(nextAction)}}</span>
           </div>
+        </div>
+        <div class="workspace-mode-insight-grid">
+          ${{traceCard}}
+          ${{sharedSignalCard}}
         </div>
         <div class="workspace-mode-grid">
           ${{cards.map((card) => {{
@@ -3814,6 +3821,17 @@ def render_console_client_script(initial_state: str) -> str:
           openAdvancedSurfaceShell(String(button.dataset.workspaceAdvancedOpen || "").trim());
         }});
       }});
+      root.querySelectorAll("[data-shared-signal-button]").forEach((button) => {{
+        button.addEventListener("click", () => {{
+          const signalId = String(button.dataset.sharedSignalButton || "").trim();
+          if (!signalId) {{
+            return;
+          }}
+          state.sharedSignalFocus = signalId;
+          renderWorkspaceModeShell();
+        }});
+      }});
+      wireLifecycleGuideActions(root);
       scheduleCanvasTextFit(root);
     }}
 
@@ -4659,6 +4677,7 @@ def render_console_client_script(initial_state: str) -> str:
       renderContextLens(descriptor);
       renderContextViewDock();
       renderIntakeLiveDesk();
+      renderWorkspaceModeShell();
       scheduleCanvasTextFit($("context-shell"));
       scheduleCanvasTextFit($("context-view-dock"));
     }}
@@ -6953,6 +6972,611 @@ def render_console_client_script(initial_state: str) -> str:
         return {{ key: rawStatus, label: localizeWord(rawStatus), tone: rawStatus === "watch" ? "hot" : "" }};
       }}
       return {{ key: "pending", label: copy("Not assessed", "未评估"), tone: "" }};
+    }}
+
+    function signalToneFromStatus(status = "") {{
+      const normalized = String(status || "").trim().toLowerCase();
+      if (["ok", "ready", "healthy", "clear", "completed", "delivered"].includes(normalized)) {{
+        return "ok";
+      }}
+      if (["watch", "warning", "blocked", "error", "fail", "failed", "degraded", "no_result"].includes(normalized)) {{
+        return "hot";
+      }}
+      return "";
+    }}
+
+    function traceStageStatusLabel(status = "") {{
+      const normalized = String(status || "").trim().toLowerCase() || "pending";
+      const labels = {{
+        ready: copy("ready", "已就绪"),
+        ok: copy("ok", "正常"),
+        watch: copy("watch", "关注"),
+        warning: copy("warning", "警告"),
+        blocked: copy("blocked", "阻塞"),
+        no_result: copy("no result", "无结果"),
+        pending: copy("pending", "待推进"),
+        delivered: copy("delivered", "已送达"),
+      }};
+      return labels[normalized] || localizeWord(normalized);
+    }}
+
+    function buildStageLinkedTrace() {{
+      const watch = getSelectedWatchForContext() || state.watches[0] || null;
+      const draft = normalizeCreateWatchDraft(state.createWatchDraft || defaultCreateWatchDraft());
+      const recentRuns = Array.isArray(watch?.runs) ? watch.runs : [];
+      const latestRun = recentRuns[0] || null;
+      const recentAlerts = Array.isArray(watch?.recent_alerts) ? watch.recent_alerts : [];
+      const resultStats = watch?.result_stats || {{}};
+      const storedResults = Number(resultStats.stored_result_count || resultStats.returned_result_count || 0);
+      const selectedTriage = state.triage.find((item) => String(item.id || "").trim() === String(state.selectedTriageId || "").trim()) || null;
+      const selectedStory = getStoryRecord(state.selectedStoryId);
+      const selectedReport = getSelectedReportRecord();
+      const selectedQuality = getReportComposition(selectedReport?.id || "")?.quality || null;
+      const routeSummary = state.ops?.route_summary || {{}};
+      const routeTimeline = Array.isArray(state.ops?.route_timeline) ? state.ops.route_timeline : [];
+      const storySignal = getGovernanceSignal("story_conversion");
+      const triageSignal = getGovernanceSignal("triage_throughput");
+      const readyStories = Number(state.overview?.story_ready_count ?? storySignal.ready_story_count ?? 0);
+      const openQueue = Number(state.overview?.triage_open_count ?? triageSignal.open_items ?? 0);
+      const contradictionCount = Array.isArray(selectedStory?.contradictions) ? selectedStory.contradictions.length : 0;
+      const selectedStoryEvidenceCount = Number(selectedStory?.item_count || 0);
+
+      const startStage = watch
+        ? {{
+            id: "start",
+            status: "ready",
+            title: String(watch.name || watch.id || copy("Mission anchor", "任务锚点")),
+            summary: copy(
+              "The current trace is anchored to the selected mission and its latest workflow trigger.",
+              "当前 trace 以选中的任务及其最近一次流程触发为锚点。"
+            ),
+            facts: [
+              {{ label: copy("Subject", "主体"), value: String(watch.id || watch.name || "") }},
+              {{ label: copy("Trigger", "触发方式"), value: localizeWord(latestRun?.trigger || watch.schedule_label || watch.schedule || "manual") }},
+              {{ label: copy("Started", "开始时间"), value: formatCompactDateTime(latestRun?.started_at || watch.last_run_at || "") }},
+            ],
+          }}
+        : {{
+            id: "start",
+            status: draft.name.trim() && draft.query.trim() ? "ready" : "blocked",
+            title: draft.name.trim() || copy("Mission draft", "任务草稿"),
+            summary: draft.name.trim() && draft.query.trim()
+              ? copy(
+                  "The mission draft already names the subject and query that will seed the workflow.",
+                  "这份任务草稿已经具备会启动流程的主体名称和查询词。"
+                )
+              : copy(
+                  "The lifecycle has not started yet because the mission draft is still missing required input.",
+                  "这条生命周期尚未启动，因为任务草稿仍缺少必填输入。"
+                ),
+            facts: [
+              {{ label: copy("Name", "名称"), value: draft.name || copy("unset", "未设置") }},
+              {{ label: copy("Query", "查询词"), value: clampLabel(draft.query || copy("unset", "未设置"), 28) }},
+              {{ label: copy("Route", "路由"), value: draft.route || copy("not attached", "未绑定") }},
+            ],
+          }};
+
+      let monitorStage = null;
+      if (latestRun && String(latestRun.status || "").trim().toLowerCase() === "error") {{
+        monitorStage = {{
+          id: "monitor",
+          status: "blocked",
+          title: copy("Run failed before output stabilized", "执行在输出稳定前失败"),
+          summary: latestRun.error || copy("The latest run failed and still needs operator retry guidance.", "最近一次执行失败，仍需要操作者根据重试建议处理。"),
+          facts: [
+            {{ label: copy("Run", "执行"), value: String(latestRun.id || "-") }},
+            {{ label: copy("Status", "状态"), value: localizeWord(latestRun.status || "error") }},
+            {{ label: copy("Results", "结果"), value: String(latestRun.item_count || 0) }},
+          ],
+        }};
+      }} else if (watch && (latestRun || watch.last_run_at) && (storedResults > 0 || Number(latestRun?.item_count || 0) > 0)) {{
+        monitorStage = {{
+          id: "monitor",
+          status: "ready",
+          title: copy("Run output is inspectable", "执行输出已可检查"),
+          summary: copy(
+            "Monitoring now exposes a concrete run outcome and stored result count without forcing operators into raw logs.",
+            "监测阶段现在直接暴露明确的执行结果和存储结果数，不需要操作者回到原始日志里重建上下文。"
+          ),
+          facts: [
+            {{ label: copy("Outcome", "结果"), value: localizeWord(latestRun?.status || watch.last_run_status || "success") }},
+            {{ label: copy("Stored results", "已存储结果"), value: String(storedResults || latestRun?.item_count || 0) }},
+            {{ label: copy("Finished", "结束时间"), value: formatCompactDateTime(latestRun?.finished_at || watch.last_run_at || "") }},
+          ],
+        }};
+      }} else if (watch && (latestRun || watch.last_run_at)) {{
+        monitorStage = {{
+          id: "monitor",
+          status: "no_result",
+          title: copy("Mission completed with no results", "任务执行完成但没有结果"),
+          summary: copy(
+            "The latest run finished, but it did not leave behind any stored result for review.",
+            "最近一次执行已经结束，但没有留下可供审阅的存储结果。"
+          ),
+          facts: [
+            {{ label: copy("Outcome", "结果"), value: localizeWord(latestRun?.status || watch.last_run_status || "success") }},
+            {{ label: copy("Stored results", "已存储结果"), value: "0" }},
+            {{ label: copy("Finished", "结束时间"), value: formatCompactDateTime(latestRun?.finished_at || watch.last_run_at || "") }},
+          ],
+        }};
+      }} else if (watch) {{
+        monitorStage = {{
+          id: "monitor",
+          status: watch.enabled ? "pending" : "blocked",
+          title: watch.enabled
+            ? copy("Mission has not run yet", "任务尚未开始执行")
+            : copy("Mission is paused before monitoring", "任务在监测前已暂停"),
+          summary: watch.enabled
+            ? copy("One run is still required before output, review, or delivery facts can appear.", "还需要先执行一次，输出、审阅和交付事实才会开始出现。")
+            : copy("Enable the mission first so monitoring facts can start moving again.", "请先启用任务，再让监测事实重新流动起来。"),
+          facts: [
+            {{ label: copy("Mission", "任务"), value: String(watch.name || watch.id || "") }},
+            {{ label: copy("Status", "状态"), value: watch.enabled ? copy("ready to run", "待执行") : copy("paused", "已暂停") }},
+            {{ label: copy("Schedule", "频率"), value: String(watch.schedule_label || watch.schedule || "manual") }},
+          ],
+        }};
+      }} else {{
+        monitorStage = {{
+          id: "monitor",
+          status: "pending",
+          title: copy("Monitoring starts after mission creation", "创建任务后才会进入监测"),
+          summary: copy("Create or select one mission before run output can be traced.", "先创建或选中一条任务，执行输出才有可追踪的起点。"),
+          facts: [
+            {{ label: copy("Mission", "任务"), value: copy("not selected", "未选择") }},
+            {{ label: copy("Stored results", "已存储结果"), value: "0" }},
+            {{ label: copy("Run state", "执行状态"), value: copy("not started", "未开始") }},
+          ],
+        }};
+      }}
+
+      let reviewStage = null;
+      if (selectedQuality) {{
+        const qualityStatus = String(selectedQuality.status || "draft").trim().toLowerCase();
+        reviewStage = {{
+          id: "review",
+          status: selectedQuality.can_export ? "ready" : (qualityStatus === "review_required" ? "watch" : qualityStatus || "blocked"),
+          title: selectedReport?.title || copy("Report quality guardrails", "报告质量门禁"),
+          summary: selectedQuality.can_export
+            ? copy("Review has already produced an export-ready report quality snapshot.", "审阅阶段已经产出可导出的报告质量快照。")
+            : copy("Review is still holding on report guardrails before this output should be treated as ready.", "在把当前输出视为就绪之前，审阅阶段仍然被报告质量门禁卡住。"),
+          facts: [
+            {{ label: copy("Quality", "质量"), value: localizeWord(selectedQuality.status || "draft") }},
+            {{ label: copy("Score", "分数"), value: Number(selectedQuality.score || 0).toFixed(2) }},
+            {{ label: copy("Action", "动作"), value: formatReportOperatorAction(selectedQuality.operator_action || "") }},
+          ],
+        }};
+      }} else if (selectedStory) {{
+        const deliveryStatus = getStoryDeliveryStatus(selectedStory);
+        reviewStage = {{
+          id: "review",
+          status: contradictionCount ? "blocked" : (selectedStoryEvidenceCount ? "ready" : "watch"),
+          title: String(selectedStory.title || selectedStory.id || copy("Story review", "故事审阅")),
+          summary: contradictionCount
+            ? copy("Review already promoted signal into a story, but contradiction markers still need resolution.", "审阅阶段已经把信号提升成故事，但冲突标记仍然需要先处理。")
+            : copy("Review has already linked evidence to a persisted story object.", "审阅阶段已经把证据连接到持久化故事对象。"),
+          facts: [
+            {{ label: copy("Story", "故事"), value: localizeWord(selectedStory.status || "active") }},
+            {{ label: copy("Evidence", "证据"), value: String(selectedStoryEvidenceCount) }},
+            {{ label: copy("Contradictions", "冲突"), value: String(contradictionCount) }},
+          ],
+        }};
+      }} else if (selectedTriage) {{
+        const linkedStories = getStoriesForEvidenceItem(selectedTriage.id);
+        reviewStage = {{
+          id: "review",
+          status: linkedStories.length || String(selectedTriage.review_state || "").trim().toLowerCase() === "verified" ? "ready" : "watch",
+          title: String(selectedTriage.title || selectedTriage.id || copy("Selected evidence", "当前证据")),
+          summary: linkedStories.length
+            ? copy("Review has already linked the selected evidence to downstream story work.", "审阅阶段已经把当前证据连接到下游故事工作。")
+            : copy("The selected evidence is in review, but it still needs a verify-or-promote decision.", "当前证据已经进入审阅，但仍需要一个核验或提升决定。"),
+          facts: [
+            {{ label: copy("Disposition", "处置"), value: localizeWord(selectedTriage.review_state || "new") }},
+            {{ label: copy("Linked stories", "关联故事"), value: String(linkedStories.length) }},
+            {{ label: copy("Open queue", "开放队列"), value: String(openQueue) }},
+          ],
+        }};
+      }} else {{
+        reviewStage = {{
+          id: "review",
+          status: openQueue > 0 || readyStories > 0 ? "watch" : "pending",
+          title: copy("Review lane status", "审阅阶段状态"),
+          summary: openQueue > 0
+            ? copy("Review still owns open queue pressure before the flow can move cleanly toward delivery.", "在流程顺畅进入交付之前，审阅阶段仍然背着开放队列压力。")
+            : copy("No active review object is selected right now, but the review lane remains the next promotion owner.", "当前没有选中激活中的审阅对象，但审阅阶段仍然是下一个负责提升的所有者。"),
+          facts: [
+            {{ label: copy("Open queue", "开放队列"), value: String(openQueue) }},
+            {{ label: copy("Acted on", "已处理"), value: String(state.overview?.triage_acted_on_count ?? triageSignal.acted_on_items ?? 0) }},
+            {{ label: copy("Ready stories", "待交付故事"), value: String(readyStories) }},
+          ],
+        }};
+      }}
+
+      let deliverStage = null;
+      if ((routeSummary.degraded || 0) > 0 || (routeSummary.missing || 0) > 0) {{
+        deliverStage = {{
+          id: "deliver",
+          status: "blocked",
+          title: copy("Delivery stopped on route health", "交付因路由健康问题停止"),
+          summary: copy("Route health is currently the explicit stop reason before this flow can be trusted downstream again.", "路由健康当前是这条流程无法继续被下游信任的明确停止原因。"),
+          facts: [
+            {{ label: copy("Degraded", "降级"), value: String(routeSummary.degraded || 0) }},
+            {{ label: copy("Missing", "缺失"), value: String(routeSummary.missing || 0) }},
+            {{ label: copy("Routes", "路由"), value: String(routeSummary.total || state.routes.length || 0) }},
+          ],
+        }};
+      }} else if (routeTimeline.length || recentAlerts.length || state.deliveryDispatchRecords.length) {{
+        const latestRouteEvent = routeTimeline[0] || null;
+        const latestAlert = recentAlerts[0] || null;
+        deliverStage = {{
+          id: "deliver",
+          status: latestRouteEvent && String(latestRouteEvent.status || "").trim().toLowerCase() === "failed" ? "blocked" : "delivered",
+          title: String(latestRouteEvent?.route || latestAlert?.rule_name || copy("Delivery outcome recorded", "已记录交付结果")),
+          summary: String(
+            latestRouteEvent?.summary
+            || latestRouteEvent?.error
+            || latestAlert?.summary
+            || copy("A route-backed delivery outcome is already recorded for the current flow.", "当前流程已经记录了带路由的交付结果。")
+          ),
+          facts: [
+            {{ label: copy("Route", "路由"), value: String(latestRouteEvent?.route || "-") }},
+            {{ label: copy("Outcome", "结果"), value: localizeWord(latestRouteEvent?.status || "delivered") }},
+            {{ label: copy("Last event", "最近事件"), value: formatCompactDateTime(latestRouteEvent?.created_at || latestAlert?.created_at || "") }},
+          ],
+        }};
+      }} else if (readyStories > 0 && state.routes.length) {{
+        deliverStage = {{
+          id: "deliver",
+          status: "watch",
+          title: copy("Ready output is waiting for dispatch", "就绪输出正在等待分发"),
+          summary: copy("Review has already produced ready output, but there is still no recorded delivery outcome for it.", "审阅阶段已经产出就绪输出，但当前还没有对应的交付结果记录。"),
+          facts: [
+            {{ label: copy("Ready stories", "待交付故事"), value: String(readyStories) }},
+            {{ label: copy("Routes", "路由"), value: String(state.routes.length || 0) }},
+            {{ label: copy("Dispatch records", "dispatch 记录"), value: String(state.deliveryDispatchRecords.length || 0) }},
+          ],
+        }};
+      }} else if (selectedStory || selectedTriage || openQueue > 0) {{
+        deliverStage = {{
+          id: "deliver",
+          status: "blocked",
+          title: copy("Flow stopped before delivery", "流程在交付前停止"),
+          summary: readyStories > 0
+            ? copy("A delivery target still needs an explicit dispatch outcome.", "当前仍需要一个明确的 dispatch 结果，才能完成交付。")
+            : copy("The flow has not produced a delivery-ready object yet, so the stop reason still lives upstream in review.", "当前流程还没有产出可交付对象，所以停止原因仍然位于上游审阅阶段。"),
+          facts: [
+            {{ label: copy("Ready stories", "待交付故事"), value: String(readyStories) }},
+            {{ label: copy("Open queue", "开放队列"), value: String(openQueue) }},
+            {{ label: copy("Routes", "路由"), value: String(state.routes.length || 0) }},
+          ],
+        }};
+      }} else {{
+        deliverStage = {{
+          id: "deliver",
+          status: "pending",
+          title: copy("Delivery path is not active yet", "交付路径尚未激活"),
+          summary: copy("Create a route or produce review-ready output before the delivery stage can record an outcome.", "先创建路由或产出可交付的审阅结果，交付阶段才会开始记录结果。"),
+          facts: [
+            {{ label: copy("Routes", "路由"), value: String(state.routes.length || 0) }},
+            {{ label: copy("Ready stories", "待交付故事"), value: String(readyStories) }},
+            {{ label: copy("Dispatch records", "dispatch 记录"), value: String(state.deliveryDispatchRecords.length || 0) }},
+          ],
+        }};
+      }}
+
+      return {{
+        title: copy("Stage-Linked Output Trace", "阶段联动输出 Trace"),
+        summary: copy(
+          "Follow one visible path from mission start through monitor, review, and route-backed delivery without reconstructing the story from logs.",
+          "沿着一条可见路径，从任务启动一路看到监测、审阅和带路由的交付结果，而不必回到日志里重建流程。"
+        ),
+        stages: [startStage, monitorStage, reviewStage, deliverStage],
+      }};
+    }}
+
+    function renderStageLinkedTraceCard(trace = buildStageLinkedTrace()) {{
+      const stages = Array.isArray(trace?.stages) ? trace.stages : [];
+      return `
+        <div class="card workflow-trace-card" data-stage-trace="workflow">
+          <div class="card-top">
+            <div>
+              <div class="mono">${{copy("output trace", "输出追踪")}}</div>
+              <h3 class="card-title" style="margin-top:10px;">${{escapeHtml(trace?.title || copy("Stage-Linked Output Trace", "阶段联动输出 Trace"))}}</h3>
+            </div>
+            <span class="chip ok">${{copy("Start -> Monitor -> Review -> Deliver", "Start -> Monitor -> Review -> Deliver")}}</span>
+          </div>
+          <div class="panel-sub">${{escapeHtml(trace?.summary || "")}}</div>
+          <div class="trace-stage-grid">
+            ${{stages.map((stage) => {{
+              const tone = signalToneFromStatus(stage?.status || "");
+              return `
+                <div class="trace-stage ${{tone}}" data-trace-stage="${{escapeHtml(stage?.id || "")}}" data-trace-status="${{escapeHtml(String(stage?.status || ""))}}">
+                  <div class="trace-stage-head">
+                    <div class="trace-stage-kicker">${{escapeHtml(localizeWord(stage?.id || ""))}}</div>
+                    <span class="chip ${{tone}}">${{escapeHtml(traceStageStatusLabel(stage?.status || ""))}}</span>
+                  </div>
+                  <div class="trace-stage-title">${{escapeHtml(stage?.title || "")}}</div>
+                  <div class="trace-stage-copy">${{escapeHtml(stage?.summary || "")}}</div>
+                  ${{renderSectionSummaryFacts(stage?.facts || [])}}
+                </div>
+              `;
+            }}).join("")}}
+          </div>
+        </div>
+      `;
+    }}
+
+    function buildSharedSignalTaxonomy() {{
+      const selectedWatch = getSelectedWatchForContext() || state.watches[0] || null;
+      const selectedStory = getStoryRecord(state.selectedStoryId);
+      const selectedReport = getSelectedReportRecord();
+      const selectedQuality = getReportComposition(selectedReport?.id || "")?.quality || null;
+      const routeSummary = state.ops?.route_summary || {{}};
+      const routeTimeline = Array.isArray(state.ops?.route_timeline) ? state.ops.route_timeline : [];
+      const overflowEvidence = state.consoleOverflowEvidence || defaultConsoleOverflowEvidence();
+      const aiPrechecks = Object.values(state.aiSurfacePrechecks || {{}}).filter((value) => value && typeof value === "object");
+      const aiTrustRisk = aiPrechecks.find((precheck) => {{
+        const normalized = String(precheck.mode_status || "").trim().toLowerCase();
+        return ["rejected", "invalid"].includes(normalized);
+      }}) || aiPrechecks.find((precheck) => {{
+        const normalized = String(precheck.mode_status || "").trim().toLowerCase();
+        return ["admitted", "fallback_used"].includes(normalized);
+      }}) || null;
+      const contradictionCount = Array.isArray(selectedStory?.contradictions) ? selectedStory.contradictions.length : 0;
+      const readyStories = Number(state.overview?.story_ready_count ?? getGovernanceSignal("story_conversion").ready_story_count ?? 0);
+      const qualitySignal = selectedQuality
+        ? {{
+            id: "quality",
+            classLabel: copy("Quality", "质量"),
+            status: selectedQuality.can_export ? "ready" : String(selectedQuality.status || "blocked").trim().toLowerCase(),
+            title: selectedQuality.can_export ? copy("Report guardrails are green", "报告门禁已通过") : copy("Report guardrails still need review", "报告门禁仍待处理"),
+            summary: selectedQuality.can_export
+              ? copy("Review quality is owned by the report guardrails surface and currently allows export.", "审阅质量由报告门禁 surface 持有，当前已经允许导出。")
+              : copy("Quality remains owned by the report guardrails surface until the blocking checks are resolved.", "在阻断检查被解决之前，质量说明仍由报告门禁 surface 持有。"),
+            owner: copy("Report quality guardrails", "报告质量门禁"),
+            meaning: copy("Review readiness, contradiction handling, and export guardrail state.", "审阅就绪度、冲突处理和导出门禁状态。"),
+            facts: [
+              {{ label: copy("Report", "报告"), value: String(selectedReport?.title || selectedReport?.id || "") }},
+              {{ label: copy("Status", "状态"), value: localizeWord(selectedQuality.status || "draft") }},
+              {{ label: copy("Score", "分数"), value: Number(selectedQuality.score || 0).toFixed(2) }},
+            ],
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Open Report Studio", "打开报告工作台"),
+                attrs: {{ "data-empty-jump": "section-report-studio" }},
+              }},
+            }},
+          }}
+        : selectedStory
+          ? {{
+              id: "quality",
+              classLabel: copy("Quality", "质量"),
+              status: contradictionCount ? "blocked" : (Number(selectedStory.item_count || 0) > 0 ? "ready" : "watch"),
+              title: contradictionCount ? copy("Story contradictions still own quality risk", "故事冲突仍然决定质量风险") : copy("Story evidence is currently grounded", "故事证据当前已经成形"),
+              summary: contradictionCount
+                ? copy("Quality is owned by story contradiction markers until the narrative is no longer mixed.", "在叙事不再混杂之前，质量解释由故事冲突标记持有。")
+                : copy("Quality is owned by the story evidence surface because the narrative is already attached to reviewed signal.", "质量解释由故事证据 surface 持有，因为当前叙事已经绑定到已审阅信号。"),
+              owner: contradictionCount ? copy("Story contradiction markers", "故事冲突标记") : copy("Story evidence context", "故事证据上下文"),
+              meaning: copy("Review readiness, contradiction handling, and narrative grounding.", "审阅就绪度、冲突处理和叙事锚定情况。"),
+              facts: [
+                {{ label: copy("Story", "故事"), value: localizeWord(selectedStory.status || "active") }},
+                {{ label: copy("Evidence", "证据"), value: String(selectedStory.item_count || 0) }},
+                {{ label: copy("Contradictions", "冲突"), value: String(contradictionCount) }},
+              ],
+              actionHierarchy: {{
+                primary: {{
+                  label: copy("Open Story Workspace", "打开故事工作台"),
+                  attrs: {{ "data-empty-jump": "section-story" }},
+                }},
+              }},
+            }}
+          : {{
+              id: "quality",
+              classLabel: copy("Quality", "质量"),
+              status: Number(state.overview?.triage_open_count || 0) > 0 ? "watch" : "pending",
+              title: copy("Review lane still owns the next quality decision", "审阅阶段仍然持有下一个质量决策"),
+              summary: copy("Without a selected story or report, quality stays owned by the active review lane and its promotion decisions.", "在没有选中故事或报告时，质量解释仍由当前审阅工作线及其提升决策持有。"),
+              owner: copy("Triage and promotion surfaces", "分诊与提升 surface"),
+              meaning: copy("Review readiness, contradiction handling, and export guardrail state.", "审阅就绪度、冲突处理和导出门禁状态。"),
+              facts: [
+                {{ label: copy("Open queue", "开放队列"), value: String(state.overview?.triage_open_count || 0) }},
+                {{ label: copy("Ready stories", "待交付故事"), value: String(readyStories) }},
+                {{ label: copy("Reports", "报告"), value: String(state.reports.length || 0) }},
+              ],
+              actionHierarchy: {{
+                primary: {{
+                  label: copy("Open Review Lane", "打开审阅工作线"),
+                  attrs: {{ "data-empty-jump": "section-triage" }},
+                }},
+              }},
+            }};
+
+      const deliverySignal = {{
+        id: "delivery",
+        classLabel: copy("Delivery", "交付"),
+        status: (routeSummary.degraded || 0) > 0 || (routeSummary.missing || 0) > 0
+          ? "blocked"
+          : (routeTimeline.length || state.deliveryDispatchRecords.length || readyStories > 0 ? "ready" : "watch"),
+        title: (routeSummary.degraded || 0) > 0 || (routeSummary.missing || 0) > 0
+          ? copy("Route health is blocking delivery", "路由健康正在阻塞交付")
+          : (routeTimeline.length || state.deliveryDispatchRecords.length)
+            ? copy("Route-backed delivery is visible", "带路由的交付结果已经可见")
+            : copy("Delivery lane is waiting for a route-backed outcome", "交付工作线正在等待带路由的结果"),
+        summary: (routeSummary.degraded || 0) > 0 || (routeSummary.missing || 0) > 0
+          ? copy("Delivery is owned by route health remediation until degraded or missing routes are cleared.", "在降级或缺失的路由被清理前，交付解释由路由健康修复 surface 持有。")
+          : copy("Delivery is owned by route health, package audit, and dispatch history inside the delivery lane.", "交付解释由交付工作线里的路由健康、输出包审计和 dispatch 历史持有。"),
+        owner: (routeSummary.degraded || 0) > 0 || (routeSummary.missing || 0) > 0
+          ? copy("Route health remediation", "路由健康修复")
+          : copy("Delivery workspace and dispatch record", "交付工作台与 dispatch 记录"),
+        meaning: copy("Route health, package readiness, dispatch outcome, and downstream delivery quality.", "路由健康、输出包就绪度、dispatch 结果和下游交付质量。"),
+        facts: [
+          {{ label: copy("Healthy routes", "健康路由"), value: String(routeSummary.healthy || 0) }},
+          {{ label: copy("Degraded routes", "降级路由"), value: String(routeSummary.degraded || 0) }},
+          {{ label: copy("Last route", "最近路由"), value: String(routeTimeline[0]?.route || "-") }},
+        ],
+        actionHierarchy: {{
+          primary: {{
+            label: copy("Open Delivery Lane", "打开交付工作线"),
+            attrs: {{ "data-empty-jump": "section-ops" }},
+          }},
+        }},
+      }};
+
+      const overflowSignal = {{
+        id: "overflow",
+        classLabel: copy("Overflow", "溢出"),
+        status: Number(overflowEvidence.residual_surface_count || 0) > 0
+          ? "watch"
+          : (Number(overflowEvidence.surface_count || 0) > 0 ? "ready" : "pending"),
+        title: Number(overflowEvidence.residual_surface_count || 0) > 0
+          ? copy("Residual text overflow hotspots remain", "仍然存在残余文本溢出热点")
+          : copy("Console overflow evidence is within baseline", "控制台溢出证据处于基线内"),
+        summary: Number(overflowEvidence.residual_surface_count || 0) > 0
+          ? copy("Overflow is owned by the console overflow evidence card until the surviving hotspots are understood.", "在残余热点被理解之前，溢出解释由 console overflow evidence 卡片持有。")
+          : copy("Overflow remains owned by the evidence card even when there is no current operator action.", "即使当前没有操作动作，溢出解释仍由 evidence 卡片持有。"),
+        owner: copy("console-overflow-evidence-card", "console-overflow-evidence-card"),
+        meaning: copy("Residual console text overflow pressure after the current fit and truncation baseline.", "当前 fit 与截断基线之后仍残留的控制台文本溢出压力。"),
+        facts: [
+          {{ label: copy("Survivors", "残余样本"), value: String(overflowEvidence.survivor_count || 0) }},
+          {{ label: copy("Hotspots", "热点"), value: String(overflowEvidence.residual_surface_count || 0) }},
+          {{ label: copy("Sampled", "采样"), value: overflowEvidence.updated_at ? formatCompactDateTime(overflowEvidence.updated_at) : copy("not yet", "尚未") }},
+        ],
+        actionHierarchy: Number(overflowEvidence.residual_surface_count || 0) > 0
+          ? {{
+              primary: {{
+                label: copy("Inspect Overflow Evidence", "查看溢出证据"),
+                attrs: {{ "data-empty-jump": "section-ops" }},
+              }},
+            }}
+          : null,
+        noActionOutcome: copy("No operator action: keep the overflow evidence visible as a residual hotspot baseline.", "无需操作：把溢出证据继续保留为残余热点基线。"),
+      }};
+
+      const trustSignal = selectedWatch && (selectedWatch.retry_advice || selectedWatch.last_failure)
+        ? {{
+            id: "trust",
+            classLabel: copy("Trust", "可信度"),
+            status: "watch",
+            title: copy("Mission trust is currently owned by retry guidance", "当前任务可信度由重试建议持有"),
+            summary: copy("The nearest trust explainer is still the mission retry guidance because the latest failure remains visible.", "当前最近的可信度解释器仍然是任务重试建议，因为最近失败事实依然可见。"),
+            owner: copy("Retry guidance", "重试建议"),
+            meaning: copy("Whether the current mission, route, or assisted surface is trustworthy enough to continue.", "当前任务、路由或辅助 surface 是否足够可信，可以继续推进。"),
+            facts: [
+              {{ label: copy("Mission", "任务"), value: String(selectedWatch.name || selectedWatch.id || "") }},
+              {{ label: copy("Retry", "重试"), value: String(selectedWatch.retry_advice?.retry_command || "-") }},
+              {{ label: copy("Last failure", "最近失败"), value: String(selectedWatch.last_failure?.error || selectedWatch.retry_advice?.failure_class || "-") }},
+            ],
+            actionHierarchy: {{
+              primary: {{
+                label: copy("Open Cockpit Guidance", "打开任务详情指引"),
+                attrs: {{ "data-empty-jump": "section-cockpit" }},
+              }},
+            }},
+          }}
+        : aiTrustRisk
+          ? {{
+              id: "trust",
+              classLabel: copy("Trust", "可信度"),
+              status: String(aiTrustRisk.mode_status || "watch").trim().toLowerCase() || "watch",
+              title: copy("Governed assist trust needs a surface check", "治理辅助可信度需要 surface 检查"),
+              summary: copy("The nearest trust explainer is currently an AI surface precheck or runtime fact guard.", "当前最近的可信度解释器是 AI surface 的预检或运行事实门禁。"),
+              owner: copy("AI surface precheck", "AI surface 预检"),
+              meaning: copy("Whether the current mission, route, or assisted surface is trustworthy enough to continue.", "当前任务、路由或辅助 surface 是否足够可信，可以继续推进。"),
+              facts: [
+                {{ label: copy("Surface", "surface"), value: String(aiTrustRisk.alias || aiTrustRisk.contract_id || "-") }},
+                {{ label: copy("Mode status", "模式状态"), value: localizeWord(aiTrustRisk.mode_status || "pending") }},
+                {{ label: copy("Fallback", "回退"), value: localizeWord(aiTrustRisk.manual_fallback || "-") }},
+              ],
+              actionHierarchy: {{
+                primary: {{
+                  label: copy("Open Delivery Lane", "打开交付工作线"),
+                  attrs: {{ "data-empty-jump": "section-ops" }},
+                }},
+              }},
+            }}
+          : {{
+              id: "trust",
+              classLabel: copy("Trust", "可信度"),
+              status: (routeSummary.degraded || 0) > 0 || (routeSummary.missing || 0) > 0 ? "watch" : "ready",
+              title: (routeSummary.degraded || 0) > 0 || (routeSummary.missing || 0) > 0
+                ? copy("Route trust still needs remediation", "路由可信度仍需修复")
+                : copy("Trust posture is currently stable", "当前可信度姿态稳定"),
+              summary: (routeSummary.degraded || 0) > 0 || (routeSummary.missing || 0) > 0
+                ? copy("Trust is currently owned by route health remediation because delivery posture is degraded.", "由于交付姿态降级，当前可信度解释由路由健康修复 surface 持有。")
+                : copy("No nearer trust explainer is currently raising risk, so operators can continue with the active workflow.", "当前没有更近的可信度解释器在持续抬高风险，所以操作者可以继续当前工作流。"),
+              owner: copy("Route health remediation", "路由健康修复"),
+              meaning: copy("Whether the current mission, route, or assisted surface is trustworthy enough to continue.", "当前任务、路由或辅助 surface 是否足够可信，可以继续推进。"),
+              facts: [
+                {{ label: copy("Healthy routes", "健康路由"), value: String(routeSummary.healthy || 0) }},
+                {{ label: copy("Degraded routes", "降级路由"), value: String(routeSummary.degraded || 0) }},
+                {{ label: copy("Missing routes", "缺失路由"), value: String(routeSummary.missing || 0) }},
+              ],
+              actionHierarchy: (routeSummary.degraded || 0) > 0 || (routeSummary.missing || 0) > 0
+                ? {{
+                    primary: {{
+                      label: copy("Inspect Route Health", "查看路由健康"),
+                      attrs: {{ "data-empty-jump": "section-ops" }},
+                    }},
+                  }}
+                : null,
+              noActionOutcome: copy("No operator action: trust posture is currently clear enough to continue.", "无需操作：当前可信度姿态已足够清晰，可以继续推进。"),
+            }};
+
+      return [qualitySignal, deliverySignal, overflowSignal, trustSignal];
+    }}
+
+    function renderSharedSignalTaxonomyCard(signals = buildSharedSignalTaxonomy()) {{
+      const rows = Array.isArray(signals) ? signals : [];
+      const activeSignal = rows.find((signal) => signal.id === state.sharedSignalFocus) || rows[0] || null;
+      if (activeSignal && state.sharedSignalFocus !== activeSignal.id) {{
+        state.sharedSignalFocus = activeSignal.id;
+      }}
+      return `
+        <div class="card shared-signal-taxonomy-card" data-shared-signal-taxonomy="true">
+          <div class="card-top">
+            <div>
+              <div class="mono">${{copy("shared signal taxonomy", "共享信号 taxonomy")}}</div>
+              <h3 class="card-title" style="margin-top:10px;">${{copy("Shared Signal Taxonomy", "共享信号分类")}}</h3>
+            </div>
+            <span class="chip">${{copy("owner-backed", "解释有归属")}}</span>
+          </div>
+          <div class="panel-sub">${{copy(
+            "Every shared signal below names its owner, meaning, and next action instead of behaving like a decorative badge.",
+            "下面每个共享信号都会明确说明 owner、含义和下一步，而不是只做装饰性 badge。"
+          )}}</div>
+          <div class="shared-signal-row">
+            ${{rows.map((signal) => {{
+              const tone = signalToneFromStatus(signal?.status || "");
+              const active = signal?.id === activeSignal?.id;
+              return `
+                <button
+                  class="chip-btn shared-signal-button ${{tone}} ${{active ? "active" : ""}}"
+                  type="button"
+                  data-shared-signal-button="${{escapeHtml(signal?.id || "")}}"
+                  aria-expanded="${{String(active)}}"
+                >${{escapeHtml(signal?.classLabel || signal?.id || "")}} · ${{escapeHtml(traceStageStatusLabel(signal?.status || ""))}}</button>
+              `;
+            }}).join("")}}
+          </div>
+          ${{activeSignal ? `
+            <div class="shared-signal-detail ${{signalToneFromStatus(activeSignal.status || "")}}" data-shared-signal-panel="${{escapeHtml(activeSignal.id || "")}}">
+              <div class="shared-signal-detail-head">
+                <div>
+                  <div class="section-summary-kicker">${{escapeHtml(activeSignal.classLabel || activeSignal.id || "")}}</div>
+                  <div class="section-summary-title">${{escapeHtml(activeSignal.title || "")}}</div>
+                </div>
+                <span class="chip ${{signalToneFromStatus(activeSignal.status || "")}}">${{escapeHtml(traceStageStatusLabel(activeSignal.status || ""))}}</span>
+              </div>
+              <div class="section-summary-copy">${{escapeHtml(activeSignal.summary || "")}}</div>
+              <div class="meta">
+                <span data-shared-signal-owner>${{copy("Owner", "归属")}}: ${{escapeHtml(activeSignal.owner || "-")}}</span>
+                <span>${{copy("Meaning", "含义")}}: ${{escapeHtml(activeSignal.meaning || "-")}}</span>
+              </div>
+              ${{renderSectionSummaryFacts(activeSignal.facts || [])}}
+              ${{activeSignal.actionHierarchy ? renderCardActionHierarchy(activeSignal.actionHierarchy) : `<div class="panel-sub" data-shared-signal-noop="true">${{escapeHtml(activeSignal.noActionOutcome || copy("No operator action.", "当前无需操作。"))}}</div>`}}
+            </div>
+          ` : ""}}
+        </div>
+      `;
     }}
 
     function renderLifecycleContinuityCard({{ title = "", summary = "", stages = [], actions = [], tone = "ok" }} = {{}}) {{

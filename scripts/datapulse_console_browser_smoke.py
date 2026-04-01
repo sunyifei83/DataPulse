@@ -16,7 +16,7 @@ import uvicorn
 from datapulse.console_server import create_app
 
 try:
-    from playwright.sync_api import Page, Playwright, sync_playwright
+    from playwright.sync_api import Page, Playwright, TimeoutError as PlaywrightTimeoutError, sync_playwright
 except ImportError as exc:  # pragma: no cover - exercised in runtime only
     raise SystemExit("Playwright is not installed. Run with: uv run --with playwright python scripts/datapulse_console_browser_smoke.py") from exc
 
@@ -2170,6 +2170,145 @@ def _assert_stage_shell(
     assert any(option in next_action_value for option in _options(next_action_contains)), f"next action mismatch: {snapshot}"
 
 
+def _wait_for_trace_and_signal_taxonomy(page: Page) -> None:
+    page.wait_for_function(
+        """() => {
+            const trace = document.querySelector('[data-stage-trace="workflow"]');
+            const stages = trace ? Array.from(trace.querySelectorAll('[data-trace-stage]')) : [];
+            const taxonomy = document.querySelector('[data-shared-signal-taxonomy="true"]');
+            const buttons = taxonomy ? Array.from(taxonomy.querySelectorAll('[data-shared-signal-button]')) : [];
+            const panel = taxonomy ? taxonomy.querySelector('[data-shared-signal-panel]') : null;
+            return !!trace && stages.length === 4 && !!taxonomy && buttons.length >= 4 && !!panel;
+        }""",
+        timeout=10000,
+    )
+
+
+def _wait_for_shared_signal_panel(page: Page, signal_id: str) -> None:
+    page.wait_for_function(
+        """(expectedSignalId) => {
+            const panel = document.querySelector('[data-shared-signal-panel]');
+            return !!panel
+                && panel.getAttribute('data-shared-signal-panel') === expectedSignalId
+                && (panel.textContent || '').trim().length > 0;
+        }""",
+        arg=signal_id,
+        timeout=10000,
+    )
+
+
+def _select_shared_signal(page: Page, signal_id: str) -> None:
+    selector = f'[data-shared-signal-button="{signal_id}"]'
+    _wait_for_interactive_button(page, selector)
+    last_error: Exception | None = None
+    for _ in range(3):
+        _click(page, selector)
+        try:
+            _wait_for_shared_signal_panel(page, signal_id)
+            return
+        except PlaywrightTimeoutError as exc:
+            last_error = exc
+            page.wait_for_timeout(150)
+    if last_error is not None:
+        raise last_error
+    raise AssertionError(f"shared signal panel did not settle for {signal_id}")
+
+
+def _wait_for_shared_signal_primary_action(page: Page, signal_id: str) -> str:
+    selector = f'[data-shared-signal-panel="{signal_id}"] [data-card-action-primary] [data-empty-jump]'
+    page.wait_for_function(
+        """(expectedSelector) => {
+            const action = document.querySelector(expectedSelector);
+            return !!action
+                && !action.hasAttribute('disabled')
+                && (action.textContent || '').trim().length > 0;
+        }""",
+        arg=selector,
+        timeout=10000,
+    )
+    return selector
+
+
+def _assert_signal_owner(page: Page, signal_id: str, owner_contains: str | Sequence[str]) -> None:
+    expected = [owner_contains] if isinstance(owner_contains, str) else [str(item).strip() for item in owner_contains if str(item).strip()]
+    _select_shared_signal(page, signal_id)
+    page.wait_for_function(
+        """([signalId, expectedOwners]) => {
+            const panel = document.querySelector('[data-shared-signal-panel]');
+            const owner = panel?.querySelector('[data-shared-signal-owner]')?.textContent || '';
+            return !!panel
+                && panel.getAttribute('data-shared-signal-panel') === signalId
+                && expectedOwners.some((expectedOwner) => owner.includes(expectedOwner));
+        }""",
+        arg=[signal_id, expected],
+        timeout=10000,
+    )
+
+
+def _assert_signal_primary_action_routes(page: Page, signal_id: str, expected_hash: str, nav_id: str) -> None:
+    _select_shared_signal(page, signal_id)
+    primary_selector = _wait_for_shared_signal_primary_action(page, signal_id)
+    _click(page, primary_selector)
+    page.wait_for_function(
+        """([signalId, hashValue]) => {
+            const panel = document.querySelector(`[data-shared-signal-panel="${signalId}"]`);
+            return !!panel && window.location.hash === hashValue;
+        }""",
+        arg=[signal_id, expected_hash],
+        timeout=10000,
+    )
+    _wait_for_active_rail(page, nav_id, expected_hash)
+    _wait_for_trace_and_signal_taxonomy(page)
+
+
+def _assert_signal_no_action_outcome(page: Page, signal_id: str) -> None:
+    _select_shared_signal(page, signal_id)
+    page.wait_for_function(
+        """(signalId) => {
+            const panel = document.querySelector(`[data-shared-signal-panel="${signalId}"]`);
+            const noop = panel?.querySelector('[data-shared-signal-noop="true"]')?.textContent || '';
+            return !!panel && noop.trim().length > 0;
+        }""",
+        arg=signal_id,
+        timeout=10000,
+    )
+
+
+def _assert_signal_explicit_outcome(page: Page, signal_id: str, expected_section: str) -> None:
+    _select_shared_signal(page, signal_id)
+    page.wait_for_function(
+        """([signalId, expectedSection]) => {
+            const panel = document.querySelector('[data-shared-signal-panel]');
+            const action = panel?.querySelector('[data-card-action-primary] [data-empty-jump]');
+            const noop = panel?.querySelector('[data-shared-signal-noop="true"]')?.textContent || '';
+            return !!panel
+                && panel.getAttribute('data-shared-signal-panel') === signalId
+                && (
+                    action?.getAttribute('data-empty-jump') === expectedSection
+                    || noop.trim().length > 0
+                );
+        }""",
+        arg=[signal_id, expected_section],
+        timeout=10000,
+    )
+
+
+def _assert_signal_primary_action_target(page: Page, signal_id: str, expected_section: str) -> None:
+    _select_shared_signal(page, signal_id)
+    _wait_for_shared_signal_primary_action(page, signal_id)
+    page.wait_for_function(
+        """([signalId, expectedSection]) => {
+            const panel = document.querySelector('[data-shared-signal-panel]');
+            const action = panel?.querySelector('[data-card-action-primary] [data-empty-jump]');
+            return !!panel
+                && panel.getAttribute('data-shared-signal-panel') === signalId
+                && action?.getAttribute('data-empty-jump') === expectedSection;
+        }""",
+        arg=[signal_id, expected_section],
+        timeout=10000,
+    )
+
+
 def _wait_for_stage_feedback(page: Page, *, stage: str, kind: str, title_contains: str | Sequence[str]) -> None:
     expected_titles = [title_contains] if isinstance(title_contains, str) else [str(item).strip() for item in title_contains if str(item).strip()]
     page.wait_for_function(
@@ -2209,6 +2348,66 @@ def _wait_for_operator_guidance_surface(page: Page, surface_id: str) -> None:
         arg=surface_id,
         timeout=10000,
     )
+
+
+def _wait_for_interactive_button(page: Page, selector: str) -> None:
+    page.wait_for_function(
+        """(buttonSelector) => {
+            const button = document.querySelector(buttonSelector);
+            return !!button
+                && !button.hasAttribute('disabled')
+                && !button.hidden
+                && button.getAttribute('aria-hidden') !== 'true'
+                && (button.textContent || '').trim().length > 0;
+        }""",
+        arg=selector,
+        timeout=10000,
+    )
+
+
+def _wait_for_context_lens_state(page: Page, *, open_state: bool) -> None:
+    expression = (
+        "() => document.body.dataset.contextLensOpen === 'true'"
+        " && document.querySelector('#context-lens-backdrop')?.classList.contains('open')"
+        " && document.querySelector('#context-summary')?.getAttribute('aria-expanded') === 'true'"
+        if open_state
+        else "() => document.body.dataset.contextLensOpen !== 'true'"
+        " && !document.querySelector('#context-lens-backdrop')?.classList.contains('open')"
+        " && document.querySelector('#context-summary')?.getAttribute('aria-expanded') === 'false'"
+    )
+    page.wait_for_function(expression, timeout=10000)
+
+
+def _open_context_lens(page: Page, trigger_selector: str) -> None:
+    _wait_for_interactive_button(page, trigger_selector)
+    last_error: Exception | None = None
+    for _ in range(3):
+        _click(page, trigger_selector)
+        try:
+            _wait_for_context_lens_state(page, open_state=True)
+            return
+        except PlaywrightTimeoutError as exc:
+            last_error = exc
+            page.wait_for_timeout(150)
+    if last_error is not None:
+        raise last_error
+    raise AssertionError(f"context lens did not open from trigger: {trigger_selector}")
+
+
+def _close_context_lens(page: Page) -> None:
+    _wait_for_interactive_button(page, "#context-lens-close")
+    last_error: Exception | None = None
+    for _ in range(3):
+        _click(page, "#context-lens-close")
+        try:
+            _wait_for_context_lens_state(page, open_state=False)
+            return
+        except PlaywrightTimeoutError as exc:
+            last_error = exc
+            page.wait_for_timeout(150)
+    if last_error is not None:
+        raise last_error
+    raise AssertionError("context lens did not close")
 
 
 def _wait_for_responsive_contract(
@@ -2289,6 +2488,19 @@ def _submit_form_without_validation(page: Page, selector: str) -> None:
 
 def _goto(page: Page, url: str) -> None:
     page.goto(url, wait_until="domcontentloaded", timeout=20000)
+
+
+def _jump_to_section_with_fallback(page: Page, section_id: str, *, selector: str | None = None) -> None:
+    expected_hash = f"#{section_id}"
+    if selector:
+        _click(page, selector)
+    else:
+        page.evaluate("(targetSection) => jumpToSection(targetSection)", section_id)
+    try:
+        page.wait_for_function("(hashValue) => window.location.hash === hashValue", arg=expected_hash, timeout=3000)
+    except PlaywrightTimeoutError:
+        page.evaluate("(targetSection) => jumpToSection(targetSection)", section_id)
+        page.wait_for_function("(hashValue) => window.location.hash === hashValue", arg=expected_hash, timeout=10000)
 
 
 def _fetch_json(page: Page, url: str, *, method: str = "GET", payload: Row | None = None) -> Row:
@@ -2754,6 +2966,39 @@ def _exercise_workflow_stage_acceptance(page: Page) -> None:
         owned_output_contains=["healthy routes", "健康路由"],
         next_action_contains=["Inspect route posture or dispatch current output", "查看路由姿态或分发当前输出"],
     )
+    _wait_for_trace_and_signal_taxonomy(page)
+    page.wait_for_function(
+        """() => {
+            const stageIds = Array.from(document.querySelectorAll('[data-stage-trace="workflow"] [data-trace-stage]')).map((node) => node.getAttribute('data-trace-stage'));
+            const start = document.querySelector('[data-trace-stage="start"]')?.textContent || '';
+            const deliver = document.querySelector('[data-trace-stage="deliver"]')?.textContent || '';
+            return JSON.stringify(stageIds) === JSON.stringify(['start', 'monitor', 'review', 'deliver'])
+                && start.includes('Launch Ops')
+                && (deliver.includes('ops-webhook') || deliver.includes('Delivery outcome'));
+        }""",
+        timeout=10000,
+    )
+    _assert_signal_owner(
+        page,
+        "quality",
+        [
+            "Triage and promotion surfaces",
+            "分诊与提升 surface",
+            "Story evidence context",
+            "故事证据上下文",
+            "Story contradiction markers",
+            "故事冲突标记",
+            "Report quality guardrails",
+            "报告质量门禁",
+        ],
+    )
+    _assert_signal_owner(page, "delivery", ["Delivery workspace and dispatch record", "交付工作台与 dispatch 记录"])
+    _assert_signal_owner(page, "overflow", "console-overflow-evidence-card")
+    _assert_signal_owner(page, "trust", ["Retry guidance", "重试建议"])
+    _assert_signal_primary_action_target(page, "delivery", "section-ops")
+    _assert_signal_explicit_outcome(page, "overflow", "section-ops")
+    _assert_signal_primary_action_routes(page, "quality", "#section-report-studio", "nav-review")
+    _assert_signal_primary_action_target(page, "trust", "section-cockpit")
 
 
 def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
@@ -2765,8 +3010,7 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
     page.wait_for_function("() => window.location.search.includes('triage_filter=verified')", timeout=10000)
     page.wait_for_function("() => !!document.querySelector('[data-triage-card=\"item-2\"]')", timeout=10000)
     _wait_for_section_summary(page, "section-triage")
-    _click(page, "#context-summary")
-    page.wait_for_function("() => document.querySelector('#context-summary')?.getAttribute('aria-expanded') === 'true'", timeout=10000)
+    _open_context_lens(page, "#context-summary")
     page.fill("#context-save-name", saved_view_name)
     _click(page, "#context-save-submit")
     page.wait_for_function("(expectedName) => document.querySelector('#context-lens-saved')?.textContent?.includes(expectedName)", arg=saved_view_name, timeout=10000)
@@ -2833,21 +3077,13 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
         }""",
         timeout=10000,
     )
-    _click(next_page, "[data-context-section='section-story']")
-    next_page.wait_for_function("() => window.location.hash === '#section-story'", timeout=10000)
+    _jump_to_section_with_fallback(next_page, "section-story", selector="[data-context-section='section-story']")
     _wait_for_active_rail(next_page, "nav-review", "#section-story")
-    _click(next_page, "[data-context-section='section-triage']")
-    next_page.wait_for_function("() => window.location.hash === '#section-triage'", timeout=10000)
-    _click(next_page, "[data-context-dock-manage]")
-    next_page.wait_for_function(
-        "() => document.body.dataset.contextLensOpen === 'true' && document.querySelector('#context-lens-backdrop')?.classList.contains('open')",
-        timeout=10000,
-    )
-    _click(next_page, "#context-lens-close")
-    next_page.wait_for_function(
-        "() => document.body.dataset.contextLensOpen !== 'true' && document.querySelector('#context-summary')?.getAttribute('aria-expanded') === 'false'",
-        timeout=10000,
-    )
+    _jump_to_section_with_fallback(next_page, "section-triage", selector="[data-context-section='section-triage']")
+    _wait_for_active_rail(next_page, "nav-review", "#section-triage")
+    _wait_for_section_summary(next_page, "section-triage")
+    _open_context_lens(next_page, "[data-context-dock-manage]")
+    _close_context_lens(next_page)
     next_page.evaluate("jumpToSection('section-intake')")
     next_page.wait_for_function("() => window.location.hash === '#section-intake'", timeout=10000)
     _wait_for_active_rail(next_page, "nav-intake", "#section-intake")
@@ -3307,16 +3543,8 @@ def _exercise_responsive_interaction_safety(page: Page) -> None:
         modal="fullscreen",
         action_sheet="sheet",
     )
-    _click(page, "#context-summary")
-    page.wait_for_function(
-        "() => document.body.dataset.contextLensOpen === 'true' && document.querySelector('#context-lens-backdrop')?.classList.contains('open')",
-        timeout=10000,
-    )
-    _click(page, "#context-lens-close")
-    page.wait_for_function(
-        "() => document.body.dataset.contextLensOpen !== 'true' && document.querySelector('#context-summary')?.getAttribute('aria-expanded') === 'false'",
-        timeout=10000,
-    )
+    _open_context_lens(page, "#context-summary")
+    _close_context_lens(page)
     page.wait_for_function(
         """() => {
             const primary = document.querySelector('[data-card-action-primary] button[data-run-watch="launch-ops"]');

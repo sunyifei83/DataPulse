@@ -46,7 +46,7 @@ fi
 
 if [[ "${DATAPULSE_CONSOLE_BROWSER_SMOKE:-0}" == "1" ]]; then
   echo "[console-smoke] check: browser smoke"
-  uv run --with playwright python scripts/datapulse_console_browser_smoke.py
+  uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py
 else
   echo "[console-smoke] skip: browser smoke (set DATAPULSE_CONSOLE_BROWSER_SMOKE=1 to enable)"
 fi

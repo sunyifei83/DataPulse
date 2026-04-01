@@ -1214,8 +1214,8 @@ Recommended ignition order:
 - `L26.1` promote the modularity-and-traceability follow-up blueprint; landed
 - `L26.2` freeze the console client-boundary, traceability, signal, and frontend-escalation contract; landed
 - `L26.3` extract a shared console API client boundary and reduce repeated fetch wiring; landed
-- `L26.4` add stage-linked output trace surfaces and shared signal taxonomy
-- `L26.5` reassess standalone frontend escalation only after the narrower follow-up lands and harden acceptance
+- `L26.4` add stage-linked output trace surfaces and shared signal taxonomy; landed
+- `L26.5` reassess standalone frontend escalation only after the narrower follow-up lands and harden acceptance; landed
 
 Target product judgment for this wave:
 
@@ -1234,6 +1234,13 @@ Target product judgment for this wave:
 - standalone frontend escalation stays deferred through `L26.4` and may reopen only in `L26.5` if repo evidence shows the narrower client-boundary and traceability work still cannot land safely in the current shell
 - later acceptance for this wave must check trace comprehension, owned signal expansion, and client-boundary containment rather than page load or route reachability alone
 
+`L26.5` reassessment result:
+
+- standalone frontend engineering remains deferred in repo truth after the narrower follow-up landed
+- the admissible reopen criteria from `L26.2` did not materialize: shared `/api/...` request ownership is now centralized in `datapulse/console_api_client.py`, the stage-linked trace plus owner-backed signal taxonomy landed inside the current shell, and the current browser acceptance can follow signal-owned next actions back to the expected workflow stage surfaces
+- the current shell therefore remains the correct implementation surface for this wave; a standalone React or Vite frontend should not reopen on preference or polish grounds alone
+- future reopening now requires fresh repo evidence that the current shell can no longer absorb client-boundary, traceability, or comprehension changes safely
+
 Current blueprint reopening target:
 
-- `L26.4`
+- `no-open-slice`

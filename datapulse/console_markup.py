@@ -899,6 +899,94 @@ def render_console_html(title: str) -> str:
       color: var(--muted);
       font-size: 0.76rem;
     }}
+    .workspace-mode-insight-grid {{
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }}
+    .workflow-trace-card,
+    .shared-signal-taxonomy-card {{
+      height: 100%;
+      background:
+        linear-gradient(180deg, rgba(14, 24, 39, 0.88), rgba(9, 15, 25, 0.72));
+      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+    }}
+    .trace-stage-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }}
+    .trace-stage {{
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(147, 181, 215, 0.14);
+      background: rgba(12, 21, 34, 0.7);
+    }}
+    .trace-stage.ok {{
+      border-color: rgba(127, 228, 255, 0.26);
+      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+    }}
+    .trace-stage.hot {{
+      border-color: rgba(255, 106, 130, 0.28);
+      box-shadow: inset 0 0 0 1px rgba(255, 106, 130, 0.05);
+    }}
+    .trace-stage-head,
+    .shared-signal-detail-head {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: space-between;
+      align-items: start;
+    }}
+    .trace-stage-kicker {{
+      font: 700 11px/1 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }}
+    .trace-stage-title {{
+      font-size: 1rem;
+      line-height: 1.35;
+      color: var(--ink);
+    }}
+    .trace-stage-copy {{
+      font-size: 0.84rem;
+      line-height: 1.55;
+      color: var(--muted);
+    }}
+    .shared-signal-row {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }}
+    .shared-signal-button.ok {{
+      border-color: rgba(127, 228, 255, 0.26);
+    }}
+    .shared-signal-button.hot {{
+      border-color: rgba(255, 106, 130, 0.28);
+    }}
+    .shared-signal-detail {{
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(147, 181, 215, 0.14);
+      background: rgba(12, 21, 34, 0.72);
+    }}
+    .shared-signal-detail.ok {{
+      border-color: rgba(127, 228, 255, 0.26);
+      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+    }}
+    .shared-signal-detail.hot {{
+      border-color: rgba(255, 106, 130, 0.28);
+      box-shadow: inset 0 0 0 1px rgba(255, 106, 130, 0.05);
+    }}
     .advanced-surface-shell {{
       grid-column: 1 / -1;
       border: 1px solid rgba(147, 181, 215, 0.14);
@@ -2095,6 +2183,8 @@ def render_console_html(title: str) -> str:
     body[data-pane-contract="stacked"] .operator-guidance-grid,
     body[data-pane-contract="stacked"] .section-summary-grid,
     body[data-pane-contract="stacked"] .continuity-lane,
+    body[data-pane-contract="stacked"] .workspace-mode-insight-grid,
+    body[data-pane-contract="stacked"] .trace-stage-grid,
     body[data-pane-contract="stacked"] .workbench-columns,
     body[data-pane-contract="single"] .dual-grid,
     body[data-pane-contract="single"] .grid,
@@ -2105,6 +2195,8 @@ def render_console_html(title: str) -> str:
     body[data-pane-contract="single"] .operator-guidance-grid,
     body[data-pane-contract="single"] .section-summary-grid,
     body[data-pane-contract="single"] .continuity-lane,
+    body[data-pane-contract="single"] .workspace-mode-insight-grid,
+    body[data-pane-contract="single"] .trace-stage-grid,
     body[data-pane-contract="single"] .workbench-columns {{
       grid-template-columns: 1fr;
     }}
@@ -2174,6 +2266,7 @@ def render_console_html(title: str) -> str:
       }}
       .topbar-nav::-webkit-scrollbar {{ display: none; }}
       .workspace-mode-grid {{ grid-template-columns: 1fr; }}
+      .workspace-mode-insight-grid {{ grid-template-columns: 1fr; }}
       .advanced-surface-grid {{ grid-template-columns: 1fr; }}
       .workspace-mode-group[data-workspace-group="review"] {{
         grid-template-columns: 1fr;
@@ -2213,6 +2306,7 @@ def render_console_html(title: str) -> str:
       .continuity-lane,
       .operator-guidance-grid,
       .section-summary-grid,
+      .trace-stage-grid,
       .workbench-columns {{
         grid-template-columns: 1fr;
       }}

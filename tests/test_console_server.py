@@ -1485,6 +1485,16 @@ def test_console_index_serves_shell():
     assert "Current object" in response.text
     assert "Owned output" in response.text
     assert "Next action" in response.text
+    assert "Stage-Linked Output Trace" in response.text
+    assert "Shared Signal Taxonomy" in response.text
+    assert 'data-stage-trace="workflow"' in response.text
+    assert "data-trace-stage" in response.text
+    assert 'data-shared-signal-taxonomy="true"' in response.text
+    assert "data-shared-signal-button" in response.text
+    assert "data-shared-signal-panel" in response.text
+    assert "data-shared-signal-owner" in response.text
+    assert "data-card-action-primary" in response.text
+    assert "owner-backed" in response.text
     assert "language-switch" in response.text
     assert "palette-open" in response.text
     assert "section-intake" in response.text
@@ -1682,6 +1692,11 @@ def test_console_client_script_keeps_restored_context_and_guidance_contract():
     assert "function workspaceModeOwnedOutputLabel" in script
     assert "function stageFeedbackIdForSection" in script
     assert "function stageFeedbackKindLabel" in script
+    assert "function buildStageLinkedTrace" in script
+    assert "function renderStageLinkedTraceCard" in script
+    assert "function buildSharedSignalTaxonomy" in script
+    assert "function renderSharedSignalTaxonomyCard" in script
+    assert "sharedSignalFocus: \"quality\"" in script
     assert "wireLifecycleGuideActions(root);" in script
 
 
@@ -1707,6 +1722,13 @@ def test_console_wrapper_help_uses_resolved_python_environment():
 
     assert result.returncode == 0, result.stderr
     assert "--host" in result.stdout
+
+
+def test_console_smoke_wrapper_uses_direct_browser_smoke_command():
+    repo_root = Path(__file__).resolve().parents[1]
+    script = (repo_root / "scripts" / "datapulse_console_smoke.sh").read_text()
+
+    assert "uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py" in script
 
 
 def test_console_brand_hero_serves_jpeg():

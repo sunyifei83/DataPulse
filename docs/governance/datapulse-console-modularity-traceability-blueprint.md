@@ -1,6 +1,6 @@
 # DataPulse Console Modularity And Traceability Blueprint
 
-Status: repo-scoped follow-up blueprint, `L26.3` client-boundary extraction landed
+Status: repo-scoped follow-up blueprint, `L26.5` frontend reassessment and acceptance hardening landed
 
 Created: 2026-03-31
 
@@ -197,6 +197,31 @@ Acceptance evidence:
 - `uv run pytest tests/test_console_server.py -q`
 - `DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh`
 
+## L26.5 Landing Note
+
+`L26.5` is now landed in repo docs and acceptance coverage.
+
+Reassessment result:
+
+- standalone frontend engineering remains deferred after the narrower `L26.3` and `L26.4` follow-up landed
+- the admissible reopen evidence frozen in `L26.2` did not materialize:
+  - the shared `/api/...` client boundary now exists in `datapulse/console_api_client.py`
+  - the stage-linked trace and shared signal taxonomy landed in the current shell without introducing browser-only lifecycle truth
+  - browser acceptance can follow owner-backed signal explanations and their primary next actions back to the expected workflow stage surfaces, so shell-order confusion did not reopen
+- inadmissible reopen reasons remain unchanged: generic React or Vite preference, visual polish ambitions, or abstract maintainability claims without repo evidence
+
+Acceptance hardening added in this slice:
+
+- browser smoke now checks that the visible trace stays ordered as `Start -> Monitor -> Review -> Deliver`
+- browser smoke now checks that shared signals expose an owner-backed explanation and either route to the correct stage-owned surface or explicitly report that no operator action is required
+- the wave therefore closes on comprehension and traceability evidence, not on route reachability alone
+
+Acceptance evidence:
+
+- `bash scripts/datapulse_console_smoke.sh`
+- `DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh`
+- `uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py`
+
 ## L26 Slice Map
 
 | Slice | Outcome | Why it exists |
@@ -218,13 +243,13 @@ Recommended order:
 
 ## Manual Ignition Boundary
 
-With `L26.3` landed, the next manual ignition target should be `L26.4`.
+`L26.5` is now landed, so this wave has no remaining open slice.
 
 Reason:
 
-- `L25` already solved shell order and first-rank surface reduction
-- `L26.2` froze the client boundary, traceability shape, signal ownership, and frontend-escalation guardrails in repo truth
-- `L26.3` removed the shared fetch-wiring drift point, so the next narrow risk is output traceability and signal ownership staying too fragmented across stage surfaces
+- `L25` remains the completed shell-order wave and did not need to reopen
+- `L26.3` and `L26.4` landed the narrower client-boundary, traceability, and shared-signal follow-up inside the current shell
+- `L26.5` acceptance now proves the trace and signal surfaces are understandable enough to navigate without reopening standalone frontend engineering
 
 After the blueprint landing is committed and the repo is back to a clean baseline, the normal local ignition entrypoint stays:
 
@@ -232,7 +257,7 @@ After the blueprint landing is committed and the repo is back to a clean baselin
 bash scripts/governance/ignite_datapulse_codex_loop.sh
 ```
 
-Expected next slice after this client-boundary landing: `L26.4`
+Expected next slice after this wave: `no-open-slice`
 
 ## Fact Sources
 
@@ -246,5 +271,6 @@ DataPulse reopens GUI follow-up work without reopening the wrong problem:
 
 - the remaining gaps are narrowed to client boundary, traceability, signal ownership, and bounded frontend escalation
 - `L25` remains closed as the completed shell-order wave
-- the contract freeze is landed before implementation and the shared client boundary is now extracted
-- next ignition is unambiguous: `L26.4`
+- the contract freeze is landed, the shared client boundary is extracted, and the trace plus signal contract is now operator-visible inside the current shell
+- standalone frontend engineering remains deferred because the narrower follow-up landed without reopening shell-order confusion
+- current blueprint reopening target is `no-open-slice`
