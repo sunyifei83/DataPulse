@@ -3,7 +3,7 @@
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
   "generated_at_utc": "2026-04-01T08:16:03Z",
-  "status": "completed",
+  "status": "in_progress",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -90,7 +90,8 @@
     "L24": "completed",
     "L25": "completed",
     "L26": "completed",
-    "L27": "completed"
+    "L27": "completed",
+    "L28": "pending"
   },
   "phases": [
     {
@@ -2461,17 +2462,17 @@
           ],
           "exit_condition": "The repository contains a repo-scoped blueprint that narrows the gap to replayable feed bundles, deterministic digest payloads, prompt overrides, onboarding defaults, and route-backed delivery hardening, and the active blueprint truth exposes a new manual ignition target beyond the completed L18 wave.",
           "fact_sources": [
-            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_follow-builders能力萃取与蓝图点火清单_2026-03-29.md"
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_follow-builders\u80fd\u529b\u8403\u53d6\u4e0e\u84dd\u56fe\u70b9\u706b\u6e05\u5355_2026-03-29.md"
           ],
           "fact_intake": {
             "imported_at_utc": "2026-03-29T04:58:20Z",
             "source_count": 1,
             "source_note": {
-              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_follow-builders能力萃取与蓝图点火清单_2026-03-29.md",
-              "frontmatter_title": "DataPulse + follow-builders 能力萃取与蓝图点火清单",
-              "first_heading": "DataPulse + follow-builders 能力萃取与下一步补强清单",
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_follow-builders\u80fd\u529b\u8403\u53d6\u4e0e\u84dd\u56fe\u70b9\u706b\u6e05\u5355_2026-03-29.md",
+              "frontmatter_title": "DataPulse + follow-builders \u80fd\u529b\u8403\u53d6\u4e0e\u84dd\u56fe\u70b9\u706b\u6e05\u5355",
+              "first_heading": "DataPulse + follow-builders \u80fd\u529b\u8403\u53d6\u4e0e\u4e0b\u4e00\u6b65\u8865\u5f3a\u6e05\u5355",
               "selected_heading": "",
-              "wikilink_name": "DataPulse_follow-builders能力萃取与蓝图点火清单_2026-03-29"
+              "wikilink_name": "DataPulse_follow-builders\u80fd\u529b\u8403\u53d6\u4e0e\u84dd\u56fe\u70b9\u706b\u6e05\u5355_2026-03-29"
             }
           },
           "notes": [
@@ -2810,16 +2811,16 @@
           ],
           "exit_condition": "The repository contains a repo-scoped console text-measurement blueprint that narrows the work to grapheme-safe truncation, cached pixel-fit label measurement, and optional hotspot-driven prelayout, and the active blueprint truth now exposes a new manual ignition target beyond the completed L21 wave.",
           "fact_sources": [
-            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划内/pretext_text_measurement_extraction_for_datapulse.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212\u5185/pretext_text_measurement_extraction_for_datapulse.md",
             "/Users/sunyifei/DataPulse/docs/pretext_text_measurement_extraction_for_datapulse.md"
           ],
           "fact_intake": {
             "imported_at_utc": "2026-03-30T10:11:17Z",
             "source_count": 2,
             "source_note": {
-              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划内/pretext_text_measurement_extraction_for_datapulse.md",
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212\u5185/pretext_text_measurement_extraction_for_datapulse.md",
               "frontmatter_title": "",
-              "first_heading": "Pretext 文本测量引擎摘取（供 Datapulse 落库）",
+              "first_heading": "Pretext \u6587\u672c\u6d4b\u91cf\u5f15\u64ce\u6458\u53d6\uff08\u4f9b Datapulse \u843d\u5e93\uff09",
               "selected_heading": "",
               "wikilink_name": "pretext_text_measurement_extraction_for_datapulse"
             }
@@ -2919,18 +2920,18 @@
           ],
           "exit_condition": "The repository contains a repo-scoped console text-overflow runtime-evidence blueprint that narrows the next wave to measuring residual hotspots after the landed `L22` fix set, and active blueprint truth now exposes a fresh manual ignition target beyond the completed text-measurement wave.",
           "fact_sources": [
-            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划内/DataPulse_下一波blueprint候选切片_2026-03-31.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212\u5185/DataPulse_\u4e0b\u4e00\u6ce2blueprint\u5019\u9009\u5207\u7247_2026-03-31.md",
             "/Users/sunyifei/DataPulse/docs/governance/datapulse-console-text-measurement-blueprint.md"
           ],
           "fact_intake": {
             "imported_at_utc": "2026-03-31T00:00:00Z",
             "source_count": 2,
             "source_note": {
-              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划内/DataPulse_下一波blueprint候选切片_2026-03-31.md",
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212\u5185/DataPulse_\u4e0b\u4e00\u6ce2blueprint\u5019\u9009\u5207\u7247_2026-03-31.md",
               "frontmatter_title": "",
-              "first_heading": "DataPulse 下一波 blueprint 候选切片",
+              "first_heading": "DataPulse \u4e0b\u4e00\u6ce2 blueprint \u5019\u9009\u5207\u7247",
               "selected_heading": "",
-              "wikilink_name": "DataPulse_下一波blueprint候选切片_2026-03-31"
+              "wikilink_name": "DataPulse_\u4e0b\u4e00\u6ce2blueprint\u5019\u9009\u5207\u7247_2026-03-31"
             }
           },
           "notes": [
@@ -2991,18 +2992,18 @@
           ],
           "exit_condition": "The repository contains a repo-scoped console interaction-clarity blueprint that narrows the next wave to URL-restorable workspace context, section-level success or blocker framing, centralized operator guidance, and clearer client boundaries, and active blueprint truth exposes a fresh manual ignition target beyond the completed `L23` wave.",
           "fact_sources": [
-            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_agent-skills-hub\u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355_2026-03-31.md",
             "/Users/sunyifei/DataPulse/docs/gui_intelligence_console_plan.md"
           ],
           "fact_intake": {
             "imported_at_utc": "2026-03-31T07:35:00Z",
             "source_count": 2,
             "source_note": {
-              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31.md",
-              "frontmatter_title": "DataPulse + agent-skills-hub 前端交互清晰化补强清单",
-              "first_heading": "DataPulse + agent-skills-hub 前端交互清晰化补强清单",
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_agent-skills-hub\u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355_2026-03-31.md",
+              "frontmatter_title": "DataPulse + agent-skills-hub \u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355",
+              "first_heading": "DataPulse + agent-skills-hub \u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355",
               "selected_heading": "",
-              "wikilink_name": "DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31"
+              "wikilink_name": "DataPulse_agent-skills-hub\u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355_2026-03-31"
             }
           },
           "notes": [
@@ -3131,7 +3132,7 @@
           ],
           "exit_condition": "The repository contains a repo-scoped workflow-first console simplification blueprint that reopens the next GUI wave around workflow order, stage-owned outputs, and feedback ownership, and active blueprint truth exposes `L25.2` as the next manual ignition target after the completed `L24` wave.",
           "fact_sources": [
-            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_agent-skills-hub\u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355_2026-03-31.md",
             "/Users/sunyifei/DataPulse/docs/gui_intelligence_console_plan.md",
             "/Users/sunyifei/DataPulse/docs/governance/datapulse-console-workflow-simplification-blueprint.md"
           ],
@@ -3139,11 +3140,11 @@
             "imported_at_utc": "2026-03-31T10:40:56Z",
             "source_count": 3,
             "source_note": {
-              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31.md",
-              "frontmatter_title": "DataPulse + agent-skills-hub 前端交互清晰化补强清单",
-              "first_heading": "DataPulse + agent-skills-hub 前端交互清晰化补强清单",
-              "selected_heading": "2026-03-31 升维补充：从交互清晰化走向 workflow-first shell simplification",
-              "wikilink_name": "DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31"
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_agent-skills-hub\u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355_2026-03-31.md",
+              "frontmatter_title": "DataPulse + agent-skills-hub \u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355",
+              "first_heading": "DataPulse + agent-skills-hub \u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355",
+              "selected_heading": "2026-03-31 \u5347\u7ef4\u8865\u5145\uff1a\u4ece\u4ea4\u4e92\u6e05\u6670\u5316\u8d70\u5411 workflow-first shell simplification",
+              "wikilink_name": "DataPulse_agent-skills-hub\u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355_2026-03-31"
             }
           },
           "notes": [
@@ -3272,7 +3273,7 @@
           ],
           "exit_condition": "The repository contains a repo-scoped console modularity-and-traceability blueprint that reopens the next GUI follow-up around client boundary, stage-linked traceability, signal ownership, and bounded frontend escalation, and active blueprint truth exposes `L26.2` as the next manual ignition target after the completed `L25` wave.",
           "fact_sources": [
-            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_agent-skills-hub\u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355_2026-03-31.md",
             "/Users/sunyifei/DataPulse/docs/gui_intelligence_console_plan.md",
             "/Users/sunyifei/DataPulse/docs/governance/datapulse-console-workflow-simplification-blueprint.md"
           ],
@@ -3280,11 +3281,11 @@
             "imported_at_utc": "2026-03-31T13:14:57Z",
             "source_count": 3,
             "source_note": {
-              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31.md",
-              "frontmatter_title": "DataPulse + agent-skills-hub 前端交互清晰化补强清单",
-              "first_heading": "DataPulse + agent-skills-hub 前端交互清晰化补强清单",
-              "selected_heading": "2026-03-31 刷新：仓内蓝图对齐复核",
-              "wikilink_name": "DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31"
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_agent-skills-hub\u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355_2026-03-31.md",
+              "frontmatter_title": "DataPulse + agent-skills-hub \u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355",
+              "first_heading": "DataPulse + agent-skills-hub \u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355",
+              "selected_heading": "2026-03-31 \u5237\u65b0\uff1a\u4ed3\u5185\u84dd\u56fe\u5bf9\u9f50\u590d\u6838",
+              "wikilink_name": "DataPulse_agent-skills-hub\u524d\u7aef\u4ea4\u4e92\u6e05\u6670\u5316\u8865\u5f3a\u6e05\u5355_2026-03-31"
             }
           },
           "notes": [
@@ -3412,8 +3413,8 @@
           ],
           "exit_condition": "The repository contains a repo-scoped runtime-kernel and surface-projection blueprint that names DataPulse as a Reader-backed intelligence runtime, and active blueprint truth exposes `L27.2` as the next manual ignition target after the completed `L26` wave.",
           "fact_sources": [
-            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/claudecode-cli.md",
-            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_运行时中枢能力萃取与L27点火计划_2026-04-01.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/claudecode-cli.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_\u8fd0\u884c\u65f6\u4e2d\u67a2\u80fd\u529b\u8403\u53d6\u4e0eL27\u70b9\u706b\u8ba1\u5212_2026-04-01.md",
             "/Users/sunyifei/DataPulse/datapulse/reader.py",
             "/Users/sunyifei/DataPulse/datapulse/cli.py",
             "/Users/sunyifei/DataPulse/datapulse/mcp_server.py",
@@ -3425,11 +3426,11 @@
             "imported_at_utc": "2026-04-01T07:16:26Z",
             "source_count": 8,
             "source_note": {
-              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_运行时中枢能力萃取与L27点火计划_2026-04-01.md",
-              "frontmatter_title": "DataPulse 运行时中枢能力萃取与 L27 点火计划",
-              "first_heading": "DataPulse 运行时中枢能力萃取与 L27 点火计划",
-              "selected_heading": "建议点火波次：`L27`",
-              "wikilink_name": "DataPulse_运行时中枢能力萃取与L27点火计划_2026-04-01"
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_\u8fd0\u884c\u65f6\u4e2d\u67a2\u80fd\u529b\u8403\u53d6\u4e0eL27\u70b9\u706b\u8ba1\u5212_2026-04-01.md",
+              "frontmatter_title": "DataPulse \u8fd0\u884c\u65f6\u4e2d\u67a2\u80fd\u529b\u8403\u53d6\u4e0e L27 \u70b9\u706b\u8ba1\u5212",
+              "first_heading": "DataPulse \u8fd0\u884c\u65f6\u4e2d\u67a2\u80fd\u529b\u8403\u53d6\u4e0e L27 \u70b9\u706b\u8ba1\u5212",
+              "selected_heading": "\u5efa\u8bae\u70b9\u706b\u6ce2\u6b21\uff1a`L27`",
+              "wikilink_name": "DataPulse_\u8fd0\u884c\u65f6\u4e2d\u67a2\u80fd\u529b\u8403\u53d6\u4e0eL27\u70b9\u706b\u8ba1\u5212_2026-04-01"
             }
           },
           "notes": [
@@ -3536,12 +3537,53 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L28",
+      "title": "Tri-repo Intake Decomposition",
+      "status": "pending",
+      "slices": [
+        {
+          "id": "L28.1",
+          "title": "Decompose tri-repo minimal engineering actions into DataPulse repo-relevant follow-up slices",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "exit_condition": "Repo-native blueprint truth contains a decomposition-first intake slice sourced from the DataPulse section of the tri-repo action list, prioritizing internal AI surface registry materialization and one claim_draft or delivery_summary runtime evidence closure while keeping report_draft fail_closed.",
+          "fact_sources": [
+            "/Users/sunyifei/ModelBusProject/out/tri_repo_handoffs/handoff.min_engineering_actions_20260401.datapulse.json",
+            "/Users/sunyifei/ModelBusProject/out/tri_repo_handoffs/handoff.min_engineering_actions_20260401.datapulse.pre_ignite_runbook.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/\u4e09\u4ed3/\u4e09\u4ed3\u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c\u6e05\u5355-2026-04-01.md#\u4e8c\u3001DataPulse \u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c"
+          ],
+          "notes": [
+            "Decomposition-first landing only; do not directly implement business functionality from tri-repo intake.",
+            "Prioritize internal AI surface registry machine-readable materialization as the first repo-native follow-up.",
+            "Next repo-native evidence closure should cover claim_draft or delivery_summary in the same release window.",
+            "report_draft must remain fail_closed and must not be treated as published or auto-externalized."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-04-01T15:23:53Z",
+            "source_count": 3,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/\u4e09\u4ed3/\u4e09\u4ed3\u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c\u6e05\u5355-2026-04-01.md",
+              "frontmatter_title": "",
+              "first_heading": "\u4e09\u4ed3\u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c\u6e05\u5355\uff082026-04-01\uff09",
+              "selected_heading": "\u4e8c\u3001DataPulse \u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c",
+              "wikilink_name": "\u4e09\u4ed3\u6700\u5c0f\u5de5\u7a0b\u52a8\u4f5c\u6e05\u5355-2026-04-01"
+            }
+          }
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "L27.5 landed; the current draft plan has no remaining open slices."
+    "id": "L28.1",
+    "title": "Decompose tri-repo minimal engineering actions into DataPulse repo-relevant follow-up slices",
+    "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
     {
@@ -4015,5 +4057,5 @@
       "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-04-01T08:23:38Z"
+  "last_updated_utc": "2026-04-01T15:24:04Z"
 }
