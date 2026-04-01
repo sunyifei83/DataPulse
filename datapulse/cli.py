@@ -19,17 +19,18 @@ import datapulse
 from datapulse.core.config import SearchGatewayConfig
 from datapulse.core.security import get_secret, mask_secret
 from datapulse.reader import DataPulseReader
+from datapulse.surface_capabilities import (
+    build_runtime_surface_introspection,
+    build_surface_capability_projection,
+    governed_ai_surface_ids,
+    supported_surface_ids,
+)
 from datapulse.tools.session import login_platform, supported_platforms
 
 _GITHUB_RELEASES_API = "https://api.github.com/repos/sunyifei83/DataPulse/releases/latest"
 _GITHUB_REPO = "https://github.com/sunyifei83/DataPulse"
-_AI_SURFACE_PRECHECK_CHOICES = (
-    "mission_suggest",
-    "triage_assist",
-    "claim_draft",
-    "report_draft",
-    "delivery_summary",
-)
+_AI_SURFACE_PRECHECK_CHOICES = governed_ai_surface_ids()
+_SURFACE_CAPABILITY_SURFACES = supported_surface_ids()
 
 
 def _print_list(items, limit: int = 20):
@@ -1433,6 +1434,24 @@ def main() -> None:
     management_group.add_argument("--ops-overview", action="store_true", help="Show unified ops snapshot across collectors, watches, and route delivery")
     management_group.add_argument("--ops-scorecard", action="store_true", help="Show the intelligence governance scorecard")
     management_group.add_argument(
+        "--runtime-introspection",
+        action="store_true",
+        help="Show cross-surface capability coverage, parity checks, and reopen rules",
+    )
+    management_group.add_argument(
+        "--surface-capabilities",
+        nargs="?",
+        const="cli",
+        choices=list(_SURFACE_CAPABILITY_SURFACES),
+        metavar="SURFACE",
+        help="Show the shared capability projection for one surface (default: cli)",
+    )
+    management_group.add_argument(
+        "--surface-capabilities-include-unavailable",
+        action="store_true",
+        help="Include unavailable capabilities when printing --surface-capabilities",
+    )
+    management_group.add_argument(
         "--ai-surface-precheck",
         choices=list(_AI_SURFACE_PRECHECK_CHOICES),
         help="Show governance admission facts for one AI surface",
@@ -1808,6 +1827,19 @@ def main() -> None:
 
     if args.ops_scorecard:
         _print_json_payload(reader.governance_scorecard_snapshot())
+        return
+
+    if args.runtime_introspection:
+        _print_json_payload(build_runtime_surface_introspection())
+        return
+
+    if args.surface_capabilities:
+        _print_json_payload(
+            build_surface_capability_projection(
+                args.surface_capabilities,
+                include_unavailable=args.surface_capabilities_include_unavailable,
+            )
+        )
         return
 
     if args.ai_surface_precheck:

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, TypeAlias, TypeVar
 
+from .alerts import DeliveryDispatchError, resolve_delivery_targets
 from .utils import generate_slug, reports_path_from_env
 
 
@@ -1695,3 +1696,593 @@ class ReportStore:
             "export_profiles": [profile.to_dict() for profile in ordered_profiles] if include_export_profiles else [],
             "quality": quality,
         }
+
+
+class ReportService:
+    """Report and delivery lifecycle service behind the DataPulseReader facade."""
+
+    def __init__(self, owner: Any, *, report_store: ReportStore):
+        self.owner = owner
+        self.report_store = report_store
+
+    def list_report_briefs(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
+        return [brief.to_dict() for brief in self.report_store.list_report_briefs(limit=limit, status=status)]
+
+    def create_report_brief(self, **payload: Any) -> dict[str, Any]:
+        return self.report_store.create_report_brief(payload).to_dict()
+
+    def show_report_brief(self, identifier: str) -> dict[str, Any] | None:
+        brief = self.report_store.get_report_brief(identifier)
+        return brief.to_dict() if brief is not None else None
+
+    def update_report_brief(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
+        brief = self.report_store.update_report_brief(identifier, **payload)
+        return brief.to_dict() if brief is not None else None
+
+    def list_claim_cards(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
+        return [claim.to_dict() for claim in self.report_store.list_claim_cards(limit=limit, status=status)]
+
+    def create_claim_card(self, **payload: Any) -> dict[str, Any]:
+        return self.report_store.create_claim_card(payload).to_dict()
+
+    def show_claim_card(self, identifier: str) -> dict[str, Any] | None:
+        claim = self.report_store.get_claim_card(identifier)
+        return claim.to_dict() if claim is not None else None
+
+    def update_claim_card(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
+        claim = self.report_store.update_claim_card(identifier, **payload)
+        return claim.to_dict() if claim is not None else None
+
+    def list_report_sections(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
+        return [section.to_dict() for section in self.report_store.list_report_sections(limit=limit, status=status)]
+
+    def create_report_section(self, **payload: Any) -> dict[str, Any]:
+        return self.report_store.create_report_section(payload).to_dict()
+
+    def show_report_section(self, identifier: str) -> dict[str, Any] | None:
+        section = self.report_store.get_report_section(identifier)
+        return section.to_dict() if section is not None else None
+
+    def update_report_section(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
+        section = self.report_store.update_report_section(identifier, **payload)
+        return section.to_dict() if section is not None else None
+
+    def list_citation_bundles(self, *, limit: int = 20) -> list[dict[str, Any]]:
+        return [bundle.to_dict() for bundle in self.report_store.list_citation_bundles(limit=limit)]
+
+    def create_citation_bundle(self, **payload: Any) -> dict[str, Any]:
+        return self.report_store.create_citation_bundle(payload).to_dict()
+
+    def show_citation_bundle(self, identifier: str) -> dict[str, Any] | None:
+        bundle = self.report_store.get_citation_bundle(identifier)
+        return bundle.to_dict() if bundle is not None else None
+
+    def update_citation_bundle(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
+        bundle = self.report_store.update_citation_bundle(identifier, **payload)
+        return bundle.to_dict() if bundle is not None else None
+
+    def list_reports(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
+        return [report.to_dict() for report in self.report_store.list_reports(limit=limit, status=status)]
+
+    def create_report(self, **payload: Any) -> dict[str, Any]:
+        return self.report_store.create_report(payload).to_dict()
+
+    @staticmethod
+    def _resolve_report_compose_setting(value: bool | None, profile_value: bool | None, default: bool) -> bool:
+        if value is not None:
+            return bool(value)
+        if profile_value is not None:
+            return bool(profile_value)
+        return default
+
+    def assemble_report(
+        self,
+        identifier: str,
+        *,
+        include_sections: bool = True,
+        include_claim_cards: bool = True,
+        include_citation_bundles: bool = True,
+        include_export_profiles: bool = True,
+    ) -> dict[str, Any] | None:
+        return self.report_store.assemble_report(
+            identifier,
+            include_sections=include_sections,
+            include_claim_cards=include_claim_cards,
+            include_citation_bundles=include_citation_bundles,
+            include_export_profiles=include_export_profiles,
+        )
+
+    def show_report(self, identifier: str) -> dict[str, Any] | None:
+        report = self.report_store.get_report(identifier)
+        return report.to_dict() if report is not None else None
+
+    def compose_report(
+        self,
+        identifier: str,
+        *,
+        profile_id: str | None = None,
+        include_sections: bool | None = None,
+        include_claim_cards: bool | None = None,
+        include_citation_bundles: bool | None = None,
+        include_export_profiles: bool | None = None,
+    ) -> dict[str, Any] | None:
+        profile_payload: dict[str, Any] | None = None
+        if profile_id:
+            profile_payload = self.show_export_profile(profile_id)
+            if profile_payload is None:
+                raise ValueError(f"Export profile not found: {profile_id}")
+
+        include_sections = self._resolve_report_compose_setting(
+            include_sections,
+            profile_payload.get("include_sections") if profile_payload else None,
+            True,
+        )
+        include_claim_cards = self._resolve_report_compose_setting(
+            include_claim_cards,
+            profile_payload.get("include_claim_cards") if profile_payload else None,
+            True,
+        )
+        include_citation_bundles = self._resolve_report_compose_setting(
+            include_citation_bundles,
+            profile_payload.get("include_bundles") if profile_payload else None,
+            True,
+        )
+        include_export_profiles = self._resolve_report_compose_setting(
+            include_export_profiles,
+            (profile_payload or {}).get("include_export_profiles"),
+            True,
+        )
+        payload = self.report_store.assemble_report(
+            identifier,
+            include_sections=include_sections,
+            include_claim_cards=include_claim_cards,
+            include_citation_bundles=include_citation_bundles,
+            include_export_profiles=include_export_profiles,
+        )
+        if payload is None:
+            return None
+
+        if profile_payload and str(profile_payload.get("name", "")).strip().lower() == "watch-pack":
+            payload["watch_pack"] = self._build_report_watch_pack_payload(identifier, payload)
+        return payload
+
+    @staticmethod
+    def _normalize_report_id(identifier: str) -> str:
+        return str(identifier or "").strip()
+
+    @staticmethod
+    def _normalize_profile_name(name: str | None) -> str:
+        return str(name or "").strip().lower()
+
+    def _find_report_profile(self, identifier: str, *, name: str) -> dict[str, Any] | None:
+        normalized_name = self._normalize_profile_name(name)
+        if not normalized_name:
+            return None
+        for row in self.list_export_profiles(report_id=identifier, limit=100):
+            if self._normalize_profile_name(row.get("name")) == normalized_name:
+                return row
+        return None
+
+    def _build_report_watch_pack_payload(
+        self,
+        identifier: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        report_payload = payload.get("report", {}) if isinstance(payload.get("report"), dict) else {}
+        sections = payload.get("sections", [])
+        claim_cards = payload.get("claim_cards", [])
+        bundles = payload.get("citation_bundles", [])
+        section_titles = [str(row.get("title", "")).strip() for row in sections if str(row.get("title", "")).strip()]
+        claim_stmts = [str(row.get("statement", "")).strip() for row in claim_cards if str(row.get("statement", "")).strip()]
+        bundle_entries = [row for row in bundles if isinstance(row, dict)]
+        source_urls: list[str] = []
+        for row in bundle_entries:
+            source_urls.extend([str(url).strip() for url in row.get("source_urls", []) if str(url).strip()])
+        source_urls = [url for i, url in enumerate(source_urls) if url and url not in source_urls[:i]]
+
+        demand_intent = str(report_payload.get("summary", "") or "").strip()
+        if not demand_intent:
+            demand_intent = section_titles[0] if section_titles else (claim_stmts[0] if claim_stmts else "")
+        if not demand_intent:
+            demand_intent = f"Track follow-up evidence for {report_payload.get('title', '')}".strip() or "Track follow-up evidence."
+
+        key_questions = [f"What changed in the {topic.lower()} area?" for topic in section_titles[:3]]
+        if not key_questions and claim_stmts:
+            key_questions = [f"What evidence supports: {statement[:100]}" for statement in claim_stmts[:3]]
+        if not key_questions:
+            key_questions = [
+                "What changed since this report?",
+                "What new evidence should trigger follow-up actions?",
+            ]
+
+        return {
+            "report_id": self._normalize_report_id(identifier),
+            "report_title": str(report_payload.get("title", "")).strip(),
+            "query": str(report_payload.get("title", "")).strip() or f"watch-report-{identifier}",
+            "mission_name": f"{report_payload.get('title', 'Report').strip()} Follow-up Watch".strip(),
+            "mission_intent": {
+                "demand_intent": demand_intent,
+                "key_questions": key_questions[:3],
+                "scope_topics": section_titles[:8],
+                "scope_window": "watching",
+                "freshness_expectation": "same day review",
+                "freshness_max_age_hours": 24,
+                "coverage_targets": ["official updates", "source-level evidence"],
+            },
+            "source_pack": {
+                "source_pack_version": "1.0",
+                "section_count": len(section_titles),
+                "claim_count": len(claim_stmts),
+                "bundle_count": len(bundle_entries),
+                "key_sections": section_titles[:8],
+                "source_urls": source_urls[:12],
+                "report_summary": str(report_payload.get("summary", "")).strip() or None,
+            },
+            "suggested_followup": {
+                "output_profile": "watch-pack",
+                "source_profile_hint": "full",
+                "default_query_prefix": str(report_payload.get("title", "")).strip() or "report follow-up",
+            },
+        }
+
+    def report_watch_pack(
+        self,
+        identifier: str,
+        *,
+        profile_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        report_payload = self.show_report(identifier)
+        if report_payload is None:
+            return None
+        report_id = self._normalize_report_id(report_payload["id"])
+        target_profile_id = profile_id
+        if target_profile_id is None:
+            target_profile = self._find_report_profile(report_id, name="watch-pack")
+            if target_profile is not None:
+                target_profile_id = target_profile.get("id")
+        payload = self.compose_report(report_id, profile_id=target_profile_id)
+        if payload is None:
+            return None
+        watch_pack = payload.get("watch_pack")
+        if isinstance(watch_pack, dict):
+            return watch_pack
+        return self._build_report_watch_pack_payload(report_id, payload)
+
+    def create_watch_from_report_pack(
+        self,
+        identifier: str,
+        *,
+        profile_id: str | None = None,
+        name: str | None = None,
+        query: str | None = None,
+        platforms: list[str] | None = None,
+        sites: list[str] | None = None,
+        schedule: str = "manual",
+        min_confidence: float = 0.0,
+        top_n: int = 5,
+        alert_rules: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | None:
+        watch_pack = self.report_watch_pack(identifier, profile_id=profile_id)
+        if watch_pack is None:
+            return None
+        mission_name = str(name).strip() if name else str(watch_pack.get("mission_name", "")).strip()
+        mission_query = str(query).strip() if query else str(watch_pack.get("query", "")).strip()
+        if not mission_name:
+            mission_name = f"{self._normalize_report_id(identifier)} Watch"
+        if not mission_query:
+            mission_query = f"Watch {self._normalize_report_id(identifier)}"
+        mission_intent = watch_pack.get("mission_intent")
+        if not isinstance(mission_intent, dict):
+            mission_intent = {}
+        return self.owner.create_watch(
+            name=mission_name,
+            query=mission_query,
+            mission_intent=mission_intent,
+            platforms=platforms,
+            sites=sites,
+            schedule=schedule,
+            min_confidence=min_confidence,
+            top_n=top_n,
+            alert_rules=alert_rules,
+        )
+
+    def assess_report_quality(
+        self,
+        identifier: str,
+        *,
+        profile_id: str | None = None,
+        include_sections: bool | None = None,
+        include_claim_cards: bool | None = None,
+        include_citation_bundles: bool | None = None,
+        include_export_profiles: bool | None = None,
+    ) -> dict[str, Any] | None:
+        payload = self.compose_report(
+            identifier,
+            profile_id=profile_id,
+            include_sections=include_sections,
+            include_claim_cards=include_claim_cards,
+            include_citation_bundles=include_citation_bundles,
+            include_export_profiles=include_export_profiles,
+        )
+        if payload is None:
+            return None
+        quality = payload.get("quality")
+        return quality if isinstance(quality, dict) else {}
+
+    def update_report(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
+        report = self.report_store.update_report(identifier, **payload)
+        return report.to_dict() if report is not None else None
+
+    def list_export_profiles(
+        self,
+        *,
+        limit: int = 20,
+        status: str | None = None,
+        report_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return [
+            profile.to_dict()
+            for profile in self.report_store.list_export_profiles(
+                limit=limit,
+                status=status,
+                report_id=report_id,
+            )
+        ]
+
+    def create_export_profile(self, **payload: Any) -> dict[str, Any]:
+        return self.report_store.create_export_profile(payload).to_dict()
+
+    def show_export_profile(self, identifier: str) -> dict[str, Any] | None:
+        profile = self.report_store.get_export_profile(identifier)
+        return profile.to_dict() if profile is not None else None
+
+    def update_export_profile(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
+        profile = self.report_store.update_export_profile(identifier, **payload)
+        return profile.to_dict() if profile is not None else None
+
+    def list_delivery_subscriptions(
+        self,
+        *,
+        limit: int = 20,
+        status: str | None = None,
+        subject_kind: str | None = None,
+        subject_ref: str | None = None,
+        output_kind: str | None = None,
+        delivery_mode: str | None = None,
+        route_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return [
+            row.to_dict()
+            for row in self.report_store.list_delivery_subscriptions(
+                limit=limit,
+                status=status,
+                subject_kind=subject_kind,
+                subject_ref=subject_ref,
+                output_kind=output_kind,
+                delivery_mode=delivery_mode,
+                route_name=route_name,
+            )
+        ]
+
+    def create_delivery_subscription(self, **payload: Any) -> dict[str, Any]:
+        return self.report_store.create_delivery_subscription(payload).to_dict()
+
+    def show_delivery_subscription(self, identifier: str) -> dict[str, Any] | None:
+        subscription = self.report_store.get_delivery_subscription(identifier)
+        return subscription.to_dict() if subscription is not None else None
+
+    def update_delivery_subscription(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
+        subscription = self.report_store.update_delivery_subscription(identifier, **payload)
+        return subscription.to_dict() if subscription is not None else None
+
+    def delete_delivery_subscription(self, identifier: str) -> dict[str, Any] | None:
+        subscription = self.report_store.delete_delivery_subscription(identifier)
+        return subscription.to_dict() if subscription is not None else None
+
+    def list_delivery_dispatch_records(
+        self,
+        *,
+        limit: int = 20,
+        status: str | None = None,
+        subscription_id: str | None = None,
+        subject_kind: str | None = None,
+        subject_ref: str | None = None,
+        output_kind: str | None = None,
+        route_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return [
+            record.to_dict()
+            for record in self.report_store.list_delivery_dispatch_records(
+                limit=limit,
+                status=status,
+                subscription_id=subscription_id,
+                subject_kind=subject_kind,
+                subject_ref=subject_ref,
+                output_kind=output_kind,
+                route_name=route_name,
+            )
+        ]
+
+    def build_report_delivery_package(
+        self,
+        subscription_identifier: str,
+        *,
+        profile_id: str | None = None,
+    ) -> dict[str, Any]:
+        subscription = self.show_delivery_subscription(subscription_identifier)
+        if subscription is None:
+            raise ValueError(f"Delivery subscription not found: {subscription_identifier}")
+        if str(subscription.get("subject_kind", "")).strip().lower() != "report":
+            raise ValueError("Only report subscriptions can be used for report delivery packages")
+        profile_payload = self.show_export_profile(profile_id) if profile_id else None
+        return self.owner._build_report_delivery_package(subscription, profile_id=profile_id, profile_payload=profile_payload)
+
+    def dispatch_report_delivery(
+        self,
+        subscription_identifier: str,
+        *,
+        profile_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        subscription = self.show_delivery_subscription(subscription_identifier)
+        if subscription is None:
+            raise ValueError(f"Delivery subscription not found: {subscription_identifier}")
+        if str(subscription.get("subject_kind", "")).strip().lower() != "report":
+            raise ValueError("Only report subscriptions can be dispatched by this method")
+        output_kind = self.owner._normalize_report_dispatch_output_kind(subscription.get("output_kind"))
+        if output_kind not in _DELIVERY_OUTPUT_KINDS:
+            raise ValueError(f"Unsupported report delivery output kind: {output_kind}")
+        package = self.owner._build_report_delivery_package(subscription, profile_id=profile_id)
+
+        rule: dict[str, Any] = {
+            "routes": list(subscription.get("route_names", [])),
+        }
+        route_targets, route_errors = resolve_delivery_targets(rule)
+        target_by_name: dict[str, dict[str, Any]] = {}
+        for row in route_targets:
+            label = str(row.get("label", "")).strip()
+            route_name = self.owner._extract_delivery_route_name(label)
+            if route_name:
+                target_by_name[route_name] = row
+
+        route_names = _normalize_string_list(subscription.get("route_names"))
+        dispatch_records: list[dict[str, Any]] = []
+        for route_name in route_names:
+            target = target_by_name.get(route_name)
+            route_label = str(target.get("label", "") if isinstance(target, dict) else "").strip()
+            channel = str(target.get("channel", "")).strip().lower() if isinstance(target, dict) else ""
+            error = ""
+            governance: dict[str, Any] = {}
+            if not route_label:
+                route_label = f"route:{route_name}"
+            if not target:
+                error = str(route_errors.get(f"route:{route_name}") or route_errors.get(route_label) or "")
+                status = "missing_route"
+                governance = {
+                    "delivery_diagnostics": {
+                        "route_label": route_label,
+                        "route_name": route_name,
+                        "channel": channel or "unknown",
+                        "attempt_count": 0,
+                        "chunk_count": 0,
+                        "fallback_used": False,
+                        "fallback_reason": "",
+                        "attempts": [],
+                        "resolution": "missing_route",
+                        "error": error,
+                    }
+                }
+            else:
+                status = "pending"
+            record = self.report_store.create_delivery_dispatch_record(
+                {
+                    "subscription_id": str(subscription.get("id", "")),
+                    "subject_kind": "report",
+                    "subject_ref": str(subscription.get("subject_ref", "")),
+                    "output_kind": output_kind,
+                    "route_name": route_name,
+                    "route_label": route_label,
+                    "route_channel": channel,
+                    "package_id": str(package.get("package_id", "")),
+                    "package_signature": str(package.get("package_signature", "")),
+                    "package_profile_id": str(profile_id or ""),
+                    "status": status,
+                    "error": error,
+                    "attempts": 0,
+                    "governance": governance,
+                }
+            )
+            dispatch_records.append(record.to_dict())
+
+        for row in dispatch_records:
+            if row.get("status") != "pending":
+                continue
+            route_name = str(row.get("route_name", "")).strip()
+            target = target_by_name.get(route_name)
+            if not isinstance(target, dict):
+                continue
+            record_id = str(row.get("id", "")).strip()
+            diagnostics: dict[str, Any] = {}
+            try:
+                diagnostics = self.owner._dispatch_route_delivery_payload(
+                    target,
+                    webhook_payload={"report_delivery": package},
+                    text_payload=self.owner._render_report_delivery_text(package),
+                    markdown_title=f"Report Delivery | {route_name}",
+                    markdown_metadata={
+                        "package_id": str(package.get("package_id", "")),
+                        "route_label": str(target.get("label", "")),
+                        "channel": str(target.get("channel", "")),
+                    },
+                )
+                new_error = ""
+                current_status = "delivered"
+            except DeliveryDispatchError as exc:
+                diagnostics = dict(exc.diagnostics or {})
+                new_error = str(exc)
+                current_status = "failed"
+            except Exception as exc:  # noqa: BLE001
+                diagnostics = self.owner._route_delivery_base_diagnostics(target)
+                diagnostics["error"] = str(exc)
+                diagnostics["attempt_count"] = 1
+                diagnostics["attempts"] = [
+                    {
+                        "kind": "route_dispatch",
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                ]
+                new_error = str(exc)
+                current_status = "failed"
+            current_attempts = int(diagnostics.get("attempt_count", 1 if current_status == "failed" else 0) or 0)
+            if current_status == "delivered" and current_attempts <= 0:
+                current_attempts = 1
+            self.report_store.update_delivery_dispatch_record(
+                record_id,
+                status=current_status,
+                error=new_error,
+                attempts=current_attempts,
+                route_channel=target.get("channel", ""),
+            )
+            self.owner._persist_delivery_dispatch_governance(record_id, {"delivery_diagnostics": diagnostics})
+            for idx, item in enumerate(dispatch_records):
+                if str(item.get("id", "")) == record_id:
+                    dispatch_records[idx]["status"] = current_status
+                    dispatch_records[idx]["error"] = new_error
+                    dispatch_records[idx]["attempts"] = current_attempts
+                    dispatch_records[idx]["route_channel"] = str(target.get("channel", ""))
+                    dispatch_records[idx]["governance"] = {"delivery_diagnostics": diagnostics}
+                    break
+        return dispatch_records
+
+    def export_report(
+        self,
+        identifier: str,
+        *,
+        profile_id: str | None = None,
+        output_format: str = "json",
+        include_sections: bool | None = None,
+        include_claim_cards: bool | None = None,
+        include_citation_bundles: bool | None = None,
+        include_metadata: bool | None = None,
+    ) -> str | None:
+        payload = self.compose_report(
+            identifier,
+            profile_id=profile_id,
+            include_sections=include_sections,
+            include_claim_cards=include_claim_cards,
+            include_citation_bundles=include_citation_bundles,
+        )
+        if payload is None:
+            return None
+
+        profile_payload: dict[str, Any] | None = self.show_export_profile(profile_id) if profile_id else None
+        resolved_format = self.owner._normalize_report_export_format(output_format)
+        if resolved_format == "json":
+            return json.dumps(payload, ensure_ascii=False, indent=2)
+
+        include_metadata = bool(
+            include_metadata
+            if include_metadata is not None
+            else (profile_payload.get("include_metadata", True) if profile_payload else True)
+        )
+        return self.owner._render_report_markdown(payload, include_metadata=include_metadata)

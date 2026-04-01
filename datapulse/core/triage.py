@@ -1517,3 +1517,64 @@ class TriageQueue:
             "candidates": top,
             "suggested_primary_id": suggested_primary,
         }
+
+
+class TriageService:
+    """Triage lifecycle service behind the stable DataPulseReader facade."""
+
+    def __init__(self, *, triage: TriageQueue):
+        self.triage = triage
+
+    def list_items(
+        self,
+        *,
+        limit: int = 20,
+        min_confidence: float = 0.0,
+        states: list[str] | None = None,
+        include_closed: bool = False,
+    ) -> list[dict[str, Any]]:
+        items = self.triage.list_items(
+            limit=limit,
+            min_confidence=min_confidence,
+            states=states,
+            include_closed=include_closed,
+        )
+        return [serialize_item_with_governance(item) for item in items]
+
+    def update_item(
+        self,
+        item_id: str,
+        *,
+        state: str,
+        note: str = "",
+        actor: str = "system",
+        duplicate_of: str | None = None,
+    ) -> dict[str, Any] | None:
+        item = self.triage.update_state(
+            item_id,
+            state=state,
+            note=note,
+            actor=actor,
+            duplicate_of=duplicate_of,
+        )
+        return serialize_item_with_governance(item) if item is not None else None
+
+    def add_note(
+        self,
+        item_id: str,
+        *,
+        note: str,
+        author: str = "system",
+    ) -> dict[str, Any] | None:
+        item = self.triage.add_note(item_id, note=note, author=author)
+        return serialize_item_with_governance(item) if item is not None else None
+
+    def delete_item(self, item_id: str) -> dict[str, Any] | None:
+        item = self.triage.delete_item(item_id)
+        return serialize_item_with_governance(item) if item is not None else None
+
+    def stats(self, *, min_confidence: float = 0.0) -> dict[str, Any]:
+        return self.triage.stats(min_confidence=min_confidence)
+
+    def explain_duplicate(self, item_id: str, *, limit: int = 5) -> dict[str, Any] | None:
+        return self.triage.explain_duplicate(item_id, limit=limit)

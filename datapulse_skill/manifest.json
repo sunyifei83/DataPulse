@@ -54,6 +54,10 @@
     }
   ],
   "memory_path": "../../memory/inbox/",
+  "surface_projection": {
+    "catalog_path": "docs/governance/datapulse-surface-capability-catalog.draft.json",
+    "surface": "skill"
+  },
   "capabilities": [
     "content-extraction",
     "cross-platform-sources",

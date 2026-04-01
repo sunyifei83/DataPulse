@@ -24,7 +24,7 @@ def _utcnow() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def _parse_dt(value: str) -> datetime | None:
+def _parse_dt(value: Any | None) -> datetime | None:
     text = str(value or "").strip()
     if not text:
         return None
@@ -1220,3 +1220,409 @@ def evaluate_watch_alerts(
         cooldown_seconds = int(raw_rule.get("cooldown_seconds", 0) or 0)
         events.append((event, matches, cooldown_seconds))
     return events
+
+
+class AlertService:
+    """Alert and delivery-route service behind the stable DataPulseReader facade."""
+
+    def __init__(self, owner: Any, *, alert_store: AlertStore, alert_routes: AlertRouteStore, watch_status: Any):
+        self.owner = owner
+        self.alert_store = alert_store
+        self.alert_routes = alert_routes
+        self.watch_status = watch_status
+
+    def list_alerts(self, *, limit: int = 20, mission_id: str | None = None) -> list[dict[str, Any]]:
+        return [event.to_dict() for event in self.alert_store.list_events(limit=limit, mission_id=mission_id)]
+
+    def list_alert_routes(self) -> list[dict[str, Any]]:
+        return self.alert_routes.list_routes()
+
+    def create_alert_route(self, **payload: Any) -> dict[str, Any]:
+        route_name = str(payload.pop("name", "") or "").strip()
+        return self.alert_routes.create(route_name, payload)
+
+    def update_alert_route(self, name: str, **payload: Any) -> dict[str, Any] | None:
+        return self.alert_routes.update(name, payload)
+
+    def delete_alert_route(self, name: str) -> dict[str, Any] | None:
+        return self.alert_routes.delete(name)
+
+    def alert_route_health(self, *, limit: int = 100) -> list[dict[str, Any]]:
+        route_rows: dict[str, dict[str, Any]] = {}
+        for route in self.list_alert_routes():
+            name = str(route.get("name", "")).strip().lower()
+            if not name:
+                continue
+            route_rows[name] = {
+                "name": name,
+                "channel": str(route.get("channel", "")).strip().lower() or "unknown",
+                "configured": True,
+                "status": "idle",
+                "event_count": 0,
+                "delivered_count": 0,
+                "failure_count": 0,
+                "success_rate": None,
+                "last_event_at": "",
+                "last_delivered_at": "",
+                "last_failed_at": "",
+                "last_error": "",
+                "last_summary": "",
+                "mission_ids": set(),
+                "rule_names": set(),
+            }
+
+        for event in self.alert_store.list_events(limit=max(0, int(limit))):
+            rule = event.extra.get("rule", {}) if isinstance(event.extra, dict) else {}
+            if not isinstance(rule, dict):
+                continue
+            route_names = _normalize_route_names(rule)
+            if not route_names:
+                continue
+            delivered_channels = {
+                str(label or "").strip().lower()
+                for label in event.delivered_channels
+                if str(label or "").strip()
+            }
+            delivery_errors = event.extra.get("delivery_errors", {}) if isinstance(event.extra, dict) else {}
+            if not isinstance(delivery_errors, dict):
+                delivery_errors = {}
+            for route_name in route_names:
+                route_payload = self.alert_routes.get(route_name)
+                route_dict: dict[str, Any] | None = route_payload if isinstance(route_payload, dict) else None
+                channel = str(route_dict.get("channel", "")).strip().lower() if route_dict is not None else ""
+                route_row = route_rows.setdefault(
+                    route_name,
+                    {
+                        "name": route_name,
+                        "channel": channel or "unknown",
+                        "configured": route_dict is not None,
+                        "status": "missing" if route_dict is None else "idle",
+                        "event_count": 0,
+                        "delivered_count": 0,
+                        "failure_count": 0,
+                        "success_rate": None,
+                        "last_event_at": "",
+                        "last_delivered_at": "",
+                        "last_failed_at": "",
+                        "last_error": "",
+                        "last_summary": "",
+                        "mission_ids": set(),
+                        "rule_names": set(),
+                    },
+                )
+                if channel and route_row["channel"] == "unknown":
+                    route_row["channel"] = channel
+                route_row["configured"] = route_row["configured"] or isinstance(route, dict)
+                route_row["event_count"] += 1
+                route_row["mission_ids"].add(event.mission_id)
+                route_row["rule_names"].add(event.rule_name)
+                if not route_row["last_event_at"]:
+                    route_row["last_event_at"] = event.created_at
+                    route_row["last_summary"] = event.summary
+
+                route_label = f"{channel}:{route_name}" if channel else route_name
+                if route_label in delivered_channels:
+                    route_row["delivered_count"] += 1
+                    if not route_row["last_delivered_at"]:
+                        route_row["last_delivered_at"] = event.created_at
+
+                error_message = str(
+                    delivery_errors.get(route_label)
+                    or delivery_errors.get(f"route:{route_name}")
+                    or ""
+                ).strip()
+                if error_message:
+                    route_row["failure_count"] += 1
+                    if not route_row["last_failed_at"]:
+                        route_row["last_failed_at"] = event.created_at
+                    if not route_row["last_error"]:
+                        route_row["last_error"] = error_message
+
+        severity = {"missing": 0, "degraded": 1, "healthy": 2, "idle": 3}
+        payloads: list[dict[str, Any]] = []
+        for route_row in route_rows.values():
+            attempts = route_row["delivered_count"] + route_row["failure_count"]
+            if not route_row["configured"]:
+                route_row["status"] = "missing"
+            elif route_row["failure_count"] > 0:
+                route_row["status"] = "degraded"
+            elif route_row["delivered_count"] > 0:
+                route_row["status"] = "healthy"
+            else:
+                route_row["status"] = "idle"
+            if attempts > 0:
+                route_row["success_rate"] = round(route_row["delivered_count"] / attempts, 3)
+            route_row["mission_ids"] = sorted(route_row["mission_ids"])
+            route_row["rule_names"] = sorted(route_row["rule_names"])
+            payloads.append(route_row)
+
+        return sorted(
+            payloads,
+            key=lambda row: (
+                severity.get(str(row.get("status", "idle")), 99),
+                -(_parse_dt(row.get("last_event_at")) or datetime.fromtimestamp(0, tz=timezone.utc)).timestamp(),
+                str(row.get("name", "")),
+            ),
+        )
+
+    def route_status_by_name(self) -> dict[str, str]:
+        lookup: dict[str, str] = {}
+        for route in self.alert_route_health(limit=100):
+            if not isinstance(route, dict):
+                continue
+            name = str(route.get("name", "") or "").strip().lower()
+            status = str(route.get("status", "") or "").strip().lower()
+            if name:
+                lookup[name] = status
+        return lookup
+
+    def find_alert_event(self, identifier: str) -> AlertEvent | None:
+        target = str(identifier or "").strip()
+        if not target:
+            return None
+        for event in self.alert_store.list_events(limit=self.alert_store.max_items):
+            if event.id == target:
+                return event
+        return None
+
+    def watch_status_snapshot(self) -> dict[str, Any]:
+        return self.watch_status.snapshot()
+
+    def ops_snapshot(
+        self,
+        *,
+        alert_limit: int = 8,
+        route_limit: int = 100,
+        recent_failure_limit: int = 5,
+    ) -> dict[str, Any]:
+        doctor_report = self.owner.doctor()
+        status = self.watch_status_snapshot()
+        route_health = self.alert_route_health(limit=route_limit)
+        recent_alerts = self.list_alerts(limit=alert_limit)
+        watch_summary, watch_health = self.owner._watch_health_snapshot()
+        governance_scorecard = self.owner.governance_scorecard_snapshot()
+
+        collector_summary = {
+            "total": 0,
+            "ok": 0,
+            "warn": 0,
+            "error": 0,
+            "available": 0,
+            "unavailable": 0,
+        }
+        collector_tiers: dict[str, dict[str, Any]] = {}
+        degraded_collectors: list[dict[str, Any]] = []
+
+        for tier_name, entries in doctor_report.items():
+            tier_summary = {
+                "total": 0,
+                "ok": 0,
+                "warn": 0,
+                "error": 0,
+                "available": 0,
+                "unavailable": 0,
+            }
+            for raw_entry in entries:
+                entry = dict(raw_entry)
+                status_name = str(entry.get("status", "ok")).strip().lower() or "ok"
+                available = bool(entry.get("available", True))
+                collector_summary["total"] += 1
+                tier_summary["total"] += 1
+                if status_name not in {"ok", "warn", "error"}:
+                    status_name = "error"
+                collector_summary[status_name] += 1
+                tier_summary[status_name] += 1
+                if available:
+                    collector_summary["available"] += 1
+                    tier_summary["available"] += 1
+                else:
+                    collector_summary["unavailable"] += 1
+                    tier_summary["unavailable"] += 1
+                if status_name != "ok" or not available:
+                    degraded_collectors.append(
+                        {
+                            "tier": tier_name,
+                            "name": entry.get("name", ""),
+                            "status": status_name,
+                            "available": available,
+                            "message": entry.get("message", ""),
+                            "setup_hint": entry.get("setup_hint", ""),
+                        }
+                    )
+            collector_tiers[tier_name] = tier_summary
+
+        collector_drilldown = sorted(
+            [
+                {
+                    "tier": tier_name,
+                    "name": str(entry.get("name", "") or "").strip(),
+                    "status": str(entry.get("status", "ok") or "ok").strip().lower(),
+                    "available": bool(entry.get("available", True)),
+                    "message": str(entry.get("message", "") or "").strip(),
+                    "setup_hint": str(entry.get("setup_hint", "") or "").strip(),
+                }
+                for tier_name, entries in doctor_report.items()
+                for entry in entries
+            ],
+            key=lambda row: (
+                {"error": 0, "warn": 1, "ok": 2}.get(str(row.get("status", "ok")), 99),
+                0 if not bool(row.get("available", True)) else 1,
+                str(row.get("tier", "")),
+                str(row.get("name", "")),
+            ),
+        )
+
+        metrics = status.get("metrics", {}) if isinstance(status, dict) else {}
+        runs_total = int(metrics.get("runs_total", 0) or 0)
+        success_total = int(metrics.get("success_total", 0) or 0)
+        watch_metrics = {
+            "state": status.get("state", "idle") if isinstance(status, dict) else "idle",
+            "heartbeat_at": status.get("heartbeat_at", "") if isinstance(status, dict) else "",
+            "last_error": status.get("last_error", "") if isinstance(status, dict) else "",
+            "cycles_total": int(metrics.get("cycles_total", 0) or 0),
+            "runs_total": runs_total,
+            "success_total": success_total,
+            "error_total": int(metrics.get("error_total", 0) or 0),
+            "alerts_total": int(metrics.get("alerts_total", 0) or 0),
+            "success_rate": round(success_total / runs_total, 3) if runs_total > 0 else None,
+        }
+
+        route_summary = {
+            "total": len(route_health),
+            "healthy": sum(1 for route in route_health if route.get("status") == "healthy"),
+            "degraded": sum(1 for route in route_health if route.get("status") == "degraded"),
+            "missing": sum(1 for route in route_health if route.get("status") == "missing"),
+            "idle": sum(1 for route in route_health if route.get("status") == "idle"),
+        }
+        route_drilldown = [
+            {
+                "name": str(route.get("name", "") or "").strip(),
+                "channel": str(route.get("channel", "unknown") or "unknown").strip().lower(),
+                "status": str(route.get("status", "idle") or "idle").strip().lower(),
+                "configured": bool(route.get("configured", False)),
+                "event_count": int(route.get("event_count", 0) or 0),
+                "delivered_count": int(route.get("delivered_count", 0) or 0),
+                "failure_count": int(route.get("failure_count", 0) or 0),
+                "success_rate": route.get("success_rate"),
+                "last_event_at": str(route.get("last_event_at", "") or "").strip(),
+                "last_delivered_at": str(route.get("last_delivered_at", "") or "").strip(),
+                "last_failed_at": str(route.get("last_failed_at", "") or "").strip(),
+                "last_error": str(route.get("last_error", "") or "").strip(),
+                "last_summary": str(route.get("last_summary", "") or "").strip(),
+                "mission_count": len(route.get("mission_ids", []) or []),
+                "rule_count": len(route.get("rule_names", []) or []),
+                "mission_ids": list(route.get("mission_ids", []) or []),
+                "rule_names": list(route.get("rule_names", []) or []),
+            }
+            for route in route_health
+        ]
+        route_timeline: list[dict[str, Any]] = []
+        for event in self.alert_store.list_events(limit=max(0, int(route_limit))):
+            rule = event.extra.get("rule", {}) if isinstance(event.extra, dict) else {}
+            if not isinstance(rule, dict):
+                continue
+            route_names = _normalize_route_names(rule)
+            if not route_names:
+                continue
+            delivery_errors = event.extra.get("delivery_errors", {}) if isinstance(event.extra, dict) else {}
+            if not isinstance(delivery_errors, dict):
+                delivery_errors = {}
+            delivered_channels = {
+                str(label or "").strip().lower()
+                for label in event.delivered_channels
+                if str(label or "").strip()
+            }
+            for route_name in route_names:
+                route = self.alert_routes.get(route_name)
+                channel = str(route.get("channel", "")).strip().lower() if isinstance(route, dict) else ""
+                route_label = f"{channel}:{route_name}" if channel else route_name
+                error_message = str(
+                    delivery_errors.get(route_label)
+                    or delivery_errors.get(f"route:{route_name}")
+                    or ""
+                ).strip()
+                delivered = route_label in delivered_channels
+                route_timeline.append(
+                    {
+                        "route": route_name,
+                        "channel": channel or "unknown",
+                        "mission_id": event.mission_id,
+                        "mission_name": event.mission_name,
+                        "rule_name": event.rule_name,
+                        "created_at": event.created_at,
+                        "status": "failed" if error_message else "delivered" if delivered else "pending",
+                        "summary": str(event.summary or "").strip(),
+                        "error": error_message,
+                        "delivered_channels": sorted(delivered_channels),
+                    }
+                )
+        route_timeline = sorted(
+            route_timeline,
+            key=lambda row: (_parse_dt(row.get("created_at")) or datetime.fromtimestamp(0, tz=timezone.utc)).timestamp(),
+            reverse=True,
+        )[:12]
+
+        recent_failures: list[dict[str, Any]] = []
+        last_result = status.get("last_result", {}) if isinstance(status, dict) else {}
+        results = last_result.get("results", []) if isinstance(last_result, dict) else []
+        for row in results if isinstance(results, list) else []:
+            if str(row.get("status", "")).strip().lower() == "success":
+                continue
+            recent_failures.append(
+                {
+                    "kind": "watch_run",
+                    "mission_id": row.get("mission_id", ""),
+                    "mission_name": row.get("mission_name", ""),
+                    "status": row.get("status", "error"),
+                    "error": row.get("error", ""),
+                    "attempts": row.get("attempts", 0),
+                }
+            )
+        for route in route_health:
+            if route.get("failure_count", 0) and route.get("last_error"):
+                recent_failures.append(
+                    {
+                        "kind": "route_delivery",
+                        "name": route.get("name", ""),
+                        "channel": route.get("channel", ""),
+                        "status": route.get("status", "degraded"),
+                        "error": route.get("last_error", ""),
+                        "last_event_at": route.get("last_event_at", ""),
+                    }
+                )
+        recent_failures = recent_failures[: max(0, int(recent_failure_limit))]
+
+        return {
+            "collector_summary": collector_summary,
+            "collector_tiers": collector_tiers,
+            "degraded_collectors": degraded_collectors[:8],
+            "collector_drilldown": collector_drilldown[:12],
+            "watch_metrics": watch_metrics,
+            "watch_summary": watch_summary,
+            "watch_health": watch_health[:8],
+            "route_summary": route_summary,
+            "route_health": route_health[:8],
+            "route_drilldown": route_drilldown[:12],
+            "route_timeline": route_timeline,
+            "recent_failures": recent_failures,
+            "recent_alerts": recent_alerts,
+            "governance_scorecard": governance_scorecard,
+            "daemon": status,
+        }
+
+    def evaluate_and_dispatch_watch_alerts(
+        self,
+        mission: WatchMission,
+        items: list[DataPulseItem],
+    ) -> list[dict[str, Any]]:
+        outputs: list[dict[str, Any]] = []
+        for event, matches, cooldown_seconds in evaluate_watch_alerts(mission, items):
+            if not self.alert_store.add(event, cooldown_seconds=cooldown_seconds):
+                continue
+            delivered, errors = dispatch_alert_event(event, matches)
+            event.delivered_channels = delivered
+            if errors:
+                event.extra["delivery_errors"] = errors
+            self.alert_store.save()
+            outputs.append(event.to_dict())
+        return outputs

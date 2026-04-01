@@ -525,6 +525,7 @@ def test_mcp_registers_watch_tools():
         "watch_status",
         "ops_overview",
         "ops_scorecard",
+        "surface_capabilities",
         "ai_surface_precheck",
         "ai_mission_suggest",
         "ai_triage_assist",
@@ -726,6 +727,34 @@ async def test_mcp_ops_scorecard_tool(monkeypatch):
 
     assert payload["summary"]["signal_count"] == 5
     assert payload["signals"]["story_conversion"]["converted_item_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_mcp_surface_capabilities_tool():
+    app = _make_app()
+
+    raw = await app._run_tool("surface_capabilities", {"surface": "agent", "include_unavailable": True})
+    payload = json.loads(raw)
+    capabilities = {row["id"]: row for row in payload["capabilities"]}
+
+    assert payload["surface"] == "agent"
+    assert capabilities["surface_capability_catalog"]["availability"] == "available"
+    assert capabilities["url_batch_intake"]["availability"] == "available"
+    assert capabilities["governed_ai_mission_suggest"]["availability"] == "unavailable"
+
+
+@pytest.mark.asyncio
+async def test_mcp_runtime_introspection_tool():
+    app = _make_app()
+
+    raw = await app._run_tool("runtime_introspection", {})
+    payload = json.loads(raw)
+
+    assert payload["schema_version"] == "datapulse_runtime_surface_introspection.v1"
+    assert payload["parity"]["ok"] is True
+    assert payload["surface_count"] == 5
+    assert any(row["id"] == "skill" for row in payload["surfaces"])
+    assert payload["reopen_rules"]["wave_id"] == "L27"
 
 
 @pytest.mark.asyncio

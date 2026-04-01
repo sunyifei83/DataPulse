@@ -134,6 +134,18 @@ def _write_modelbus_bundle(bundle_dir, rows):
     )
 
 
+def test_reader_initializes_domain_service_facades(tmp_path):
+    inbox_path = str(tmp_path / "reader-services.json")
+    reader = DataPulseReader(inbox_path=inbox_path)
+
+    assert reader.watch_service.owner is reader
+    assert reader.triage_service.triage is reader.triage
+    assert reader.story_service.owner is reader
+    assert reader.report_service.owner is reader
+    assert reader.alert_service.owner is reader
+    assert reader.ai_service.owner is reader
+
+
 def _write_source_catalog(path: str) -> None:
     from pathlib import Path
 

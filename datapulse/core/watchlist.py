@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -685,3 +686,290 @@ class WatchlistStore:
         mission.runs = mission.runs[:10]
         self.save()
         return mission
+
+
+class WatchService:
+    """Mission lifecycle service behind the stable DataPulseReader facade."""
+
+    def __init__(self, owner: Any, *, watchlist: WatchlistStore, scheduler: Any):
+        self.owner = owner
+        self.watchlist = watchlist
+        self.scheduler = scheduler
+
+    def create_watch(
+        self,
+        *,
+        name: str,
+        query: str,
+        mission_intent: dict[str, Any] | None = None,
+        trend_inputs: list[dict[str, Any] | TrendFeedInput] | None = None,
+        platforms: list[str] | None = None,
+        sites: list[str] | None = None,
+        schedule: str = "manual",
+        min_confidence: float = 0.0,
+        top_n: int = 5,
+        alert_rules: list[dict[str, Any]] | None = None,
+        enabled: bool = True,
+    ) -> dict[str, Any]:
+        mission = self.watchlist.create_mission(
+            name=name,
+            query=query,
+            mission_intent=mission_intent,
+            trend_inputs=trend_inputs,
+            platforms=platforms,
+            sites=sites,
+            schedule=schedule,
+            min_confidence=min_confidence,
+            top_n=top_n,
+            alert_rules=alert_rules,
+            enabled=enabled,
+        )
+        return self.owner._serialize_watch_mission(mission)
+
+    def update_watch(
+        self,
+        identifier: str,
+        *,
+        name: str | None = None,
+        query: str | None = None,
+        mission_intent: dict[str, Any] | None = None,
+        trend_inputs: list[dict[str, Any] | TrendFeedInput] | None = None,
+        platforms: list[str] | None = None,
+        sites: list[str] | None = None,
+        schedule: str | None = None,
+        min_confidence: float | None = None,
+        top_n: int | None = None,
+        alert_rules: list[dict[str, Any]] | None = None,
+        enabled: bool | None = None,
+    ) -> dict[str, Any] | None:
+        mission = self.watchlist.update_mission(
+            identifier,
+            name=name,
+            query=query,
+            mission_intent=mission_intent,
+            trend_inputs=trend_inputs,
+            platforms=platforms,
+            sites=sites,
+            schedule=schedule,
+            min_confidence=min_confidence,
+            top_n=top_n,
+            alert_rules=alert_rules,
+            enabled=enabled,
+        )
+        if mission is None:
+            return None
+        return self.show_watch(mission.id)
+
+    def set_watch_alert_rules(
+        self,
+        identifier: str,
+        *,
+        alert_rules: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | None:
+        mission = self.watchlist.replace_alert_rules(identifier, alert_rules)
+        if mission is None:
+            return None
+        return self.show_watch(mission.id)
+
+    def list_watches(self, *, include_disabled: bool = False) -> list[dict[str, Any]]:
+        return [
+            self.owner._serialize_watch_mission(mission)
+            for mission in self.watchlist.list_missions(include_disabled=include_disabled)
+        ]
+
+    def list_watch_results(
+        self,
+        identifier: str,
+        *,
+        limit: int = 10,
+        min_confidence: float = 0.0,
+    ) -> list[dict[str, Any]] | None:
+        mission = self.watchlist.get(identifier)
+        if mission is None:
+            return None
+        items = self.owner._watch_result_items(mission, min_confidence=min_confidence)
+        return [self.owner._serialize_watch_result(item) for item in items[: max(0, int(limit))]]
+
+    def show_watch(self, identifier: str) -> dict[str, Any] | None:
+        mission = self.watchlist.get(identifier)
+        if mission is None:
+            return None
+        payload = self.owner._serialize_watch_mission(mission)
+        last_failure = self.owner._latest_failed_run(mission)
+        payload["last_failure"] = last_failure.to_dict() if last_failure is not None else None
+        payload["retry_advice"] = self.owner._watch_retry_advice(mission, last_failure)
+        stored_result_items = self.owner._watch_result_items(
+            mission,
+            min_confidence=0.0,
+            apply_query_filter=False,
+        )
+        result_items = self.owner._filter_watch_results_by_query(mission, stored_result_items)
+        filtered_result_count = max(0, len(stored_result_items) - len(result_items))
+        payload["recent_results"] = [self.owner._serialize_watch_result(item) for item in result_items[:8]]
+        payload["result_stats"] = {
+            "stored_result_count": len(stored_result_items),
+            "visible_result_count": len(result_items),
+            "filtered_result_count": filtered_result_count,
+            "returned_result_count": min(8, len(result_items)),
+            "latest_result_at": (
+                result_items[0].fetched_at
+                if result_items
+                else (stored_result_items[0].fetched_at if stored_result_items else "")
+            ),
+        }
+        payload["result_filters"] = self.owner._build_watch_result_filters(payload["recent_results"])
+        recent_alerts = self.owner.list_alerts(limit=6, mission_id=mission.id)
+        payload["recent_alerts"] = recent_alerts
+        payload["delivery_stats"] = {
+            "recent_alert_count": len(recent_alerts),
+            "recent_error_count": sum(
+                1
+                for event in recent_alerts
+                if isinstance(event.get("extra"), dict)
+                and isinstance(event["extra"].get("delivery_errors"), dict)
+                and event["extra"]["delivery_errors"]
+            ),
+            "last_alert_at": recent_alerts[0].get("created_at", "") if recent_alerts else "",
+        }
+        payload["timeline_strip"] = self.owner._build_watch_timeline_strip(mission, payload["recent_results"], recent_alerts)
+        return payload
+
+    def disable_watch(self, identifier: str) -> dict[str, Any] | None:
+        mission = self.watchlist.disable(identifier)
+        return mission.to_dict() if mission is not None else None
+
+    def enable_watch(self, identifier: str) -> dict[str, Any] | None:
+        mission = self.watchlist.enable(identifier)
+        return mission.to_dict() if mission is not None else None
+
+    def delete_watch(self, identifier: str) -> dict[str, Any] | None:
+        mission = self.watchlist.delete(identifier)
+        return mission.to_dict() if mission is not None else None
+
+    async def run_watch(self, identifier: str, *, trigger: str = "manual") -> dict[str, Any]:
+        mission = self.watchlist.get(identifier)
+        if mission is None:
+            raise ValueError(f"Watch mission not found: {identifier}")
+        if not mission.enabled:
+            raise ValueError(f"Watch mission is disabled: {identifier}")
+
+        started_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+        try:
+            if mission.platforms:
+                batches = await asyncio.gather(
+                    *[
+                        self.owner.search(
+                            mission.query,
+                            sites=mission.sites or None,
+                            platform=platform,
+                            limit=mission.top_n,
+                            min_confidence=mission.min_confidence,
+                        )
+                        for platform in mission.platforms
+                    ]
+                )
+                merged: dict[str, Any] = {}
+                for batch in batches:
+                    for item in batch:
+                        merged[item.id] = item
+                items = sorted(
+                    merged.values(),
+                    key=lambda item: (item.score, item.confidence, item.fetched_at),
+                    reverse=True,
+                )[: mission.top_n]
+            else:
+                items = await self.owner.search(
+                    mission.query,
+                    sites=mission.sites or None,
+                    limit=mission.top_n,
+                    min_confidence=mission.min_confidence,
+                )
+
+            items = self.owner._filter_watch_results_by_query(mission, items)
+            self.owner._tag_items_with_watch(mission, items)
+            alert_events = self.owner._evaluate_and_dispatch_watch_alerts(mission, items)
+            run = MissionRun(
+                mission_id=mission.id,
+                status="success",
+                item_count=len(items),
+                trigger=trigger,
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+            )
+            updated = self.watchlist.record_run(mission.id, run) or mission
+            return {
+                "mission": self.owner._serialize_watch_mission(updated),
+                "run": run.to_dict(),
+                "items": [item.to_dict() for item in items],
+                "alert_events": alert_events,
+            }
+        except Exception as exc:
+            run = MissionRun(
+                mission_id=mission.id,
+                status="error",
+                item_count=0,
+                trigger=trigger,
+                error=str(exc),
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+            )
+            self.watchlist.record_run(mission.id, run)
+            raise
+
+    async def run_due_watches(
+        self,
+        limit: int | None = None,
+        *,
+        retry_attempts: int = 1,
+        retry_base_delay: float = 1.0,
+        retry_max_delay: float = 30.0,
+        retry_backoff_factor: float = 2.0,
+    ) -> dict[str, Any]:
+        scheduled_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+        due_missions = self.scheduler.due_missions(limit=limit)
+        results: list[dict[str, Any]] = []
+
+        for mission in due_missions:
+            attempt = 1
+            delay = max(0.1, float(retry_base_delay))
+            while True:
+                try:
+                    payload = await self.run_watch(mission.id, trigger="scheduled")
+                    run_payload = payload.get("run", {})
+                    alert_events = payload.get("alert_events", [])
+                    results.append(
+                        {
+                            "mission_id": mission.id,
+                            "mission_name": mission.name,
+                            "status": run_payload.get("status", "success"),
+                            "item_count": run_payload.get("item_count", 0),
+                            "attempts": attempt,
+                            "retry_count": max(0, attempt - 1),
+                            "alert_count": len(alert_events) if isinstance(alert_events, list) else 0,
+                        }
+                    )
+                    break
+                except Exception as exc:
+                    if attempt >= max(1, int(retry_attempts)):
+                        results.append(
+                            {
+                                "mission_id": mission.id,
+                                "mission_name": mission.name,
+                                "status": "error",
+                                "item_count": 0,
+                                "attempts": attempt,
+                                "retry_count": max(0, attempt - 1),
+                                "error": str(exc),
+                            }
+                        )
+                        break
+                    await asyncio.sleep(min(delay, retry_max_delay))
+                    delay = min(delay * retry_backoff_factor, retry_max_delay)
+                    attempt += 1
+
+        return {
+            "scheduled_at": scheduled_at,
+            "due_count": len(due_missions),
+            "run_count": len(results),
+            "results": results,
+        }

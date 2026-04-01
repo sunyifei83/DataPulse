@@ -1159,6 +1159,33 @@ def test_ops_scorecard_prints_json(monkeypatch, capsys):
     assert '"converted_item_count": 1' in out
 
 
+def test_surface_capabilities_prints_cli_projection(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--surface-capabilities"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert '"surface": "cli"' in out
+    assert '"id": "surface_capability_catalog"' in out
+    assert '--ai-mission-suggest WATCH' in out
+    assert '"id": "url_batch_intake"' not in out
+
+
+def test_runtime_introspection_prints_cross_surface_coverage(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
+    monkeypatch.setattr(sys, "argv", ["datapulse", "--runtime-introspection"])
+
+    cli.main()
+    out = capsys.readouterr().out
+
+    assert '"schema_version": "datapulse_runtime_surface_introspection.v1"' in out
+    assert '"surface_count": 5' in out
+    assert '"id": "skill"' in out
+    assert '"wave_id": "L27"' in out
+    assert '"ok": true' in out
+
+
 def test_ai_surface_precheck_prints_json(monkeypatch, capsys):
     monkeypatch.setattr(cli, "DataPulseReader", lambda: _WatchReader())
     monkeypatch.setattr(sys, "argv", ["datapulse", "--ai-surface-precheck", "mission_suggest", "--ai-mode", "review"])

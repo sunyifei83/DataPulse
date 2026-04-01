@@ -1968,6 +1968,29 @@ def test_console_ai_surface_routes():
     assert claim_projection.json()["runtime_facts"]["request_id"] == "claim-123"
 
 
+def test_console_surface_capabilities_routes():
+    client = _client()
+
+    runtime_introspection = client.get("/api/runtime/introspection")
+    console_projection = client.get("/api/capabilities")
+    agent_projection = client.get("/api/capabilities/agent?include_unavailable=true")
+
+    assert runtime_introspection.status_code == 200
+    assert runtime_introspection.json()["schema_version"] == "datapulse_runtime_surface_introspection.v1"
+    assert runtime_introspection.json()["parity"]["ok"] is True
+    assert runtime_introspection.json()["reopen_rules"]["wave_id"] == "L27"
+
+    assert console_projection.status_code == 200
+    assert console_projection.json()["surface"] == "console"
+    assert any(row["id"] == "surface_capability_catalog" for row in console_projection.json()["capabilities"])
+
+    assert agent_projection.status_code == 200
+    assert agent_projection.json()["surface"] == "agent"
+    capabilities = {row["id"]: row for row in agent_projection.json()["capabilities"]}
+    assert capabilities["url_batch_intake"]["availability"] == "available"
+    assert capabilities["governed_ai_delivery_summary"]["availability"] == "unavailable"
+
+
 def test_console_alert_route_crud_routes():
     client = _client()
 

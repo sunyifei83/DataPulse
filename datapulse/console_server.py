@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from datapulse.console_deck import build_mission_deck_suggestions
 from datapulse.console_markup import render_console_html
 from datapulse.reader import DataPulseReader
+from datapulse.surface_capabilities import build_runtime_surface_introspection, build_surface_capability_projection
 
 CONSOLE_TITLE = "DataPulse Command Chamber"
 BRAND_SOURCE_PATH = Path(__file__).resolve().parent.parent / "docs" / "形象.jpg"
@@ -391,6 +392,21 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     @app.get("/api/ops/scorecard")
     def ops_scorecard() -> dict[str, Any]:
         return reader_factory().governance_scorecard_snapshot()
+
+    @app.get("/api/runtime/introspection")
+    def runtime_introspection() -> dict[str, Any]:
+        return build_runtime_surface_introspection()
+
+    @app.get("/api/capabilities")
+    def surface_capabilities(include_unavailable: bool = False) -> dict[str, Any]:
+        return build_surface_capability_projection("console", include_unavailable=include_unavailable)
+
+    @app.get("/api/capabilities/{surface}")
+    def surface_capabilities_for_surface(surface: str, include_unavailable: bool = False) -> dict[str, Any]:
+        try:
+            return build_surface_capability_projection(surface, include_unavailable=include_unavailable)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/ai/surfaces/{surface}/precheck")
     def ai_surface_precheck(surface: str, mode: str = "assist") -> dict[str, Any]:

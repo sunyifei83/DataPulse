@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from datapulse.core.utils import extract_urls
+from datapulse.surface_capabilities import build_surface_capability_projection
 
 from .reader import DataPulseReader
 
@@ -38,4 +39,5 @@ class DataPulseAgent:
             "status": "ready",
             "parsers": self.reader.router.available_parsers,
             "stored": len(self.reader.inbox.items),
+            "capabilities": build_surface_capability_projection("agent"),
         }

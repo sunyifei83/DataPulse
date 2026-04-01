@@ -18,8 +18,9 @@ from typing import Any
 from .entities import normalize_entity_name
 from .entity_store import EntityStore
 from .models import DataPulseItem
+from .scoring import rank_items
 from .semantic import build_semantic_review
-from .triage import GROUNDING_BACKEND_KIND, build_item_governance, evidence_grade_priority
+from .triage import GROUNDING_BACKEND_KIND, build_item_governance, evidence_grade_priority, is_digest_candidate
 from .utils import content_fingerprint, generate_slug, get_domain, stories_path_from_env
 
 FACTUALITY_BACKEND_REQUEST_SCHEMA_VERSION = "evidence_backend_request.v1"
@@ -2350,3 +2351,161 @@ def build_story_clusters(
         reverse=True,
     )
     return stories[: max(0, max_stories)]
+
+
+class StoryService:
+    """Story lifecycle service behind the stable DataPulseReader facade."""
+
+    def __init__(self, owner: Any, *, story_store: StoryStore, catalog: Any):
+        self.owner = owner
+        self.story_store = story_store
+        self.catalog = catalog
+
+    def build(
+        self,
+        *,
+        items: list[DataPulseItem] | None = None,
+        profile: str = "default",
+        source_ids: list[str] | None = None,
+        max_stories: int = 10,
+        evidence_limit: int = 6,
+        min_confidence: float = 0.0,
+        since: str | None = None,
+        save: bool = True,
+    ) -> dict[str, Any]:
+        if items is None:
+            candidates = self.owner.query_feed(
+                profile=profile,
+                source_ids=source_ids,
+                limit=500,
+                min_confidence=min_confidence,
+                since=since,
+            )
+        else:
+            candidates = [item for item in items if item.confidence >= min_confidence]
+        candidates = [item for item in candidates if is_digest_candidate(item)]
+        authority_map = self.catalog.build_authority_map()
+        entity_source_counts = self.owner._collect_entity_source_counts(candidates)
+        ranked = rank_items(
+            candidates,
+            authority_map=authority_map,
+            entity_source_counts=entity_source_counts,
+        )
+        stories = build_story_clusters(
+            ranked,
+            entity_store=self.owner.entity_store,
+            max_stories=max_stories,
+            evidence_limit=evidence_limit,
+        )
+        persisted = self.story_store.replace_stories(stories) if save else stories
+        contradicted = sum(1 for story in persisted if story.contradictions)
+        grounded_story_count = 0
+        grounded_claim_count = 0
+        grounded_evidence_span_count = 0
+        for story in persisted:
+            governance = story.governance if isinstance(story.governance, dict) else {}
+            grounding = governance.get("grounding", {}) if isinstance(governance.get("grounding"), dict) else {}
+            claim_count = int(grounding.get("claim_count", 0) or 0)
+            span_count = int(grounding.get("evidence_span_count", 0) or 0)
+            if claim_count > 0:
+                grounded_story_count += 1
+            grounded_claim_count += claim_count
+            grounded_evidence_span_count += span_count
+        return {
+            "version": "1.0",
+            "generated_at": _utcnow(),
+            "stats": {
+                "items_considered": len(candidates),
+                "stories_built": len(stories),
+                "stories_saved": len(persisted),
+                "contradicted_stories": contradicted,
+                "grounded_story_count": grounded_story_count,
+                "grounded_claim_count": grounded_claim_count,
+                "grounded_evidence_span_count": grounded_evidence_span_count,
+            },
+            "stories": [story.to_dict() for story in persisted],
+        }
+
+    def list_stories(self, *, limit: int = 20, min_items: int = 1) -> list[dict[str, Any]]:
+        return [story.to_dict() for story in self.story_store.list_stories(limit=limit, min_items=min_items)]
+
+    def create_story(self, **payload: Any) -> dict[str, Any]:
+        return self.story_store.create_story(payload).to_dict()
+
+    def create_story_from_triage(
+        self,
+        item_ids: list[str],
+        *,
+        title: str | None = None,
+        summary: str | None = None,
+        status: str = "monitoring",
+    ) -> dict[str, Any]:
+        normalized_ids: list[str] = []
+        seen: set[str] = set()
+        for raw in item_ids if isinstance(item_ids, list) else []:
+            item_id = str(raw or "").strip()
+            if not item_id or item_id in seen:
+                continue
+            seen.add(item_id)
+            normalized_ids.append(item_id)
+        if not normalized_ids:
+            raise ValueError("At least one triage item id is required")
+
+        item_map = {item.id: item for item in self.owner.inbox.items}
+        missing = [item_id for item_id in normalized_ids if item_id not in item_map]
+        if missing:
+            raise ValueError(f"Triage item not found: {missing[0]}")
+
+        selected_items = [item_map[item_id] for item_id in normalized_ids]
+        story = build_story_from_items(
+            selected_items,
+            title=title,
+            summary=summary,
+            status=status,
+            entity_store=self.owner.entity_store,
+        )
+        return self.story_store.create_story(story).to_dict()
+
+    def show_story(self, identifier: str) -> dict[str, Any] | None:
+        story = self.story_store.get_story(identifier)
+        return story.to_dict() if story is not None else None
+
+    def update_story(
+        self,
+        identifier: str,
+        *,
+        title: str | None = None,
+        summary: str | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any] | None:
+        story = self.story_store.update_story(identifier, title=title, summary=summary, status=status)
+        return story.to_dict() if story is not None else None
+
+    def delete_story(self, identifier: str) -> dict[str, Any] | None:
+        story = self.story_store.delete_story(identifier)
+        return story.to_dict() if story is not None else None
+
+    def export_story(self, identifier: str, *, output_format: str = "json") -> str | None:
+        story = self.story_store.get_story(identifier)
+        if story is None:
+            return None
+        if output_format.lower() in {"md", "markdown"}:
+            return render_story_markdown(story)
+        return json.dumps(story.to_dict(), ensure_ascii=False, indent=2)
+
+    def story_graph(
+        self,
+        identifier: str,
+        *,
+        entity_limit: int = 12,
+        relation_limit: int = 24,
+    ) -> dict[str, Any] | None:
+        story = self.story_store.get_story(identifier)
+        if story is None:
+            return None
+        return build_story_graph(
+            story,
+            entity_store=self.owner.entity_store,
+            entity_limit=entity_limit,
+            relation_limit=relation_limit,
+        )

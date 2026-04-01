@@ -29,6 +29,12 @@ run("请处理这些链接: https://x.com/... https://www.reddit.com/...")
 - Watch missions and alert routing
 - Triage queue and story workspace workflows
 
+## Surface Capability Projection
+
+- Canonical catalog: `docs/governance/datapulse-surface-capability-catalog.draft.json`
+- Surface id for this skill: `skill`
+- Cross-surface availability, guardrails, and expected verification coverage should be read from that catalog instead of copied into wrapper-local prose.
+
 ## Behavior Disclosure
 
 ### Browser Automation (optional)

@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-04-01T07:16:26Z",
+  "generated_at_utc": "2026-04-01T07:34:54Z",
   "status": "in_progress",
   "activation": {
     "wired": true,
@@ -29,9 +29,10 @@
       "The L24 console interaction-clarity wave is now completed in repo truth through L24.5.",
       "The L25 workflow-first console simplification wave is now completed in repo truth through L25.5.",
       "The L26 console modularity-and-traceability follow-up wave is now fully completed in repo truth through L26.5.",
-      "The current blueprint reopening target is the L27 runtime-kernel and multi-surface projection wave because repo facts now show DataPulse's next leverage point is Reader-backed runtime and surface-parity hardening rather than more collector count or another UI-only expansion.",
-      "L27.1 is now the current manual ignition target: land the runtime-kernel and surface-projection blueprint plus fact promotion, then freeze the canonical layer map before any deeper refactor work.",
-      "This reopen keeps Reader-backed lifecycle truth canonical, treats collectors as acquisition adapters, keeps AI as a governed overlay, and does not reopen shell-order simplification or force a frontend-stack migration.",
+      "The L27 runtime-kernel and multi-surface projection wave is now open in repo truth because repo facts show DataPulse's next leverage point is Reader-backed runtime and surface-parity hardening rather than more collector count or another UI-only expansion.",
+      "L27.1 is now landed in repo truth: the runtime-kernel and surface-projection blueprint plus fact promotion are committed as the wave-opening slice.",
+      "L27.2 is now the current manual ignition target: freeze the canonical runtime layer map, ownership rules, and service-seam targets before any deeper refactor work.",
+      "This wave keeps Reader-backed lifecycle truth canonical, treats collectors as acquisition adapters, keeps AI as a governed overlay, and does not reopen shell-order simplification or force a frontend-stack migration.",
       "Operator review should treat post-CI closeout churn as a coupling bug to remove, not as a reason to invent another parallel loop or runtime control plane."
     ]
   }

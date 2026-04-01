@@ -1,0 +1,590 @@
+{
+  "schema_version": "datapulse_surface_capability_catalog.v1",
+  "catalog_id": "datapulse-intelligence-runtime-surfaces",
+  "generated_at_utc": "2026-04-01T09:25:00Z",
+  "surfaces": [
+    {
+      "id": "cli",
+      "title": "CLI",
+      "projection_kind": "argparse",
+      "artifacts": [
+        "datapulse/cli.py",
+        "tests/test_cli.py"
+      ]
+    },
+    {
+      "id": "mcp",
+      "title": "MCP",
+      "projection_kind": "tool",
+      "artifacts": [
+        "datapulse/mcp_server.py",
+        "tests/test_mcp_server.py"
+      ]
+    },
+    {
+      "id": "console",
+      "title": "Console",
+      "projection_kind": "http",
+      "artifacts": [
+        "datapulse/console_server.py",
+        "tests/test_console_server.py"
+      ]
+    },
+    {
+      "id": "agent",
+      "title": "Agent",
+      "projection_kind": "health_payload",
+      "artifacts": [
+        "datapulse/agent.py"
+      ]
+    },
+    {
+      "id": "skill",
+      "title": "Skill",
+      "projection_kind": "documentation_and_manifest",
+      "artifacts": [
+        "SKILL.md",
+        "datapulse_skill/manifest.json"
+      ]
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "surface_capability_catalog",
+      "title": "Inspect shared surface capability projections",
+      "category": "introspection",
+      "owner_seam": "surface_projections",
+      "guardrails": [
+        {
+          "id": "read_only",
+          "description": "Capability introspection is read-only and must not mutate lifecycle state."
+        },
+        {
+          "id": "catalog_is_source_of_truth",
+          "description": "Surface availability, guardrails, and verification expectations must derive from this catalog instead of wrapper-local ad hoc copies."
+        }
+      ],
+      "verification": {
+        "shared": [
+          {
+            "kind": "json",
+            "target": "docs/governance/datapulse-surface-capability-catalog.draft.json"
+          }
+        ],
+        "cli": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_cli.py"
+          }
+        ],
+        "mcp": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_mcp_server.py"
+          }
+        ],
+        "console": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_console_server.py"
+          }
+        ],
+        "agent": [
+          {
+            "kind": "manual_health",
+            "target": "datapulse/agent.py"
+          }
+        ],
+        "skill": [
+          {
+            "kind": "manifest_and_docs",
+            "target": "SKILL.md"
+          },
+          {
+            "kind": "manifest_and_docs",
+            "target": "datapulse_skill/manifest.json"
+          }
+        ]
+      },
+      "surfaces": {
+        "cli": {
+          "availability": "available",
+          "entrypoints": [
+            "--surface-capabilities [SURFACE]",
+            "--surface-capabilities-include-unavailable"
+          ]
+        },
+        "mcp": {
+          "availability": "available",
+          "entrypoints": [
+            "tool:surface_capabilities"
+          ]
+        },
+        "console": {
+          "availability": "available",
+          "entrypoints": [
+            "GET /api/capabilities",
+            "GET /api/capabilities/{surface}"
+          ]
+        },
+        "agent": {
+          "availability": "available",
+          "entrypoints": [
+            "DataPulseAgent.health()"
+          ]
+        },
+        "skill": {
+          "availability": "documented",
+          "entrypoints": [
+            "SKILL.md",
+            "datapulse_skill/manifest.json"
+          ]
+        }
+      }
+    },
+    {
+      "id": "url_batch_intake",
+      "title": "Read and normalize one or more URLs",
+      "category": "intake",
+      "owner_seam": "reader_kernel",
+      "guardrails": [
+        {
+          "id": "url_first",
+          "description": "Agent and skill wrappers stay URL-first and must not invent alternate lifecycle state."
+        },
+        {
+          "id": "bounded_to_reader",
+          "description": "Surface wrappers project DataPulseReader intake semantics instead of forking parser logic."
+        }
+      ],
+      "verification": {
+        "agent": [
+          {
+            "kind": "manual_health",
+            "target": "datapulse/agent.py"
+          }
+        ],
+        "skill": [
+          {
+            "kind": "manifest_and_docs",
+            "target": "SKILL.md"
+          },
+          {
+            "kind": "manifest_and_docs",
+            "target": "datapulse_skill/manifest.json"
+          }
+        ]
+      },
+      "surfaces": {
+        "cli": {
+          "availability": "unavailable",
+          "notes": [
+            "The CLI exposes broader reader commands but this slice does not bind URL intake parity there."
+          ]
+        },
+        "mcp": {
+          "availability": "available",
+          "entrypoints": [
+            "tool:read_url",
+            "tool:read_batch"
+          ]
+        },
+        "console": {
+          "availability": "unavailable",
+          "notes": [
+            "The browser console remains mission, triage, story, and delivery oriented."
+          ]
+        },
+        "agent": {
+          "availability": "available",
+          "entrypoints": [
+            "DataPulseAgent.handle(message)"
+          ]
+        },
+        "skill": {
+          "availability": "documented",
+          "entrypoints": [
+            "datapulse_skill.run(text)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "governed_ai_surface_precheck",
+      "title": "Inspect governed AI admission and contract facts",
+      "category": "governed_ai_surface",
+      "owner_seam": "governed_ai_overlay",
+      "guardrails": [
+        {
+          "id": "admission_before_projection",
+          "description": "Surface projections must expose admission and contract facts before serving governed AI output."
+        },
+        {
+          "id": "fail_closed_contracts",
+          "description": "Structured governed AI surfaces stay fail-closed when required contract or admission facts are missing."
+        }
+      ],
+      "verification": {
+        "cli": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_cli.py"
+          }
+        ],
+        "mcp": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_mcp_server.py"
+          }
+        ],
+        "console": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_console_server.py"
+          }
+        ]
+      },
+      "surfaces": {
+        "cli": {
+          "availability": "available",
+          "entrypoints": [
+            "--ai-surface-precheck SURFACE"
+          ]
+        },
+        "mcp": {
+          "availability": "available",
+          "entrypoints": [
+            "tool:ai_surface_precheck"
+          ]
+        },
+        "console": {
+          "availability": "available",
+          "entrypoints": [
+            "GET /api/ai/surfaces/{surface}/precheck"
+          ]
+        },
+        "agent": {
+          "availability": "unavailable"
+        },
+        "skill": {
+          "availability": "unavailable"
+        }
+      }
+    },
+    {
+      "id": "governed_ai_mission_suggest",
+      "title": "Project governed AI mission suggestions",
+      "category": "governed_ai_surface",
+      "owner_seam": "governed_ai_overlay",
+      "governed_ai_surface_id": "mission_suggest",
+      "guardrails": [
+        {
+          "id": "watch_subject_only",
+          "description": "The surface only projects over existing WatchMission lifecycle state."
+        },
+        {
+          "id": "bounded_output_contract",
+          "description": "Returned suggestions remain contract-bound and non-mutating."
+        }
+      ],
+      "verification": {
+        "cli": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_cli.py"
+          }
+        ],
+        "mcp": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_mcp_server.py"
+          }
+        ],
+        "console": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_console_server.py"
+          }
+        ]
+      },
+      "surfaces": {
+        "cli": {
+          "availability": "available",
+          "entrypoints": [
+            "--ai-mission-suggest WATCH"
+          ]
+        },
+        "mcp": {
+          "availability": "available",
+          "entrypoints": [
+            "tool:ai_mission_suggest"
+          ]
+        },
+        "console": {
+          "availability": "available",
+          "entrypoints": [
+            "GET /api/watches/{identifier}/ai/mission-suggest"
+          ]
+        },
+        "agent": {
+          "availability": "unavailable"
+        },
+        "skill": {
+          "availability": "unavailable"
+        }
+      }
+    },
+    {
+      "id": "governed_ai_triage_assist",
+      "title": "Project governed AI triage assistance",
+      "category": "governed_ai_surface",
+      "owner_seam": "governed_ai_overlay",
+      "governed_ai_surface_id": "triage_assist",
+      "guardrails": [
+        {
+          "id": "triage_subject_only",
+          "description": "The surface only projects over existing DataPulseItem triage state."
+        },
+        {
+          "id": "bounded_candidate_limit",
+          "description": "Projection remains bounded by caller-provided duplicate-candidate limits."
+        }
+      ],
+      "verification": {
+        "cli": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_cli.py"
+          }
+        ],
+        "mcp": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_mcp_server.py"
+          }
+        ],
+        "console": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_console_server.py"
+          }
+        ]
+      },
+      "surfaces": {
+        "cli": {
+          "availability": "available",
+          "entrypoints": [
+            "--ai-triage-assist ITEM_ID"
+          ]
+        },
+        "mcp": {
+          "availability": "available",
+          "entrypoints": [
+            "tool:ai_triage_assist"
+          ]
+        },
+        "console": {
+          "availability": "available",
+          "entrypoints": [
+            "GET /api/triage/{item_id}/ai/assist"
+          ]
+        },
+        "agent": {
+          "availability": "unavailable"
+        },
+        "skill": {
+          "availability": "unavailable"
+        }
+      }
+    },
+    {
+      "id": "governed_ai_claim_draft",
+      "title": "Project governed AI claim drafts",
+      "category": "governed_ai_surface",
+      "owner_seam": "governed_ai_overlay",
+      "governed_ai_surface_id": "claim_draft",
+      "guardrails": [
+        {
+          "id": "story_subject_only",
+          "description": "The surface only projects over existing Story lifecycle state."
+        },
+        {
+          "id": "contract_bound_cards",
+          "description": "Draft claim cards remain structured and contract validated."
+        }
+      ],
+      "verification": {
+        "cli": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_cli.py"
+          }
+        ],
+        "mcp": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_mcp_server.py"
+          }
+        ],
+        "console": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_console_server.py"
+          }
+        ]
+      },
+      "surfaces": {
+        "cli": {
+          "availability": "available",
+          "entrypoints": [
+            "--ai-claim-draft STORY"
+          ]
+        },
+        "mcp": {
+          "availability": "available",
+          "entrypoints": [
+            "tool:ai_claim_draft"
+          ]
+        },
+        "console": {
+          "availability": "available",
+          "entrypoints": [
+            "GET /api/stories/{identifier}/ai/claim-draft"
+          ]
+        },
+        "agent": {
+          "availability": "unavailable"
+        },
+        "skill": {
+          "availability": "unavailable"
+        }
+      }
+    },
+    {
+      "id": "governed_ai_report_draft",
+      "title": "Project governed AI report drafts",
+      "category": "governed_ai_surface",
+      "owner_seam": "governed_ai_overlay",
+      "governed_ai_surface_id": "report_draft",
+      "guardrails": [
+        {
+          "id": "report_subject_only",
+          "description": "The surface only projects over existing Report lifecycle state."
+        },
+        {
+          "id": "verified_fail_closed_allowed",
+          "description": "report_draft may remain admitted as verified_fail_closed until a structured contract lands."
+        }
+      ],
+      "verification": {
+        "cli": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_cli.py"
+          }
+        ],
+        "mcp": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_mcp_server.py"
+          }
+        ],
+        "console": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_console_server.py"
+          }
+        ]
+      },
+      "surfaces": {
+        "cli": {
+          "availability": "available",
+          "entrypoints": [
+            "--ai-report-draft REPORT"
+          ]
+        },
+        "mcp": {
+          "availability": "available",
+          "entrypoints": [
+            "tool:ai_report_draft"
+          ]
+        },
+        "console": {
+          "availability": "available",
+          "entrypoints": [
+            "GET /api/reports/{identifier}/ai/report-draft"
+          ]
+        },
+        "agent": {
+          "availability": "unavailable"
+        },
+        "skill": {
+          "availability": "unavailable"
+        }
+      }
+    },
+    {
+      "id": "governed_ai_delivery_summary",
+      "title": "Project governed AI delivery summaries",
+      "category": "governed_ai_surface",
+      "owner_seam": "governed_ai_overlay",
+      "governed_ai_surface_id": "delivery_summary",
+      "guardrails": [
+        {
+          "id": "alert_subject_only",
+          "description": "The surface only projects over existing AlertEvent delivery state."
+        },
+        {
+          "id": "route_facts_must_expose_runtime",
+          "description": "Delivery summaries must keep route and request runtime facts visible to operators."
+        }
+      ],
+      "verification": {
+        "cli": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_cli.py"
+          }
+        ],
+        "mcp": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_mcp_server.py"
+          }
+        ],
+        "console": [
+          {
+            "kind": "pytest",
+            "target": "tests/test_console_server.py"
+          }
+        ]
+      },
+      "surfaces": {
+        "cli": {
+          "availability": "available",
+          "entrypoints": [
+            "--ai-delivery-summary ALERT"
+          ]
+        },
+        "mcp": {
+          "availability": "available",
+          "entrypoints": [
+            "tool:ai_delivery_summary"
+          ]
+        },
+        "console": {
+          "availability": "available",
+          "entrypoints": [
+            "GET /api/alerts/{identifier}/ai/delivery-summary"
+          ]
+        },
+        "agent": {
+          "availability": "unavailable"
+        },
+        "skill": {
+          "availability": "unavailable"
+        }
+      }
+    }
+  ]
+}

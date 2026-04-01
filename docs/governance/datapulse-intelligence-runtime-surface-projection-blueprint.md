@@ -1,5 +1,11 @@
 # DataPulse Intelligence Runtime And Surface Projection Blueprint
 
+Status: repo-scoped follow-up blueprint, `L27.2` boundary-freeze landing completed
+
+Created: 2026-04-01
+
+Updated: 2026-04-01
+
 ## Purpose
 
 This document promotes the external Obsidian runtime-extraction note into repository-scoped blueprint truth.
@@ -206,6 +212,81 @@ Recommended stage language for this follow-up wave:
 - `K4`: shared projection helpers and surface introspection
 - `K5`: parity verification and reopen hardening
 
+## L27.1 Landing Note
+
+`L27.1` is now landed in repo docs and active blueprint truth.
+
+What landed:
+
+- this repo-scoped blueprint now records DataPulse as a Reader-backed intelligence runtime with acquisition adapters, a Reader/lifecycle kernel, multi-surface projections, a governed AI overlay, and a repo governance control plane
+- the active blueprint now treats `L27` as the open runtime-boundary wave instead of a future idea
+- structured repo truth now exposes `L27.2` as the next manual ignition target before service-seam extraction or surface-catalog work begins
+
+Acceptance evidence:
+
+- `test -f docs/governance/datapulse-intelligence-runtime-surface-projection-blueprint.md`
+- `python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json`
+- `python3 -m json.tool docs/governance/datapulse-blueprint-plan.json`
+
+`L27.2` should freeze six things before Reader decomposition or surface-catalog work begins:
+
+1. the canonical runtime layer map and which repo anchors currently realize each layer
+2. what each layer owns versus what it must not absorb
+3. the stable `DataPulseReader` facade boundary that later seams must stay behind
+4. the target domain service seams that `L27.3` may extract
+5. the projection and AI-overlay rules that keep cross-surface semantics aligned
+6. the acceptance and reopen checks that prevent this wave from drifting back into collector-count or frontend-only debates
+
+## L27.2 Frozen Runtime Boundary Contract
+
+`L27.2` freezes the repo truth that `L27.3` and `L27.4` must preserve.
+
+### Canonical Runtime Layer Map
+
+| Layer | Current repo anchors | Owns | Must not own |
+| --- | --- | --- | --- |
+| Acquisition adapters | `datapulse/core/router.py`, `datapulse/core/search_gateway.py`, `datapulse/collectors/*` | source-specific parsing, source selection, intake retries, upstream fetch fallback, normalization at the intake boundary | lifecycle state transitions, story/report truth, route dispatch truth, surface-specific UX contracts |
+| Reader/lifecycle kernel | `datapulse/reader.py`, `datapulse/core/watchlist.py`, `datapulse/core/triage.py`, `datapulse/core/story.py`, `datapulse/core/report.py`, `datapulse/core/alerts.py` | canonical lifecycle nouns, persistence-backed orchestration, cross-surface capability semantics, route and delivery facts, the stable `DataPulseReader` facade | provider-specific SDK glue, browser-only workflow truth, blueprint progress truth, collector-specific parsing rules |
+| Surface projections | `datapulse/cli.py`, `datapulse/mcp_server.py`, `datapulse/console_server.py`, `datapulse/agent.py`, `SKILL.md`, `datapulse_skill/manifest.json` | transport projection, command/tool/http shapes, surface-local affordances, output formatting, operator or assistant entrypoints | canonical lifecycle state, hidden orchestration forks, alternate domain nouns, provider-owned AI policy |
+| Governed AI overlay | `docs/intelligence_lifecycle_contract.md`, `docs/governance/datapulse-modelbus-ai-governance-blueprint.md`, `config/modelbus/datapulse/surface_admission.json`, `config/modelbus/datapulse/bridge_config.json` | admitted AI surface ids, `off` / `assist` / `review` semantics, bridge policy, fail-closed structured payloads over existing lifecycle objects | final lifecycle writes, alternate runtime chains, ungated surface publication, browser-only or provider-only source truth |
+| Governance control plane | `docs/governance/datapulse-blueprint-plan.json`, `docs/governance/datapulse-blueprint-plan.draft.json`, `scripts/governance/run_codex_blueprint_loop.py`, `scripts/governance/ignite_datapulse_codex_loop.sh` | blueprint progress truth, next-slice selection, evidence/export loop semantics, reopen and promotion decisions | mission execution, delivery dispatch, AI provider behavior, business-runtime orchestration |
+
+### Stable Reader Facade And Service-Seam Targets
+
+- `DataPulseReader` remains the canonical repo runtime facade for shared lifecycle capability semantics during this wave.
+- `L27.3` may decompose Reader internals, but it must preserve the same public lifecycle nouns and keep CLI, MCP, console, agent, and skill wrappers as projections over that shared facade.
+- service-seam extraction is therefore constrained to Reader-internal orchestration owners, not public runtime renaming.
+
+The target service seams for future work are frozen to these bounded owners:
+
+| Target seam | Current repo anchors | Scope frozen in `L27.2` |
+| --- | --- | --- |
+| Mission seam | `datapulse/reader.py`, `datapulse/core/watchlist.py`, `datapulse/core/scheduler.py` | watch creation, mission mutation, run triggers, due-run orchestration, mission and ops snapshots |
+| Triage seam | `datapulse/reader.py`, `datapulse/core/triage.py`, `datapulse/core/models.py` | inbox review state, notes/actions, duplicate handling, triage explanations, queue stats |
+| Story seam | `datapulse/reader.py`, `datapulse/core/story.py` | story build, update, graph/export, evidence aggregation, contradiction and semantic-review projection |
+| Report seam | `datapulse/reader.py`, `datapulse/core/report.py` | report brief, claim, section, report, export-profile, and report-quality orchestration |
+| Delivery seam | `datapulse/reader.py`, `datapulse/core/alerts.py`, report-delivery runtime flows | route health, delivery subscriptions, dispatch packages, dispatch records, delivery summaries |
+| Governed AI seam | `datapulse/reader.py`, AI governance docs and ModelBus config | surface precheck, admitted assist/review flows, governed draft or summary payload generation |
+
+Seam rules:
+
+- acquisition adapters stay upstream of those seams and remain capability providers to the kernel rather than lifecycle owners
+- `L27.3` must not treat CLI, MCP, console, agent, or skill wrappers as the home for mission, triage, story, report, delivery, or AI orchestration
+- `L27.4` may add projection metadata or helper layers, but it must not move lifecycle truth out of the Reader/kernel boundary
+
+### Projection, Overlay, And Control-Plane Ownership Rules
+
+- new capability work must land in a shared kernel seam before surface-specific polish, unless the capability is explicitly projection-only
+- surface wrappers may rename flags, routes, or presentation details for ergonomics, but they must not invent new lifecycle nouns or alternate state machines
+- AI runtime work remains additive to the frozen lifecycle nouns and may only emit contract-bound candidate payloads or summaries
+- governance automation remains read-only with respect to business runtime behavior; it may describe, select, or attest slices, but not become a mission runner or delivery executor
+
+### Acceptance And Reopen Checks
+
+- future slices in this wave should declare which frozen seam owns the capability before code extraction begins
+- a reopen above this contract requires repo evidence of one of three things: a layer-map contradiction, a seam that cannot stay behind `DataPulseReader`, or a parity requirement that cannot be expressed without inventing wrapper-owned business truth
+- collector-count growth, standalone-frontend preference, or provider-specific AI convenience are not by themselves valid reasons to reopen this boundary contract
+
 ## L27 Slice Map
 
 | Slice | Outcome | Why it exists |
@@ -216,14 +297,45 @@ Recommended stage language for this follow-up wave:
 | `L27.4` | Introduce a machine-readable surface capability catalog and shared projection helpers | Turns CLI/MCP/console/agent/skill parity into explicit repo truth instead of repeated ad hoc glue |
 | `L27.5` | Harden parity verification, runtime introspection, and reopen rules | Prevents silent surface drift and records what evidence would justify a later reopen above this wave |
 
-## Recommended Ignition Order After This Refresh
+## Recommended Ignition Order
 
-Recommended order after this refresh:
+Recommended remaining order after `L27.2`:
 
-1. `L27.1`
-2. `L27.2`
-3. `L27.3`
-4. `L27.4`
-5. `L27.5`
+1. `L27.3`
+2. `L27.4`
+3. `L27.5`
 
-This order keeps DataPulse from jumping straight into another implementation-heavy expansion before the runtime boundary, service seams, and surface-parity rules are explicit repo truth.
+This order keeps DataPulse from jumping straight into implementation-heavy refactor work before the runtime boundary, service seams, and surface-parity rules are explicit repo truth.
+
+## L27.5 Landing Note
+
+`L27.5` is now landed in repo code, tests, and active blueprint truth.
+
+What landed:
+
+- shared runtime introspection now projects cross-surface capability coverage, parity status, and reopen rules from `datapulse/surface_capabilities.py`
+- operators can inspect the landed runtime surface map through `datapulse --runtime-introspection`, MCP `runtime_introspection`, and `GET /api/runtime/introspection` without reading wrapper implementations by hand
+- targeted verification now proves both the green path and a broken-catalog regression path, so missing surface entries or entrypoint drift become machine-detectable instead of purely narrative review
+- repo truth now records the admissible reopen evidence for this wave: a layer-map contradiction, a seam that cannot stay behind `DataPulseReader`, or a parity requirement that would force wrapper-owned business truth
+- repo truth also records inadmissible reopen reasons for this wave: collector-count growth, standalone-frontend preference, or provider-specific AI convenience by themselves
+
+## Manual Ignition Boundary
+
+`L27.5` is now landed, so the `L27` runtime-boundary and surface-parity wave is complete and there is no open slice remaining in this wave.
+
+Reason:
+
+- `L26` remains the completed console follow-up wave and does not need to reopen
+- `L27.1` promoted the runtime-kernel and surface-projection read into repo truth
+- `L27.2` froze the runtime layer map, ownership rules, and service-seam targets that future work must preserve
+- `L27.3` extracted Reader-internal service seams without changing public lifecycle nouns
+- `L27.4` landed a shared machine-readable surface capability catalog and projection helpers
+- `L27.5` landed machine-detectable parity verification, cross-surface runtime introspection, and explicit reopen evidence rules
+
+After the blueprint landing is committed and the repo is back to a clean baseline, the normal local ignition entrypoint stays:
+
+```bash
+bash scripts/governance/ignite_datapulse_codex_loop.sh
+```
+
+Expected next slice after this wave: `no-open-slice` until a new blueprint wave or admissible reopen evidence appears

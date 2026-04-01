@@ -10,6 +10,7 @@ import sys
 from typing import Any, get_origin
 
 from datapulse.reader import DataPulseReader
+from datapulse.surface_capabilities import build_runtime_surface_introspection, build_surface_capability_projection
 
 
 async def _run_read_url(url: str, min_confidence: float = 0.0) -> str:
@@ -238,6 +239,16 @@ async def _run_story_export(identifier: str, output_format: str = "json") -> str
 async def _run_ai_surface_precheck(surface: str, mode: str = "assist") -> str:
     reader = DataPulseReader()
     return json.dumps(reader.ai_surface_precheck(surface, mode=mode), ensure_ascii=False, indent=2)
+
+
+async def _run_surface_capabilities(surface: str = "mcp", include_unavailable: bool = False) -> str:
+    payload = build_surface_capability_projection(surface, include_unavailable=include_unavailable)
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+async def _run_runtime_introspection() -> str:
+    payload = build_runtime_surface_introspection()
+    return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
 async def _run_ai_mission_suggest(identifier: str, mode: str = "assist") -> str:
@@ -1314,6 +1325,16 @@ def _register_tools(app: Any) -> None:
     async def ops_scorecard() -> str:
         """Show the intelligence governance scorecard used across CLI, MCP, and console surfaces."""
         return await _run_ops_scorecard()
+
+    @app.tool()
+    async def runtime_introspection() -> str:
+        """Show cross-surface capability coverage, parity checks, and reopen rules."""
+        return await _run_runtime_introspection()
+
+    @app.tool()
+    async def surface_capabilities(surface: str = "mcp", include_unavailable: bool = False) -> str:
+        """Show the shared capability projection for one DataPulse surface."""
+        return await _run_surface_capabilities(surface=surface, include_unavailable=include_unavailable)
 
     @app.tool()
     async def ai_surface_precheck(surface: str, mode: str = "assist") -> str:

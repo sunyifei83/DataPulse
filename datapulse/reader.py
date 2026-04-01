@@ -17,6 +17,7 @@ from datapulse.collectors.trending import TrendingCollector, build_trending_url
 from datapulse.core.alerts import (
     AlertEvent,
     AlertRouteStore,
+    AlertService,
     AlertStore,
     DeliveryDispatchError,
     _coerce_timeout_seconds,
@@ -24,8 +25,6 @@ from datapulse.core.alerts import (
     _resolve_feishu_url,
     _resolve_webhook_url,
     append_delivery_markdown,
-    dispatch_alert_event,
-    evaluate_watch_alerts,
     resolve_delivery_targets,
     send_telegram_text,
     validate_delivery_summary_payload,
@@ -38,6 +37,7 @@ from datapulse.core.jina_client import JinaSearchOptions
 from datapulse.core.models import DataPulseItem, SourceType
 from datapulse.core.ops import WatchStatusStore
 from datapulse.core.report import (
+    ReportService,
     ReportStore,
     build_claim_draft_from_story,
     validate_claim_draft_payload,
@@ -49,16 +49,14 @@ from datapulse.core.search_gateway import SearchGateway, SearchHit
 from datapulse.core.source_catalog import SourceCatalog
 from datapulse.core.storage import UnifiedInbox, output_record_md, project_markdown
 from datapulse.core.story import (
+    StoryService,
     StoryStore,
     build_factuality_gate,
-    build_story_clusters,
-    build_story_from_items,
-    build_story_graph,
-    render_story_markdown,
     resolve_factuality_gate_status,
 )
 from datapulse.core.triage import (
     TriageQueue,
+    TriageService,
     build_triage_assist_payload,
     is_digest_candidate,
     normalize_review_state,
@@ -72,6 +70,7 @@ from datapulse.core.watchlist import (
     TrendFeedInput,
     WatchlistStore,
     WatchMission,
+    WatchService,
     build_watch_run_readiness,
     validate_watch_suggestion_payload,
 )
@@ -116,6 +115,276 @@ def _parse_timestamp(value: Any) -> datetime | None:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+class ReaderAIService:
+    """AI orchestration seam behind the stable DataPulseReader facade."""
+
+    def __init__(self, owner: "DataPulseReader"):
+        self.owner = owner
+
+    def ai_surface_precheck(self, surface: str, *, mode: str = "assist") -> dict[str, Any]:
+        if surface not in _AI_SURFACE_CONTRACTS and surface != "report_draft":
+            raise ValueError(f"Unsupported AI surface: {surface}")
+        normalized_mode = self.owner._normalize_ai_mode(mode)
+        payload = self.owner._load_ai_surface_admissions()
+        admission: dict[str, Any] = self.owner._lookup_ai_surface_admission(surface, payload=payload)
+        mode_admission_raw = admission.get("mode_admission")
+        mode_admission = cast(dict[str, Any], mode_admission_raw) if isinstance(mode_admission_raw, dict) else {}
+        mode_status = "manual_only" if normalized_mode == "off" else str(
+            mode_admission.get(normalized_mode, "rejected") or "rejected"
+        ).strip().lower()
+        contract_meta = self.owner._surface_contract_meta(surface)
+        contract_id = str(admission.get("required_schema_contract", "") or contract_meta.get("contract_id", "")).strip()
+        contract_path = str(contract_meta.get("contract_path", "")).strip()
+        contract_available = self.owner._contract_available(contract_path) if contract_id else False
+        candidate_results_raw = admission.get("candidate_results")
+        candidate_results = cast(list[dict[str, Any]], candidate_results_raw) if isinstance(candidate_results_raw, list) else []
+        admitted_subscription_id = str(admission.get("admitted_subscription_id", "") or "").strip()
+        must_expose_runtime_facts = [
+            str(item).strip()
+            for item in admission.get("must_expose_runtime_facts", [])
+            if str(item).strip()
+        ]
+        if "request_id" not in must_expose_runtime_facts:
+            must_expose_runtime_facts.append("request_id")
+        degraded_result_allowed = bool(admission.get("degraded_result_allowed", False))
+        if not degraded_result_allowed:
+            for row in candidate_results:
+                if not isinstance(row, dict):
+                    continue
+                if str(row.get("subscription_id", "")).strip() == admitted_subscription_id:
+                    degraded_result_allowed = bool(row.get("degraded_result_allowed", False))
+                    break
+        admission_errors = payload.get("errors", [])
+        rejectable_gaps = admission.get("rejectable_gaps") if isinstance(admission.get("rejectable_gaps"), list) else []
+        ok = normalized_mode == "off" or (mode_status == "admitted" and bool(contract_id) and contract_available)
+        return {
+            "ok": ok,
+            "surface": surface,
+            "mode": normalized_mode,
+            "mode_status": mode_status,
+            "admission_status": str(admission.get("admission_status", "rejected") or "rejected").strip().lower(),
+            "lifecycle_anchor": str(admission.get("lifecycle_anchor", "") or "").strip(),
+            "alias": str(admission.get("admitted_alias", "") or admission.get("requested_alias", "") or "").strip(),
+            "requested_alias": str(admission.get("requested_alias", "") or "").strip(),
+            "admitted_subscription_id": admitted_subscription_id,
+            "contract_id": contract_id,
+            "contract_path": contract_path,
+            "contract_available": contract_available,
+            "manual_fallback": str(admission.get("manual_fallback", "manual_or_deterministic_behavior") or "manual_or_deterministic_behavior").strip(),
+            "rejectable_gaps": rejectable_gaps,
+            "must_expose_runtime_facts": must_expose_runtime_facts,
+            "degraded_result_allowed": degraded_result_allowed,
+            "bridge_configured": bool(payload.get("bridge_configured", False)),
+            "admission_source": str(payload.get("admission_source", "local_snapshot") or "local_snapshot").strip(),
+            "bundle_selection": str(payload.get("bundle_selection", "") or "").strip(),
+            "admission_errors": admission_errors if isinstance(admission_errors, list) else [],
+            "admission_path": str(payload.get("admission_path") or self.owner._default_ai_surface_admission_path()),
+        }
+
+    def ai_mission_suggest(self, identifier: str, *, mode: str = "assist") -> dict[str, Any] | None:
+        mission = self.owner.watchlist.get(identifier)
+        if mission is None:
+            return None
+        precheck = self.ai_surface_precheck("mission_suggest", mode=mode)
+        subject = {"kind": "WatchMission", "id": mission.id}
+        input_payload = {
+            "operator_prompt": "Generate bounded watch mission suggestions.",
+            "payload_ref": f"watch:{mission.id}",
+            "mission_snapshot": {
+                "name": mission.name,
+                "query": mission.query,
+                "schedule": mission.schedule,
+                "platforms": list(mission.platforms),
+                "sites": list(mission.sites),
+            },
+        }
+        if precheck.get("mode") == "off" or not precheck.get("ok"):
+            return self.owner._build_ai_service_response(
+                precheck=precheck,
+                subject=subject,
+                input_payload=input_payload,
+                output_payload=None,
+                validation_errors=self.owner._ai_failure_reasons(precheck),
+            )
+        payload = self.owner._build_watch_suggestion_payload(mission, mode=str(precheck.get("mode", "assist")))
+        errors = self.owner._validate_ai_payload("mission_suggest", payload)
+        return self.owner._build_ai_service_response(
+            precheck=precheck,
+            subject=subject,
+            input_payload=input_payload,
+            output_payload=payload,
+            validation_errors=errors,
+        )
+
+    def ai_triage_assist(
+        self,
+        item_id: str,
+        *,
+        mode: str = "assist",
+        limit: int = 5,
+    ) -> dict[str, Any] | None:
+        explain_payload = self.owner.triage.explain_duplicate(item_id, limit=limit)
+        if explain_payload is None:
+            return None
+        item = next((candidate for candidate in self.owner.inbox.items if candidate.id == item_id), None)
+        if item is None:
+            return None
+        precheck = self.ai_surface_precheck("triage_assist", mode=mode)
+        subject = {"kind": "DataPulseItem", "id": item.id}
+        input_payload = {
+            "operator_prompt": "Explain duplicate pressure and evidence gaps without changing final triage state.",
+            "payload_ref": f"triage:{item.id}",
+            "candidate_count": int(explain_payload.get("candidate_count", 0) or 0),
+            "returned_count": int(explain_payload.get("returned_count", 0) or 0),
+        }
+        if precheck.get("mode") == "off" or not precheck.get("ok"):
+            return self.owner._build_ai_service_response(
+                precheck=precheck,
+                subject=subject,
+                input_payload=input_payload,
+                output_payload=None,
+                validation_errors=self.owner._ai_failure_reasons(precheck),
+            )
+        payload = build_triage_assist_payload(item, explain_payload)
+        errors = self.owner._validate_ai_payload("triage_assist", payload)
+        return self.owner._build_ai_service_response(
+            precheck=precheck,
+            subject=subject,
+            input_payload=input_payload,
+            output_payload=payload,
+            validation_errors=errors,
+        )
+
+    def ai_claim_draft(self, story_id: str, *, mode: str = "assist", brief_id: str = "") -> dict[str, Any] | None:
+        story = self.owner.show_story(story_id)
+        if story is None:
+            return None
+        precheck = self.ai_surface_precheck("claim_draft", mode=mode)
+        subject = {"kind": "Story", "id": story_id}
+        semantic_review_raw = story.get("semantic_review")
+        semantic_review = cast(dict[str, Any], semantic_review_raw) if isinstance(semantic_review_raw, dict) else {}
+        input_payload = {
+            "operator_prompt": "Draft evidence-bound claim cards without writing final report state.",
+            "payload_ref": f"story:{story_id}",
+            "story_snapshot": {
+                "title": story.get("title", ""),
+                "summary": story.get("summary", ""),
+                "claim_candidate_count": len(semantic_review.get("claim_candidates", []) or []),
+                "item_count": int(story.get("item_count", 0) or 0),
+            },
+        }
+        if precheck.get("mode") == "off" or not precheck.get("ok"):
+            return self.owner._build_ai_service_response(
+                precheck=precheck,
+                subject=subject,
+                input_payload=input_payload,
+                output_payload=None,
+                validation_errors=self.owner._ai_failure_reasons(precheck),
+            )
+        payload = build_claim_draft_from_story(story, brief_id=brief_id, mode=str(precheck.get("mode", "assist")))
+        errors = self.owner._validate_ai_payload("claim_draft", payload)
+        return self.owner._build_ai_service_response(
+            precheck=precheck,
+            subject=subject,
+            input_payload=input_payload,
+            output_payload=payload,
+            validation_errors=errors,
+        )
+
+    def ai_report_draft(self, report_id: str, *, mode: str = "assist", profile_id: str | None = None) -> dict[str, Any] | None:
+        report_payload = self.owner.show_report(report_id)
+        if report_payload is None:
+            return None
+        composed_payload = self.owner.compose_report(report_id, profile_id=profile_id)
+        composed_payload = dict(composed_payload or {})
+        sections = composed_payload.get("sections")
+        sections = sections if isinstance(sections, list) else []
+        claim_cards = composed_payload.get("claim_cards")
+        claim_cards = claim_cards if isinstance(claim_cards, list) else []
+        export_profiles = composed_payload.get("export_profiles")
+        export_profiles = export_profiles if isinstance(export_profiles, list) else []
+        quality = composed_payload.get("quality")
+        quality = quality if isinstance(quality, dict) else {}
+
+        precheck = self.ai_surface_precheck("report_draft", mode=mode)
+        subject = {"kind": "Report", "id": report_payload["id"]}
+        input_payload = {
+            "operator_prompt": "Prepare a report composition draft without mutating final export or provenance truth.",
+            "payload_ref": f"report:{report_payload['id']}",
+            "report_snapshot": {
+                "title": str(report_payload.get("title", "") or "").strip(),
+                "status": str(report_payload.get("status", "") or "").strip(),
+                "section_count": len(sections),
+                "claim_card_count": len(claim_cards),
+                "export_profile_count": len(export_profiles),
+                "quality_status": str(quality.get("status", "") or "").strip(),
+                "quality_score": float(quality.get("score", 0.0) or 0.0),
+                "can_export": bool(quality.get("can_export", False)),
+            },
+        }
+        if profile_id:
+            input_payload["profile_id"] = str(profile_id)
+
+        if precheck.get("mode") == "off" or not precheck.get("ok"):
+            return self.owner._build_ai_service_response(
+                precheck=precheck,
+                subject=subject,
+                input_payload=input_payload,
+                output_payload=None,
+                validation_errors=self.owner._ai_failure_reasons(precheck),
+            )
+        return self.owner._build_ai_service_response(
+            precheck=precheck,
+            subject=subject,
+            input_payload=input_payload,
+            output_payload=None,
+            validation_errors=["report_draft_runtime_requires_admitted_structured_contract"],
+        )
+
+    def ai_delivery_summary(self, alert_id: str, *, mode: str = "assist") -> dict[str, Any] | None:
+        event = self.owner.alert_service.find_alert_event(alert_id)
+        if event is None:
+            return None
+        precheck = self.ai_surface_precheck("delivery_summary", mode=mode)
+        subject = {"kind": "AlertEvent", "id": event.id}
+        route_rows = self.owner._build_delivery_summary_route_rows(event)
+        governance = dict(event.governance or {}) if isinstance(event.governance, dict) else {}
+        delivery_risk = (
+            dict(governance.get("delivery_risk") or {})
+            if isinstance(governance.get("delivery_risk"), dict)
+            else {}
+        )
+        input_payload = {
+            "operator_prompt": "Summarize attributable AlertEvent delivery facts without mutating route or dispatch truth.",
+            "payload_ref": f"alert:{event.id}",
+            "event_snapshot": {
+                "mission_id": event.mission_id,
+                "mission_name": event.mission_name,
+                "rule_name": event.rule_name,
+                "created_at": event.created_at,
+                "route_count": len(route_rows),
+                "delivery_status": str(delivery_risk.get("status", "") or "").strip(),
+            },
+        }
+        if precheck.get("mode") == "off" or not precheck.get("ok"):
+            return self.owner._build_ai_service_response(
+                precheck=precheck,
+                subject=subject,
+                input_payload=input_payload,
+                output_payload=None,
+                validation_errors=self.owner._ai_failure_reasons(precheck),
+            )
+        payload = self.owner._build_delivery_summary_payload(event)
+        errors = self.owner._validate_ai_payload("delivery_summary", payload)
+        return self.owner._build_ai_service_response(
+            precheck=precheck,
+            subject=subject,
+            input_payload=input_payload,
+            output_payload=payload,
+            validation_errors=errors,
+        )
 
 
 def _normalize_string_list(values: Any) -> list[str]:
@@ -273,6 +542,17 @@ class DataPulseReader:
         self._search_gateway = SearchGateway()
         self._jina_client = self._search_gateway._jina_client
         self._entity_store: EntityStore | None = None
+        self.watch_service = WatchService(self, watchlist=self.watchlist, scheduler=self.watch_scheduler)
+        self.triage_service = TriageService(triage=self.triage)
+        self.story_service = StoryService(self, story_store=self.story_store, catalog=self.catalog)
+        self.report_service = ReportService(self, report_store=self.report_store)
+        self.alert_service = AlertService(
+            self,
+            alert_store=self.alert_store,
+            alert_routes=self.alert_routes,
+            watch_status=self.watch_status,
+        )
+        self.ai_service = ReaderAIService(self)
 
     @property
     def entity_store(self) -> EntityStore:
@@ -943,64 +1223,7 @@ class DataPulseReader:
         return True
 
     def ai_surface_precheck(self, surface: str, *, mode: str = "assist") -> dict[str, Any]:
-        if surface not in _AI_SURFACE_CONTRACTS and surface != "report_draft":
-            raise ValueError(f"Unsupported AI surface: {surface}")
-        normalized_mode = self._normalize_ai_mode(mode)
-        payload = self._load_ai_surface_admissions()
-        admission: dict[str, Any] = self._lookup_ai_surface_admission(surface, payload=payload)
-        mode_admission_raw = admission.get("mode_admission")
-        mode_admission = cast(dict[str, Any], mode_admission_raw) if isinstance(mode_admission_raw, dict) else {}
-        mode_status = "manual_only" if normalized_mode == "off" else str(
-            mode_admission.get(normalized_mode, "rejected") or "rejected"
-        ).strip().lower()
-        contract_meta = self._surface_contract_meta(surface)
-        contract_id = str(admission.get("required_schema_contract", "") or contract_meta.get("contract_id", "")).strip()
-        contract_path = str(contract_meta.get("contract_path", "")).strip()
-        contract_available = self._contract_available(contract_path) if contract_id else False
-        candidate_results_raw = admission.get("candidate_results")
-        candidate_results = cast(list[dict[str, Any]], candidate_results_raw) if isinstance(candidate_results_raw, list) else []
-        admitted_subscription_id = str(admission.get("admitted_subscription_id", "") or "").strip()
-        must_expose_runtime_facts = [
-            str(item).strip()
-            for item in admission.get("must_expose_runtime_facts", [])
-            if str(item).strip()
-        ]
-        if "request_id" not in must_expose_runtime_facts:
-            must_expose_runtime_facts.append("request_id")
-        degraded_result_allowed = bool(admission.get("degraded_result_allowed", False))
-        if not degraded_result_allowed:
-            for row in candidate_results:
-                if not isinstance(row, dict):
-                    continue
-                if str(row.get("subscription_id", "")).strip() == admitted_subscription_id:
-                    degraded_result_allowed = bool(row.get("degraded_result_allowed", False))
-                    break
-        admission_errors = payload.get("errors", [])
-        rejectable_gaps = admission.get("rejectable_gaps") if isinstance(admission.get("rejectable_gaps"), list) else []
-        ok = normalized_mode == "off" or (mode_status == "admitted" and bool(contract_id) and contract_available)
-        return {
-            "ok": ok,
-            "surface": surface,
-            "mode": normalized_mode,
-            "mode_status": mode_status,
-            "admission_status": str(admission.get("admission_status", "rejected") or "rejected").strip().lower(),
-            "lifecycle_anchor": str(admission.get("lifecycle_anchor", "") or "").strip(),
-            "alias": str(admission.get("admitted_alias", "") or admission.get("requested_alias", "") or "").strip(),
-            "requested_alias": str(admission.get("requested_alias", "") or "").strip(),
-            "admitted_subscription_id": admitted_subscription_id,
-            "contract_id": contract_id,
-            "contract_path": contract_path,
-            "contract_available": contract_available,
-            "manual_fallback": str(admission.get("manual_fallback", "manual_or_deterministic_behavior") or "manual_or_deterministic_behavior").strip(),
-            "rejectable_gaps": rejectable_gaps,
-            "must_expose_runtime_facts": must_expose_runtime_facts,
-            "degraded_result_allowed": degraded_result_allowed,
-            "bridge_configured": bool(payload.get("bridge_configured", False)),
-            "admission_source": str(payload.get("admission_source", "local_snapshot") or "local_snapshot").strip(),
-            "bundle_selection": str(payload.get("bundle_selection", "") or "").strip(),
-            "admission_errors": admission_errors if isinstance(admission_errors, list) else [],
-            "admission_path": str(payload.get("admission_path") or self._default_ai_surface_admission_path()),
-        }
+        return self.ai_service.ai_surface_precheck(surface, mode=mode)
 
     @staticmethod
     def _ai_failure_reasons(precheck: dict[str, Any]) -> list[str]:
@@ -1100,24 +1323,10 @@ class DataPulseReader:
         return [f"no validator for surface: {surface}"]
 
     def _route_status_by_name(self) -> dict[str, str]:
-        lookup: dict[str, str] = {}
-        for route in self.alert_route_health(limit=100):
-            if not isinstance(route, dict):
-                continue
-            name = str(route.get("name", "") or "").strip().lower()
-            status = str(route.get("status", "") or "").strip().lower()
-            if name:
-                lookup[name] = status
-        return lookup
+        return self.alert_service.route_status_by_name()
 
     def _find_alert_event(self, identifier: str) -> AlertEvent | None:
-        target = str(identifier or "").strip()
-        if not target:
-            return None
-        for event in self.alert_store.list_events(limit=self.alert_store.max_items):
-            if event.id == target:
-                return event
-        return None
+        return self.alert_service.find_alert_event(identifier)
 
     @staticmethod
     def _delivery_summary_route_status(observation_status: str) -> str:
@@ -3366,68 +3575,22 @@ class DataPulseReader:
         since: str | None = None,
         save: bool = True,
     ) -> dict[str, Any]:
-        if items is None:
-            candidates = self.query_feed(
-                profile=profile,
-                source_ids=source_ids,
-                limit=500,
-                min_confidence=min_confidence,
-                since=since,
-            )
-        else:
-            candidates = [
-                item for item in items
-                if item.confidence >= min_confidence
-            ]
-        candidates = [item for item in candidates if is_digest_candidate(item)]
-        authority_map = self.catalog.build_authority_map()
-        entity_source_counts = self._collect_entity_source_counts(candidates)
-        ranked = rank_items(
-            candidates,
-            authority_map=authority_map,
-            entity_source_counts=entity_source_counts,
-        )
-        stories = build_story_clusters(
-            ranked,
-            entity_store=self.entity_store,
+        return self.story_service.build(
+            items=items,
+            profile=profile,
+            source_ids=source_ids,
             max_stories=max_stories,
             evidence_limit=evidence_limit,
+            min_confidence=min_confidence,
+            since=since,
+            save=save,
         )
-        persisted = self.story_store.replace_stories(stories) if save else stories
-        contradicted = sum(1 for story in persisted if story.contradictions)
-        grounded_story_count = 0
-        grounded_claim_count = 0
-        grounded_evidence_span_count = 0
-        for story in persisted:
-            governance = story.governance if isinstance(story.governance, dict) else {}
-            grounding = governance.get("grounding", {}) if isinstance(governance.get("grounding"), dict) else {}
-            claim_count = int(grounding.get("claim_count", 0) or 0)
-            span_count = int(grounding.get("evidence_span_count", 0) or 0)
-            if claim_count > 0:
-                grounded_story_count += 1
-            grounded_claim_count += claim_count
-            grounded_evidence_span_count += span_count
-        return {
-            "version": "1.0",
-            "generated_at": _utcnow_z(),
-            "stats": {
-                "items_considered": len(candidates),
-                "stories_built": len(stories),
-                "stories_saved": len(persisted),
-                "contradicted_stories": contradicted,
-                "grounded_story_count": grounded_story_count,
-                "grounded_claim_count": grounded_claim_count,
-                "grounded_evidence_span_count": grounded_evidence_span_count,
-            },
-            "stories": [story.to_dict() for story in persisted],
-        }
 
     def list_stories(self, *, limit: int = 20, min_items: int = 1) -> list[dict[str, Any]]:
-        return [story.to_dict() for story in self.story_store.list_stories(limit=limit, min_items=min_items)]
+        return self.story_service.list_stories(limit=limit, min_items=min_items)
 
     def create_story(self, **payload: Any) -> dict[str, Any]:
-        story = self.story_store.create_story(payload)
-        return story.to_dict()
+        return self.story_service.create_story(**payload)
 
     def create_story_from_triage(
         self,
@@ -3437,37 +3600,15 @@ class DataPulseReader:
         summary: str | None = None,
         status: str = "monitoring",
     ) -> dict[str, Any]:
-        normalized_ids: list[str] = []
-        seen: set[str] = set()
-        for raw in item_ids if isinstance(item_ids, list) else []:
-            item_id = str(raw or "").strip()
-            if not item_id or item_id in seen:
-                continue
-            seen.add(item_id)
-            normalized_ids.append(item_id)
-        if not normalized_ids:
-            raise ValueError("At least one triage item id is required")
-
-        item_map = {item.id: item for item in self.inbox.items}
-        missing = [item_id for item_id in normalized_ids if item_id not in item_map]
-        if missing:
-            raise ValueError(f"Triage item not found: {missing[0]}")
-
-        selected_items = [item_map[item_id] for item_id in normalized_ids]
-        story = build_story_from_items(
-            selected_items,
+        return self.story_service.create_story_from_triage(
+            item_ids,
             title=title,
             summary=summary,
             status=status,
-            entity_store=self.entity_store,
         )
-        return self.story_store.create_story(story).to_dict()
 
     def show_story(self, identifier: str) -> dict[str, Any] | None:
-        story = self.story_store.get_story(identifier)
-        if story is None:
-            return None
-        return story.to_dict()
+        return self.story_service.show_story(identifier)
 
     def update_story(
         self,
@@ -3477,29 +3618,13 @@ class DataPulseReader:
         summary: str | None = None,
         status: str | None = None,
     ) -> dict[str, Any] | None:
-        story = self.story_store.update_story(
-            identifier,
-            title=title,
-            summary=summary,
-            status=status,
-        )
-        if story is None:
-            return None
-        return story.to_dict()
+        return self.story_service.update_story(identifier, title=title, summary=summary, status=status)
 
     def delete_story(self, identifier: str) -> dict[str, Any] | None:
-        story = self.story_store.delete_story(identifier)
-        if story is None:
-            return None
-        return story.to_dict()
+        return self.story_service.delete_story(identifier)
 
     def export_story(self, identifier: str, *, output_format: str = "json") -> str | None:
-        story = self.story_store.get_story(identifier)
-        if story is None:
-            return None
-        if output_format.lower() in {"md", "markdown"}:
-            return render_story_markdown(story)
-        return json.dumps(story.to_dict(), ensure_ascii=False, indent=2)
+        return self.story_service.export_story(identifier, output_format=output_format)
 
     def story_graph(
         self,
@@ -3508,77 +3633,61 @@ class DataPulseReader:
         entity_limit: int = 12,
         relation_limit: int = 24,
     ) -> dict[str, Any] | None:
-        story = self.story_store.get_story(identifier)
-        if story is None:
-            return None
-        return build_story_graph(
-            story,
-            entity_store=self.entity_store,
-            entity_limit=entity_limit,
-            relation_limit=relation_limit,
-        )
+        return self.story_service.story_graph(identifier, entity_limit=entity_limit, relation_limit=relation_limit)
 
     def list_report_briefs(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
-        return [brief.to_dict() for brief in self.report_store.list_report_briefs(limit=limit, status=status)]
+        return self.report_service.list_report_briefs(limit=limit, status=status)
 
     def create_report_brief(self, **payload: Any) -> dict[str, Any]:
-        return self.report_store.create_report_brief(payload).to_dict()
+        return self.report_service.create_report_brief(**payload)
 
     def show_report_brief(self, identifier: str) -> dict[str, Any] | None:
-        brief = self.report_store.get_report_brief(identifier)
-        return brief.to_dict() if brief is not None else None
+        return self.report_service.show_report_brief(identifier)
 
     def update_report_brief(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
-        brief = self.report_store.update_report_brief(identifier, **payload)
-        return brief.to_dict() if brief is not None else None
+        return self.report_service.update_report_brief(identifier, **payload)
 
     def list_claim_cards(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
-        return [claim.to_dict() for claim in self.report_store.list_claim_cards(limit=limit, status=status)]
+        return self.report_service.list_claim_cards(limit=limit, status=status)
 
     def create_claim_card(self, **payload: Any) -> dict[str, Any]:
-        return self.report_store.create_claim_card(payload).to_dict()
+        return self.report_service.create_claim_card(**payload)
 
     def show_claim_card(self, identifier: str) -> dict[str, Any] | None:
-        claim = self.report_store.get_claim_card(identifier)
-        return claim.to_dict() if claim is not None else None
+        return self.report_service.show_claim_card(identifier)
 
     def update_claim_card(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
-        claim = self.report_store.update_claim_card(identifier, **payload)
-        return claim.to_dict() if claim is not None else None
+        return self.report_service.update_claim_card(identifier, **payload)
 
     def list_report_sections(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
-        return [section.to_dict() for section in self.report_store.list_report_sections(limit=limit, status=status)]
+        return self.report_service.list_report_sections(limit=limit, status=status)
 
     def create_report_section(self, **payload: Any) -> dict[str, Any]:
-        return self.report_store.create_report_section(payload).to_dict()
+        return self.report_service.create_report_section(**payload)
 
     def show_report_section(self, identifier: str) -> dict[str, Any] | None:
-        section = self.report_store.get_report_section(identifier)
-        return section.to_dict() if section is not None else None
+        return self.report_service.show_report_section(identifier)
 
     def update_report_section(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
-        section = self.report_store.update_report_section(identifier, **payload)
-        return section.to_dict() if section is not None else None
+        return self.report_service.update_report_section(identifier, **payload)
 
     def list_citation_bundles(self, *, limit: int = 20) -> list[dict[str, Any]]:
-        return [bundle.to_dict() for bundle in self.report_store.list_citation_bundles(limit=limit)]
+        return self.report_service.list_citation_bundles(limit=limit)
 
     def create_citation_bundle(self, **payload: Any) -> dict[str, Any]:
-        return self.report_store.create_citation_bundle(payload).to_dict()
+        return self.report_service.create_citation_bundle(**payload)
 
     def show_citation_bundle(self, identifier: str) -> dict[str, Any] | None:
-        bundle = self.report_store.get_citation_bundle(identifier)
-        return bundle.to_dict() if bundle is not None else None
+        return self.report_service.show_citation_bundle(identifier)
 
     def update_citation_bundle(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
-        bundle = self.report_store.update_citation_bundle(identifier, **payload)
-        return bundle.to_dict() if bundle is not None else None
+        return self.report_service.update_citation_bundle(identifier, **payload)
 
     def list_reports(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
-        return [report.to_dict() for report in self.report_store.list_reports(limit=limit, status=status)]
+        return self.report_service.list_reports(limit=limit, status=status)
 
     def create_report(self, **payload: Any) -> dict[str, Any]:
-        return self.report_store.create_report(payload).to_dict()
+        return self.report_service.create_report(**payload)
 
     @staticmethod
     def _resolve_report_compose_setting(value: bool | None, profile_value: bool | None, default: bool) -> bool:
@@ -3597,7 +3706,7 @@ class DataPulseReader:
         include_citation_bundles: bool = True,
         include_export_profiles: bool = True,
     ) -> dict[str, Any] | None:
-        return self.report_store.assemble_report(
+        return self.report_service.assemble_report(
             identifier,
             include_sections=include_sections,
             include_claim_cards=include_claim_cards,
@@ -3606,8 +3715,7 @@ class DataPulseReader:
         )
 
     def show_report(self, identifier: str) -> dict[str, Any] | None:
-        report = self.report_store.get_report(identifier)
-        return report.to_dict() if report is not None else None
+        return self.report_service.show_report(identifier)
 
     def compose_report(
         self,
@@ -3619,45 +3727,14 @@ class DataPulseReader:
         include_citation_bundles: bool | None = None,
         include_export_profiles: bool | None = None,
     ) -> dict[str, Any] | None:
-        profile_payload: dict[str, Any] | None = None
-        if profile_id:
-            profile_payload = self.show_export_profile(profile_id)
-            if profile_payload is None:
-                raise ValueError(f"Export profile not found: {profile_id}")
-
-        include_sections = self._resolve_report_compose_setting(
-            include_sections,
-            profile_payload.get("include_sections") if profile_payload else None,
-            True,
-        )
-        include_claim_cards = self._resolve_report_compose_setting(
-            include_claim_cards,
-            profile_payload.get("include_claim_cards") if profile_payload else None,
-            True,
-        )
-        include_citation_bundles = self._resolve_report_compose_setting(
-            include_citation_bundles,
-            profile_payload.get("include_bundles") if profile_payload else None,
-            True,
-        )
-        include_export_profiles = self._resolve_report_compose_setting(
-            include_export_profiles,
-            (profile_payload or {}).get("include_export_profiles"),
-            True,
-        )
-        payload = self.report_store.assemble_report(
+        return self.report_service.compose_report(
             identifier,
+            profile_id=profile_id,
             include_sections=include_sections,
             include_claim_cards=include_claim_cards,
             include_citation_bundles=include_citation_bundles,
             include_export_profiles=include_export_profiles,
         )
-        if payload is None:
-            return None
-
-        if profile_payload and str(profile_payload.get("name", "")).strip().lower() == "watch-pack":
-            payload["watch_pack"] = self._build_report_watch_pack_payload(identifier, payload)
-        return payload
 
     def _normalize_report_id(self, identifier: str) -> str:
         return str(identifier or "").strip()
@@ -3749,22 +3826,7 @@ class DataPulseReader:
         *,
         profile_id: str | None = None,
     ) -> dict[str, Any] | None:
-        report_payload = self.show_report(identifier)
-        if report_payload is None:
-            return None
-        report_id = self._normalize_report_id(report_payload["id"])
-        target_profile_id = profile_id
-        if target_profile_id is None:
-            target_profile = self._find_report_profile(report_id, name="watch-pack")
-            if target_profile is not None:
-                target_profile_id = target_profile.get("id")
-        payload = self.compose_report(report_id, profile_id=target_profile_id)
-        if payload is None:
-            return None
-        watch_pack = payload.get("watch_pack")
-        if isinstance(watch_pack, dict):
-            return watch_pack
-        return self._build_report_watch_pack_payload(report_id, payload)
+        return self.report_service.report_watch_pack(identifier, profile_id=profile_id)
 
     def create_watch_from_report_pack(
         self,
@@ -3780,22 +3842,11 @@ class DataPulseReader:
         top_n: int = 5,
         alert_rules: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
-        watch_pack = self.report_watch_pack(identifier, profile_id=profile_id)
-        if watch_pack is None:
-            return None
-        mission_name = str(name).strip() if name else str(watch_pack.get("mission_name", "")).strip()
-        mission_query = str(query).strip() if query else str(watch_pack.get("query", "")).strip()
-        if not mission_name:
-            mission_name = f"{self._normalize_report_id(identifier)} Watch"
-        if not mission_query:
-            mission_query = f"Watch {self._normalize_report_id(identifier)}"
-        mission_intent = watch_pack.get("mission_intent")
-        if not isinstance(mission_intent, dict):
-            mission_intent = {}
-        return self.create_watch(
-            name=mission_name,
-            query=mission_query,
-            mission_intent=mission_intent,
+        return self.report_service.create_watch_from_report_pack(
+            identifier,
+            profile_id=profile_id,
+            name=name,
+            query=query,
             platforms=platforms,
             sites=sites,
             schedule=schedule,
@@ -3814,7 +3865,7 @@ class DataPulseReader:
         include_citation_bundles: bool | None = None,
         include_export_profiles: bool | None = None,
     ) -> dict[str, Any] | None:
-        payload = self.compose_report(
+        return self.report_service.assess_report_quality(
             identifier,
             profile_id=profile_id,
             include_sections=include_sections,
@@ -3822,14 +3873,9 @@ class DataPulseReader:
             include_citation_bundles=include_citation_bundles,
             include_export_profiles=include_export_profiles,
         )
-        if payload is None:
-            return None
-        quality = payload.get("quality")
-        return quality if isinstance(quality, dict) else {}
 
     def update_report(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
-        report = self.report_store.update_report(identifier, **payload)
-        return report.to_dict() if report is not None else None
+        return self.report_service.update_report(identifier, **payload)
 
     def list_export_profiles(
         self,
@@ -3838,25 +3884,16 @@ class DataPulseReader:
         status: str | None = None,
         report_id: str | None = None,
     ) -> list[dict[str, Any]]:
-        return [
-            profile.to_dict()
-            for profile in self.report_store.list_export_profiles(
-                limit=limit,
-                status=status,
-                report_id=report_id,
-            )
-        ]
+        return self.report_service.list_export_profiles(limit=limit, status=status, report_id=report_id)
 
     def create_export_profile(self, **payload: Any) -> dict[str, Any]:
-        return self.report_store.create_export_profile(payload).to_dict()
+        return self.report_service.create_export_profile(**payload)
 
     def show_export_profile(self, identifier: str) -> dict[str, Any] | None:
-        profile = self.report_store.get_export_profile(identifier)
-        return profile.to_dict() if profile is not None else None
+        return self.report_service.show_export_profile(identifier)
 
     def update_export_profile(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
-        profile = self.report_store.update_export_profile(identifier, **payload)
-        return profile.to_dict() if profile is not None else None
+        return self.report_service.update_export_profile(identifier, **payload)
 
     def list_delivery_subscriptions(
         self,
@@ -3869,33 +3906,27 @@ class DataPulseReader:
         delivery_mode: str | None = None,
         route_name: str | None = None,
     ) -> list[dict[str, Any]]:
-        return [
-            row.to_dict()
-            for row in self.report_store.list_delivery_subscriptions(
-                limit=limit,
-                status=status,
-                subject_kind=subject_kind,
-                subject_ref=subject_ref,
-                output_kind=output_kind,
-                delivery_mode=delivery_mode,
-                route_name=route_name,
-            )
-        ]
+        return self.report_service.list_delivery_subscriptions(
+            limit=limit,
+            status=status,
+            subject_kind=subject_kind,
+            subject_ref=subject_ref,
+            output_kind=output_kind,
+            delivery_mode=delivery_mode,
+            route_name=route_name,
+        )
 
     def create_delivery_subscription(self, **payload: Any) -> dict[str, Any]:
-        return self.report_store.create_delivery_subscription(payload).to_dict()
+        return self.report_service.create_delivery_subscription(**payload)
 
     def show_delivery_subscription(self, identifier: str) -> dict[str, Any] | None:
-        subscription = self.report_store.get_delivery_subscription(identifier)
-        return subscription.to_dict() if subscription is not None else None
+        return self.report_service.show_delivery_subscription(identifier)
 
     def update_delivery_subscription(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
-        subscription = self.report_store.update_delivery_subscription(identifier, **payload)
-        return subscription.to_dict() if subscription is not None else None
+        return self.report_service.update_delivery_subscription(identifier, **payload)
 
     def delete_delivery_subscription(self, identifier: str) -> dict[str, Any] | None:
-        subscription = self.report_store.delete_delivery_subscription(identifier)
-        return subscription.to_dict() if subscription is not None else None
+        return self.report_service.delete_delivery_subscription(identifier)
 
     def list_delivery_dispatch_records(
         self,
@@ -3908,18 +3939,15 @@ class DataPulseReader:
         output_kind: str | None = None,
         route_name: str | None = None,
     ) -> list[dict[str, Any]]:
-        return [
-            record.to_dict()
-            for record in self.report_store.list_delivery_dispatch_records(
-                limit=limit,
-                status=status,
-                subscription_id=subscription_id,
-                subject_kind=subject_kind,
-                subject_ref=subject_ref,
-                output_kind=output_kind,
-                route_name=route_name,
-            )
-        ]
+        return self.report_service.list_delivery_dispatch_records(
+            limit=limit,
+            status=status,
+            subscription_id=subscription_id,
+            subject_kind=subject_kind,
+            subject_ref=subject_ref,
+            output_kind=output_kind,
+            route_name=route_name,
+        )
 
     @staticmethod
     def _normalize_report_dispatch_output_kind(value: str | None) -> str:
@@ -4222,13 +4250,7 @@ class DataPulseReader:
         *,
         profile_id: str | None = None,
     ) -> dict[str, Any]:
-        subscription = self.show_delivery_subscription(subscription_identifier)
-        if subscription is None:
-            raise ValueError(f"Delivery subscription not found: {subscription_identifier}")
-        if str(subscription.get("subject_kind", "")).strip().lower() != "report":
-            raise ValueError("Only report subscriptions can be used for report delivery packages")
-        profile_payload = self.show_export_profile(profile_id) if profile_id else None
-        return self._build_report_delivery_package(subscription, profile_id=profile_id, profile_payload=profile_payload)
+        return self.report_service.build_report_delivery_package(subscription_identifier, profile_id=profile_id)
 
     def dispatch_report_delivery(
         self,
@@ -4236,137 +4258,7 @@ class DataPulseReader:
         *,
         profile_id: str | None = None,
     ) -> list[dict[str, Any]]:
-        subscription = self.show_delivery_subscription(subscription_identifier)
-        if subscription is None:
-            raise ValueError(f"Delivery subscription not found: {subscription_identifier}")
-        if str(subscription.get("subject_kind", "")).strip().lower() != "report":
-            raise ValueError("Only report subscriptions can be dispatched by this method")
-        output_kind = self._normalize_report_dispatch_output_kind(subscription.get("output_kind"))
-        if output_kind not in _REPORT_DELIVERY_OUTPUT_KINDS:
-            raise ValueError(f"Unsupported report delivery output kind: {output_kind}")
-        package = self._build_report_delivery_package(subscription, profile_id=profile_id)
-
-        rule: dict[str, Any] = {
-            "routes": list(subscription.get("route_names", [])),
-        }
-        route_targets, route_errors = resolve_delivery_targets(rule)
-        target_by_name: dict[str, dict[str, Any]] = {}
-        for row in route_targets:
-            label = str(row.get("label", "")).strip()
-            route_name = self._extract_delivery_route_name(label)
-            if route_name:
-                target_by_name[route_name] = row
-
-        route_names = _normalize_string_list(subscription.get("route_names"))
-        dispatch_records: list[dict[str, Any]] = []
-        for route_name in route_names:
-            target = target_by_name.get(route_name)
-            route_label = str(target.get("label", "") if isinstance(target, dict) else "").strip()
-            channel = str(target.get("channel", "")).strip().lower() if isinstance(target, dict) else ""
-            error = ""
-            governance: dict[str, Any] = {}
-            if not route_label:
-                route_label = f"route:{route_name}"
-            if not target:
-                error = str(route_errors.get(f"route:{route_name}") or route_errors.get(route_label) or "")
-                status = "missing_route"
-                governance = {
-                    "delivery_diagnostics": {
-                        "route_label": route_label,
-                        "route_name": route_name,
-                        "channel": channel or "unknown",
-                        "attempt_count": 0,
-                        "chunk_count": 0,
-                        "fallback_used": False,
-                        "fallback_reason": "",
-                        "attempts": [],
-                        "resolution": "missing_route",
-                        "error": error,
-                    }
-                }
-            else:
-                status = "pending"
-            record = self.report_store.create_delivery_dispatch_record(
-                {
-                    "subscription_id": str(subscription.get("id", "")),
-                    "subject_kind": "report",
-                    "subject_ref": str(subscription.get("subject_ref", "")),
-                    "output_kind": output_kind,
-                    "route_name": route_name,
-                    "route_label": route_label,
-                    "route_channel": channel,
-                    "package_id": str(package.get("package_id", "")),
-                    "package_signature": str(package.get("package_signature", "")),
-                    "package_profile_id": str(profile_id or ""),
-                    "status": status,
-                    "error": error,
-                    "attempts": 0,
-                    "governance": governance,
-                }
-            )
-            dispatch_records.append(record.to_dict())
-
-        for row in dispatch_records:
-            if row.get("status") != "pending":
-                continue
-            route_name = str(row.get("route_name", "")).strip()
-            target = target_by_name.get(route_name)
-            if not isinstance(target, dict):
-                continue
-            record_id = str(row.get("id", "")).strip()
-            current_attempts = 0
-            diagnostics: dict[str, Any] = {}
-            try:
-                diagnostics = self._dispatch_route_delivery_payload(
-                    target,
-                    webhook_payload={"report_delivery": package},
-                    text_payload=self._render_report_delivery_text(package),
-                    markdown_title=f"Report Delivery | {route_name}",
-                    markdown_metadata={
-                        "package_id": str(package.get("package_id", "")),
-                        "route_label": str(target.get("label", "")),
-                        "channel": str(target.get("channel", "")),
-                    },
-                )
-                new_error = ""
-                current_status = "delivered"
-            except DeliveryDispatchError as exc:
-                diagnostics = dict(exc.diagnostics or {})
-                new_error = str(exc)
-                current_status = "failed"
-            except Exception as exc:  # noqa: BLE001
-                diagnostics = self._route_delivery_base_diagnostics(target)
-                diagnostics["error"] = str(exc)
-                diagnostics["attempt_count"] = 1
-                diagnostics["attempts"] = [
-                    {
-                        "kind": "route_dispatch",
-                        "status": "failed",
-                        "error": str(exc),
-                    }
-                ]
-                new_error = str(exc)
-                current_status = "failed"
-            current_attempts = int(diagnostics.get("attempt_count", 1 if current_status == "failed" else 0) or 0)
-            if current_status == "delivered" and current_attempts <= 0:
-                current_attempts = 1
-            self.report_store.update_delivery_dispatch_record(
-                record_id,
-                status=current_status,
-                error=new_error,
-                attempts=current_attempts,
-                route_channel=target.get("channel", ""),
-            )
-            self._persist_delivery_dispatch_governance(record_id, {"delivery_diagnostics": diagnostics})
-            for idx, item in enumerate(dispatch_records):
-                if str(item.get("id", "")) == record_id:
-                    dispatch_records[idx]["status"] = current_status
-                    dispatch_records[idx]["error"] = new_error
-                    dispatch_records[idx]["attempts"] = current_attempts
-                    dispatch_records[idx]["route_channel"] = str(target.get("channel", ""))
-                    dispatch_records[idx]["governance"] = {"delivery_diagnostics": diagnostics}
-                    break
-        return dispatch_records
+        return self.report_service.dispatch_report_delivery(subscription_identifier, profile_id=profile_id)
 
     def dispatch_digest_delivery(
         self,
@@ -4608,27 +4500,15 @@ class DataPulseReader:
         include_citation_bundles: bool | None = None,
         include_metadata: bool | None = None,
     ) -> str | None:
-        payload = self.compose_report(
+        return self.report_service.export_report(
             identifier,
             profile_id=profile_id,
+            output_format=output_format,
             include_sections=include_sections,
             include_claim_cards=include_claim_cards,
             include_citation_bundles=include_citation_bundles,
+            include_metadata=include_metadata,
         )
-        if payload is None:
-            return None
-
-        profile_payload: dict[str, Any] | None = self.show_export_profile(profile_id) if profile_id else None
-        resolved_format = self._normalize_report_export_format(output_format)
-        if resolved_format == "json":
-            return json.dumps(payload, ensure_ascii=False, indent=2)
-
-        include_metadata = bool(
-            include_metadata
-            if include_metadata is not None
-            else (profile_payload.get("include_metadata", True) if profile_payload else True)
-        )
-        return self._render_report_markdown(payload, include_metadata=include_metadata)
 
     def _to_item(self, parse_result, parser_name: str) -> DataPulseItem:
         source_type = parse_result.source_type or SourceType.GENERIC
@@ -4699,13 +4579,12 @@ class DataPulseReader:
         states: list[str] | None = None,
         include_closed: bool = False,
     ) -> list[dict[str, Any]]:
-        items = self.triage.list_items(
+        return self.triage_service.list_items(
             limit=limit,
             min_confidence=min_confidence,
             states=states,
             include_closed=include_closed,
         )
-        return [serialize_item_with_governance(item) for item in items]
 
     def triage_update(
         self,
@@ -4716,16 +4595,13 @@ class DataPulseReader:
         actor: str = "system",
         duplicate_of: str | None = None,
     ) -> dict[str, Any] | None:
-        item = self.triage.update_state(
+        return self.triage_service.update_item(
             item_id,
             state=state,
             note=note,
             actor=actor,
             duplicate_of=duplicate_of,
         )
-        if item is None:
-            return None
-        return serialize_item_with_governance(item)
 
     def triage_note(
         self,
@@ -4734,22 +4610,16 @@ class DataPulseReader:
         note: str,
         author: str = "system",
     ) -> dict[str, Any] | None:
-        item = self.triage.add_note(item_id, note=note, author=author)
-        if item is None:
-            return None
-        return serialize_item_with_governance(item)
+        return self.triage_service.add_note(item_id, note=note, author=author)
 
     def triage_delete(self, item_id: str) -> dict[str, Any] | None:
-        item = self.triage.delete_item(item_id)
-        if item is None:
-            return None
-        return serialize_item_with_governance(item)
+        return self.triage_service.delete_item(item_id)
 
     def triage_stats(self, *, min_confidence: float = 0.0) -> dict[str, Any]:
-        return self.triage.stats(min_confidence=min_confidence)
+        return self.triage_service.stats(min_confidence=min_confidence)
 
     def triage_explain(self, item_id: str, *, limit: int = 5) -> dict[str, Any] | None:
-        return self.triage.explain_duplicate(item_id, limit=limit)
+        return self.triage_service.explain_duplicate(item_id, limit=limit)
 
     def _build_ai_service_response(
         self,
@@ -4858,39 +4728,7 @@ class DataPulseReader:
         }
 
     def ai_mission_suggest(self, identifier: str, *, mode: str = "assist") -> dict[str, Any] | None:
-        mission = self.watchlist.get(identifier)
-        if mission is None:
-            return None
-        precheck = self.ai_surface_precheck("mission_suggest", mode=mode)
-        subject = {"kind": "WatchMission", "id": mission.id}
-        input_payload = {
-            "operator_prompt": "Generate bounded watch mission suggestions.",
-            "payload_ref": f"watch:{mission.id}",
-            "mission_snapshot": {
-                "name": mission.name,
-                "query": mission.query,
-                "schedule": mission.schedule,
-                "platforms": list(mission.platforms),
-                "sites": list(mission.sites),
-            },
-        }
-        if precheck.get("mode") == "off" or not precheck.get("ok"):
-            return self._build_ai_service_response(
-                precheck=precheck,
-                subject=subject,
-                input_payload=input_payload,
-                output_payload=None,
-                validation_errors=self._ai_failure_reasons(precheck),
-            )
-        payload = self._build_watch_suggestion_payload(mission, mode=str(precheck.get("mode", "assist")))
-        errors = self._validate_ai_payload("mission_suggest", payload)
-        return self._build_ai_service_response(
-            precheck=precheck,
-            subject=subject,
-            input_payload=input_payload,
-            output_payload=payload,
-            validation_errors=errors,
-        )
+        return self.ai_service.ai_mission_suggest(identifier, mode=mode)
 
     def ai_triage_assist(
         self,
@@ -4899,166 +4737,16 @@ class DataPulseReader:
         mode: str = "assist",
         limit: int = 5,
     ) -> dict[str, Any] | None:
-        explain_payload = self.triage.explain_duplicate(item_id, limit=limit)
-        if explain_payload is None:
-            return None
-        item = next((candidate for candidate in self.inbox.items if candidate.id == item_id), None)
-        if item is None:
-            return None
-        precheck = self.ai_surface_precheck("triage_assist", mode=mode)
-        subject = {"kind": "DataPulseItem", "id": item.id}
-        input_payload = {
-            "operator_prompt": "Explain duplicate pressure and evidence gaps without changing final triage state.",
-            "payload_ref": f"triage:{item.id}",
-            "candidate_count": int(explain_payload.get("candidate_count", 0) or 0),
-            "returned_count": int(explain_payload.get("returned_count", 0) or 0),
-        }
-        if precheck.get("mode") == "off" or not precheck.get("ok"):
-            return self._build_ai_service_response(
-                precheck=precheck,
-                subject=subject,
-                input_payload=input_payload,
-                output_payload=None,
-                validation_errors=self._ai_failure_reasons(precheck),
-            )
-        payload = build_triage_assist_payload(item, explain_payload)
-        errors = self._validate_ai_payload("triage_assist", payload)
-        return self._build_ai_service_response(
-            precheck=precheck,
-            subject=subject,
-            input_payload=input_payload,
-            output_payload=payload,
-            validation_errors=errors,
-        )
+        return self.ai_service.ai_triage_assist(item_id, mode=mode, limit=limit)
 
     def ai_claim_draft(self, story_id: str, *, mode: str = "assist", brief_id: str = "") -> dict[str, Any] | None:
-        story = self.show_story(story_id)
-        if story is None:
-            return None
-        precheck = self.ai_surface_precheck("claim_draft", mode=mode)
-        subject = {"kind": "Story", "id": story_id}
-        semantic_review_raw = story.get("semantic_review")
-        semantic_review = cast(dict[str, Any], semantic_review_raw) if isinstance(semantic_review_raw, dict) else {}
-        input_payload = {
-            "operator_prompt": "Draft evidence-bound claim cards without writing final report state.",
-            "payload_ref": f"story:{story_id}",
-            "story_snapshot": {
-                "title": story.get("title", ""),
-                "summary": story.get("summary", ""),
-                "claim_candidate_count": len(semantic_review.get("claim_candidates", []) or []),
-                "item_count": int(story.get("item_count", 0) or 0),
-            },
-        }
-        if precheck.get("mode") == "off" or not precheck.get("ok"):
-            return self._build_ai_service_response(
-                precheck=precheck,
-                subject=subject,
-                input_payload=input_payload,
-                output_payload=None,
-                validation_errors=self._ai_failure_reasons(precheck),
-            )
-        payload = build_claim_draft_from_story(story, brief_id=brief_id, mode=str(precheck.get("mode", "assist")))
-        errors = self._validate_ai_payload("claim_draft", payload)
-        return self._build_ai_service_response(
-            precheck=precheck,
-            subject=subject,
-            input_payload=input_payload,
-            output_payload=payload,
-            validation_errors=errors,
-        )
+        return self.ai_service.ai_claim_draft(story_id, mode=mode, brief_id=brief_id)
 
     def ai_report_draft(self, report_id: str, *, mode: str = "assist", profile_id: str | None = None) -> dict[str, Any] | None:
-        report_payload = self.show_report(report_id)
-        if report_payload is None:
-            return None
-        composed_payload = self.compose_report(report_id, profile_id=profile_id)
-        composed_payload = dict(composed_payload or {})
-        sections = composed_payload.get("sections")
-        sections = sections if isinstance(sections, list) else []
-        claim_cards = composed_payload.get("claim_cards")
-        claim_cards = claim_cards if isinstance(claim_cards, list) else []
-        export_profiles = composed_payload.get("export_profiles")
-        export_profiles = export_profiles if isinstance(export_profiles, list) else []
-        quality = composed_payload.get("quality")
-        quality = quality if isinstance(quality, dict) else {}
-
-        precheck = self.ai_surface_precheck("report_draft", mode=mode)
-        subject = {"kind": "Report", "id": report_payload["id"]}
-        input_payload = {
-            "operator_prompt": "Prepare a report composition draft without mutating final export or provenance truth.",
-            "payload_ref": f"report:{report_payload['id']}",
-            "report_snapshot": {
-                "title": str(report_payload.get("title", "") or "").strip(),
-                "status": str(report_payload.get("status", "") or "").strip(),
-                "section_count": len(sections),
-                "claim_card_count": len(claim_cards),
-                "export_profile_count": len(export_profiles),
-                "quality_status": str(quality.get("status", "") or "").strip(),
-                "quality_score": float(quality.get("score", 0.0) or 0.0),
-                "can_export": bool(quality.get("can_export", False)),
-            },
-        }
-        if profile_id:
-            input_payload["profile_id"] = str(profile_id)
-
-        if precheck.get("mode") == "off" or not precheck.get("ok"):
-            return self._build_ai_service_response(
-                precheck=precheck,
-                subject=subject,
-                input_payload=input_payload,
-                output_payload=None,
-                validation_errors=self._ai_failure_reasons(precheck),
-            )
-        return self._build_ai_service_response(
-            precheck=precheck,
-            subject=subject,
-            input_payload=input_payload,
-            output_payload=None,
-            validation_errors=["report_draft_runtime_requires_admitted_structured_contract"],
-        )
+        return self.ai_service.ai_report_draft(report_id, mode=mode, profile_id=profile_id)
 
     def ai_delivery_summary(self, alert_id: str, *, mode: str = "assist") -> dict[str, Any] | None:
-        event = self._find_alert_event(alert_id)
-        if event is None:
-            return None
-        precheck = self.ai_surface_precheck("delivery_summary", mode=mode)
-        subject = {"kind": "AlertEvent", "id": event.id}
-        route_rows = self._build_delivery_summary_route_rows(event)
-        governance = dict(event.governance or {}) if isinstance(event.governance, dict) else {}
-        delivery_risk = (
-            dict(governance.get("delivery_risk") or {})
-            if isinstance(governance.get("delivery_risk"), dict)
-            else {}
-        )
-        input_payload = {
-            "operator_prompt": "Summarize attributable AlertEvent delivery facts without mutating route or dispatch truth.",
-            "payload_ref": f"alert:{event.id}",
-            "event_snapshot": {
-                "mission_id": event.mission_id,
-                "mission_name": event.mission_name,
-                "rule_name": event.rule_name,
-                "created_at": event.created_at,
-                "route_count": len(route_rows),
-                "delivery_status": str(delivery_risk.get("status", "") or "").strip(),
-            },
-        }
-        if precheck.get("mode") == "off" or not precheck.get("ok"):
-            return self._build_ai_service_response(
-                precheck=precheck,
-                subject=subject,
-                input_payload=input_payload,
-                output_payload=None,
-                validation_errors=self._ai_failure_reasons(precheck),
-            )
-        payload = self._build_delivery_summary_payload(event)
-        errors = self._validate_ai_payload("delivery_summary", payload)
-        return self._build_ai_service_response(
-            precheck=precheck,
-            subject=subject,
-            input_payload=input_payload,
-            output_payload=payload,
-            validation_errors=errors,
-        )
+        return self.ai_service.ai_delivery_summary(alert_id, mode=mode)
 
     def detect_platform(self, url: str) -> str:
         result, parser = self.router.route(url)
@@ -5084,7 +4772,7 @@ class DataPulseReader:
         alert_rules: list[dict[str, Any]] | None = None,
         enabled: bool = True,
     ) -> dict[str, Any]:
-        mission = self.watchlist.create_mission(
+        return self.watch_service.create_watch(
             name=name,
             query=query,
             mission_intent=mission_intent,
@@ -5097,7 +4785,6 @@ class DataPulseReader:
             alert_rules=alert_rules,
             enabled=enabled,
         )
-        return self._serialize_watch_mission(mission)
 
     def update_watch(
         self,
@@ -5115,7 +4802,7 @@ class DataPulseReader:
         alert_rules: list[dict[str, Any]] | None = None,
         enabled: bool | None = None,
     ) -> dict[str, Any] | None:
-        mission = self.watchlist.update_mission(
+        return self.watch_service.update_watch(
             identifier,
             name=name,
             query=query,
@@ -5129,9 +4816,6 @@ class DataPulseReader:
             alert_rules=alert_rules,
             enabled=enabled,
         )
-        if mission is None:
-            return None
-        return self.show_watch(mission.id)
 
     def set_watch_alert_rules(
         self,
@@ -5139,16 +4823,10 @@ class DataPulseReader:
         *,
         alert_rules: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
-        mission = self.watchlist.replace_alert_rules(identifier, alert_rules)
-        if mission is None:
-            return None
-        return self.show_watch(mission.id)
+        return self.watch_service.set_watch_alert_rules(identifier, alert_rules=alert_rules)
 
     def list_watches(self, *, include_disabled: bool = False) -> list[dict[str, Any]]:
-        return [
-            self._serialize_watch_mission(mission)
-            for mission in self.watchlist.list_missions(include_disabled=include_disabled)
-        ]
+        return self.watch_service.list_watches(include_disabled=include_disabled)
 
     def _watch_result_items(
         self,
@@ -5318,73 +4996,19 @@ class DataPulseReader:
         limit: int = 10,
         min_confidence: float = 0.0,
     ) -> list[dict[str, Any]] | None:
-        mission = self.watchlist.get(identifier)
-        if mission is None:
-            return None
-        items = self._watch_result_items(mission, min_confidence=min_confidence)
-        return [self._serialize_watch_result(item) for item in items[: max(0, int(limit))]]
+        return self.watch_service.list_watch_results(identifier, limit=limit, min_confidence=min_confidence)
 
     def show_watch(self, identifier: str) -> dict[str, Any] | None:
-        mission = self.watchlist.get(identifier)
-        if mission is None:
-            return None
-        payload = self._serialize_watch_mission(mission)
-        last_failure = self._latest_failed_run(mission)
-        payload["last_failure"] = last_failure.to_dict() if last_failure is not None else None
-        payload["retry_advice"] = self._watch_retry_advice(mission, last_failure)
-        stored_result_items = self._watch_result_items(
-            mission,
-            min_confidence=0.0,
-            apply_query_filter=False,
-        )
-        result_items = self._filter_watch_results_by_query(mission, stored_result_items)
-        filtered_result_count = max(0, len(stored_result_items) - len(result_items))
-        payload["recent_results"] = [self._serialize_watch_result(item) for item in result_items[:8]]
-        payload["result_stats"] = {
-            "stored_result_count": len(stored_result_items),
-            "visible_result_count": len(result_items),
-            "filtered_result_count": filtered_result_count,
-            "returned_result_count": min(8, len(result_items)),
-            "latest_result_at": (
-                result_items[0].fetched_at
-                if result_items
-                else (stored_result_items[0].fetched_at if stored_result_items else "")
-            ),
-        }
-        payload["result_filters"] = self._build_watch_result_filters(payload["recent_results"])
-        recent_alerts = self.list_alerts(limit=6, mission_id=mission.id)
-        payload["recent_alerts"] = recent_alerts
-        payload["delivery_stats"] = {
-            "recent_alert_count": len(recent_alerts),
-            "recent_error_count": sum(
-                1
-                for event in recent_alerts
-                if isinstance(event.get("extra"), dict)
-                and isinstance(event["extra"].get("delivery_errors"), dict)
-                and event["extra"]["delivery_errors"]
-            ),
-            "last_alert_at": recent_alerts[0].get("created_at", "") if recent_alerts else "",
-        }
-        payload["timeline_strip"] = self._build_watch_timeline_strip(mission, payload["recent_results"], recent_alerts)
-        return payload
+        return self.watch_service.show_watch(identifier)
 
     def disable_watch(self, identifier: str) -> dict[str, Any] | None:
-        mission = self.watchlist.disable(identifier)
-        if mission is None:
-            return None
-        return mission.to_dict()
+        return self.watch_service.disable_watch(identifier)
 
     def enable_watch(self, identifier: str) -> dict[str, Any] | None:
-        mission = self.watchlist.enable(identifier)
-        if mission is None:
-            return None
-        return mission.to_dict()
+        return self.watch_service.enable_watch(identifier)
 
     def delete_watch(self, identifier: str) -> dict[str, Any] | None:
-        mission = self.watchlist.delete(identifier)
-        if mission is None:
-            return None
-        return mission.to_dict()
+        return self.watch_service.delete_watch(identifier)
 
     def _tag_items_with_watch(self, mission: WatchMission, items: list[DataPulseItem]) -> None:
         if not items:
@@ -5501,144 +5125,25 @@ class DataPulseReader:
         }
 
     def list_alerts(self, *, limit: int = 20, mission_id: str | None = None) -> list[dict[str, Any]]:
-        return [
-            event.to_dict()
-            for event in self.alert_store.list_events(limit=limit, mission_id=mission_id)
-        ]
+        return self.alert_service.list_alerts(limit=limit, mission_id=mission_id)
 
     def list_alert_routes(self) -> list[dict[str, Any]]:
-        return self.alert_routes.list_routes()
+        return self.alert_service.list_alert_routes()
 
     def create_alert_route(self, **payload: Any) -> dict[str, Any]:
-        route_name = str(payload.pop("name", "") or "").strip()
-        return self.alert_routes.create(route_name, payload)
+        return self.alert_service.create_alert_route(**payload)
 
     def update_alert_route(self, name: str, **payload: Any) -> dict[str, Any] | None:
-        return self.alert_routes.update(name, payload)
+        return self.alert_service.update_alert_route(name, **payload)
 
     def delete_alert_route(self, name: str) -> dict[str, Any] | None:
-        return self.alert_routes.delete(name)
+        return self.alert_service.delete_alert_route(name)
 
     def alert_route_health(self, *, limit: int = 100) -> list[dict[str, Any]]:
-        route_rows: dict[str, dict[str, Any]] = {}
-        for route in self.list_alert_routes():
-            name = str(route.get("name", "")).strip().lower()
-            if not name:
-                continue
-            route_rows[name] = {
-                "name": name,
-                "channel": str(route.get("channel", "")).strip().lower() or "unknown",
-                "configured": True,
-                "status": "idle",
-                "event_count": 0,
-                "delivered_count": 0,
-                "failure_count": 0,
-                "success_rate": None,
-                "last_event_at": "",
-                "last_delivered_at": "",
-                "last_failed_at": "",
-                "last_error": "",
-                "last_summary": "",
-                "mission_ids": set(),
-                "rule_names": set(),
-            }
-
-        for event in self.alert_store.list_events(limit=max(0, int(limit))):
-            rule = event.extra.get("rule", {}) if isinstance(event.extra, dict) else {}
-            if not isinstance(rule, dict):
-                continue
-            route_names = _normalize_route_names(rule)
-            if not route_names:
-                continue
-            delivered_channels = {
-                str(label or "").strip().lower()
-                for label in event.delivered_channels
-                if str(label or "").strip()
-            }
-            delivery_errors = event.extra.get("delivery_errors", {}) if isinstance(event.extra, dict) else {}
-            if not isinstance(delivery_errors, dict):
-                delivery_errors = {}
-            for route_name in route_names:
-                route_payload = self.alert_routes.get(route_name)
-                route_dict: dict[str, Any] | None = route_payload if isinstance(route_payload, dict) else None
-                channel = str(route_dict.get("channel", "")).strip().lower() if route_dict is not None else ""
-                route_row = route_rows.setdefault(
-                    route_name,
-                    {
-                        "name": route_name,
-                        "channel": channel or "unknown",
-                        "configured": route_dict is not None,
-                        "status": "missing" if route_dict is None else "idle",
-                        "event_count": 0,
-                        "delivered_count": 0,
-                        "failure_count": 0,
-                        "success_rate": None,
-                        "last_event_at": "",
-                        "last_delivered_at": "",
-                        "last_failed_at": "",
-                        "last_error": "",
-                        "last_summary": "",
-                        "mission_ids": set(),
-                        "rule_names": set(),
-                    },
-                )
-                if channel and route_row["channel"] == "unknown":
-                    route_row["channel"] = channel
-                route_row["configured"] = route_row["configured"] or isinstance(route, dict)
-                route_row["event_count"] += 1
-                route_row["mission_ids"].add(event.mission_id)
-                route_row["rule_names"].add(event.rule_name)
-                if not route_row["last_event_at"]:
-                    route_row["last_event_at"] = event.created_at
-                    route_row["last_summary"] = event.summary
-
-                route_label = f"{channel}:{route_name}" if channel else route_name
-                if route_label in delivered_channels:
-                    route_row["delivered_count"] += 1
-                    if not route_row["last_delivered_at"]:
-                        route_row["last_delivered_at"] = event.created_at
-
-                error_message = str(
-                    delivery_errors.get(route_label)
-                    or delivery_errors.get(f"route:{route_name}")
-                    or ""
-                ).strip()
-                if error_message:
-                    route_row["failure_count"] += 1
-                    if not route_row["last_failed_at"]:
-                        route_row["last_failed_at"] = event.created_at
-                    if not route_row["last_error"]:
-                        route_row["last_error"] = error_message
-
-        severity = {"missing": 0, "degraded": 1, "healthy": 2, "idle": 3}
-        payloads: list[dict[str, Any]] = []
-        for route_row in route_rows.values():
-            attempts = route_row["delivered_count"] + route_row["failure_count"]
-            if not route_row["configured"]:
-                route_row["status"] = "missing"
-            elif route_row["failure_count"] > 0:
-                route_row["status"] = "degraded"
-            elif route_row["delivered_count"] > 0:
-                route_row["status"] = "healthy"
-            else:
-                route_row["status"] = "idle"
-            if attempts > 0:
-                route_row["success_rate"] = round(route_row["delivered_count"] / attempts, 3)
-            route_row["mission_ids"] = sorted(route_row["mission_ids"])
-            route_row["rule_names"] = sorted(route_row["rule_names"])
-            payloads.append(route_row)
-
-        return sorted(
-            payloads,
-            key=lambda row: (
-                severity.get(str(row.get("status", "idle")), 99),
-                -(_parse_timestamp(row.get("last_event_at")) or datetime.fromtimestamp(0, tz=timezone.utc)).timestamp(),
-                str(row.get("name", "")),
-            ),
-        )
+        return self.alert_service.alert_route_health(limit=limit)
 
     def watch_status_snapshot(self) -> dict[str, Any]:
-        return self.watch_status.snapshot()
+        return self.alert_service.watch_status_snapshot()
 
     def ops_snapshot(
         self,
@@ -5647,306 +5152,21 @@ class DataPulseReader:
         route_limit: int = 100,
         recent_failure_limit: int = 5,
     ) -> dict[str, Any]:
-        doctor_report = self.doctor()
-        status = self.watch_status_snapshot()
-        route_health = self.alert_route_health(limit=route_limit)
-        recent_alerts = self.list_alerts(limit=alert_limit)
-        watch_summary, watch_health = self._watch_health_snapshot()
-        governance_scorecard = self.governance_scorecard_snapshot()
-
-        collector_summary = {
-            "total": 0,
-            "ok": 0,
-            "warn": 0,
-            "error": 0,
-            "available": 0,
-            "unavailable": 0,
-        }
-        collector_tiers: dict[str, dict[str, Any]] = {}
-        degraded_collectors: list[dict[str, Any]] = []
-
-        for tier_name, entries in doctor_report.items():
-            tier_summary = {
-                "total": 0,
-                "ok": 0,
-                "warn": 0,
-                "error": 0,
-                "available": 0,
-                "unavailable": 0,
-            }
-            for raw_entry in entries:
-                entry = dict(raw_entry)
-                status_name = str(entry.get("status", "ok")).strip().lower() or "ok"
-                available = bool(entry.get("available", True))
-                collector_summary["total"] += 1
-                tier_summary["total"] += 1
-                if status_name not in {"ok", "warn", "error"}:
-                    status_name = "error"
-                collector_summary[status_name] += 1
-                tier_summary[status_name] += 1
-                if available:
-                    collector_summary["available"] += 1
-                    tier_summary["available"] += 1
-                else:
-                    collector_summary["unavailable"] += 1
-                    tier_summary["unavailable"] += 1
-                if status_name != "ok" or not available:
-                    degraded_collectors.append(
-                        {
-                            "tier": tier_name,
-                            "name": entry.get("name", ""),
-                            "status": status_name,
-                            "available": available,
-                            "message": entry.get("message", ""),
-                            "setup_hint": entry.get("setup_hint", ""),
-                        }
-                    )
-            collector_tiers[tier_name] = tier_summary
-
-        collector_drilldown = sorted(
-            [
-                {
-                    "tier": tier_name,
-                    "name": str(entry.get("name", "") or "").strip(),
-                    "status": str(entry.get("status", "ok") or "ok").strip().lower(),
-                    "available": bool(entry.get("available", True)),
-                    "message": str(entry.get("message", "") or "").strip(),
-                    "setup_hint": str(entry.get("setup_hint", "") or "").strip(),
-                }
-                for tier_name, entries in doctor_report.items()
-                for entry in entries
-            ],
-            key=lambda row: (
-                {"error": 0, "warn": 1, "ok": 2}.get(str(row.get("status", "ok")), 99),
-                0 if not bool(row.get("available", True)) else 1,
-                str(row.get("tier", "")),
-                str(row.get("name", "")),
-            ),
+        return self.alert_service.ops_snapshot(
+            alert_limit=alert_limit,
+            route_limit=route_limit,
+            recent_failure_limit=recent_failure_limit,
         )
-
-        metrics = status.get("metrics", {}) if isinstance(status, dict) else {}
-        runs_total = int(metrics.get("runs_total", 0) or 0)
-        success_total = int(metrics.get("success_total", 0) or 0)
-        error_total = int(metrics.get("error_total", 0) or 0)
-        watch_metrics = {
-            "state": status.get("state", "idle") if isinstance(status, dict) else "idle",
-            "heartbeat_at": status.get("heartbeat_at", "") if isinstance(status, dict) else "",
-            "last_error": status.get("last_error", "") if isinstance(status, dict) else "",
-            "cycles_total": int(metrics.get("cycles_total", 0) or 0),
-            "runs_total": runs_total,
-            "success_total": success_total,
-            "error_total": error_total,
-            "alerts_total": int(metrics.get("alerts_total", 0) or 0),
-            "success_rate": round(success_total / runs_total, 3) if runs_total > 0 else None,
-        }
-
-        route_summary = {
-            "total": len(route_health),
-            "healthy": sum(1 for route in route_health if route.get("status") == "healthy"),
-            "degraded": sum(1 for route in route_health if route.get("status") == "degraded"),
-            "missing": sum(1 for route in route_health if route.get("status") == "missing"),
-            "idle": sum(1 for route in route_health if route.get("status") == "idle"),
-        }
-        route_drilldown = [
-            {
-                "name": str(route.get("name", "") or "").strip(),
-                "channel": str(route.get("channel", "unknown") or "unknown").strip().lower(),
-                "status": str(route.get("status", "idle") or "idle").strip().lower(),
-                "configured": bool(route.get("configured", False)),
-                "event_count": int(route.get("event_count", 0) or 0),
-                "delivered_count": int(route.get("delivered_count", 0) or 0),
-                "failure_count": int(route.get("failure_count", 0) or 0),
-                "success_rate": route.get("success_rate"),
-                "last_event_at": str(route.get("last_event_at", "") or "").strip(),
-                "last_delivered_at": str(route.get("last_delivered_at", "") or "").strip(),
-                "last_failed_at": str(route.get("last_failed_at", "") or "").strip(),
-                "last_error": str(route.get("last_error", "") or "").strip(),
-                "last_summary": str(route.get("last_summary", "") or "").strip(),
-                "mission_count": len(route.get("mission_ids", []) or []),
-                "rule_count": len(route.get("rule_names", []) or []),
-                "mission_ids": list(route.get("mission_ids", []) or []),
-                "rule_names": list(route.get("rule_names", []) or []),
-            }
-            for route in route_health
-        ]
-        route_timeline: list[dict[str, Any]] = []
-        for event in self.alert_store.list_events(limit=max(0, int(route_limit))):
-            rule = event.extra.get("rule", {}) if isinstance(event.extra, dict) else {}
-            if not isinstance(rule, dict):
-                continue
-            route_names = _normalize_route_names(rule)
-            if not route_names:
-                continue
-            delivery_errors = event.extra.get("delivery_errors", {}) if isinstance(event.extra, dict) else {}
-            if not isinstance(delivery_errors, dict):
-                delivery_errors = {}
-            delivered_channels = {
-                str(label or "").strip().lower()
-                for label in event.delivered_channels
-                if str(label or "").strip()
-            }
-            for route_name in route_names:
-                route = self.alert_routes.get(route_name)
-                channel = str(route.get("channel", "")).strip().lower() if isinstance(route, dict) else ""
-                route_label = f"{channel}:{route_name}" if channel else route_name
-                error_message = str(
-                    delivery_errors.get(route_label)
-                    or delivery_errors.get(f"route:{route_name}")
-                    or ""
-                ).strip()
-                delivered = route_label in delivered_channels
-                route_timeline.append(
-                    {
-                        "route": route_name,
-                        "channel": channel or "unknown",
-                        "mission_id": event.mission_id,
-                        "mission_name": event.mission_name,
-                        "rule_name": event.rule_name,
-                        "created_at": event.created_at,
-                        "status": "failed" if error_message else "delivered" if delivered else "pending",
-                        "summary": str(event.summary or "").strip(),
-                        "error": error_message,
-                        "delivered_channels": sorted(delivered_channels),
-                    }
-                )
-        route_timeline = sorted(
-            route_timeline,
-            key=lambda row: (_parse_timestamp(row.get("created_at")) or datetime.fromtimestamp(0, tz=timezone.utc)).timestamp(),
-            reverse=True,
-        )[:12]
-
-        recent_failures: list[dict[str, Any]] = []
-        last_result = status.get("last_result", {}) if isinstance(status, dict) else {}
-        results = last_result.get("results", []) if isinstance(last_result, dict) else []
-        for row in results if isinstance(results, list) else []:
-            if str(row.get("status", "")).strip().lower() == "success":
-                continue
-            recent_failures.append(
-                {
-                    "kind": "watch_run",
-                    "mission_id": row.get("mission_id", ""),
-                    "mission_name": row.get("mission_name", ""),
-                    "status": row.get("status", "error"),
-                    "error": row.get("error", ""),
-                    "attempts": row.get("attempts", 0),
-                }
-            )
-        for route in route_health:
-            if route.get("failure_count", 0) and route.get("last_error"):
-                recent_failures.append(
-                    {
-                        "kind": "route_delivery",
-                        "name": route.get("name", ""),
-                        "channel": route.get("channel", ""),
-                        "status": route.get("status", "degraded"),
-                        "error": route.get("last_error", ""),
-                        "last_event_at": route.get("last_event_at", ""),
-                    }
-                )
-        recent_failures = recent_failures[: max(0, int(recent_failure_limit))]
-
-        return {
-            "collector_summary": collector_summary,
-            "collector_tiers": collector_tiers,
-            "degraded_collectors": degraded_collectors[:8],
-            "collector_drilldown": collector_drilldown[:12],
-            "watch_metrics": watch_metrics,
-            "watch_summary": watch_summary,
-            "watch_health": watch_health[:8],
-            "route_summary": route_summary,
-            "route_health": route_health[:8],
-            "route_drilldown": route_drilldown[:12],
-            "route_timeline": route_timeline,
-            "recent_failures": recent_failures,
-            "recent_alerts": recent_alerts,
-            "governance_scorecard": governance_scorecard,
-            "daemon": status,
-        }
 
     def _evaluate_and_dispatch_watch_alerts(
         self,
         mission: WatchMission,
         items: list[DataPulseItem],
     ) -> list[dict[str, Any]]:
-        outputs: list[dict[str, Any]] = []
-        for event, matches, cooldown_seconds in evaluate_watch_alerts(mission, items):
-            if not self.alert_store.add(event, cooldown_seconds=cooldown_seconds):
-                continue
-            delivered, errors = dispatch_alert_event(event, matches)
-            event.delivered_channels = delivered
-            if errors:
-                event.extra["delivery_errors"] = errors
-            self.alert_store.save()
-            outputs.append(event.to_dict())
-        return outputs
+        return self.alert_service.evaluate_and_dispatch_watch_alerts(mission, items)
 
     async def run_watch(self, identifier: str, *, trigger: str = "manual") -> dict[str, Any]:
-        mission = self.watchlist.get(identifier)
-        if mission is None:
-            raise ValueError(f"Watch mission not found: {identifier}")
-        if not mission.enabled:
-            raise ValueError(f"Watch mission is disabled: {identifier}")
-
-        started_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-        try:
-            if mission.platforms:
-                batches = await asyncio.gather(*[
-                    self.search(
-                        mission.query,
-                        sites=mission.sites or None,
-                        platform=platform,
-                        limit=mission.top_n,
-                        min_confidence=mission.min_confidence,
-                    )
-                    for platform in mission.platforms
-                ])
-                merged: dict[str, DataPulseItem] = {}
-                for batch in batches:
-                    for item in batch:
-                        merged[item.id] = item
-                items = sorted(
-                    merged.values(),
-                    key=lambda item: (item.score, item.confidence, item.fetched_at),
-                    reverse=True,
-                )[: mission.top_n]
-            else:
-                items = await self.search(
-                    mission.query,
-                    sites=mission.sites or None,
-                    limit=mission.top_n,
-                    min_confidence=mission.min_confidence,
-                )
-
-            items = self._filter_watch_results_by_query(mission, items)
-            self._tag_items_with_watch(mission, items)
-            alert_events = self._evaluate_and_dispatch_watch_alerts(mission, items)
-            run = MissionRun(
-                mission_id=mission.id,
-                status="success",
-                item_count=len(items),
-                trigger=trigger,
-                started_at=started_at,
-                finished_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-            )
-            updated = self.watchlist.record_run(mission.id, run) or mission
-            return {
-                "mission": self._serialize_watch_mission(updated),
-                "run": run.to_dict(),
-                "items": [item.to_dict() for item in items],
-                "alert_events": alert_events,
-            }
-        except Exception as exc:
-            run = MissionRun(
-                mission_id=mission.id,
-                status="error",
-                item_count=0,
-                trigger=trigger,
-                error=str(exc),
-                started_at=started_at,
-                finished_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-            )
-            self.watchlist.record_run(mission.id, run)
-            raise
+        return await self.watch_service.run_watch(identifier, trigger=trigger)
 
     async def run_due_watches(
         self,
@@ -5957,54 +5177,13 @@ class DataPulseReader:
         retry_max_delay: float = 30.0,
         retry_backoff_factor: float = 2.0,
     ) -> dict[str, Any]:
-        scheduled_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-        due_missions = self.watch_scheduler.due_missions(limit=limit)
-        results: list[dict[str, Any]] = []
-
-        for mission in due_missions:
-            attempt = 1
-            delay = max(0.1, float(retry_base_delay))
-            while True:
-                try:
-                    payload = await self.run_watch(mission.id, trigger="scheduled")
-                    run_payload = payload.get("run", {})
-                    alert_events = payload.get("alert_events", [])
-                    results.append(
-                        {
-                            "mission_id": mission.id,
-                            "mission_name": mission.name,
-                            "status": run_payload.get("status", "success"),
-                            "item_count": run_payload.get("item_count", 0),
-                            "attempts": attempt,
-                            "retry_count": max(0, attempt - 1),
-                            "alert_count": len(alert_events) if isinstance(alert_events, list) else 0,
-                        }
-                    )
-                    break
-                except Exception as exc:
-                    if attempt >= max(1, int(retry_attempts)):
-                        results.append(
-                            {
-                                "mission_id": mission.id,
-                                "mission_name": mission.name,
-                                "status": "error",
-                                "item_count": 0,
-                                "attempts": attempt,
-                                "retry_count": max(0, attempt - 1),
-                                "error": str(exc),
-                            }
-                        )
-                        break
-                    await asyncio.sleep(min(delay, retry_max_delay))
-                    delay = min(delay * retry_backoff_factor, retry_max_delay)
-                    attempt += 1
-
-        return {
-            "scheduled_at": scheduled_at,
-            "due_count": len(due_missions),
-            "run_count": len(results),
-            "results": results,
-        }
+        return await self.watch_service.run_due_watches(
+            limit=limit,
+            retry_attempts=retry_attempts,
+            retry_base_delay=retry_base_delay,
+            retry_max_delay=retry_max_delay,
+            retry_backoff_factor=retry_backoff_factor,
+        )
 
     async def run_watch_daemon(
         self,

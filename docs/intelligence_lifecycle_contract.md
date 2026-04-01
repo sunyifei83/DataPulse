@@ -307,6 +307,53 @@ Contract rules:
 - browser console remains an operating layer over the same reader-backed contract.
 - MCP and CLI should expose the same lifecycle nouns, not aliases that invent new domain meanings.
 
+## Runtime Ownership And Service-Seam Contract
+
+`L27.2` freezes the runtime-boundary contract that later maintainability work must preserve.
+
+### Canonical Runtime Owners
+
+| Layer | Canonical owner(s) | What the layer owns | What the layer must not absorb |
+| --- | --- | --- | --- |
+| Acquisition adapters | `datapulse/core/router.py`, `datapulse/core/search_gateway.py`, `datapulse/collectors/*` | collector selection, source fetch and parsing, intake retry/fallback, upstream normalization before lifecycle persistence | triage/story/report/delivery truth, cross-surface state semantics, UI or tool projection policy |
+| Reader/lifecycle kernel | `datapulse/reader.py` plus `datapulse/core/watchlist.py`, `datapulse/core/triage.py`, `datapulse/core/story.py`, `datapulse/core/report.py`, `datapulse/core/alerts.py` | canonical lifecycle nouns, persistence-backed orchestration, route and delivery facts, shared semantics projected into every surface | provider-specific bridge policy, wrapper-specific state machines, blueprint progress truth, source-specific parser behavior |
+| Surface projections | `datapulse/cli.py`, `datapulse/mcp_server.py`, `datapulse/console_server.py`, `datapulse/agent.py`, `SKILL.md`, `datapulse_skill/manifest.json` | CLI flags, MCP tools, API and browser routes, operator or assistant affordances, output rendering | lifecycle source truth, hidden orchestration forks, alternate domain nouns, final AI authority |
+| Governed AI overlay | lifecycle contract plus AI governance and ModelBus configs | admitted surface ids, `off` / `assist` / `review` switch meaning, fail-closed structured candidate payloads | final review/export/dispatch state writes, alternate lifecycle objects, ungated public-surface publication |
+| Governance control plane | blueprint plans plus governance loop scripts | next-slice truth, evidence export, reopen or promotion semantics, loop control state | mission execution, report assembly, route dispatch, provider-runtime behavior |
+
+### Stable Reader Facade
+
+- `DataPulseReader` remains the canonical runtime facade for shared lifecycle capabilities during the `L27` wave.
+- Reader internals may decompose, but the public lifecycle nouns and their cross-surface semantics must remain stable through that facade.
+- surface wrappers must continue to call shared Reader-backed behavior rather than re-owning mission, triage, story, report, delivery, or AI workflows.
+
+### Target Service Seams For Future Work
+
+The allowed Reader-internal extraction targets are frozen to these seams:
+
+| Seam | Frozen scope |
+| --- | --- |
+| Mission seam | watch CRUD, mission scheduling, run triggers, due-watch execution, mission and ops snapshots |
+| Triage seam | triage queue review states, notes/actions, duplicate handling, explanations, queue stats |
+| Story seam | story build and update flows, graph/export, contradiction handling, evidence aggregation |
+| Report seam | report brief, claim, section, report assembly, export profiles, report-quality flows |
+| Delivery seam | alert routes, route health, delivery subscriptions, dispatch packages, dispatch records |
+| Governed AI seam | surface precheck, admitted suggest/draft/summary helpers, assist/review-mode orchestration |
+
+Seam rules:
+
+- acquisition stays upstream of those seams and remains an adapter layer instead of a lifecycle owner
+- `L27.3` may move code behind those seams, but it must not change the lifecycle object chain or move orchestration into CLI, MCP, API, browser, agent, or skill wrappers
+- `L27.4` may add machine-readable projection metadata and helpers, but it must not relocate lifecycle truth away from the Reader/kernel boundary
+
+### Ownership Rules For New Capability Work
+
+1. new business capability must attach to one frozen seam in the Reader/kernel layer before it is projected into surfaces
+2. surface-specific work may add affordances or formatting, but not a second lifecycle or wrapper-owned state transitions
+3. AI assistance remains additive to existing lifecycle objects and cannot finalize review, report, or delivery state directly
+4. governance evidence and loop automation may describe runtime facts, but cannot become a business-runtime executor
+5. any future reopen of this boundary requires repo evidence of a layer contradiction, an impossible seam extraction behind Reader, or a parity requirement that cannot be expressed without wrapper-owned business truth
+
 ## Lifecycle Invariants
 
 The following invariants should hold for all follow-up work:
