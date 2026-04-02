@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-04-01T11:27:03Z",
+  "generated_at_utc": "2026-04-02T09:19:31Z",
   "status": "in_progress",
   "activation": {
     "wired": true,
@@ -31,7 +31,9 @@
       "The L26 console modularity-and-traceability follow-up wave is now fully completed in repo truth through L26.5.",
       "The L27 runtime-kernel and multi-surface projection wave is now completed in repo truth through L27.5.",
       "L27 left DataPulse with a shared surface capability catalog, runtime introspection, and explicit reopen rules over the Reader-backed lifecycle kernel.",
-      "The current draft plan therefore returns recommended_next_slice=no-open-slice until a new blueprint wave or admissible reopen evidence appears.",
+      "A new external-fact-derived follow-up wave is now reopened in repo truth through L29.1, with L29.2 as the next manual ignition target.",
+      "The L29 wave treats query intent, source planning, evidence stitching, and coverage-gap projection as an internal research substrate over the existing Reader-backed lifecycle and report-layer objects.",
+      "L29 does not publish a new public AI surface, does not admit report_draft, and does not reopen collector-count or provider-count growth as the primary storyline.",
       "L27 kept Reader-backed lifecycle truth canonical, treated collectors as acquisition adapters, kept AI as a governed overlay, and did not reopen shell-order simplification or force a frontend-stack migration.",
       "Operator review should treat any post-closeout truth drift as a coupling bug to remove rather than as evidence that L27 is still open or needs a parallel control plane."
     ]

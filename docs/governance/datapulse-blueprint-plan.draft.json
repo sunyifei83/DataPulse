@@ -2,8 +2,8 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-04-01T16:13:12Z",
-  "status": "completed",
+  "generated_at_utc": "2026-04-02T09:19:31Z",
+  "status": "in_progress",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -91,7 +91,8 @@
     "L25": "completed",
     "L26": "completed",
     "L27": "completed",
-    "L28": "completed"
+    "L28": "completed",
+    "L29": "in_progress"
   },
   "phases": [
     {
@@ -3665,14 +3666,162 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L29",
+      "title": "Intent-aware Research Substrate And Evidence Stitching",
+      "status": "in_progress",
+      "slices": [
+        {
+          "id": "L29.1",
+          "title": "Land the repo-scoped intent-aware research substrate blueprint and fact promotion",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-intent-aware-research-substrate-blueprint.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "exit_condition": "Repo-native blueprint truth records the last30days review as an internal research-substrate wave centered on query intent, source planning, evidence stitching, and coverage-gap projection, with the next manual ignition target moved to an explicit contract-freeze slice instead of leaving the plan at no-open-slice.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_last30days\u80fd\u529b\u590d\u6838_\u9762\u5411AI\u63a5\u5165\u4e0e\u4ea7\u54c1\u5316\u5267\u60c5\u7684\u5f85\u6295\u6599\u4fe1\u606f_2026-04-02.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_ChiTing_last30days-cn\u80fd\u529b\u8403\u53d6\u4e0e\u5f85\u590d\u6838\u4fe1\u6e90_2026-04-02.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_mvanhorn_last30days\u80fd\u529b\u8403\u53d6\u4e0e\u5f85\u590d\u6838\u4fe1\u6e90_2026-04-02.md"
+          ],
+          "notes": [
+            "Treat the imported value as an internal research substrate, not as a public AI surface or a collector bundle.",
+            "Keep report_draft fail_closed and do not use this wave to bypass existing admission requirements.",
+            "Highest-leverage delta is intent-aware planning plus evidence stitching, not provider-count or collector-count growth."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-04-02T09:19:31Z",
+            "source_count": 3,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/DataPulse/00_\u7d22\u5f15\u4e0e\u8ba1\u5212/DataPulse_last30days\u80fd\u529b\u590d\u6838_\u9762\u5411AI\u63a5\u5165\u4e0e\u4ea7\u54c1\u5316\u5267\u60c5\u7684\u5f85\u6295\u6599\u4fe1\u606f_2026-04-02.md",
+              "frontmatter_title": "DataPulse last30days \u80fd\u529b\u590d\u6838\u540e\u5f85\u6295\u6599\u4fe1\u606f\uff08\u9762\u5411 AI \u63a5\u5165\u4e0e\u4ea7\u54c1\u5316\u5267\u60c5\uff09",
+              "first_heading": "DataPulse last30days \u80fd\u529b\u590d\u6838\u540e\u5f85\u6295\u6599\u4fe1\u606f\uff08\u9762\u5411 AI \u63a5\u5165\u4e0e\u4ea7\u54c1\u5316\u5267\u60c5\uff09",
+              "selected_heading": "",
+              "wikilink_name": "DataPulse_last30days\u80fd\u529b\u590d\u6838_\u9762\u5411AI\u63a5\u5165\u4e0e\u4ea7\u54c1\u5316\u5267\u60c5\u7684\u5f85\u6295\u6599\u4fe1\u606f_2026-04-02"
+            }
+          }
+        },
+        {
+          "id": "L29.2",
+          "title": "Freeze the internal research-substrate contract for query_intent, source_plan, research_packet, evidence_bundle, and coverage_gap",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "docs/governance/datapulse-intent-aware-research-substrate-contract.md",
+            "docs/intelligence_lifecycle_contract.md"
+          ],
+          "exit_condition": "Repo truth explicitly freezes the internal-only nouns, ownership boundaries, and consumption rules for query_intent, source_plan, research_packet, repo-local research evidence_bundle, and coverage_gap before runtime work touches SearchGateway, Story, report-layer inputs, or governed AI surfaces.",
+          "notes": [
+            "This slice is contract-only and must not publish a new public AI surface.",
+            "The contract must preserve existing public lifecycle nouns and keep report_draft fail_closed."
+          ]
+        },
+        {
+          "id": "L29.3",
+          "title": "Add intent-aware search planning and Chinese-query relevance policy above SearchGateway and mission intake",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "datapulse/core/search_gateway.py",
+            "datapulse/reader.py",
+            "tests/test_search_gateway.py",
+            "tests/test_reader.py"
+          ],
+          "exit_condition": "DataPulse can derive bounded query_intent and source or provider planning hints above SearchGateway, including Chinese-query relevance uplift, without replacing SearchHit normalization or reopening provider-count as the primary abstraction.",
+          "notes": [
+            "Favor intent-aware hints, provider selection, depth, freshness, and platform guidance rather than hardcoding one new default lane.",
+            "Chinese-query handling should be a shared planning policy, not a one-off provider quirk."
+          ]
+        },
+        {
+          "id": "L29.4",
+          "title": "Add cross-source evidence stitching and report-layer intake normalization for story, claim, and citation prep",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "datapulse/core/story.py",
+            "datapulse/core/report.py",
+            "datapulse/reader.py",
+            "tests/test_story.py",
+            "tests/test_report.py"
+          ],
+          "exit_condition": "Multi-hit research results can be stitched into provenance-preserving evidence inputs that strengthen Story assembly, ClaimCard preparation, and CitationBundle candidates instead of remaining display-only search result rows.",
+          "notes": [
+            "The target is evidence stitching, contradiction visibility, and citation readiness, not merely another dedupe pass.",
+            "Preserve item and story provenance so stitched evidence never becomes untraceable prose."
+          ]
+        },
+        {
+          "id": "L29.5",
+          "title": "Project source_plan and coverage_gap through admitted AI surfaces and operator-visible lifecycle views",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "datapulse/reader.py",
+            "datapulse/cli.py",
+            "datapulse/mcp_server.py",
+            "datapulse/console_server.py",
+            "tests/test_cli.py",
+            "tests/test_mcp_server.py",
+            "tests/test_console_server.py"
+          ],
+          "exit_condition": "mission_suggest, claim_draft, delivery_summary, and the corresponding operator-visible lifecycle views can expose bounded source_plan or coverage_gap semantics without publishing a new public AI surface or weakening current fail_closed behavior.",
+          "notes": [
+            "Limit this slice to admitted surfaces and operator-visible lifecycle views; do not use it to admit report_draft.",
+            "Browser projection must remain a thin surface over Reader-backed semantics."
+          ]
+        },
+        {
+          "id": "L29.6",
+          "title": "Harden verification, parity, and reopen rules for intent-aware routing, evidence stitching, and coverage-gap semantics",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json",
+            "tests/test_search_gateway.py",
+            "tests/test_story.py",
+            "tests/test_report.py",
+            "tests/test_cli.py",
+            "tests/test_mcp_server.py",
+            "tests/test_console_server.py"
+          ],
+          "exit_condition": "Intent-aware planning, evidence stitching, and coverage-gap projection are machine-checkable across core and surface layers, and repo truth records what evidence should reopen this wave instead of silently letting heuristics drift.",
+          "notes": [
+            "Acceptance should prove semantic parity and bounded reopen rules, not only that new helper code imports.",
+            "Keep reopen triggers narrow: planning regressions, provenance drift, or cross-surface contradiction."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
+    "id": "L29.2",
+    "title": "Freeze the internal research-substrate contract for query_intent, source_plan, research_packet, evidence_bundle, and coverage_gap",
+    "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-04-02T09:19:31Z",
+      "slice_id": "L29.1",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-04-01T16:20:07Z",
       "slice_id": "L28.5",
@@ -4169,5 +4318,5 @@
       "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-04-01T16:20:07Z"
+  "last_updated_utc": "2026-04-02T09:19:31Z"
 }
