@@ -51,6 +51,13 @@ def structured_bundle_module():
 
 
 @pytest.fixture(scope="module")
+def consumer_bundle_module():
+    if str(GOVERNANCE_SCRIPTS_DIR) not in sys.path:
+        sys.path.insert(0, str(GOVERNANCE_SCRIPTS_DIR))
+    return importlib.import_module("export_datapulse_modelbus_consumer_bundle")
+
+
+@pytest.fixture(scope="module")
 def ha_delivery_facts_module():
     if str(GOVERNANCE_SCRIPTS_DIR) not in sys.path:
         sys.path.insert(0, str(GOVERNANCE_SCRIPTS_DIR))
@@ -139,6 +146,43 @@ def test_governance_path_write_targets_canonical_root_not_legacy(governance_path
     )
 
     assert path == (tmp_path / "artifacts/governance/release_bundle/adapter_bundle_manifest.draft.json").resolve()
+
+
+def test_modelbus_consumer_bundle_defaults_admission_output_to_governance_snapshots(
+    consumer_bundle_module, monkeypatch, tmp_path: Path
+) -> None:
+    subscriptions_path = tmp_path / "subscriptions.json"
+    subscriptions_path.write_text('{"surfaces": []}', encoding="utf-8")
+    output_dir = tmp_path / "config" / "modelbus" / "datapulse"
+    admission_output = tmp_path / "artifacts" / "governance" / "snapshots" / "datapulse-ai-surface-admission.example.json"
+    captured_paths: list[Path] = []
+
+    monkeypatch.setattr(
+        consumer_bundle_module,
+        "parse_args",
+        lambda: type(
+            "Args",
+            (),
+            {
+                "subscriptions": subscriptions_path,
+                "output_dir": output_dir,
+                "admission_output": None,
+                "project_loop_state_json": None,
+                "stdout": False,
+            },
+        )(),
+    )
+    monkeypatch.setattr(consumer_bundle_module, "DEFAULT_ADMISSION_OUTPUT_PATH", admission_output)
+    monkeypatch.setattr(consumer_bundle_module, "read_json", lambda path: {"surfaces": []})
+    monkeypatch.setattr(consumer_bundle_module, "build_admission_payload", lambda subscriptions, path: {"surface_admissions": []})
+    monkeypatch.setattr(consumer_bundle_module, "load_release_level", lambda path=None: "ci_proven")
+    monkeypatch.setattr(consumer_bundle_module, "write_json", lambda path, payload: captured_paths.append(Path(path)))
+
+    rc = consumer_bundle_module.main()
+
+    assert rc == 0
+    assert admission_output in captured_paths
+    assert output_dir / "datapulse-ai-surface-admission.example.json" not in captured_paths
 
 
 def test_refresh_tracked_governance_on_stop_runs_for_terminal_stop(governance_loop, monkeypatch, tmp_path: Path) -> None:

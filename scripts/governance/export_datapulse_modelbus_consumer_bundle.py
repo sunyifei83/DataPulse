@@ -10,6 +10,7 @@ from datapulse.governance_paths import (
     GOVERNANCE_SNAPSHOT_ROOT,
     RUNTIME_BUNDLE_ROOT,
     read_path as resolve_governance_read_path,
+    write_path as resolve_governance_write_path,
     write_root as resolve_governance_write_root,
 )
 from datapulse_loop_contracts import REPO_ROOT, read_json, utc_now, write_json
@@ -20,6 +21,11 @@ DEFAULT_SUBSCRIPTIONS_PATH = REPO_ROOT / "docs/governance/datapulse-ai-surface-s
 DEFAULT_PROJECT_LOOP_STATE_PATH = resolve_governance_read_path(
     GOVERNANCE_SNAPSHOT_ROOT,
     "project_specific_loop_state.draft.json",
+    repo_root=REPO_ROOT,
+)
+DEFAULT_ADMISSION_OUTPUT_PATH = resolve_governance_write_path(
+    GOVERNANCE_SNAPSHOT_ROOT,
+    "datapulse-ai-surface-admission.example.json",
     repo_root=REPO_ROOT,
 )
 
@@ -44,7 +50,7 @@ def parse_args() -> argparse.Namespace:
         "--admission-output",
         type=Path,
         default=None,
-        help="Optional path for the exported admission example. Defaults to <output-dir>/datapulse-ai-surface-admission.example.json.",
+        help="Optional path for the exported admission example. Defaults to the governance snapshot root.",
     )
     parser.add_argument(
         "--project-loop-state-json",
@@ -187,7 +193,7 @@ def main() -> int:
     admission_output = (
         args.admission_output.resolve()
         if isinstance(args.admission_output, Path)
-        else (output_dir / "datapulse-ai-surface-admission.example.json").resolve()
+        else DEFAULT_ADMISSION_OUTPUT_PATH.resolve()
     )
     surface_admission = {
         "schema": "modelbus.consumer_surface_admission.v1",
