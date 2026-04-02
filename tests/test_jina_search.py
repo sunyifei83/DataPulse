@@ -278,15 +278,38 @@ class TestReaderSearch:
                 assert item.confidence > 0
 
     def test_platform_injects_sites(self, reader):
-        """platform='xhs' should auto-inject xiaohongshu.com domains."""
-        mock_results = _make_search_results(1)
-        with patch.object(reader, "_jina_client") as mock_client:
-            mock_client.search.return_value = mock_results
+        """platform='xhs' should inject platform domains into the planned gateway request."""
+        gateway_hits = [
+            SearchHit(
+                title="XHS Result",
+                url="https://www.xiaohongshu.com/explore/1",
+                snippet="护肤内容",
+                provider="jina",
+                source="jina",
+                score=0.4,
+                raw={},
+                extra={"sources": ["jina"]},
+            )
+        ]
+        gateway_audit = {
+            "query": "护肤",
+            "mode": "single",
+            "requested_provider": "auto",
+            "provider_chain": ["qnaigc", "tavily", "jina"],
+            "attempts": [],
+            "timeout_seconds": 3.0,
+            "providers_selected": 3,
+            "providers_with_hit": 1,
+            "source_count": 1,
+            "provider_count": 3,
+            "sampled_at": "now",
+        }
+        with patch.object(reader._search_gateway, "search", return_value=(gateway_hits, gateway_audit)) as mock_search:
             _run(reader.search("护肤", platform="xhs", fetch_content=False))
-            call_kwargs = mock_client.search.call_args[1]
-            opts = call_kwargs["options"]
-            assert "xiaohongshu.com" in opts.sites
-            assert "xhslink.com" in opts.sites
+            call_kwargs = mock_search.call_args[1]
+            assert "xiaohongshu.com" in call_kwargs["sites"]
+            assert "xhslink.com" in call_kwargs["sites"]
+            assert "qnaigc" in call_kwargs["provider_hints"]
 
     def test_platform_merges_with_sites(self, reader):
         """platform domains merge with explicit sites, no duplicates."""
@@ -316,9 +339,32 @@ class TestReaderSearch:
 
     def test_xhs_platform_sets_source_type(self, reader):
         """Snippet items from xhs platform search should have SourceType.XHS."""
-        mock_results = _make_search_results(1)
-        with patch.object(reader, "_jina_client") as mock_client:
-            mock_client.search.return_value = mock_results
+        gateway_hits = [
+            SearchHit(
+                title="XHS Result",
+                url="https://www.xiaohongshu.com/explore/1",
+                snippet="护肤内容",
+                provider="jina",
+                source="jina",
+                score=0.4,
+                raw={},
+                extra={"sources": ["jina"]},
+            )
+        ]
+        gateway_audit = {
+            "query": "护肤",
+            "mode": "single",
+            "requested_provider": "auto",
+            "provider_chain": ["qnaigc", "tavily", "jina"],
+            "attempts": [],
+            "timeout_seconds": 3.0,
+            "providers_selected": 3,
+            "providers_with_hit": 1,
+            "source_count": 1,
+            "provider_count": 3,
+            "sampled_at": "now",
+        }
+        with patch.object(reader._search_gateway, "search", return_value=(gateway_hits, gateway_audit)):
             items = _run(reader.search("护肤", platform="xhs", fetch_content=False))
             assert len(items) == 1
             assert items[0].source_type == SourceType.XHS
