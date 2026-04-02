@@ -419,7 +419,69 @@ PLATFORM_SEARCH_SITES: dict[str, list[str]] = {
     "hackernews": ["news.ycombinator.com"],
     "arxiv": ["arxiv.org"],
     "bilibili": ["bilibili.com"],
+    "weibo": ["weibo.com"],
+    "wechat": ["mp.weixin.qq.com", "weixin.qq.com"],
 }
+_SEARCH_PLATFORM_ALIASES: dict[str, tuple[str, ...]] = {
+    "xhs": ("小红书", "xiaohongshu", "xhs"),
+    "twitter": ("twitter", "x.com", "tweet", "推特"),
+    "reddit": ("reddit", "subreddit"),
+    "hackernews": ("hacker news", "news.ycombinator.com"),
+    "arxiv": ("arxiv",),
+    "bilibili": ("bilibili", "b站", "哔哩哔哩"),
+    "weibo": ("微博", "weibo"),
+    "wechat": ("微信", "公众号", "wechat", "weixin"),
+}
+_SEARCH_NEWS_HINTS = (
+    "latest",
+    "news",
+    "breaking",
+    "today",
+    "recent",
+    "更新",
+    "最新",
+    "近日",
+    "今日",
+    "热点",
+    "资讯",
+    "消息",
+    "新闻",
+)
+_SEARCH_MONITOR_HINTS = (
+    "watch",
+    "monitor",
+    "tracking",
+    "tracker",
+    "alert",
+    "radar",
+    "监控",
+    "监测",
+    "追踪",
+    "跟踪",
+    "舆情",
+)
+_SEARCH_EXPLAIN_HINTS = (
+    "how",
+    "why",
+    "guide",
+    "explain",
+    "教程",
+    "如何",
+    "为什么",
+    "怎么",
+    "解读",
+    "指南",
+)
+_SEARCH_COMPARE_HINTS = (
+    "compare",
+    "comparison",
+    "vs",
+    "versus",
+    "对比",
+    "区别",
+    "比较",
+)
+_SEARCH_SITE_HINT_RE = re.compile(r"(?:^|\s)site:([a-z0-9.-]+\.[a-z]{2,})(?=\s|$)", re.IGNORECASE)
 
 TREND_SEED_BOUNDARY_TEXT = (
     "Trend inputs seed watches and feed surfaces only; item-level evidence still comes from collected URLs and search hits."
@@ -1744,6 +1806,160 @@ class DataPulseReader:
         }
 
     @staticmethod
+    def _merge_unique_text(*groups: list[str] | tuple[str, ...]) -> list[str]:
+        merged: list[str] = []
+        seen: set[str] = set()
+        for group in groups:
+            for raw in group:
+                value = str(raw or "").strip()
+                if not value:
+                    continue
+                key = value.casefold()
+                if key in seen:
+                    continue
+                seen.add(key)
+                merged.append(value)
+        return merged
+
+    @staticmethod
+    def _extract_query_site_hints(query: str) -> list[str]:
+        hints: list[str] = []
+        for raw in _SEARCH_SITE_HINT_RE.findall(str(query or "")):
+            site = str(raw or "").strip().lower().rstrip(".,;/")
+            if site and site not in hints:
+                hints.append(site)
+        return hints
+
+    @staticmethod
+    def _infer_search_platforms(query: str, explicit_sites: list[str] | None = None) -> list[str]:
+        text = str(query or "").strip()
+        if not text and not explicit_sites:
+            return []
+        lowered = text.casefold()
+        platforms: list[str] = []
+        for platform, aliases in _SEARCH_PLATFORM_ALIASES.items():
+            if any(alias.casefold() in lowered for alias in aliases):
+                platforms.append(platform)
+                continue
+            for site in explicit_sites or []:
+                if site in PLATFORM_SEARCH_SITES.get(platform, []):
+                    platforms.append(platform)
+                    break
+        return platforms
+
+    @staticmethod
+    def _classify_search_intent(query: str, mission_intent: MissionIntent | None = None) -> str:
+        lowered = str(query or "").casefold()
+        demand = str(mission_intent.demand_intent if mission_intent else "" or "").casefold()
+        combined = " ".join(part for part in (lowered, demand) if part)
+        if any(marker in combined for marker in _SEARCH_COMPARE_HINTS):
+            return "compare"
+        if any(marker in combined for marker in _SEARCH_EXPLAIN_HINTS):
+            return "explain"
+        if any(marker in combined for marker in _SEARCH_MONITOR_HINTS):
+            return "monitor"
+        if any(marker in combined for marker in _SEARCH_NEWS_HINTS):
+            return "news"
+        return "lookup"
+
+    @staticmethod
+    def _resolve_search_freshness(
+        query: str,
+        *,
+        mission_intent: MissionIntent | None = None,
+        requested_time_range: str | None = None,
+        intent_kind: str = "lookup",
+    ) -> str | None:
+        if requested_time_range:
+            return requested_time_range
+        max_age_hours = max(0, int(mission_intent.freshness_max_age_hours if mission_intent else 0))
+        if 0 < max_age_hours <= 24:
+            return "day"
+        if max_age_hours <= 24 * 7 and max_age_hours > 0:
+            return "week"
+        if max_age_hours <= 24 * 31 and max_age_hours > 0:
+            return "month"
+        if max_age_hours > 0:
+            return "year"
+        lowered = str(query or "").casefold()
+        if any(marker in lowered for marker in ("today", "今日", "今天", "24h", "24小时")):
+            return "day"
+        if any(marker in lowered for marker in ("week", "weekly", "本周", "这周", "近7天")):
+            return "week"
+        if any(marker in lowered for marker in ("month", "monthly", "本月", "近30天")):
+            return "month"
+        if intent_kind in {"monitor", "news"}:
+            return "week"
+        return None
+
+    def _plan_search_request(
+        self,
+        query: str,
+        *,
+        sites: list[str] | None = None,
+        platform: str | None = None,
+        provider: str = "auto",
+        deep: bool = False,
+        news: bool = False,
+        time_range: str | None = None,
+        freshness: str | None = None,
+        mission_intent: MissionIntent | dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if isinstance(mission_intent, MissionIntent):
+            normalized_intent = mission_intent
+        elif isinstance(mission_intent, dict):
+            normalized_intent = MissionIntent.from_dict(mission_intent)
+        else:
+            normalized_intent = MissionIntent()
+
+        explicit_sites = self._merge_unique_text(list(sites or []), self._extract_query_site_hints(query))
+        inferred_platforms = self._infer_search_platforms(query, explicit_sites)
+        if platform:
+            inferred_platforms = self._merge_unique_text([platform], inferred_platforms)
+        merged_sites = self._merge_unique_text(
+            explicit_sites,
+            *[PLATFORM_SEARCH_SITES.get(name, []) for name in inferred_platforms],
+        )
+        cjk_terms = self._watch_query_cjk_terms(query)
+        ascii_terms = self._watch_query_ascii_terms(query)
+        core_terms = self._merge_unique_text(cjk_terms, ascii_terms)
+        has_cjk = SearchGateway._is_chinese_query(query)
+        has_ascii = bool(re.search(r"[a-z]", str(query or "").casefold()))
+        locale = "mixed" if has_cjk and has_ascii else "zh" if has_cjk else "latin"
+        intent_kind = self._classify_search_intent(query, normalized_intent)
+        resolved_time_range = self._resolve_search_freshness(
+            query,
+            mission_intent=normalized_intent,
+            requested_time_range=time_range or freshness,
+            intent_kind=intent_kind,
+        )
+
+        provider_hints: list[str] = []
+        if provider in {"auto", "", "multi"} and locale in {"zh", "mixed"}:
+            provider_hints.append("qnaigc")
+        if provider in {"auto", "", "multi"} and intent_kind in {"monitor", "news"}:
+            provider_hints.append("tavily")
+
+        return {
+            "query_intent": {
+                "language": locale,
+                "intent_kind": intent_kind,
+                "core_terms": core_terms[:6],
+                "platform_hints": inferred_platforms,
+                "site_hints": explicit_sites,
+                "chinese_relevance_uplift": locale in {"zh", "mixed"},
+            },
+            "source_plan": {
+                "provider_hints": provider_hints,
+                "platforms": inferred_platforms,
+                "sites": merged_sites,
+                "deep": bool(deep or intent_kind in {"compare", "explain"}),
+                "news": bool(news or intent_kind in {"monitor", "news"}),
+                "time_range": resolved_time_range,
+            },
+        }
+
+    @staticmethod
     def _watch_query_ascii_terms(query: str) -> list[str]:
         seen: set[str] = set()
         terms: list[str] = []
@@ -2833,17 +3049,30 @@ class DataPulseReader:
         if top_n is not None and top_n > 0:
             limit = top_n
         effective_mode = "multi" if provider == "multi" else mode
-        merged_sites = list(sites or [])
-        if platform and platform in PLATFORM_SEARCH_SITES:
-            for domain in PLATFORM_SEARCH_SITES[platform]:
-                if domain not in merged_sites:
-                    merged_sites.append(domain)
+        planning = self._plan_search_request(
+            query,
+            sites=sites,
+            platform=platform,
+            provider=provider,
+            deep=deep,
+            news=news,
+            time_range=time_range,
+            freshness=freshness,
+        )
+        query_intent = planning["query_intent"]
+        source_plan = planning["source_plan"]
+        merged_sites = list(source_plan.get("sites", []))
+        provider_hints = list(source_plan.get("provider_hints", []))
+        planned_deep = bool(source_plan.get("deep", deep))
+        planned_news = bool(source_plan.get("news", news))
+        planned_time_range = source_plan.get("time_range")
+        resolved_platform = platform or next(iter(source_plan.get("platforms", [])), None)
 
         # Keep gateway Jina client reference aligned for external test/mocking.
         self._search_gateway._jina_client = self._jina_client
 
         # Provider-level orchestration (single provider + fallback, or multi-source fusion).
-        requested_time_range = time_range or freshness
+        requested_time_range = planned_time_range
 
         requested_query = query
         effective_query = self._search_gateway._with_sites(query, merged_sites)
@@ -2864,79 +3093,99 @@ class DataPulseReader:
                 )
                 return []
         elif provider == "auto":
-            fallback_applied = False
-            fallback_reason = ""
-            primary_attempt: dict[str, Any] | None = None
-            try:
-                search_hits, search_audit = self._run_jina_search(
+            use_gateway_auto_path = bool(
+                provider_hints
+                or planned_deep != deep
+                or planned_news != news
+                or requested_time_range != (time_range or freshness)
+            )
+            if use_gateway_auto_path:
+                search_hits, search_audit = self._search_gateway.search(
                     query,
                     sites=merged_sites,
                     limit=limit,
+                    provider=provider,
+                    mode=effective_mode,
+                    deep=planned_deep,
+                    news=planned_news,
+                    time_range=requested_time_range,
+                    provider_hints=provider_hints,
                 )
-                if not search_hits:
-                    fallback_applied = True
-                    fallback_reason = "jina_empty_result"
-                    primary_attempt = {
-                        "provider": "jina",
-                        "status": "ok",
-                        "count": 0,
-                        "latency_ms": 0.0,
-                        "retry_count": 0,
-                        "attempts": 0,
-                        "error": "",
-                        "fallback_trigger": "empty_result",
-                        "circuit_state_before": None,
-                        "circuit_state_after": None,
-                    }
-                    raise RuntimeError(fallback_reason)
-                search_audit["requested_provider"] = "auto"
-                search_audit["effective_provider"] = "jina"
-                search_audit["fallback_applied"] = False
-            except Exception as exc:
-                fallback_applied = True
-                fallback_reason = fallback_reason or str(exc)
-                if primary_attempt is None:
-                    primary_attempt = {
-                        "provider": "jina",
-                        "status": "error",
-                        "count": 0,
-                        "latency_ms": 0.0,
-                        "retry_count": 0,
-                        "attempts": 0,
-                        "error": str(exc),
-                        "fallback_trigger": "exception",
-                        "circuit_state_before": None,
-                        "circuit_state_after": None,
-                    }
-                logger.warning("Auto search fallback triggered: %s", exc)
+            else:
+                fallback_applied = False
+                fallback_reason = ""
+                primary_attempt: dict[str, Any] | None = None
                 try:
-                    search_hits, search_audit = self._search_gateway.search(
+                    search_hits, search_audit = self._run_jina_search(
                         query,
                         sites=merged_sites,
                         limit=limit,
-                        provider="auto",
-                        mode=effective_mode,
-                        deep=deep,
-                        news=news,
-                        time_range=requested_time_range,
                     )
-                except Exception as fallback_exc:
-                    if self._is_api_key_error(exc) or self._is_api_key_error(fallback_exc):
-                        logger.warning("Search unavailable due to missing API key(s): %s", fallback_exc)
-                        return []
-                    raise
+                    if not search_hits:
+                        fallback_applied = True
+                        fallback_reason = "jina_empty_result"
+                        primary_attempt = {
+                            "provider": "jina",
+                            "status": "ok",
+                            "count": 0,
+                            "latency_ms": 0.0,
+                            "retry_count": 0,
+                            "attempts": 0,
+                            "error": "",
+                            "fallback_trigger": "empty_result",
+                            "circuit_state_before": None,
+                            "circuit_state_after": None,
+                        }
+                        raise RuntimeError(fallback_reason)
+                    search_audit["requested_provider"] = "auto"
+                    search_audit["effective_provider"] = "jina"
+                    search_audit["fallback_applied"] = False
+                except Exception as exc:
+                    fallback_applied = True
+                    fallback_reason = fallback_reason or str(exc)
+                    if primary_attempt is None:
+                        primary_attempt = {
+                            "provider": "jina",
+                            "status": "error",
+                            "count": 0,
+                            "latency_ms": 0.0,
+                            "retry_count": 0,
+                            "attempts": 0,
+                            "error": str(exc),
+                            "fallback_trigger": "exception",
+                            "circuit_state_before": None,
+                            "circuit_state_after": None,
+                        }
+                    logger.warning("Auto search fallback triggered: %s", exc)
+                    try:
+                        search_hits, search_audit = self._search_gateway.search(
+                            query,
+                            sites=merged_sites,
+                            limit=limit,
+                            provider="auto",
+                            mode=effective_mode,
+                            deep=planned_deep,
+                            news=planned_news,
+                            time_range=requested_time_range,
+                            provider_hints=provider_hints,
+                        )
+                    except Exception as fallback_exc:
+                        if self._is_api_key_error(exc) or self._is_api_key_error(fallback_exc):
+                            logger.warning("Search unavailable due to missing API key(s): %s", fallback_exc)
+                            return []
+                        raise
 
-                attempts = list(search_audit.get("attempts", [])) if isinstance(search_audit, dict) else []
-                attempts.insert(0, primary_attempt)
-                if not isinstance(search_audit, dict):
-                    search_audit = {}
-                search_audit["attempts"] = attempts
-                search_audit["fallback_applied"] = fallback_applied
-                search_audit["fallback_reason"] = fallback_reason
-                search_audit["initial_provider"] = "jina"
-                effective_provider = search_hits[0].provider if search_hits else ""
-                search_audit["fallback_provider"] = effective_provider
-                search_audit["effective_provider"] = effective_provider
+                    attempts = list(search_audit.get("attempts", [])) if isinstance(search_audit, dict) else []
+                    attempts.insert(0, primary_attempt)
+                    if not isinstance(search_audit, dict):
+                        search_audit = {}
+                    search_audit["attempts"] = attempts
+                    search_audit["fallback_applied"] = fallback_applied
+                    search_audit["fallback_reason"] = fallback_reason
+                    search_audit["initial_provider"] = "jina"
+                    effective_provider = search_hits[0].provider if search_hits else ""
+                    search_audit["fallback_provider"] = effective_provider
+                    search_audit["effective_provider"] = effective_provider
         else:
             search_hits, search_audit = self._search_gateway.search(
                 query,
@@ -2944,15 +3193,31 @@ class DataPulseReader:
                 limit=limit,
                 provider=provider,
                 mode=effective_mode,
-                deep=deep,
-                news=news,
+                deep=planned_deep,
+                news=planned_news,
                 time_range=requested_time_range,
+                provider_hints=provider_hints,
             )
         if not isinstance(search_audit, dict):
             search_audit = {}
         search_audit.setdefault("requested_provider", provider)
         search_audit.setdefault("requested_query", requested_query)
         search_audit.setdefault("effective_query", effective_query)
+        search_audit.setdefault(
+            "planning",
+            {
+                "language": query_intent.get("language", ""),
+                "intent_kind": query_intent.get("intent_kind", ""),
+                "core_terms": list(query_intent.get("core_terms", [])),
+                "platform_hints": list(query_intent.get("platform_hints", [])),
+                "site_hints": list(query_intent.get("site_hints", [])),
+                "provider_hints": provider_hints,
+                "deep": planned_deep,
+                "news": planned_news,
+                "time_range": requested_time_range,
+                "chinese_relevance_uplift": bool(query_intent.get("chinese_relevance_uplift", False)),
+            },
+        )
         if merged_sites:
             search_audit.setdefault("constraints_preserved", True)
         search_audit.setdefault("fallback_applied", False)
@@ -3003,9 +3268,9 @@ class DataPulseReader:
                     has_author=False,
                     extra_flags=extra_flags,
                 )
-                snippet_source_type = SourceType.XHS if platform == "xhs" else SourceType.GENERIC
+                snippet_source_type = SourceType.XHS if resolved_platform == "xhs" else SourceType.GENERIC
                 snippet_tags = [parser_name, snippet_source_type.value]
-                if platform == "xhs":
+                if resolved_platform == "xhs":
                     snippet_tags.append("xhs_search")
                 snippet_tags.append(sr.provider)
                 if hit_source_count >= 2:
@@ -4772,13 +5037,20 @@ class DataPulseReader:
         alert_rules: list[dict[str, Any]] | None = None,
         enabled: bool = True,
     ) -> dict[str, Any]:
+        planning = self._plan_search_request(
+            query,
+            sites=sites,
+            provider="auto",
+            mission_intent=mission_intent,
+        )
+        intake_intent = planning["query_intent"]
         return self.watch_service.create_watch(
             name=name,
             query=query,
             mission_intent=mission_intent,
             trend_inputs=trend_inputs,
-            platforms=platforms,
-            sites=sites,
+            platforms=self._merge_unique_text(list(platforms or []), list(intake_intent.get("platform_hints", []))),
+            sites=self._merge_unique_text(list(sites or []), list(intake_intent.get("site_hints", []))),
             schedule=schedule,
             min_confidence=min_confidence,
             top_n=top_n,
@@ -4802,14 +5074,39 @@ class DataPulseReader:
         alert_rules: list[dict[str, Any]] | None = None,
         enabled: bool | None = None,
     ) -> dict[str, Any] | None:
+        existing = self.watchlist.get(identifier)
+        planning_query = query if query is not None else (existing.query if existing else "")
+        planning_intent = mission_intent if mission_intent is not None else (
+            existing.mission_intent.to_dict() if existing is not None else None
+        )
+        planning_sites = sites if sites is not None else (list(existing.sites) if existing is not None else None)
+        planning = self._plan_search_request(
+            planning_query,
+            sites=planning_sites,
+            provider="auto",
+            mission_intent=planning_intent,
+        )
+        intake_intent = planning["query_intent"]
+        merged_platforms = platforms
+        if platforms is not None or existing is not None:
+            merged_platforms = self._merge_unique_text(
+                list(platforms if platforms is not None else existing.platforms if existing is not None else []),
+                list(intake_intent.get("platform_hints", [])),
+            )
+        merged_sites = sites
+        if sites is not None or existing is not None:
+            merged_sites = self._merge_unique_text(
+                list(sites if sites is not None else existing.sites if existing is not None else []),
+                list(intake_intent.get("site_hints", [])),
+            )
         return self.watch_service.update_watch(
             identifier,
             name=name,
             query=query,
             mission_intent=mission_intent,
             trend_inputs=trend_inputs,
-            platforms=platforms,
-            sites=sites,
+            platforms=merged_platforms,
+            sites=merged_sites,
             schedule=schedule,
             min_confidence=min_confidence,
             top_n=top_n,

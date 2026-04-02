@@ -31,6 +31,21 @@ def test_qnaigc_token_absence_removes_auto_candidate(monkeypatch: pytest.MonkeyP
     assert "qnaigc" not in providers
 
 
+def test_resolve_providers_prefers_planning_hints(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("DATAPULSE_SEARCH_QNAIGC_ENABLED", "1")
+    monkeypatch.setenv("QNAIGC_TOKEN_A", "token-a")
+    gateway = SearchGateway()
+
+    providers = gateway._resolve_providers(
+        "OpenAI launch",
+        provider="auto",
+        mode="single",
+        provider_hints=["qnaigc", "jina"],
+    )
+
+    assert providers[:3] == ["qnaigc", "jina", "tavily"]
+
+
 def test_search_qnaigc_maps_authority_score_date_request_id(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("DATAPULSE_SEARCH_QNAIGC_ENABLED", "1")
     monkeypatch.setenv("QNAIGC_TOKEN_A", "token-a")

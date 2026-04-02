@@ -3713,7 +3713,7 @@
           "category": "manual",
           "execution_profile": "draft_only",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "artifacts": [
             "docs/governance/datapulse-intent-aware-research-substrate-contract.md",
             "docs/intelligence_lifecycle_contract.md"
@@ -3730,7 +3730,7 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "artifacts": [
             "datapulse/core/search_gateway.py",
             "datapulse/reader.py",
@@ -3812,11 +3812,21 @@
     }
   ],
   "recommended_next_slice": {
-    "id": "L29.2",
-    "title": "Freeze the internal research-substrate contract for query_intent, source_plan, research_packet, evidence_bundle, and coverage_gap",
+    "id": "L29.4",
+    "title": "Add cross-source evidence stitching and report-layer intake normalization for story, claim, and citation prep",
     "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-04-02T09:55:51Z",
+      "slice_id": "L29.3",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-04-02T09:40:37Z",
+      "slice_id": "L29.2",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-04-02T09:19:31Z",
       "slice_id": "L29.1",
@@ -4318,5 +4328,5 @@
       "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-04-02T09:19:31Z"
+  "last_updated_utc": "2026-04-02T09:55:51Z"
 }

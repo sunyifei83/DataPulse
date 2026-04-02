@@ -106,15 +106,22 @@ class SearchGateway:
         news: bool = False,
         time_range: str | None = None,
         freshness: str | None = None,
+        provider_hints: list[str] | None = None,
     ) -> tuple[list[SearchHit], dict[str, Any]]:
         """Execute search with fallback/multi-mode and return normalized hits + audit."""
-        providers = self._resolve_providers(query=query, provider=provider, mode=mode)
+        providers = self._resolve_providers(
+            query=query,
+            provider=provider,
+            mode=mode,
+            provider_hints=provider_hints,
+        )
         requested_time_range = time_range or freshness
         search_meta: dict[str, Any] = {
             "query": query,
             "mode": mode,
             "requested_provider": provider,
             "provider_chain": providers[:],
+            "provider_hints": list(provider_hints or []),
             "attempts": [],
             "timeout_seconds": self._timeout_seconds,
             "providers_selected": 0,
@@ -779,7 +786,13 @@ class SearchGateway:
                     "is_cross_validated": provider_count >= 2 and summary_consistency >= 0.35,
                 }
 
-    def _resolve_providers(self, query: str, provider: str, mode: str) -> list[str]:
+    def _resolve_providers(
+        self,
+        query: str,
+        provider: str,
+        mode: str,
+        provider_hints: list[str] | None = None,
+    ) -> list[str]:
         preferred = ",".join(self._seq)
         if preferred:
             parts = [x.strip() for x in preferred.split(",") if x.strip()]
@@ -802,6 +815,19 @@ class SearchGateway:
                 base = ["qnaigc", *base]
         else:
             base = ["jina", "tavily"]
+
+        if provider in {"auto", "", "multi"}:
+            hinted: list[str] = []
+            for raw_hint in provider_hints or []:
+                hint = str(raw_hint or "").strip().lower()
+                if hint not in {"qnaigc", "tavily", "jina"}:
+                    continue
+                if hint == "qnaigc" and (not self._qnaigc_enabled or not self._qnaigc_tokens):
+                    continue
+                if hint not in hinted:
+                    hinted.append(hint)
+            if hinted:
+                base = [*hinted, *base]
 
         # Deduplicate while preserving order.
         seen: list[str] = []

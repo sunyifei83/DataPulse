@@ -603,6 +603,7 @@ def test_search_audit_includes_qnaigc_candidate_fallback(tmp_path, monkeypatch):
         deep: bool,
         news: bool,
         time_range: str | None = None,
+        provider_hints: list[str] | None = None,
     ):
         return [
             SearchHit(
@@ -669,6 +670,100 @@ def test_search_audit_includes_qnaigc_candidate_fallback(tmp_path, monkeypatch):
     assert audit["attempts"][0]["status"] == "error"
     assert audit["estimated_cost_total"] == 0.036
     assert audit["fallback_applied"] is True
+
+
+def test_search_planning_applies_chinese_query_hints(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    inbox_path = str(tmp_path / "inbox.json")
+    catalog_path = str(tmp_path / "catalog.json")
+    Path(catalog_path).write_text(json.dumps({
+        "version": 1, "sources": [], "subscriptions": {}, "packs": [],
+    }), encoding="utf-8")
+    monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+
+    reader = DataPulseReader(inbox_path=inbox_path)
+    captured: dict[str, object] = {}
+
+    def fake_search(
+        query: str,
+        *,
+        sites: list[str] | None,
+        limit: int,
+        provider: str,
+        mode: str,
+        deep: bool,
+        news: bool,
+        time_range: str | None = None,
+        provider_hints: list[str] | None = None,
+    ):
+        captured["query"] = query
+        captured["sites"] = list(sites or [])
+        captured["provider"] = provider
+        captured["mode"] = mode
+        captured["deep"] = deep
+        captured["news"] = news
+        captured["time_range"] = time_range
+        captured["provider_hints"] = list(provider_hints or [])
+        return [
+            SearchHit(
+                title="小红书 AI 工具盘点",
+                url="https://www.xiaohongshu.com/explore/123",
+                snippet="Sample snippet.",
+                provider="qnaigc",
+                source="qnaigc",
+                score=0.8,
+                raw={},
+                extra={"sources": ["qnaigc"]},
+            )
+        ], {
+            "query": query,
+            "mode": mode,
+            "provider_chain": ["qnaigc", "tavily", "jina"],
+            "attempts": [],
+        }
+
+    monkeypatch.setattr(reader._search_gateway, "search", fake_search)
+    items = asyncio.run(
+        reader.search(
+            "小红书 AI 工具 最新",
+            provider="auto",
+            limit=3,
+            fetch_content=False,
+        )
+    )
+
+    assert len(items) == 1
+    assert captured["provider_hints"] == ["qnaigc", "tavily"]
+    assert captured["news"] is True
+    assert captured["time_range"] == "week"
+    assert "xiaohongshu.com" in captured["sites"]
+    audit = items[0].extra.get("search_audit", {})
+    assert audit["planning"]["language"] == "mixed"
+    assert audit["planning"]["intent_kind"] == "news"
+    assert audit["planning"]["chinese_relevance_uplift"] is True
+
+
+def test_create_watch_applies_platform_and_site_hints_from_query(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    inbox_path = str(tmp_path / "inbox.json")
+    catalog_path = str(tmp_path / "catalog.json")
+    watch_path = str(tmp_path / "watchlist.json")
+    Path(catalog_path).write_text(json.dumps({
+        "version": 1, "sources": [], "subscriptions": {}, "packs": [],
+    }), encoding="utf-8")
+    monkeypatch.setenv("DATAPULSE_SOURCE_CATALOG", catalog_path)
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(watch_path))
+
+    reader = DataPulseReader(inbox_path=inbox_path)
+    mission = reader.create_watch(
+        name="CN Search Watch",
+        query="小红书 AI 工具 site:36kr.com",
+    )
+
+    assert mission["platforms"] == ["xhs"]
+    assert mission["sites"] == ["36kr.com"]
 
 
 def test_ai_surface_precheck_rejects_report_draft_without_contract(tmp_path, monkeypatch):

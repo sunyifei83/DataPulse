@@ -67,7 +67,7 @@ The lifecycle is additive, not branchless:
 - one `Report` can be exported through multiple `ExportProfile` shapes
 - delivery can consume either mission-level alert facts, profile scope pull outputs, or report outputs
 
-Internal research prep may use repo-local working-slice envelopes between `Story` and `ReportBrief`, but those envelopes do not change the canonical public lifecycle nouns unless a later governance slice admits them explicitly.
+Internal research-substrate prep may use repo-local working-slice nouns above `SearchGateway` and between retrieval, `Story`, and `ReportBrief`, but those nouns do not change the canonical public lifecycle unless a later governance slice admits them explicitly.
 
 AI assistance is also additive:
 
@@ -191,28 +191,50 @@ The report layer is additive and starts above `Story` instead of replacing it.
 - fields: profile name, field mapping, rendering policy, delivery metadata
 - invariants: changing a profile changes output shape only; it never rewrites underlying story, claim, or report facts
 
-### 5A. Internal research working-slice boundary: `research_packet` and repo-local research `evidence_bundle`
+### 5A. Internal research-substrate boundary: `query_intent`, `source_plan`, `research_packet`, repo-local research `evidence_bundle`, and `coverage_gap`
 
-These are repo-local working-slice objects for current internal research prep. They are not yet canonical public lifecycle objects.
+These are repo-local internal research-substrate nouns for current intent-aware planning and evidence-stitching work. They are not canonical public lifecycle objects.
+
+#### `query_intent`
+
+- purpose: internal interpretation of one analyst query or mission query in normalized research terms before provider routing or story work begins
+- fields: topic or entity focus, research objective, locale or language hints, freshness or depth expectations, exclusions, and ambiguity notes
+- invariants: is derived from explicit operator or mission input; it must not overwrite source query truth or become a public lifecycle noun
+
+#### `source_plan`
+
+- purpose: bounded retrieval plan derived from `query_intent`
+- fields: provider or source-family hints, platform or site focus, freshness window, retrieval depth, diversification goals, and evidence-stitching expectations
+- invariants: lives above `SearchGateway`; may shape concrete execution hints, but it does not replace `SearchHit` or become final ranking truth
 
 #### `research_packet`
 
-- purpose: internal staging envelope that binds candidate research intake to one `ReportBrief` scope and one or more `CitationBundle` candidates
-- fields: intended `ReportBrief` scope, bounded source-story set, working notes, citation assembly inputs, and staging provenance
-- invariants: must resolve toward landed repo-backed objects instead of replacing them; it must not be projected as a public AI surface or cross-surface runtime contract noun
+- purpose: internal staging envelope that binds bounded research intake to one downstream evidence or report-prep scope
+- fields: one `query_intent`, one bounded `source_plan`, candidate hit or story references, working notes, citation assembly inputs, and staging provenance
+- invariants: must resolve toward landed repo-backed objects instead of replacing them; it must not be projected as a public AI surface or stable cross-surface contract noun
 
 #### repo-local research `evidence_bundle`
 
 - purpose: internal staging package attached to a `research_packet` for research evidence packaging before report-layer normalization
-- fields: candidate evidence references, citation notes, provenance annotations, and staging metadata needed to form later `CitationBundle` or governance exports
+- fields: candidate evidence references, citation notes, provenance annotations, contradiction or corroboration markers, and staging metadata needed to form later `CitationBundle` or governance exports
 - invariants: is distinct from the governance same-window evidence bundle written under `artifacts/governance/release_bundle/`; it must not be treated as runtime admission proof by itself
+
+#### `coverage_gap`
+
+- purpose: explicit record of missing, weak, contradictory, stale, or blocked evidence coverage before claim or delivery work overstates confidence
+- fields: missing source perspectives, thin evidence windows, unresolved contradictions, blocked retrieval paths, and confidence-limiting gaps
+- invariants: must remain operator-visible wherever later slices project it; it must not disappear into hidden scoring or silently clear report quality gates
 
 Contract rules:
 
-- `ReportBrief` and `CitationBundle` remain the landed repo-backed objects that internal research staging must resolve into.
-- `research_packet` and repo-local research `evidence_bundle` are repo-local working-slice nouns only; naming them does not publish a new DataPulse public surface.
+- `WatchMission.query` and direct analyst queries remain source truth; `query_intent` and `source_plan` are internal derivatives of that truth.
+- `SearchGateway` remains the owner of provider routing, retries, fallback behavior, and normalized `SearchHit` emission.
+- `Story`, `ReportBrief`, `ClaimCard`, and `CitationBundle` remain the landed repo-backed objects that internal research staging must resolve into.
+- `query_intent`, `source_plan`, `research_packet`, repo-local research `evidence_bundle`, and `coverage_gap` are repo-local working-slice nouns only; naming them does not publish a new DataPulse public surface.
+- repo-local research `evidence_bundle` must never be confused with the governance same-window evidence bundle rooted at `artifacts/governance/release_bundle/`.
+- `coverage_gap` is a research-quality signal and may inform later review or AI overlays, but it is not admission proof and cannot bypass current quality or review gates.
 - `web_research` remains non-public until CLI surface enumeration, lifecycle/AI-governance contract language, and runtime admission evidence align in the same window.
-- any future publication of `web_research` must land as an admitted surface contract slice rather than by broadening internal staging nouns.
+- any future publication of `web_research` or substrate nouns must land as an admitted surface contract slice rather than by broadening internal staging nouns.
 
 ### 6. Delivery and distribution: `Report` plus route-backed event observation
 
