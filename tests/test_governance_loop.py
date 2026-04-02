@@ -185,6 +185,197 @@ def test_modelbus_consumer_bundle_defaults_admission_output_to_governance_snapsh
     assert output_dir / "datapulse-ai-surface-admission.example.json" not in captured_paths
 
 
+def test_modelbus_consumer_bundle_skips_rewrite_when_only_generated_at_changes(
+    consumer_bundle_module, monkeypatch, tmp_path: Path
+) -> None:
+    subscriptions = {
+        "surfaces": [
+            {
+                "surface": "mission_suggest",
+                "candidate_subscriptions": [{"alias": "dp.mission.suggest"}],
+            }
+        ]
+    }
+    output_dir = tmp_path / "config" / "modelbus" / "datapulse"
+    admission_output = tmp_path / "artifacts" / "governance" / "snapshots" / "datapulse-ai-surface-admission.example.json"
+    subscriptions_path = tmp_path / "subscriptions.json"
+    subscriptions_path.write_text(json.dumps(subscriptions), encoding="utf-8")
+
+    def _admission_payload() -> dict[str, object]:
+        return {
+            "schema_version": "datapulse_ai_surface_admission.v1",
+            "generated_at_utc": consumer_bundle_module.utc_now(),
+            "surface_admissions": [
+                {
+                    "surface": "mission_suggest",
+                    "required_schema_contract": "datapulse_ai_watch_suggestion.v1",
+                    "admission_status": "admitted",
+                    "mode_admission": {
+                        "off": "manual_only",
+                        "assist": "admitted",
+                        "review": "admitted",
+                    },
+                    "requested_alias": "dp.mission.suggest",
+                    "admitted_alias": "dp.mission.suggest",
+                    "manual_fallback": "manual_review",
+                    "degraded_result_allowed": True,
+                    "must_expose_runtime_facts": ["served_by_alias"],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        consumer_bundle_module,
+        "parse_args",
+        lambda: type(
+            "Args",
+            (),
+            {
+                "subscriptions": subscriptions_path,
+                "output_dir": output_dir,
+                "admission_output": None,
+                "project_loop_state_json": None,
+                "stdout": False,
+            },
+        )(),
+    )
+    monkeypatch.setattr(consumer_bundle_module, "DEFAULT_ADMISSION_OUTPUT_PATH", admission_output)
+    monkeypatch.setattr(consumer_bundle_module, "read_json", lambda path: subscriptions)
+    monkeypatch.setattr(consumer_bundle_module, "build_admission_payload", lambda subscriptions, path: _admission_payload())
+    monkeypatch.setattr(consumer_bundle_module, "load_release_level", lambda path=None: "ci_proven")
+
+    monkeypatch.setattr(consumer_bundle_module, "utc_now", lambda: "2026-04-02T03:05:09Z")
+    aliases = consumer_bundle_module.alias_by_surface(subscriptions)
+    consumer_bundle_module.write_json(admission_output, _admission_payload())
+    consumer_bundle_module.write_json(output_dir / "bundle_manifest.json", consumer_bundle_module.build_bundle_manifest())
+    consumer_bundle_module.write_json(
+        output_dir / "surface_admission.json",
+        {
+            "schema": "modelbus.consumer_surface_admission.v1",
+            "generated_at_utc": consumer_bundle_module.utc_now(),
+            "consumer_id": "datapulse",
+            "release_window": {
+                "generated_at_utc": consumer_bundle_module.utc_now(),
+                "release_level": "ci_proven",
+                "assured_verdict": "pass",
+                "constitutional_semantics": "BUNDLE-FIRST-REQUIRED",
+            },
+            "surface_admissions": consumer_bundle_module.build_surface_admissions(
+                _admission_payload(),
+                fallback_aliases=aliases,
+            ),
+        },
+    )
+    consumer_bundle_module.write_json(output_dir / "bridge_config.json", consumer_bundle_module.build_bridge_config(aliases))
+    consumer_bundle_module.write_json(output_dir / "release_status.json", consumer_bundle_module.build_release_status("ci_proven"))
+
+    writes: list[Path] = []
+    monkeypatch.setattr(consumer_bundle_module, "utc_now", lambda: "2026-04-02T03:43:17Z")
+    monkeypatch.setattr(consumer_bundle_module, "write_json", lambda path, payload: writes.append(Path(path)))
+
+    rc = consumer_bundle_module.main()
+
+    assert rc == 0
+    assert writes == []
+
+
+def test_modelbus_consumer_bundle_rewrites_when_release_level_changes(
+    consumer_bundle_module, monkeypatch, tmp_path: Path
+) -> None:
+    subscriptions = {
+        "surfaces": [
+            {
+                "surface": "mission_suggest",
+                "candidate_subscriptions": [{"alias": "dp.mission.suggest"}],
+            }
+        ]
+    }
+    output_dir = tmp_path / "config" / "modelbus" / "datapulse"
+    admission_output = tmp_path / "artifacts" / "governance" / "snapshots" / "datapulse-ai-surface-admission.example.json"
+    subscriptions_path = tmp_path / "subscriptions.json"
+    subscriptions_path.write_text(json.dumps(subscriptions), encoding="utf-8")
+
+    def _admission_payload() -> dict[str, object]:
+        return {
+            "schema_version": "datapulse_ai_surface_admission.v1",
+            "generated_at_utc": consumer_bundle_module.utc_now(),
+            "surface_admissions": [
+                {
+                    "surface": "mission_suggest",
+                    "required_schema_contract": "datapulse_ai_watch_suggestion.v1",
+                    "admission_status": "admitted",
+                    "mode_admission": {
+                        "off": "manual_only",
+                        "assist": "admitted",
+                        "review": "admitted",
+                    },
+                    "requested_alias": "dp.mission.suggest",
+                    "admitted_alias": "dp.mission.suggest",
+                    "manual_fallback": "manual_review",
+                    "degraded_result_allowed": True,
+                    "must_expose_runtime_facts": ["served_by_alias"],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        consumer_bundle_module,
+        "parse_args",
+        lambda: type(
+            "Args",
+            (),
+            {
+                "subscriptions": subscriptions_path,
+                "output_dir": output_dir,
+                "admission_output": None,
+                "project_loop_state_json": None,
+                "stdout": False,
+            },
+        )(),
+    )
+    monkeypatch.setattr(consumer_bundle_module, "DEFAULT_ADMISSION_OUTPUT_PATH", admission_output)
+    monkeypatch.setattr(consumer_bundle_module, "read_json", lambda path: subscriptions)
+    monkeypatch.setattr(consumer_bundle_module, "build_admission_payload", lambda subscriptions, path: _admission_payload())
+
+    monkeypatch.setattr(consumer_bundle_module, "utc_now", lambda: "2026-04-02T03:05:09Z")
+    aliases = consumer_bundle_module.alias_by_surface(subscriptions)
+    consumer_bundle_module.write_json(admission_output, _admission_payload())
+    consumer_bundle_module.write_json(output_dir / "bundle_manifest.json", consumer_bundle_module.build_bundle_manifest())
+    consumer_bundle_module.write_json(
+        output_dir / "surface_admission.json",
+        {
+            "schema": "modelbus.consumer_surface_admission.v1",
+            "generated_at_utc": consumer_bundle_module.utc_now(),
+            "consumer_id": "datapulse",
+            "release_window": {
+                "generated_at_utc": consumer_bundle_module.utc_now(),
+                "release_level": "manual_only",
+                "assured_verdict": "pass",
+                "constitutional_semantics": "BUNDLE-FIRST-REQUIRED",
+            },
+            "surface_admissions": consumer_bundle_module.build_surface_admissions(
+                _admission_payload(),
+                fallback_aliases=aliases,
+            ),
+        },
+    )
+    consumer_bundle_module.write_json(output_dir / "bridge_config.json", consumer_bundle_module.build_bridge_config(aliases))
+    consumer_bundle_module.write_json(output_dir / "release_status.json", consumer_bundle_module.build_release_status("manual_only"))
+
+    writes: list[Path] = []
+    monkeypatch.setattr(consumer_bundle_module, "load_release_level", lambda path=None: "ci_proven")
+    monkeypatch.setattr(consumer_bundle_module, "utc_now", lambda: "2026-04-02T03:43:17Z")
+    monkeypatch.setattr(consumer_bundle_module, "write_json", lambda path, payload: writes.append(Path(path)))
+
+    rc = consumer_bundle_module.main()
+
+    assert rc == 0
+    assert writes == [
+        (output_dir / "surface_admission.json").resolve(),
+        (output_dir / "release_status.json").resolve(),
+    ]
+
+
 def test_refresh_tracked_governance_on_stop_runs_for_terminal_stop(governance_loop, monkeypatch, tmp_path: Path) -> None:
     captured: dict[str, Path] = {}
 

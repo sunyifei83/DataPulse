@@ -37,9 +37,9 @@ DataPulse 提供一个统一入口，用于：
 | 仓库定位 | DataPulse 已从“多平台解析器集合”演进为本地优先的公开来源情报操作面，主链路是 `collection -> mission -> triage -> story -> report -> delivery -> governance`。 |
 | 已形成闭环 | 公开来源采集、搜索、watch/triage/story、alert/route、ops scorecard、browser console、source/lifecycle/delivery governance 已在仓内形成可运行闭环。 |
 | 正在收敛 | report objects、normalized delivery subscription、report package/dispatch、governed AI surfaces 已进入 Reader / CLI / MCP 运行面，但仍按治理契约逐层收口，而不是伪装成“全自动研究代理”。 |
-| 当前蓝图态 | `L27` runtime-boundary / surface-parity wave 已完成至 `L27.5`；当前 draft blueprint 返回 `recommended_next_slice=no-open-slice`，直到出现新 wave 或 admissible reopen evidence。 |
+| 当前蓝图态 | 当前结构化蓝图已完成至 `L28.5`；`recommended_next_slice=no-open-slice`，直到出现新的 blueprint wave 或 admissible reopen evidence。 |
 | 明确边界 | 本仓不是付费数据库采购系统、线下访谈系统、ERP/CRM 情报中台，也不对抓取合法性做自动法律判断。 |
-| 当前证明面 | `out/ha_latest_release_bundle/` 是当前 canonical 交付证明 bundle；其中 `code_landing_status.snapshot.json`、`release_status.json`、`datapulse-ai-surface-admission.example.json` 分别沉淀代码落地、发布状态与 AI surface admission 真相。 |
+| 当前证明面 | canonical roots 为 `artifacts/governance/snapshots/`、`artifacts/governance/release_bundle/` 与 `config/modelbus/datapulse/`；legacy `out/ha_latest_release_bundle/` 仅保留兼容读取，其中 `project_specific_loop_state.draft.json`、`code_landing_status.draft.json`、`release_status.json`、`datapulse-ai-surface-admission.example.json` 分别沉淀 loop/runtime、代码落地、发布状态与 AI surface admission 真相。 |
 
 ## 当前能力（按仓内实现）
 
@@ -285,7 +285,7 @@ result = await agent.handle("https://x.com/... and https://www.reddit.com/...")
 - 蓝图计划内的代码变更应按逻辑单元提交入库，不长期停留在脏工作区。
 - 推送到 GitHub 后应触发 Actions，当前默认闸门包括 `ruff check datapulse/`、`mypy datapulse/`、`pytest tests/`。
 - GUI/G0 相关变更额外通过 `datapulse-console --help` 入口烟测，确保 console 包装和依赖在 CI 中可安装。
-- 当前仓内证明面以 `out/ha_latest_release_bundle/` 为准；建议从 `code_landing_status.snapshot.json`、`release_readiness_fact.draft.json` 与 `datapulse-ai-surface-admission.example.json` 读取代码落地、发布准备度与 AI admission 的最新真相，而不是依赖 README 中易漂移的静态统计。
+- 当前仓内证明面以 `artifacts/governance/snapshots/`、`artifacts/governance/release_bundle/` 与 `config/modelbus/datapulse/` 为准；`out/ha_latest_release_bundle/` 仅作为兼容读取入口，不应再作为唯一 canonical source。
 
 ## 安全与边界
 
@@ -306,7 +306,10 @@ bash scripts/security_guardrails.sh
 - 来源治理契约：[`docs/intelligence_source_governance_contract.md`](./docs/intelligence_source_governance_contract.md)
 - 分发契约：[`docs/intelligence_delivery_contract.md`](./docs/intelligence_delivery_contract.md)
 - 商业情报治理蓝图：[`docs/commercial_intelligence_governance_blueprint.md`](./docs/commercial_intelligence_governance_blueprint.md)
-- 当前交付证明 bundle：[`out/ha_latest_release_bundle/`](./out/ha_latest_release_bundle/)
+- 当前 canonical 证明根：
+  - [`artifacts/governance/snapshots/`](./artifacts/governance/snapshots/)
+  - [`artifacts/governance/release_bundle/`](./artifacts/governance/release_bundle/)
+  - [`config/modelbus/datapulse/`](./config/modelbus/datapulse/)
 - 验收模板：[`docs/openclaw_datapulse_acceptance_template.md`](./docs/openclaw_datapulse_acceptance_template.md)
 - 事实沉淀：[`docs/test_facts.md`](./docs/test_facts.md)
 - 发布清单：[`docs/release_checklist.md`](./docs/release_checklist.md)

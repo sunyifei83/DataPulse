@@ -27,9 +27,9 @@ for MCP, Skill, Agent, and bot workflows.
 | Repository posture | DataPulse is no longer just a multi-platform parser set. It is now a local-first public-source intelligence operating surface with the chain `collection -> mission -> triage -> story -> report -> delivery -> governance`. |
 | Landed closed loops | Public-source intake, search, watch/triage/story, alert/routes, ops scorecard, browser console, and source/lifecycle/delivery governance are all repo-landed and runnable. |
 | In-flight convergence | Report objects, normalized delivery subscriptions, report package/dispatch flows, and governed AI surfaces are now in Reader / CLI / MCP runtime, but still intentionally constrained by governance contracts instead of being marketed as a fully autonomous research agent. |
-| Current blueprint state | The `L27` runtime-boundary / surface-parity wave is completed through `L27.5`; the current draft blueprint returns `recommended_next_slice=no-open-slice` until a new wave or admissible reopen evidence appears. |
+| Current blueprint state | The structured blueprint is now completed through `L28.5`; `recommended_next_slice=no-open-slice` remains in effect until a new blueprint wave or admissible reopen evidence appears. |
 | Explicit boundary | This repo is not a paid-database procurement layer, field-interview system, ERP/CRM intelligence platform, or automated legal-compliance oracle. |
-| Current proof surface | `out/ha_latest_release_bundle/` is the canonical delivery-proof bundle; `code_landing_status.snapshot.json`, `release_status.json`, and `datapulse-ai-surface-admission.example.json` hold code-landing, release, and AI-surface admission truth respectively. |
+| Current proof surface | The canonical roots are `artifacts/governance/snapshots/`, `artifacts/governance/release_bundle/`, and `config/modelbus/datapulse/`; legacy `out/ha_latest_release_bundle/` remains compatibility-only, while `project_specific_loop_state.draft.json`, `code_landing_status.draft.json`, `release_status.json`, and `datapulse-ai-surface-admission.example.json` hold loop/runtime, code-landing, release, and AI-surface admission truth respectively. |
 
 ## Implemented features
 
@@ -119,7 +119,7 @@ for MCP, Skill, Agent, and bot workflows.
   - current admission truth is intentionally asymmetric: `mission_suggest`, `triage_assist`, `claim_draft`, and `delivery_summary` are admitted, while `report_draft` remains runtime-visible but fail-closed until its structured contract is admitted
 - Verification and proof surface:
   - GitHub Actions CI (Python 3.10/3.11/3.12 matrix) and the repo quick gate form the default promotion gate
-  - canonical truth lives in `out/ha_latest_release_bundle/`, not in hard-coded README counters
+  - canonical truth now lives under `artifacts/governance/snapshots/`, `artifacts/governance/release_bundle/`, and `config/modelbus/datapulse/`; `out/ha_latest_release_bundle/` remains compatibility-only
 
 ## Install
 
@@ -532,7 +532,7 @@ Markdown projection notes:
 - Blueprint work should land as repository commits, not remain as long-lived local workspace drift.
 - After push, GitHub Actions is the default gate: `ruff check datapulse/`, `mypy datapulse/`, and `pytest tests/`.
 - The G0 browser console adds a lightweight smoke check through `datapulse-console --help` so packaging and console dependencies are validated in CI.
-- Current code-landing, release-readiness, and AI-admission truth should be read from `out/ha_latest_release_bundle/` exports rather than from static README metrics.
+- Current code-landing, release-readiness, and AI-admission truth should be read from `artifacts/governance/snapshots/`, `artifacts/governance/release_bundle/`, and `config/modelbus/datapulse/`; `out/ha_latest_release_bundle/` remains a compatibility fallback only.
 
 ## Safety
 

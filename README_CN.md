@@ -26,9 +26,9 @@
 | 仓库定位 | DataPulse 已从“多平台采集器集合”演进为本地优先的公开来源情报操作面，主链路是 `collection -> mission -> triage -> story -> report -> delivery -> governance`。 |
 | 已形成闭环 | 公开来源采集、搜索、watch/triage/story、alert/route、ops scorecard、browser console、source/lifecycle/delivery governance 已在仓内形成可运行闭环。 |
 | 正在收敛 | report objects、normalized delivery subscription、report package/dispatch、governed AI surfaces 已进入 Reader / CLI / MCP 运行面，但仍按治理契约分层收口。 |
-| 当前蓝图态 | `L27` runtime-boundary / surface-parity 波次已完成至 `L27.5`；当前 draft blueprint 返回 `recommended_next_slice=no-open-slice`，直到出现新 wave 或 admissible reopen evidence。 |
+| 当前蓝图态 | 当前结构化蓝图已完成至 `L28.5`；`recommended_next_slice=no-open-slice`，直到出现新的 blueprint wave 或 admissible reopen evidence。 |
 | 明确边界 | 本仓不是付费数据库采购系统、线下访谈系统、ERP/CRM 情报中台，也不对抓取合法性做自动法律判断。 |
-| 当前证明面 | `out/ha_latest_release_bundle/` 是当前 canonical 交付证明 bundle；其中 `code_landing_status.snapshot.json`、`release_status.json`、`datapulse-ai-surface-admission.example.json` 分别沉淀代码落地、发布状态与 AI surface admission 真相。 |
+| 当前证明面 | canonical roots 为 `artifacts/governance/snapshots/`、`artifacts/governance/release_bundle/` 与 `config/modelbus/datapulse/`；legacy `out/ha_latest_release_bundle/` 仅保留兼容读取，其中 `project_specific_loop_state.draft.json`、`code_landing_status.draft.json`、`release_status.json`、`datapulse-ai-surface-admission.example.json` 分别沉淀 loop/runtime、代码落地、发布状态与 AI surface admission 真相。 |
 
 ## 真实实现能力
 
@@ -117,7 +117,7 @@
   - 评分链路可通过 `DATAPULSE_ENTITY_CORROBORATION_WEIGHT` 引入实体跨源互证加分（默认 `0`）
 - 测试与证明面：
   - GitHub Actions CI（Python 3.10 / 3.11 / 3.12 矩阵）与 repo quick gate 共同构成默认门禁
-  - canonical truth 以 `out/ha_latest_release_bundle/` 为准，而不是 README 中易漂移的硬编码统计
+  - canonical truth 应从 `artifacts/governance/snapshots/`、`artifacts/governance/release_bundle/` 与 `config/modelbus/datapulse/` 读取；`out/ha_latest_release_bundle/` 仅保留兼容入口
 
 ## 安装
 
@@ -603,7 +603,7 @@ Markdown 投影说明：
 - 蓝图计划内的变更按逻辑单元提交入库，不长期停留在本地脏工作区。
 - 提交推送后默认触发 GitHub Actions，当前闸门为 `ruff check datapulse/`、`mypy datapulse/`、`pytest tests/`。
 - `G0` 浏览器控制台额外通过 `datapulse-console --help` 做入口烟测，确保 console 依赖和脚本包装在 CI 可安装。
-- 最新代码落地、发布准备度与 AI admission 事实应优先读取 `out/ha_latest_release_bundle/` 下的导出，而不是依赖 README 中的静态统计或口头描述。
+- 最新代码落地、发布准备度与 AI admission 事实应优先读取 `artifacts/governance/snapshots/`、`artifacts/governance/release_bundle/` 与 `config/modelbus/datapulse/` 下的导出；`out/ha_latest_release_bundle/` 仅作为兼容读取入口。
 
 ## 测试与功能使用建议
 

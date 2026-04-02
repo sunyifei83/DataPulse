@@ -28,6 +28,7 @@ DEFAULT_ADMISSION_OUTPUT_PATH = resolve_governance_write_path(
     "datapulse-ai-surface-admission.example.json",
     repo_root=REPO_ROOT,
 )
+VOLATILE_JSON_KEYS = {"generated_at_utc"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -182,6 +183,31 @@ def build_bundle_manifest() -> dict[str, Any]:
     }
 
 
+def _stable_json_payload(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: _stable_json_payload(item)
+            for key, item in value.items()
+            if key not in VOLATILE_JSON_KEYS
+        }
+    if isinstance(value, list):
+        return [_stable_json_payload(item) for item in value]
+    return value
+
+
+def write_json_if_semantically_changed(path: Path, payload: dict[str, Any]) -> bool:
+    target = path.resolve()
+    if target.exists():
+        try:
+            existing_payload = json.loads(target.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            existing_payload = None
+        if _stable_json_payload(existing_payload) == _stable_json_payload(payload):
+            return False
+    write_json(target, payload)
+    return True
+
+
 def main() -> int:
     args = parse_args()
     output_dir = args.output_dir.resolve()
@@ -229,11 +255,11 @@ def main() -> int:
         return 0
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    write_json(admission_output, admission_payload)
-    write_json(output_dir / "bundle_manifest.json", bundle_manifest)
-    write_json(output_dir / "surface_admission.json", surface_admission)
-    write_json(output_dir / "bridge_config.json", bridge_config)
-    write_json(output_dir / "release_status.json", release_status)
+    write_json_if_semantically_changed(admission_output, admission_payload)
+    write_json_if_semantically_changed(output_dir / "bundle_manifest.json", bundle_manifest)
+    write_json_if_semantically_changed(output_dir / "surface_admission.json", surface_admission)
+    write_json_if_semantically_changed(output_dir / "bridge_config.json", bridge_config)
+    write_json_if_semantically_changed(output_dir / "release_status.json", release_status)
     print(output_dir)
     return 0
 
