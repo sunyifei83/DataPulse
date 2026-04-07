@@ -490,6 +490,13 @@ def test_refresh_governance_snapshots_treats_quick_test_as_best_effort(
     auto_continuation, monkeypatch, tmp_path: Path
 ) -> None:
     calls: list[tuple[tuple[str, ...], bool]] = []
+    snapshot_attestation_path = tmp_path / "snapshots" / "datapulse_release_window_attestation.draft.json"
+
+    monkeypatch.setattr(
+        auto_continuation,
+        "resolve_governance_write_path",
+        lambda root, name, repo_root=None: tmp_path / "snapshots" / name,
+    )
 
     def _fake_run_capture(command: list[str], *, required: bool = True) -> str:
         calls.append((tuple(command), required))
@@ -497,6 +504,10 @@ def test_refresh_governance_snapshots_treats_quick_test_as_best_effort(
         if script_name == "scripts/governance/run_datapulse_quick_test_gate.py":
             assert required is False
             return '{"ok": false}'
+        if script_name == "scripts/governance/export_datapulse_structured_release_bundle.py":
+            bundle_attestation_path = tmp_path / "bundle" / "datapulse_release_window_attestation.draft.json"
+            bundle_attestation_path.parent.mkdir(parents=True, exist_ok=True)
+            bundle_attestation_path.write_text('{"git_head":"abc"}', encoding="utf-8")
         assert required is True
         return script_name
 
@@ -513,36 +524,17 @@ def test_refresh_governance_snapshots_treats_quick_test_as_best_effort(
     assert result == {
         "quick_test_gate": '{"ok": false}',
         "internal_ai_surface_runtime_evidence": "scripts/governance/export_datapulse_internal_ai_surface_runtime_evidence.py",
+        "structured_release_bundle": "scripts/governance/export_datapulse_structured_release_bundle.py",
         "code_landing_status": "scripts/governance/export_datapulse_code_landing_status.py",
         "project_loop_state": "scripts/governance/export_datapulse_project_loop_state.py",
-        "structured_release_bundle": "scripts/governance/export_datapulse_structured_release_bundle.py",
     }
+    assert snapshot_attestation_path.read_text(encoding="utf-8") == '{"git_head":"abc"}'
     assert calls == [
         (("python", "scripts/governance/run_datapulse_quick_test_gate.py"), False),
         (
             (
                 "python",
                 "scripts/governance/export_datapulse_internal_ai_surface_runtime_evidence.py",
-            ),
-            True,
-        ),
-        (
-            (
-                "python",
-                "scripts/governance/export_datapulse_code_landing_status.py",
-                "--output",
-                str(tmp_path / "code_landing_status.json"),
-            ),
-            True,
-        ),
-        (
-            (
-                "python",
-                "scripts/governance/export_datapulse_project_loop_state.py",
-                "--plan",
-                str(tmp_path / "plan.json"),
-                "--output",
-                str(tmp_path / "project_loop_state.json"),
             ),
             True,
         ),
@@ -558,7 +550,63 @@ def test_refresh_governance_snapshots_treats_quick_test_as_best_effort(
             ),
             True,
         ),
+        (
+            (
+                "python",
+                "scripts/governance/export_datapulse_code_landing_status.py",
+                "--output",
+                str(tmp_path / "code_landing_status.json"),
+                "--release-window-attestation",
+                str(snapshot_attestation_path),
+            ),
+            True,
+        ),
+        (
+            (
+                "python",
+                "scripts/governance/export_datapulse_project_loop_state.py",
+                "--plan",
+                str(tmp_path / "plan.json"),
+                "--output",
+                str(tmp_path / "project_loop_state.json"),
+                "--release-window-attestation",
+                str(snapshot_attestation_path),
+            ),
+            True,
+        ),
     ]
+
+
+def test_project_loop_state_export_forwards_release_window_attestation(monkeypatch, tmp_path: Path) -> None:
+    if str(GOVERNANCE_SCRIPTS_DIR) not in sys.path:
+        sys.path.insert(0, str(GOVERNANCE_SCRIPTS_DIR))
+    project_loop_state_module = importlib.import_module("export_datapulse_project_loop_state")
+
+    attestation_path = tmp_path / "datapulse_release_window_attestation.draft.json"
+    captured: dict[str, Path | None] = {"attestation_path": None}
+
+    monkeypatch.setattr(
+        project_loop_state_module,
+        "parse_args",
+        lambda: project_loop_state_module.argparse.Namespace(
+            plan=tmp_path / "plan.json",
+            output=tmp_path / "project_specific_loop_state.draft.json",
+            release_window_attestation=attestation_path,
+            stdout=False,
+        ),
+    )
+    monkeypatch.setattr(project_loop_state_module, "load_plan", lambda path: {"project": "DataPulse"})
+
+    def _fake_build_code_landing_status(*, release_window_attestation_path=None):
+        captured["attestation_path"] = release_window_attestation_path
+        return {"headline_summary": {"current_level": "release_governed"}}
+
+    monkeypatch.setattr(project_loop_state_module, "build_code_landing_status", _fake_build_code_landing_status)
+    monkeypatch.setattr(project_loop_state_module, "build_project_loop_state", lambda plan, landing_status: {"status": "ok"})
+    monkeypatch.setattr(project_loop_state_module, "write_json", lambda path, payload: None)
+
+    assert project_loop_state_module.main() == 0
+    assert captured["attestation_path"] == attestation_path.resolve()
 
 
 def test_parse_args_defaults_to_dirty_worktree_fallback(governance_loop, monkeypatch) -> None:

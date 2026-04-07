@@ -32,6 +32,11 @@ def parse_args() -> argparse.Namespace:
         help="Output path for the draft loop state JSON.",
     )
     parser.add_argument(
+        "--release-window-attestation",
+        type=Path,
+        help="Optional release-window attestation JSON used when rebuilding landing status for the loop state export.",
+    )
+    parser.add_argument(
         "--stdout",
         action="store_true",
         help="Print JSON to stdout instead of writing the default draft file.",
@@ -43,7 +48,11 @@ def main() -> int:
     args = parse_args()
     plan = load_plan(args.plan)
     plan["_source_path"] = str(args.plan.resolve())
-    landing_status = build_code_landing_status()
+    landing_status = build_code_landing_status(
+        release_window_attestation_path=args.release_window_attestation.resolve()
+        if isinstance(args.release_window_attestation, Path)
+        else None
+    )
     payload = build_project_loop_state(plan, landing_status)
     if args.stdout:
         print(json.dumps(payload, indent=2, ensure_ascii=True))

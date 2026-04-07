@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -131,6 +132,13 @@ def refresh_governance_snapshots_to_targets(
     code_landing_status_output: Path,
     project_loop_state_output: Path,
 ) -> dict[str, str]:
+    snapshot_attestation_output = resolve_governance_write_path(
+        GOVERNANCE_SNAPSHOT_ROOT,
+        "datapulse_release_window_attestation.draft.json",
+        repo_root=REPO_ROOT,
+    )
+    bundle_attestation_output = bundle_dir.resolve() / "datapulse_release_window_attestation.draft.json"
+
     return {
         # quick_test_gate is an observational wrapper, not a required loop refresh gate.
         "quick_test_gate": run_capture_with_mode(
@@ -146,12 +154,20 @@ def refresh_governance_snapshots_to_targets(
                 "scripts/governance/export_datapulse_internal_ai_surface_runtime_evidence.py",
             ]
         ),
+        "structured_release_bundle": _refresh_structured_release_bundle_and_attestation(
+            bundle_dir=bundle_dir,
+            plan_path=plan_path,
+            bundle_attestation_output=bundle_attestation_output,
+            snapshot_attestation_output=snapshot_attestation_output,
+        ),
         "code_landing_status": run_capture(
             [
                 *current_python_command(),
                 "scripts/governance/export_datapulse_code_landing_status.py",
                 "--output",
                 str(code_landing_status_output),
+                "--release-window-attestation",
+                str(snapshot_attestation_output),
             ]
         ),
         "project_loop_state": run_capture(
@@ -162,20 +178,36 @@ def refresh_governance_snapshots_to_targets(
                 str(plan_path),
                 "--output",
                 str(project_loop_state_output),
-            ]
-        ),
-        "structured_release_bundle": run_capture(
-            [
-                *current_python_command(),
-                "scripts/governance/export_datapulse_structured_release_bundle.py",
-                "--plan",
-                str(plan_path),
-                "--out-dir",
-                str(bundle_dir),
-                "--probe-ha-readiness",
+                "--release-window-attestation",
+                str(snapshot_attestation_output),
             ]
         ),
     }
+
+
+def _refresh_structured_release_bundle_and_attestation(
+    *,
+    bundle_dir: Path,
+    plan_path: Path,
+    bundle_attestation_output: Path,
+    snapshot_attestation_output: Path,
+) -> str:
+    result = run_capture(
+        [
+            *current_python_command(),
+            "scripts/governance/export_datapulse_structured_release_bundle.py",
+            "--plan",
+            str(plan_path),
+            "--out-dir",
+            str(bundle_dir),
+            "--probe-ha-readiness",
+        ]
+    )
+    if not bundle_attestation_output.exists():
+        raise FileNotFoundError(f"structured release bundle attestation missing: {bundle_attestation_output}")
+    snapshot_attestation_output.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(bundle_attestation_output, snapshot_attestation_output)
+    return result
 
 
 def load_policy(path: Path) -> dict[str, Any]:
