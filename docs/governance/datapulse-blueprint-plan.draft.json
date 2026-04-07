@@ -92,7 +92,8 @@
     "L26": "completed",
     "L27": "completed",
     "L28": "completed",
-    "L29": "in_progress"
+    "L29": "in_progress",
+    "L30": "in_progress"
   },
   "phases": [
     {
@@ -3809,6 +3810,111 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L30",
+      "title": "Public-APIs Feed Screening And Evidence Projection Seeds",
+      "status": "in_progress",
+      "slices": [
+        {
+          "id": "L30.1",
+          "title": "Decompose public-apis control-plane intake into DataPulse repo-relevant follow-up slices",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "exit_condition": "Repo-native blueprint truth records public-apis as downstream-only feed, context, and evidence-projection seeds without reopening public rollout semantics or external product-plane claims.",
+          "fact_sources": [
+            "/Users/sunyifei/ModelBusProject/docs/governance/tri_repo/handoffs/tri-repo-public-apis-control-plane-signals-20260402.datapulse.json",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/plan/public-apis-\u9ad8\u4ef7\u503c\u4fe1\u6e90\u6458\u53d6-2026-04-02.md"
+          ],
+          "notes": [
+            "This slice is decomposition-only and must not admit any new public AI surface.",
+            "public-apis candidates remain handoff seeds until source-governance and runtime evidence review occurs inside DataPulse."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-04-07T04:09:30Z",
+            "source_count": 2,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/plan/public-apis-\u9ad8\u4ef7\u503c\u4fe1\u6e90\u6458\u53d6-2026-04-02.md",
+              "frontmatter_title": "",
+              "first_heading": "public-apis \u9ad8\u4ef7\u503c\u4fe1\u6e90\u590d\u6838\u4e0e\u5f85\u6295\u6599\u4fe1\u606f\uff082026-04-02\uff09",
+              "selected_heading": "",
+              "wikilink_name": "public-apis-\u9ad8\u4ef7\u503c\u4fe1\u6e90\u6458\u53d6-2026-04-02"
+            }
+          }
+        },
+        {
+          "id": "L30.2",
+          "title": "Screen public-apis feed and news candidates for repo-native source governance fit",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "docs/intelligence_source_governance_contract.md",
+            "docs/source_feed_enhancement_plan.md",
+            "datapulse/core/source_catalog.py"
+          ],
+          "exit_condition": "Repo truth records which public-apis feed, news, and location-context candidates qualify as governed DataPulse feed seeds, including source-governance posture, collection mode, and explicit defer or reject reasons, without reinterpreting any candidate as an already-published DataPulse external surface.",
+          "fact_sources": [
+            "/Users/sunyifei/ModelBusProject/docs/governance/tri_repo/handoffs/tri-repo-public-apis-control-plane-signals-20260402.datapulse.json",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/plan/public-apis-\u9ad8\u4ef7\u503c\u4fe1\u6e90\u6458\u53d6-2026-04-02.md"
+          ],
+          "notes": [
+            "Prioritize sources that strengthen intelligence collection, story assistance, or delivery evidence projection without creating a new public AI surface.",
+            "Deferred candidates must stay attributable, with reasons such as auth friction, licensing ambiguity, volatility, or product-plane mismatch."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-04-07T04:09:36Z",
+            "source_count": 2,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/plan/public-apis-\u9ad8\u4ef7\u503c\u4fe1\u6e90\u6458\u53d6-2026-04-02.md",
+              "frontmatter_title": "",
+              "first_heading": "public-apis \u9ad8\u4ef7\u503c\u4fe1\u6e90\u590d\u6838\u4e0e\u5f85\u6295\u6599\u4fe1\u606f\uff082026-04-02\uff09",
+              "selected_heading": "",
+              "wikilink_name": "public-apis-\u9ad8\u4ef7\u503c\u4fe1\u6e90\u6458\u53d6-2026-04-02"
+            }
+          }
+        },
+        {
+          "id": "L30.3",
+          "title": "Evaluate evidence projection targets from public-apis collaboration surfaces",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "docs/governance/datapulse-projection-targets.draft.md",
+            "docs/governance/datapulse-internal-external-surface-projection-table.draft.json",
+            "docs/intelligence_delivery_contract.md"
+          ],
+          "exit_condition": "Repo truth identifies which collaboration and reference surfaces from public-apis can become operator-visible read-only evidence projection targets for DataPulse while keeping subscription wiring, public rollout claims, and customer-facing draft publication fail-closed.",
+          "fact_sources": [
+            "/Users/sunyifei/ModelBusProject/docs/governance/tri_repo/handoffs/tri-repo-public-apis-control-plane-signals-20260402.datapulse.json",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/plan/public-apis-\u9ad8\u4ef7\u503c\u4fe1\u6e90\u6458\u53d6-2026-04-02.md"
+          ],
+          "notes": [
+            "Projection targets remain design-only until separate admission and runtime evidence land inside DataPulse.",
+            "Favor operator-visible read-only evidence results over new authoring, subscription, or chat-facing surfaces."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-04-07T04:09:41Z",
+            "source_count": 2,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/plan/public-apis-\u9ad8\u4ef7\u503c\u4fe1\u6e90\u6458\u53d6-2026-04-02.md",
+              "frontmatter_title": "",
+              "first_heading": "public-apis \u9ad8\u4ef7\u503c\u4fe1\u6e90\u590d\u6838\u4e0e\u5f85\u6295\u6599\u4fe1\u606f\uff082026-04-02\uff09",
+              "selected_heading": "",
+              "wikilink_name": "public-apis-\u9ad8\u4ef7\u503c\u4fe1\u6e90\u6458\u53d6-2026-04-02"
+            }
+          }
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
@@ -4328,5 +4434,5 @@
       "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-04-02T09:55:51Z"
+  "last_updated_utc": "2026-04-07T04:09:58Z"
 }
