@@ -157,6 +157,22 @@
   - `L19.5` 补 Telegram chunk/fallback/diagnostics；
   - `L19.6` 再把同一组 noun 投到 GUI。
 
+## L30：public-apis feed/news/location-context 候选筛选（2026-04-07）
+
+- `L30.2` 的完成语义不是“新增一批 DataPulse 已发布来源”，而是把 `public-apis` handoff 里的 feed、news、location-context 候选筛成 repo-native governed seeds。
+- 当前仓内 truth 已固定在 [intelligence_source_governance_contract.md](/Users/sunyifei/DataPulse/docs/intelligence_source_governance_contract.md) 的 `L30.2 Public-APIs Screening Baseline`：
+  - `qualify`：`The Guardian Open Platform`、`GNews API`、`Geoapify Geocoding API`、`OpenCage Geocoding API`
+  - `defer`：`NewsAPI`、`Associated Press API`、`MarketAux`、`LocationIQ`、`OpenWeatherMap`
+  - `reject_current_slice`：`stormglass.io`
+- 这批条目的共同边界已经固定：
+  - 只作为 `watch/feed seed` 或 `location-context seed`
+  - 默认仍按 `collection_mode=api`、`sensitivity=review_required` 处理
+  - 不能因为进入 repo truth 就被解释成 item-level verified evidence 或 DataPulse 外部已发布 surface
+- 这轮不把任何 `public-apis` 候选写进 builtin source defaults；若后续真的要落入 `SourceCatalog` 或 pack，必须由后续 slice 单独做 terms、operator-review、runtime admission 和 evidence boundary 收口。
+- `The Guardian Open Platform` 是当前最强的 publisher-owned news seed；`GNews API` 作为 aggregator seed 补 discovery breadth，但不能替代验证。
+- `Geoapify/OpenCage` 只解决地点归一化与上下文增强；`OpenWeatherMap` 和 `stormglass.io` 都不应被误写成当前 feed 主线，其中 `stormglass.io` 直接超出本 slice 的 intelligence context 需求。
+- `Associated Press API` 与 `MarketAux` 继续保留在可追溯 defer 状态：前者卡在 licensed content / rights review，后者更接近 market-reference specialization，应等待更明确的 downstream need 再决定是否重开。
+
 ## 与现网能力映射
 
 | 目标 | 目前落地状态 | 下一步 |

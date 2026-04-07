@@ -165,6 +165,23 @@ class _WatchReader:
                 "recent_alert_count": 1,
                 "recent_error_count": 1,
             },
+            "research_projection": {
+                "source_plan": {
+                    "summary": "Research should prefer qnaigc, tavily; focus on twitter; bound sites to openai.com; use a week freshness window.",
+                    "provider_hints": ["qnaigc", "tavily"],
+                    "platforms": ["twitter"],
+                    "sites": ["openai.com"],
+                    "time_range": "week",
+                    "deep": False,
+                    "news": True,
+                },
+                "coverage_gap": {
+                    "status": "watch",
+                    "summary": "Watch research coverage has 1 operator-visible gap signal.",
+                    "reasons": ["Named coverage targets have not been observed in persisted watch output yet."],
+                    "operator_action": "tighten_watch_scope",
+                },
+            },
             "runs": [
                 {
                     "id": "ai-radar:2026-03-06T00:00:00+00:00",
@@ -322,6 +339,14 @@ class _WatchReader:
                 "created_at": "2026-03-06T00:00:00+00:00",
                 "delivered_channels": ["json", "markdown"],
                 "extra": {},
+                "research_projection": {
+                    "coverage_gap": {
+                        "status": "review_required",
+                        "summary": "Alert delivery has 1 operator-visible coverage gap signal.",
+                        "reasons": ["One or more delivery routes are degraded or missing."],
+                        "operator_action": "review_delivery_and_evidence",
+                    }
+                },
             }
         ]
 
@@ -548,6 +573,23 @@ class _WatchReader:
                 "payload": {
                     "summary": "Mission `AI Radar` has 1 persisted result items and run readiness `ready`.",
                     "proposed_query": "OpenAI agents",
+                    "research_projection": {
+                        "source_plan": {
+                            "summary": "Research should prefer qnaigc, tavily; focus on twitter; bound sites to openai.com.",
+                            "provider_hints": ["qnaigc", "tavily"],
+                            "platforms": ["twitter"],
+                            "sites": ["openai.com"],
+                            "time_range": "week",
+                            "deep": False,
+                            "news": True,
+                        },
+                        "coverage_gap": {
+                            "status": "watch",
+                            "summary": "Watch research coverage has 1 operator-visible gap signal.",
+                            "reasons": ["Named coverage targets have not been observed in persisted watch output yet."],
+                            "operator_action": "tighten_watch_scope",
+                        },
+                    },
                 },
             },
             "runtime_facts": {
@@ -595,6 +637,23 @@ class _WatchReader:
                 "payload": {
                     "summary": "Draft evidence-bound claim cards without writing final report state.",
                     "claim_cards": [{"id": "claim-1", "statement": "Demand remains elevated."}],
+                    "research_projection": {
+                        "source_plan": {
+                            "summary": "Research should keep provider coverage on tavily; maintain site coverage across example.com.",
+                            "provider_hints": ["tavily"],
+                            "platforms": [],
+                            "sites": ["example.com"],
+                            "time_range": "",
+                            "deep": True,
+                            "news": False,
+                        },
+                        "coverage_gap": {
+                            "status": "watch",
+                            "summary": "Story evidence coverage has 1 review signal before claim drafting.",
+                            "reasons": ["No story evidence row is marked cross-validated."],
+                            "operator_action": "monitor_source_diversity",
+                        },
+                    },
                 },
             },
             "runtime_facts": {
@@ -643,6 +702,23 @@ class _WatchReader:
                 "payload": {
                     "summary": "Alert `ops-threshold` is `healthy` across 1 delivery target.",
                     "overall_status": "healthy",
+                    "research_projection": {
+                        "source_plan": {
+                            "summary": "Alert delivery should stay within the originating evidence chain.",
+                            "provider_hints": [],
+                            "platforms": [],
+                            "sites": ["example.com"],
+                            "time_range": "",
+                            "deep": False,
+                            "news": False,
+                        },
+                        "coverage_gap": {
+                            "status": "review_required",
+                            "summary": "Alert delivery has 1 operator-visible coverage gap signal.",
+                            "reasons": ["One or more delivery routes are degraded or missing."],
+                            "operator_action": "review_delivery_and_evidence",
+                        },
+                    },
                     "routes": [
                         {
                             "name": "ops-webhook",
@@ -999,6 +1075,8 @@ def test_watch_show_prints_cockpit_detail(monkeypatch, capsys):
     assert "scope_entities: OpenAI" in out
     assert "freshness: same day review | max_age<=24h" in out
     assert "coverage_targets: official blog, developer reaction" in out
+    assert "research_source_plan:" in out
+    assert "operator_action: tighten_watch_scope" in out
     assert "run_total: 2" in out
     assert "recent_runs:" in out
     assert "temporary upstream failure" in out
@@ -1183,6 +1261,10 @@ def test_runtime_introspection_prints_cross_surface_coverage(monkeypatch, capsys
     assert '"surface_count": 5' in out
     assert '"id": "skill"' in out
     assert '"wave_id": "L27"' in out
+    assert '"intent_research_verification"' in out
+    assert '"wave_id": "L29"' in out
+    assert '"planning_regression"' in out
+    assert '"routing_policy.provider_hints_applied"' in out
     assert '"ok": true' in out
 
 
@@ -1231,6 +1313,7 @@ def test_ai_mission_suggest_prints_projection(monkeypatch, capsys):
 
     assert '"surface": "mission_suggest"' in out
     assert '"contract_id": "datapulse_ai_watch_suggestion.v1"' in out
+    assert '"research_projection"' in out
     assert '"request_id": "mission-123"' in out
 
 
@@ -1255,6 +1338,7 @@ def test_ai_claim_draft_prints_projection(monkeypatch, capsys):
 
     assert '"surface": "claim_draft"' in out
     assert '"contract_id": "datapulse_ai_claim_draft.v1"' in out
+    assert '"research_projection"' in out
     assert '"statement": "Demand remains elevated."' in out
 
 
@@ -1268,6 +1352,7 @@ def test_ai_delivery_summary_prints_projection(monkeypatch, capsys):
     assert '"surface": "delivery_summary"' in out
     assert '"mode": "review"' in out
     assert '"contract_id": "datapulse_ai_delivery_summary.v1"' in out
+    assert '"research_projection"' in out
     assert '"request_id": "delivery-123"' in out
 
 

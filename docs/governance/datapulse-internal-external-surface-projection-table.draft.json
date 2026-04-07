@@ -1,7 +1,7 @@
 {
   "schema_version": "datapulse_internal_external_surface_projection_table.v1",
   "table_id": "datapulse_internal_external_surface_projection_table",
-  "generated_at_utc": "2026-04-01T16:20:07Z",
+  "generated_at_utc": "2026-04-07T08:08:08Z",
   "state_kind": "draft_design_map",
   "source_registry": {
     "path": "docs/governance/datapulse-internal-ai-surface-registry.draft.json",
@@ -32,6 +32,175 @@
       "description": "Any runtime externalization would require separate contract admission, evidence closure, and blueprint slices."
     }
   ],
+  "public_apis_evidence_projection_targets": [
+    {
+      "target_surface_id": "github_reference_surface",
+      "provider_candidate": "GitHub",
+      "surface_class": "reference_surface",
+      "projection_status": "design_only_candidate",
+      "projection_kind": "read_only_evidence_projection",
+      "future_visibility": "operator_read_only",
+      "runtime_enabled": false,
+      "subscription_gate": "not_modeled",
+      "public_rollout_claim": false,
+      "customer_facing_draft_publication": false,
+      "admissible_output_kinds": [
+        "story_evidence_package",
+        "triage_explanation_result",
+        "delivery_summary_result",
+        "reviewed_report_bundle_manifest"
+      ],
+      "blocked_output_kinds": [
+        "named_route_subscription",
+        "customer_facing_claim_draft",
+        "customer_facing_report_draft",
+        "chat_surface"
+      ],
+      "notes": [
+        "GitHub is admissible only as an operator-visible reference surface for already-shaped evidence or audit artifacts.",
+        "This slice does not admit issue-bot authoring, subscription wiring, or customer publication semantics."
+      ]
+    },
+    {
+      "target_surface_id": "notion_evidence_workspace",
+      "provider_candidate": "Notion",
+      "surface_class": "collaboration_surface",
+      "projection_status": "design_only_candidate",
+      "projection_kind": "read_only_evidence_projection",
+      "future_visibility": "operator_read_only",
+      "runtime_enabled": false,
+      "subscription_gate": "not_modeled",
+      "public_rollout_claim": false,
+      "customer_facing_draft_publication": false,
+      "admissible_output_kinds": [
+        "mission_suggestion_result",
+        "triage_explanation_result",
+        "story_evidence_page",
+        "delivery_summary_result"
+      ],
+      "blocked_output_kinds": [
+        "named_route_subscription",
+        "customer_facing_claim_draft",
+        "customer_facing_report_draft",
+        "live_authoring_surface"
+      ],
+      "notes": [
+        "Notion may later host operator review pages or database rows backed by repo-native evidence results.",
+        "The target remains read-only from the DataPulse contract perspective and does not become a customer-facing doc plane."
+      ]
+    },
+    {
+      "target_surface_id": "airtable_evidence_register",
+      "provider_candidate": "Airtable",
+      "surface_class": "collaboration_surface",
+      "projection_status": "design_only_candidate",
+      "projection_kind": "read_only_evidence_projection",
+      "future_visibility": "operator_read_only",
+      "runtime_enabled": false,
+      "subscription_gate": "not_modeled",
+      "public_rollout_claim": false,
+      "customer_facing_draft_publication": false,
+      "admissible_output_kinds": [
+        "mission_suggestion_result",
+        "triage_explanation_result",
+        "delivery_diagnostics_register",
+        "coverage_gap_register"
+      ],
+      "blocked_output_kinds": [
+        "named_route_subscription",
+        "customer_facing_claim_draft",
+        "customer_facing_report_draft",
+        "review_state_mutation"
+      ],
+      "notes": [
+        "Airtable is admissible only as a tabular evidence register or audit view for operators.",
+        "This slice does not admit alert triggering, review-state writes, or public product-plane semantics."
+      ]
+    },
+    {
+      "target_surface_id": "google_docs_evidence_brief",
+      "provider_candidate": "Google Docs",
+      "surface_class": "collaboration_surface",
+      "projection_status": "design_only_candidate",
+      "projection_kind": "read_only_evidence_projection",
+      "future_visibility": "operator_read_only",
+      "runtime_enabled": false,
+      "subscription_gate": "not_modeled",
+      "public_rollout_claim": false,
+      "customer_facing_draft_publication": false,
+      "admissible_output_kinds": [
+        "triage_explanation_result",
+        "claim_review_reference",
+        "delivery_summary_result",
+        "reviewed_report_brief"
+      ],
+      "blocked_output_kinds": [
+        "named_route_subscription",
+        "customer_facing_claim_draft",
+        "customer_facing_report_draft",
+        "live_authoring_surface"
+      ],
+      "notes": [
+        "Google Docs is admissible only for read-only operator briefs assembled from already-generated results.",
+        "Raw claim or report drafts do not become customer-facing docs through this slice."
+      ]
+    },
+    {
+      "target_surface_id": "google_sheets_evidence_register",
+      "provider_candidate": "Google Sheets",
+      "surface_class": "collaboration_surface",
+      "projection_status": "design_only_candidate",
+      "projection_kind": "read_only_evidence_projection",
+      "future_visibility": "operator_read_only",
+      "runtime_enabled": false,
+      "subscription_gate": "not_modeled",
+      "public_rollout_claim": false,
+      "customer_facing_draft_publication": false,
+      "admissible_output_kinds": [
+        "mission_suggestion_result",
+        "delivery_diagnostics_register",
+        "coverage_gap_register",
+        "evidence_index_register"
+      ],
+      "blocked_output_kinds": [
+        "named_route_subscription",
+        "customer_facing_claim_draft",
+        "customer_facing_report_draft",
+        "trigger_execution"
+      ],
+      "notes": [
+        "Google Sheets is admissible only as a structured operator audit register.",
+        "This slice does not admit trigger execution, subscription semantics, or customer-facing publication."
+      ]
+    },
+    {
+      "target_surface_id": "google_slides_evidence_briefing",
+      "provider_candidate": "Google Slides",
+      "surface_class": "collaboration_surface",
+      "projection_status": "design_only_candidate",
+      "projection_kind": "read_only_evidence_projection",
+      "future_visibility": "operator_read_only",
+      "runtime_enabled": false,
+      "subscription_gate": "not_modeled",
+      "public_rollout_claim": false,
+      "customer_facing_draft_publication": false,
+      "admissible_output_kinds": [
+        "delivery_summary_result",
+        "reviewed_report_brief",
+        "operator_briefing_deck"
+      ],
+      "blocked_output_kinds": [
+        "named_route_subscription",
+        "customer_facing_claim_draft",
+        "customer_facing_report_draft",
+        "live_authoring_surface"
+      ],
+      "notes": [
+        "Google Slides is admissible only for operator-visible briefings derived from reviewed outputs.",
+        "It must not imply product rollout, customer publication, or raw draft admission."
+      ]
+    }
+  ],
   "rows": [
     {
       "internal_surface_id": "ai_surface_precheck",
@@ -48,6 +217,7 @@
       "future_visibility": "not_applicable",
       "runtime_enabled": false,
       "subscription_gate": "not_modeled",
+      "eligible_projection_target_ids": [],
       "notes": [
         "Precheck remains an internal governance gate and does not project to a standalone external result surface in this slice."
       ]
@@ -69,8 +239,14 @@
       "future_visibility": "operator_read_only",
       "runtime_enabled": false,
       "subscription_gate": "not_modeled",
+      "eligible_projection_target_ids": [
+        "notion_evidence_workspace",
+        "airtable_evidence_register",
+        "google_sheets_evidence_register"
+      ],
       "notes": [
-        "The future external surface would expose the resulting suggestion, not the internal authoring interaction itself."
+        "The future external surface would expose the resulting suggestion, not the internal authoring interaction itself.",
+        "Public-apis collaboration targets are limited to operator review registers and must not become subscription or chat surfaces."
       ]
     },
     {
@@ -90,8 +266,15 @@
       "future_visibility": "operator_read_only",
       "runtime_enabled": false,
       "subscription_gate": "not_modeled",
+      "eligible_projection_target_ids": [
+        "github_reference_surface",
+        "notion_evidence_workspace",
+        "airtable_evidence_register",
+        "google_docs_evidence_brief"
+      ],
       "notes": [
-        "The external projection target is a read-only explanation result attached to a triage item."
+        "The external projection target is a read-only explanation result attached to a triage item.",
+        "Any future projection must preserve reviewer authority and avoid mutating triage state from the target surface."
       ]
     },
     {
@@ -111,9 +294,14 @@
       "future_visibility": "operator_read_only",
       "runtime_enabled": false,
       "subscription_gate": "not_modeled",
+      "eligible_projection_target_ids": [
+        "github_reference_surface",
+        "notion_evidence_workspace",
+        "google_docs_evidence_brief"
+      ],
       "notes": [
         "claim_draft remains an internal authoring surface in the current wave.",
-        "The projected external target is a future reviewed result surface rather than customer-facing draft publication."
+        "The projected external target is a future operator review reference or reviewed result surface rather than customer-facing draft publication."
       ]
     },
     {
@@ -133,9 +321,19 @@
       "future_visibility": "operator_read_only",
       "runtime_enabled": false,
       "subscription_gate": "not_modeled",
+      "eligible_projection_target_ids": [],
+      "blocked_projection_target_ids": [
+        "github_reference_surface",
+        "notion_evidence_workspace",
+        "airtable_evidence_register",
+        "google_docs_evidence_brief",
+        "google_sheets_evidence_register",
+        "google_slides_evidence_briefing"
+      ],
       "notes": [
         "report_draft remains internal-only and fail_closed until a structured contract and separate admission land.",
-        "This row records only a future result-oriented target name, not runtime availability."
+        "This row records only a future result-oriented target name, not runtime availability.",
+        "No public-apis collaboration target is admissible for raw report_draft publication in this slice."
       ]
     },
     {
@@ -155,8 +353,17 @@
       "future_visibility": "operator_read_only",
       "runtime_enabled": false,
       "subscription_gate": "not_modeled",
+      "eligible_projection_target_ids": [
+        "github_reference_surface",
+        "notion_evidence_workspace",
+        "airtable_evidence_register",
+        "google_docs_evidence_brief",
+        "google_sheets_evidence_register",
+        "google_slides_evidence_briefing"
+      ],
       "notes": [
-        "The external target is the resulting delivery summary payload, not a customer-facing authoring surface."
+        "The external target is the resulting delivery summary payload, not a customer-facing authoring surface.",
+        "Public-apis collaboration targets stay read-only reference planes and do not become named routes in this slice."
       ]
     }
   ]

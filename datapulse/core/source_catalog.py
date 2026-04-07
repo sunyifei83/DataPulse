@@ -365,6 +365,8 @@ class SourcePack:
 
 
 _SUPPORTED_CATALOG_VERSIONS = {1, 2}
+# Only runtime-admitted defaults belong here. Governance-screened external
+# handoff seeds stay docs-only until a later slice explicitly admits them.
 _BUILTIN_SOURCE_SEEDS: tuple[JSONSource, ...] = (
     {
         "id": "builtin_github",

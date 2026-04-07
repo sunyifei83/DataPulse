@@ -168,6 +168,31 @@ def validate_watch_suggestion_payload(payload: Any) -> list[str]:
         normalized = [str(item or "").strip() for item in value if str(item or "").strip()]
         if payload_field != "operator_notes" and not normalized:
             errors.append(f"{payload_field} cannot be empty when present")
+    research_projection = payload.get("research_projection")
+    if research_projection is not None:
+        if not isinstance(research_projection, dict):
+            errors.append("research_projection must be an object when present")
+        else:
+            source_plan = research_projection.get("source_plan")
+            if source_plan is not None:
+                if not isinstance(source_plan, dict):
+                    errors.append("research_projection.source_plan must be an object when present")
+                elif not str(source_plan.get("summary", "") or "").strip():
+                    errors.append("research_projection.source_plan.summary is required")
+            coverage_gap = research_projection.get("coverage_gap")
+            if coverage_gap is not None:
+                if not isinstance(coverage_gap, dict):
+                    errors.append("research_projection.coverage_gap must be an object when present")
+                else:
+                    if str(coverage_gap.get("status", "") or "").strip().lower() not in {
+                        "clear",
+                        "watch",
+                        "review_required",
+                        "blocked",
+                    }:
+                        errors.append("research_projection.coverage_gap.status is invalid")
+                    if not str(coverage_gap.get("summary", "") or "").strip():
+                        errors.append("research_projection.coverage_gap.summary is required")
     return errors
 
 

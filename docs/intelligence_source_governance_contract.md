@@ -121,6 +121,31 @@ Default posture in current repo code:
 - manual sources default to `collection_mode=manual_fact`
 - search gateway remains a separate provider-side mode documented below
 
+## L30.2 Public-APIs Screening Baseline
+
+As of 2026-04-07, the `public-apis` handoff is screened as repo-native seed input only.
+
+Contract consequences:
+
+1. A screened candidate may qualify as a governed feed or context seed without becoming a builtin `SourceCatalog` default.
+2. Qualified aggregator and location-context APIs remain `review_required` and must not be reinterpreted as item-level verified evidence on their own.
+3. Deferred or rejected candidates stay attributable in repo truth with explicit reasons instead of being silently promoted into runtime admission.
+
+| Candidate | Verdict | Governance posture | Admissible usage | Explicit reason |
+| --- | --- | --- | --- | --- |
+| `The Guardian Open Platform` | `qualify` | `publisher / api / official / review_required` | governed news feed seed | publisher-owned API with explicit key and commercial-use boundary; suitable once route/watch usage remains terms-reviewed |
+| `GNews API` | `qualify` | `aggregator / api / secondary / review_required` | watch/feed seed only | broad multi-source discovery surface is useful for collection breadth, but results remain aggregator output that still requires downstream verification |
+| `Geoapify Geocoding API` | `qualify` | `generic / api / secondary / review_required` | location-context seed only | key-based geocoding API is suitable for place normalization and context enrichment, not for item-evidence truth |
+| `OpenCage Geocoding API` | `qualify` | `generic / api / secondary / review_required` | location-context seed only | open-data geocoder is governance-compatible for operator-visible place context, with attribution and rate-limit review preserved |
+| `NewsAPI` | `defer` | `aggregator / api / secondary / review_required` | none until differentiated need is proven | overlaps the same aggregator lane already covered by `GNews`; keep deferred until source-diversity need or plan-specific terms review justifies dual admission |
+| `Associated Press API` | `defer` | `publisher / api / official / review_required` | none until licensed intake path exists | authoritative publisher feed is attractive, but licensed API access and content-rights review should be explicit before repo-native seed admission |
+| `MarketAux` | `defer` | `aggregator / api / secondary / review_required` | none in current slice | entity-tagged finance aggregation is more aligned with market-reference specialization than the current generic DataPulse feed wave |
+| `LocationIQ` | `defer` | `generic / api / secondary / review_required` | none until redundancy need is proven | geocoding fit exists, but it duplicates the `Geoapify/OpenCage` context lane without adding a new governance advantage for this slice |
+| `OpenWeatherMap` | `defer` | `generic / api / secondary / review_required` | weather context only, not admitted now | weather enrichment can help later story context, but it does not solve the current feed/news seed gap |
+| `stormglass.io` | `reject_current_slice` | `generic / api / secondary / review_required` | not in `L30.2` scope | marine-weather specialization and commercial-use boundary pull beyond the current repo-native intelligence feed/context need |
+
+These verdicts intentionally do not create a new public DataPulse surface. They only define which `public-apis` candidates are governance-compatible handoff seeds for later explicit admission work.
+
 ## SearchGateway Mapping
 
 `SearchGateway` governs provider execution and search-provider mediation. It should use the same source-governance language without pretending that gateway execution fully classifies the underlying destination URL.

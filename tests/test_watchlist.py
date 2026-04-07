@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from datapulse.core.models import DataPulseItem, SourceType
@@ -436,6 +438,7 @@ async def test_reader_list_watch_results_filters_by_mission(tmp_path, monkeypatc
 
     reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
     mission = reader.create_watch(name="AI Radar", query="OpenAI agents")
+    base_time = datetime.now(timezone.utc).replace(microsecond=0)
 
     matched = DataPulseItem(
         source_type=SourceType.GENERIC,
@@ -443,7 +446,7 @@ async def test_reader_list_watch_results_filters_by_mission(tmp_path, monkeypatc
         title="OpenAI agents result",
         content="Synthetic search result content",
         url="https://example.com/openai-agents",
-        fetched_at="2026-03-06T00:00:00+00:00",
+        fetched_at=(base_time - timedelta(minutes=2)).isoformat(),
         confidence=0.91,
         score=73,
         extra={"watch_mission_id": mission["id"], "watch_mission_name": mission["name"]},
@@ -454,7 +457,7 @@ async def test_reader_list_watch_results_filters_by_mission(tmp_path, monkeypatc
         title="GPU infra result",
         content="Synthetic unrelated infrastructure result without the mission query.",
         url="https://example.com/infra-watch",
-        fetched_at="2026-03-06T00:02:00+00:00",
+        fetched_at=base_time.isoformat(),
         confidence=0.94,
         score=84,
         extra={"watch_mission_id": mission["id"], "watch_mission_name": mission["name"]},
@@ -465,7 +468,7 @@ async def test_reader_list_watch_results_filters_by_mission(tmp_path, monkeypatc
         title="Infra result",
         content="Synthetic unrelated result",
         url="https://example.com/infra",
-        fetched_at="2026-03-06T00:01:00+00:00",
+        fetched_at=(base_time - timedelta(minutes=1)).isoformat(),
         confidence=0.95,
         score=88,
     )
@@ -489,6 +492,7 @@ def test_reader_show_watch_hides_stale_low_relevance_results(tmp_path, monkeypat
 
     reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
     mission = reader.create_watch(name="AI Radar", query="OpenAI agents")
+    base_time = datetime.now(timezone.utc).replace(microsecond=0)
 
     relevant = DataPulseItem(
         source_type=SourceType.GENERIC,
@@ -496,7 +500,7 @@ def test_reader_show_watch_hides_stale_low_relevance_results(tmp_path, monkeypat
         title="OpenAI agents launch recap",
         content="Synthetic search result content about OpenAI agents shipping to users.",
         url="https://example.com/openai-agents-launch",
-        fetched_at="2026-03-06T00:01:00+00:00",
+        fetched_at=(base_time - timedelta(minutes=1)).isoformat(),
         confidence=0.91,
         score=78,
         extra={"watch_mission_id": mission["id"], "watch_mission_name": mission["name"]},
@@ -507,7 +511,7 @@ def test_reader_show_watch_hides_stale_low_relevance_results(tmp_path, monkeypat
         title="GPU infra ops checklist",
         content="Synthetic unrelated infrastructure result that stayed attached to the mission.",
         url="https://example.com/gpu-infra",
-        fetched_at="2026-03-06T00:02:00+00:00",
+        fetched_at=base_time.isoformat(),
         confidence=0.95,
         score=87,
         extra={"watch_mission_id": mission["id"], "watch_mission_name": mission["name"]},

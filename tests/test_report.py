@@ -450,10 +450,235 @@ def test_ai_claim_draft_returns_bound_draft_without_persisting(tmp_path):
     assert draft["claim_cards"]
     assert draft["claim_cards"][0]["source_item_ids"] == ["item-1", "item-2"]
     assert draft["claim_cards"][0]["governance"]["evidence_status"] == "bound"
+    assert draft["research_projection"]["source_plan"]["summary"]
+    assert draft["research_projection"]["coverage_gap"]["status"] in {"clear", "watch", "review_required", "blocked"}
     assert payload["runtime_facts"]["source"] == "deterministic"
     assert reader.list_claim_cards(limit=10) == []
     assert payload["runtime_facts"]["manual_override_required"] is True
     assert payload["runtime_facts"]["served_by_alias"] == payload["precheck"]["alias"]
+
+
+def test_ai_claim_draft_projects_evidence_intake_and_citation_candidates(tmp_path):
+    reader = _reader(tmp_path)
+    story = reader.create_story(
+        title="Cross-source story",
+        summary="Multiple provider hits and a partner recap support the same launch story.",
+        status="active",
+        item_count=2,
+        confidence=0.84,
+        primary_evidence=[
+            {
+                "item_id": "item-1",
+                "title": "Launch evidence",
+                "url": "https://example.com/item-1",
+                "source_name": "example",
+                "source_type": "generic",
+                "review_state": "verified",
+                "governance": {
+                    "evidence_grade": "verified",
+                    "evidence_score": 0.94,
+                    "provenance": {
+                        "source_refs": ["example", "jina", "tavily"],
+                        "research_support": {
+                            "search_query": "launch demand update",
+                            "search_provider": "auto",
+                            "search_mode": "multi",
+                            "search_sources": ["jina", "tavily"],
+                            "search_source_count": 2,
+                            "search_source_diversity": 1.0,
+                            "cross_validation": {"is_cross_validated": True},
+                            "cross_validated": True,
+                            "stitched": True,
+                        },
+                    },
+                },
+            }
+        ],
+        secondary_evidence=[
+            {
+                "item_id": "item-2",
+                "title": "Partner recap",
+                "url": "https://example.com/item-2",
+                "source_name": "partner",
+                "source_type": "generic",
+                "review_state": "triaged",
+                "governance": {
+                    "evidence_grade": "reviewed",
+                    "evidence_score": 0.71,
+                    "provenance": {
+                        "source_refs": ["partner"],
+                    },
+                },
+            }
+        ],
+        semantic_review={
+            "claim_candidates": [
+                "The launch story is backed by multiple providers and a partner recap.",
+            ]
+        },
+    )
+
+    payload = reader.ai_claim_draft(story["id"], mode="assist")
+
+    assert payload is not None
+    draft = payload["output"]["payload"]
+    assert draft["evidence_intake"]["summary"]["stitched_evidence_count"] >= 1
+    assert draft["evidence_intake"]["summary"]["cross_validated_evidence_count"] >= 1
+    assert draft["citation_bundle_candidates"]
+    assert draft["citation_bundle_candidates"][0]["governance"]["source_ref_count"] >= 3
+    assert draft["research_projection"]["coverage_gap"]["status"] in {"clear", "watch", "review_required"}
+    assert draft["claim_cards"][0]["governance"]["evidence_intake"]["citation_candidate_count"] >= 1
+    assert draft["claim_cards"][0]["governance"]["evidence_intake"]["stitched_evidence_count"] >= 1
+
+
+def test_ai_claim_draft_research_projection_matches_story_intake_semantics(tmp_path):
+    reader = _reader(tmp_path)
+    story = reader.create_story(
+        title="Claim parity story",
+        summary="Claim draft should preserve stitched evidence semantics.",
+        status="active",
+        item_count=2,
+        confidence=0.82,
+        primary_evidence=[
+            {
+                "item_id": "item-1",
+                "title": "Primary stitched evidence",
+                "url": "https://example.com/item-1",
+                "source_name": "example",
+                "source_type": "generic",
+                "review_state": "verified",
+                "governance": {
+                    "evidence_grade": "verified",
+                    "evidence_score": 0.93,
+                    "provenance": {
+                        "source_refs": ["example", "jina", "tavily"],
+                        "research_support": {
+                            "search_query": "claim parity evidence",
+                            "search_provider": "tavily",
+                            "search_mode": "multi",
+                            "search_sources": ["jina", "tavily"],
+                            "search_source_count": 2,
+                            "search_source_diversity": 1.0,
+                            "stitched": True,
+                        },
+                    },
+                },
+            }
+        ],
+        secondary_evidence=[
+            {
+                "item_id": "item-2",
+                "title": "Secondary corroboration",
+                "url": "https://partner.example.com/item-2",
+                "source_name": "partner",
+                "source_type": "generic",
+                "review_state": "triaged",
+                "governance": {
+                    "evidence_grade": "reviewed",
+                    "evidence_score": 0.7,
+                    "provenance": {
+                        "source_refs": ["partner"],
+                    },
+                },
+            }
+        ],
+        semantic_review={
+            "claim_candidates": [
+                "Multiple sources support the same story, but cross-validation is not complete.",
+            ]
+        },
+    )
+
+    payload = reader.ai_claim_draft(story["id"], mode="assist")
+
+    assert payload is not None
+    draft = payload["output"]["payload"]
+    assert draft["evidence_intake"]["summary"]["stitched_evidence_count"] == 1
+    assert draft["evidence_intake"]["summary"]["cross_validated_evidence_count"] == 0
+    assert draft["research_projection"]["source_plan"]["deep"] is True
+    assert set(draft["research_projection"]["source_plan"]["sites"]) == {"example.com", "partner.example.com"}
+    assert draft["research_projection"]["coverage_gap"]["status"] == "watch"
+    assert draft["research_projection"]["coverage_gap"]["reasons"] == [
+        "No story evidence row is marked cross-validated."
+    ]
+    assert draft["research_projection"]["coverage_gap"]["operator_action"] == "monitor_source_diversity"
+
+
+def test_report_story_intake_can_seed_claim_cards_and_citation_bundles(tmp_path):
+    reader = _reader(tmp_path)
+    story = reader.create_story(
+        title="Story-backed report intake",
+        summary="Story evidence should normalize into report-layer intake.",
+        status="active",
+        item_count=2,
+        confidence=0.81,
+        primary_evidence=[
+            {
+                "item_id": "item-1",
+                "title": "Primary evidence",
+                "url": "https://example.com/item-1",
+                "source_name": "example",
+                "source_type": "generic",
+                "review_state": "verified",
+                "governance": {
+                    "evidence_grade": "verified",
+                    "evidence_score": 0.95,
+                    "provenance": {
+                        "source_refs": ["example", "jina", "tavily"],
+                        "research_support": {
+                            "search_query": "story backed report intake",
+                            "search_provider": "auto",
+                            "search_mode": "multi",
+                            "search_sources": ["jina", "tavily"],
+                            "search_source_count": 2,
+                            "search_source_diversity": 1.0,
+                            "cross_validation": {"is_cross_validated": True},
+                            "cross_validated": True,
+                            "stitched": True,
+                        },
+                    },
+                },
+            }
+        ],
+        secondary_evidence=[
+            {
+                "item_id": "item-2",
+                "title": "Secondary evidence",
+                "url": "https://partner.example.com/item-2",
+                "source_name": "partner",
+                "source_type": "generic",
+                "review_state": "triaged",
+                "governance": {
+                    "evidence_grade": "reviewed",
+                    "evidence_score": 0.69,
+                    "provenance": {
+                        "source_refs": ["partner"],
+                    },
+                },
+            }
+        ],
+    )
+
+    intake = reader.report_story_intake(story["id"])
+    assert intake is not None
+    claim = reader.create_claim_card(
+        statement="Story-backed claims should keep their evidence lineage.",
+        evidence_intake=intake,
+    )
+    bundle = reader.create_citation_bundle(
+        claim_card_id=claim["id"],
+        evidence_inputs=intake["evidence_inputs"],
+    )
+
+    assert claim["source_item_ids"] == ["item-1", "item-2"]
+    assert claim["governance"]["evidence_status"] == "bound"
+    assert claim["governance"]["evidence_intake"]["story_id"] == story["id"]
+    assert claim["governance"]["evidence_intake"]["stitched_evidence_count"] >= 1
+    assert bundle["label"] == "Story-backed report intake evidence"
+    assert bundle["source_item_ids"] == ["item-1", "item-2"]
+    assert bundle["source_urls"] == ["https://example.com/item-1", "https://partner.example.com/item-2"]
+    assert bundle["governance"]["evidence_intake"]["story_id"] == story["id"]
+    assert bundle["governance"]["evidence_intake"]["source_ref_count"] >= 4
 
 
 def test_ai_claim_draft_rejects_when_admission_facts_are_missing(monkeypatch, tmp_path):

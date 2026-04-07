@@ -158,6 +158,25 @@ Contract rules:
 - story export is the legacy pull evidence-package handoff
 - route-backed push delivery currently operates on `AlertEvent`; future digest, report, or story push delivery must still produce an attributable event record before dispatch
 
+## L30.3 Read-Only Evidence Projection Targets
+
+As of 2026-04-07, `public-apis` collaboration and reference surfaces are admissible only as future operator-visible read-only evidence projection targets.
+
+| Target family | Admissible payload families | Current contract posture |
+| --- | --- | --- |
+| `GitHub` reference surfaces | story exports, triage explanation references, delivery audit snapshots, reviewed report manifests | reference-only; not a named route, subscription sink, or customer publication plane |
+| `Notion` evidence workspace | mission suggestion results, triage explanation pages, story evidence pages, delivery summary review pages | operator review only; no public rollout claim or customer-facing draft publication |
+| `Airtable` evidence register | coverage-gap tables, delivery diagnostics, source-plan or evidence registers | tabular operator audit only; no trigger execution or review-state mutation |
+| `Google Docs/Sheets/Slides` read-only exports | reviewed briefs, audit tables, operator briefing decks built from already-shaped outputs | export/reference only; not a live drafting or customer-facing publication plane |
+
+Contract rules:
+
+1. These targets may only consume already-shaped repo outputs such as `export_story(...)`, reviewed report bundles, delivery diagnostics, or operator-visible summary artifacts.
+2. This slice does not admit `DeliverySubscription`, `AlertRouteStore`, `channels`, or named-route wiring for these collaboration surfaces.
+3. `operator-visible` means internal read-only reference only. It does not imply public rollout or customer-facing publication.
+4. `claim_draft` may project only as an internal review reference copy; `report_draft` remains fail-closed and cannot project to these targets in the current slice.
+5. Any future runtime exporter or sync path for these targets requires separate blueprint admission and evidence closure.
+
 ## Route-Backed Delivery Contract
 
 When a push output uses named routes, the contract is:

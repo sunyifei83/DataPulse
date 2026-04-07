@@ -313,6 +313,8 @@ def test_ai_delivery_summary_returns_contract_bound_alert_event_payload(tmp_path
     assert payload["runtime_facts"]["source"] == "deterministic"
     assert payload["runtime_facts"]["schema_valid"] is True
     assert payload["output"]["payload"]["overall_status"] == "healthy"
+    assert payload["output"]["payload"]["research_projection"]["source_plan"]["summary"]
+    assert payload["output"]["payload"]["research_projection"]["coverage_gap"]["status"] in {"clear", "watch", "review_required", "blocked"}
 
     routes = {row["name"]: row for row in payload["output"]["payload"]["routes"]}
     assert "ops-webhook" in routes

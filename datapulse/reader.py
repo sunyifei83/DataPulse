@@ -40,6 +40,8 @@ from datapulse.core.report import (
     ReportService,
     ReportStore,
     build_claim_draft_from_story,
+    build_report_intake_from_story,
+    build_story_research_projection,
     validate_claim_draft_payload,
 )
 from datapulse.core.router import ParsePipeline
@@ -52,6 +54,7 @@ from datapulse.core.story import (
     StoryService,
     StoryStore,
     build_factuality_gate,
+    build_story_evidence_intake,
     resolve_factuality_gate_status,
 )
 from datapulse.core.triage import (
@@ -582,6 +585,23 @@ def _dedupe_preserve_order(values: list[Any] | tuple[Any, ...] | None) -> list[s
         if not value or value in seen:
             continue
         seen.add(value)
+        normalized.append(value)
+    return normalized
+
+
+def _dedupe_lower_text(values: list[Any] | tuple[Any, ...] | None) -> list[str]:
+    if not values:
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        value = str(raw or "").strip()
+        if not value:
+            continue
+        key = value.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
         normalized.append(value)
     return normalized
 
@@ -1647,6 +1667,7 @@ class DataPulseReader:
 
         if incident_notes:
             payload["incident_notes"] = incident_notes[:6]
+        payload["research_projection"] = self._build_alert_research_projection(event, route_rows=route_rows)
         return payload
 
     def _build_watch_suggestion_payload(self, mission: WatchMission, *, mode: str) -> dict[str, Any]:
@@ -1684,6 +1705,11 @@ class DataPulseReader:
             operator_notes.append("Review mode requires operator confirmation before applying any suggested mission edits.")
         if operator_notes:
             payload["operator_notes"] = operator_notes
+        payload["research_projection"] = self._build_watch_research_projection(
+            mission,
+            recent_results=recent_results,
+            run_readiness=run_readiness,
+        )
         return payload
 
     def _serialize_watch_mission(self, mission: WatchMission) -> dict[str, Any]:
@@ -1958,6 +1984,256 @@ class DataPulseReader:
                 "time_range": resolved_time_range,
             },
         }
+
+    @staticmethod
+    def _research_projection_source_plan(
+        *,
+        summary: str,
+        provider_hints: list[str] | None = None,
+        platforms: list[str] | None = None,
+        sites: list[str] | None = None,
+        time_range: str | None = None,
+        deep: bool = False,
+        news: bool = False,
+    ) -> dict[str, Any]:
+        return {
+            "summary": str(summary or "").strip(),
+            "provider_hints": _dedupe_lower_text(provider_hints or []),
+            "platforms": _dedupe_lower_text(platforms or []),
+            "sites": _dedupe_lower_text(sites or []),
+            "time_range": str(time_range or "").strip(),
+            "deep": bool(deep),
+            "news": bool(news),
+        }
+
+    @staticmethod
+    def _research_projection_coverage_gap(
+        *,
+        status: str,
+        summary: str,
+        reasons: list[str] | None = None,
+        operator_action: str,
+    ) -> dict[str, Any]:
+        normalized_status = str(status or "").strip().lower() or "watch"
+        if normalized_status not in {"clear", "watch", "review_required", "blocked"}:
+            normalized_status = "watch"
+        return {
+            "status": normalized_status,
+            "summary": str(summary or "").strip(),
+            "reasons": _dedupe_preserve_order(reasons or []),
+            "operator_action": str(operator_action or "").strip(),
+        }
+
+    def _build_watch_research_projection(
+        self,
+        mission: WatchMission | None,
+        *,
+        recent_results: list[DataPulseItem] | list[dict[str, Any]] | None = None,
+        run_readiness: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if mission is None:
+            return {
+                "coverage_gap": self._research_projection_coverage_gap(
+                    status="review_required",
+                    summary="Research projection is unavailable because the watch mission could not be resolved.",
+                    reasons=["watch mission is missing from the current workspace"],
+                    operator_action="restore_watch_definition",
+                )
+            }
+
+        planning = self._plan_search_request(
+            mission.query,
+            sites=list(mission.sites),
+            mission_intent=mission.mission_intent,
+        )
+        source_plan = planning.get("source_plan", {}) if isinstance(planning.get("source_plan"), dict) else {}
+        provider_hints = _dedupe_lower_text(source_plan.get("provider_hints", []))
+        platforms = _dedupe_lower_text([*mission.platforms, *source_plan.get("platforms", [])])
+        sites = _dedupe_lower_text([*mission.sites, *source_plan.get("sites", [])])
+        time_range = str(source_plan.get("time_range", "") or "").strip()
+        deep = bool(source_plan.get("deep", False))
+        news = bool(source_plan.get("news", False))
+
+        plan_parts: list[str] = []
+        if provider_hints:
+            plan_parts.append(f"prefer {', '.join(provider_hints[:3])}")
+        if platforms:
+            plan_parts.append(f"focus on {', '.join(platforms[:3])}")
+        if sites:
+            plan_parts.append(f"bound sites to {', '.join(sites[:3])}")
+        if time_range:
+            plan_parts.append(f"use a {time_range} freshness window")
+        if deep:
+            plan_parts.append("allow deeper follow-up retrieval")
+        if news:
+            plan_parts.append("bias toward news or monitor results")
+        source_plan_projection = self._research_projection_source_plan(
+            summary=("Research should " + "; ".join(plan_parts) + ".") if plan_parts else "Research should remain within the current bounded mission scope.",
+            provider_hints=provider_hints,
+            platforms=platforms,
+            sites=sites,
+            time_range=time_range,
+            deep=deep,
+            news=news,
+        )
+
+        readiness = run_readiness or build_watch_run_readiness(
+            mission,
+            route_status_by_name=self._route_status_by_name(),
+        )
+        recent_result_count = len(recent_results or [])
+        reasons: list[str] = []
+        if recent_result_count <= 0:
+            reasons.append("No persisted watch results are available yet for this mission.")
+        if not mission.platforms and not mission.sites:
+            reasons.append("Mission scope is still broad because no explicit platform or site bound is set.")
+        if mission.mission_intent.coverage_targets and recent_result_count <= 0:
+            reasons.append("Named coverage targets have not been observed in persisted watch output yet.")
+        if mission.last_run_status and mission.last_run_status != "success":
+            reasons.append("The latest watch run did not complete successfully.")
+        for blocking_fact in readiness.get("blocking_facts", []) if isinstance(readiness.get("blocking_facts"), list) else []:
+            reasons.append(f"Run readiness blocking fact: {blocking_fact}")
+
+        coverage_status = "clear"
+        if str(readiness.get("status", "") or "").strip().lower() == "blocked":
+            coverage_status = "blocked"
+        elif recent_result_count <= 0 or (mission.last_run_status and mission.last_run_status != "success"):
+            coverage_status = "review_required"
+        elif reasons:
+            coverage_status = "watch"
+        operator_action = "continue_monitoring"
+        if coverage_status == "blocked":
+            operator_action = "fix_watch_blockers"
+        elif coverage_status == "review_required":
+            operator_action = "review_scope_and_rerun"
+        elif coverage_status == "watch":
+            operator_action = "tighten_watch_scope"
+
+        return {
+            "source_plan": source_plan_projection,
+            "coverage_gap": self._research_projection_coverage_gap(
+                status=coverage_status,
+                summary=(
+                    "Watch research coverage is ready for bounded monitoring."
+                    if not reasons
+                    else f"Watch research coverage has {len(reasons)} operator-visible gap signal(s)."
+                ),
+                reasons=reasons,
+                operator_action=operator_action,
+            ),
+        }
+
+    def _build_alert_research_projection(
+        self,
+        event: AlertEvent,
+        *,
+        route_rows: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        mission = self.watchlist.get(event.mission_id)
+        governance = dict(event.governance or {}) if isinstance(event.governance, dict) else {}
+        provenance = dict(governance.get("provenance") or {}) if isinstance(governance.get("provenance"), dict) else {}
+        factuality = dict(governance.get("factuality") or {}) if isinstance(governance.get("factuality"), dict) else {}
+        delivery_risk = dict(governance.get("delivery_risk") or {}) if isinstance(governance.get("delivery_risk"), dict) else {}
+        evidence_chain = provenance.get("evidence_chain") if isinstance(provenance.get("evidence_chain"), list) else []
+        source_names = _dedupe_lower_text(provenance.get("source_names", []))
+        route_rows = route_rows if isinstance(route_rows, list) else self._build_delivery_summary_route_rows(event)
+
+        if mission is not None:
+            mission_projection = self._build_watch_research_projection(mission)
+            source_plan_projection = dict(mission_projection.get("source_plan", {})) if isinstance(mission_projection.get("source_plan"), dict) else {}
+        else:
+            source_plan_projection = self._research_projection_source_plan(
+                summary=(
+                    "Alert delivery should stay within the originating evidence chain."
+                    if source_names
+                    else "Alert delivery has no recoverable upstream research plan."
+                ),
+                provider_hints=[],
+                platforms=[],
+                sites=source_names,
+                time_range="",
+                deep=False,
+                news=False,
+            )
+
+        reasons: list[str] = []
+        if any(str(row.get("status", "") or "").strip().lower() in {"missing", "degraded"} for row in route_rows):
+            reasons.append("One or more delivery routes are degraded or missing.")
+        if str(factuality.get("status", "") or "").strip().lower() in {"review_required", "blocked"}:
+            reasons.append("Alert factuality review is not fully ready for outward-facing delivery.")
+        if len(source_names) < 2 and evidence_chain:
+            reasons.append("Alert provenance reflects fewer than two distinct source perspectives.")
+        for reason in delivery_risk.get("reasons", []) if isinstance(delivery_risk.get("reasons"), list) else []:
+            text = str(reason or "").strip()
+            if text:
+                reasons.append(text)
+
+        coverage_status = "clear"
+        factuality_status = str(factuality.get("status", "") or "").strip().lower()
+        if factuality_status == "blocked":
+            coverage_status = "blocked"
+        elif reasons:
+            coverage_status = "review_required" if any("degraded" in reason.lower() or "missing" in reason.lower() for reason in reasons) else "watch"
+        operator_action = "continue_delivery_monitoring"
+        if coverage_status == "blocked":
+            operator_action = "hold_delivery_until_factuality_ready"
+        elif coverage_status == "review_required":
+            operator_action = "review_delivery_and_evidence"
+        elif coverage_status == "watch":
+            operator_action = "monitor_delivery_coverage"
+
+        return {
+            "source_plan": source_plan_projection,
+            "coverage_gap": self._research_projection_coverage_gap(
+                status=coverage_status,
+                summary=(
+                    "Alert delivery is backed by attributable evidence and route coverage."
+                    if not reasons
+                    else f"Alert delivery has {len(reasons)} operator-visible coverage gap signal(s)."
+                ),
+                reasons=reasons,
+                operator_action=operator_action,
+            ),
+        }
+
+    @staticmethod
+    def _with_story_research_projection(payload: dict[str, Any]) -> dict[str, Any]:
+        projected = dict(payload)
+        projected["research_projection"] = build_story_research_projection(projected)
+        return projected
+
+    def _with_watch_research_projection(
+        self,
+        payload: dict[str, Any],
+        *,
+        mission: WatchMission | None = None,
+    ) -> dict[str, Any]:
+        projected = dict(payload)
+        resolved_mission = mission
+        if resolved_mission is None:
+            resolved_mission = self.watchlist.get(str(payload.get("id", "") or "").strip())
+        projected["research_projection"] = self._build_watch_research_projection(
+            resolved_mission,
+            recent_results=projected.get("recent_results") if isinstance(projected.get("recent_results"), list) else [],
+        )
+        return projected
+
+    def _with_alert_research_projection(self, payload: dict[str, Any]) -> dict[str, Any]:
+        projected = dict(payload)
+        try:
+            event = AlertEvent.from_dict(projected)
+        except (TypeError, ValueError):
+            projected["research_projection"] = {
+                "coverage_gap": self._research_projection_coverage_gap(
+                    status="review_required",
+                    summary="Alert research projection is unavailable because the event payload could not be normalized.",
+                    reasons=["alert event payload is incomplete"],
+                    operator_action="inspect_alert_payload",
+                )
+            }
+            return projected
+        projected["research_projection"] = self._build_alert_research_projection(event)
+        return projected
 
     @staticmethod
     def _watch_query_ascii_terms(query: str) -> list[str]:
@@ -3840,7 +4116,7 @@ class DataPulseReader:
         since: str | None = None,
         save: bool = True,
     ) -> dict[str, Any]:
-        return self.story_service.build(
+        payload = self.story_service.build(
             items=items,
             profile=profile,
             source_ids=source_ids,
@@ -3850,12 +4126,22 @@ class DataPulseReader:
             since=since,
             save=save,
         )
+        projected = dict(payload)
+        stories = projected.get("stories")
+        if isinstance(stories, list):
+            projected["stories"] = [
+                self._with_story_research_projection(row)
+                if isinstance(row, dict)
+                else row
+                for row in stories
+            ]
+        return projected
 
     def list_stories(self, *, limit: int = 20, min_items: int = 1) -> list[dict[str, Any]]:
-        return self.story_service.list_stories(limit=limit, min_items=min_items)
+        return [self._with_story_research_projection(row) for row in self.story_service.list_stories(limit=limit, min_items=min_items)]
 
     def create_story(self, **payload: Any) -> dict[str, Any]:
-        return self.story_service.create_story(**payload)
+        return self._with_story_research_projection(self.story_service.create_story(**payload))
 
     def create_story_from_triage(
         self,
@@ -3865,15 +4151,24 @@ class DataPulseReader:
         summary: str | None = None,
         status: str = "monitoring",
     ) -> dict[str, Any]:
-        return self.story_service.create_story_from_triage(
+        return self._with_story_research_projection(self.story_service.create_story_from_triage(
             item_ids,
             title=title,
             summary=summary,
             status=status,
-        )
+        ))
 
     def show_story(self, identifier: str) -> dict[str, Any] | None:
-        return self.story_service.show_story(identifier)
+        payload = self.story_service.show_story(identifier)
+        if payload is None:
+            return None
+        return self._with_story_research_projection(payload)
+
+    def story_evidence_intake(self, identifier: str) -> dict[str, Any] | None:
+        story = self.show_story(identifier)
+        if story is None:
+            return None
+        return build_story_evidence_intake(story)
 
     def update_story(
         self,
@@ -3883,10 +4178,16 @@ class DataPulseReader:
         summary: str | None = None,
         status: str | None = None,
     ) -> dict[str, Any] | None:
-        return self.story_service.update_story(identifier, title=title, summary=summary, status=status)
+        payload = self.story_service.update_story(identifier, title=title, summary=summary, status=status)
+        if payload is None:
+            return None
+        return self._with_story_research_projection(payload)
 
     def delete_story(self, identifier: str) -> dict[str, Any] | None:
-        return self.story_service.delete_story(identifier)
+        payload = self.story_service.delete_story(identifier)
+        if payload is None:
+            return None
+        return self._with_story_research_projection(payload)
 
     def export_story(self, identifier: str, *, output_format: str = "json") -> str | None:
         return self.story_service.export_story(identifier, output_format=output_format)
@@ -3947,6 +4248,12 @@ class DataPulseReader:
 
     def update_citation_bundle(self, identifier: str, **payload: Any) -> dict[str, Any] | None:
         return self.report_service.update_citation_bundle(identifier, **payload)
+
+    def report_story_intake(self, story_id: str, *, claim_card_id: str = "") -> dict[str, Any] | None:
+        story = self.show_story(story_id)
+        if story is None:
+            return None
+        return build_report_intake_from_story(story, claim_card_id=claim_card_id)
 
     def list_reports(self, *, limit: int = 20, status: str | None = None) -> list[dict[str, Any]]:
         return self.report_service.list_reports(limit=limit, status=status)
@@ -5044,7 +5351,7 @@ class DataPulseReader:
             mission_intent=mission_intent,
         )
         intake_intent = planning["query_intent"]
-        return self.watch_service.create_watch(
+        payload = self.watch_service.create_watch(
             name=name,
             query=query,
             mission_intent=mission_intent,
@@ -5057,6 +5364,8 @@ class DataPulseReader:
             alert_rules=alert_rules,
             enabled=enabled,
         )
+        mission = self.watchlist.get(str(payload.get("id", "") or "").strip())
+        return self._with_watch_research_projection(payload, mission=mission)
 
     def update_watch(
         self,
@@ -5099,7 +5408,7 @@ class DataPulseReader:
                 list(sites if sites is not None else existing.sites if existing is not None else []),
                 list(intake_intent.get("site_hints", [])),
             )
-        return self.watch_service.update_watch(
+        payload = self.watch_service.update_watch(
             identifier,
             name=name,
             query=query,
@@ -5113,6 +5422,10 @@ class DataPulseReader:
             alert_rules=alert_rules,
             enabled=enabled,
         )
+        if payload is None:
+            return None
+        mission = self.watchlist.get(str(payload.get("id", "") or "").strip())
+        return self._with_watch_research_projection(payload, mission=mission)
 
     def set_watch_alert_rules(
         self,
@@ -5120,10 +5433,17 @@ class DataPulseReader:
         *,
         alert_rules: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
-        return self.watch_service.set_watch_alert_rules(identifier, alert_rules=alert_rules)
+        payload = self.watch_service.set_watch_alert_rules(identifier, alert_rules=alert_rules)
+        if payload is None:
+            return None
+        mission = self.watchlist.get(str(payload.get("id", "") or "").strip())
+        return self._with_watch_research_projection(payload, mission=mission)
 
     def list_watches(self, *, include_disabled: bool = False) -> list[dict[str, Any]]:
-        return self.watch_service.list_watches(include_disabled=include_disabled)
+        return [
+            self._with_watch_research_projection(row, mission=self.watchlist.get(str(row.get("id", "") or "").strip()))
+            for row in self.watch_service.list_watches(include_disabled=include_disabled)
+        ]
 
     def _watch_result_items(
         self,
@@ -5296,7 +5616,11 @@ class DataPulseReader:
         return self.watch_service.list_watch_results(identifier, limit=limit, min_confidence=min_confidence)
 
     def show_watch(self, identifier: str) -> dict[str, Any] | None:
-        return self.watch_service.show_watch(identifier)
+        payload = self.watch_service.show_watch(identifier)
+        if payload is None:
+            return None
+        mission = self.watchlist.get(identifier)
+        return self._with_watch_research_projection(payload, mission=mission)
 
     def disable_watch(self, identifier: str) -> dict[str, Any] | None:
         return self.watch_service.disable_watch(identifier)
@@ -5422,7 +5746,7 @@ class DataPulseReader:
         }
 
     def list_alerts(self, *, limit: int = 20, mission_id: str | None = None) -> list[dict[str, Any]]:
-        return self.alert_service.list_alerts(limit=limit, mission_id=mission_id)
+        return [self._with_alert_research_projection(row) for row in self.alert_service.list_alerts(limit=limit, mission_id=mission_id)]
 
     def list_alert_routes(self) -> list[dict[str, Any]]:
         return self.alert_service.list_alert_routes()

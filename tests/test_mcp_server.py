@@ -56,6 +56,23 @@ class _WatchMCPReader:
             "is_due": True,
             "next_run_at": "2026-03-06T01:00:00+00:00",
             "run_stats": {"total": 2, "success": 1, "error": 1},
+            "research_projection": {
+                "source_plan": {
+                    "summary": "Research should prefer qnaigc, tavily; focus on twitter; bound sites to example.com.",
+                    "provider_hints": ["qnaigc", "tavily"],
+                    "platforms": ["twitter"],
+                    "sites": ["example.com"],
+                    "time_range": "week",
+                    "deep": False,
+                    "news": True
+                },
+                "coverage_gap": {
+                    "status": "watch",
+                    "summary": "Watch research coverage has 1 operator-visible gap signal.",
+                    "reasons": ["Named coverage targets have not been observed in persisted watch output yet."],
+                    "operator_action": "tighten_watch_scope"
+                }
+            },
             "last_failure": {
                 "id": "ai-radar:2026-03-05T23:00:00+00:00",
                 "status": "error",
@@ -179,6 +196,14 @@ class _WatchMCPReader:
                 "mission_name": "AI Radar",
                 "rule_name": "threshold",
                 "summary": "AI Radar triggered threshold",
+                "research_projection": {
+                    "coverage_gap": {
+                        "status": "review_required",
+                        "summary": "Alert delivery has 1 operator-visible coverage gap signal.",
+                        "reasons": ["One or more delivery routes are degraded or missing."],
+                        "operator_action": "review_delivery_and_evidence"
+                    }
+                },
             }
         ]
 
@@ -239,7 +264,29 @@ class _WatchMCPReader:
             "mode": mode,
             "subject": {"kind": "WatchMission", "id": identifier},
             "precheck": self.ai_surface_precheck("mission_suggest", mode=mode),
-            "output": {"contract_id": "datapulse_ai_watch_suggestion.v1", "payload": {"proposed_query": "OpenAI agents"}},
+            "output": {
+                "contract_id": "datapulse_ai_watch_suggestion.v1",
+                "payload": {
+                    "proposed_query": "OpenAI agents",
+                    "research_projection": {
+                        "source_plan": {
+                            "summary": "Research should prefer qnaigc, tavily; focus on twitter; bound sites to example.com.",
+                            "provider_hints": ["qnaigc", "tavily"],
+                            "platforms": ["twitter"],
+                            "sites": ["example.com"],
+                            "time_range": "week",
+                            "deep": False,
+                            "news": True
+                        },
+                        "coverage_gap": {
+                            "status": "watch",
+                            "summary": "Watch research coverage has 1 operator-visible gap signal.",
+                            "reasons": ["Named coverage targets have not been observed in persisted watch output yet."],
+                            "operator_action": "tighten_watch_scope"
+                        }
+                    }
+                }
+            },
             "runtime_facts": {"status": "fallback_used", "request_id": "mission-123"},
         }
 
@@ -263,7 +310,29 @@ class _WatchMCPReader:
             "mode": mode,
             "subject": {"kind": "Story", "id": story_id},
             "precheck": self.ai_surface_precheck("claim_draft", mode=mode),
-            "output": {"contract_id": "datapulse_ai_claim_draft.v1", "payload": {"claim_cards": [{"id": "claim-1"}]}},
+            "output": {
+                "contract_id": "datapulse_ai_claim_draft.v1",
+                "payload": {
+                    "claim_cards": [{"id": "claim-1"}],
+                    "research_projection": {
+                        "source_plan": {
+                            "summary": "Research should keep provider coverage on tavily; maintain site coverage across example.com.",
+                            "provider_hints": ["tavily"],
+                            "platforms": [],
+                            "sites": ["example.com"],
+                            "time_range": "",
+                            "deep": True,
+                            "news": False
+                        },
+                        "coverage_gap": {
+                            "status": "watch",
+                            "summary": "Story evidence coverage has 1 review signal before claim drafting.",
+                            "reasons": ["No story evidence row is marked cross-validated."],
+                            "operator_action": "monitor_source_diversity"
+                        }
+                    }
+                }
+            },
             "runtime_facts": {"status": "fallback_used", "request_id": "claim-123"},
         }
 
@@ -304,6 +373,23 @@ class _WatchMCPReader:
                 "payload": {
                     "summary": "Alert `ops-threshold` is `healthy` across 1 delivery target.",
                     "overall_status": "healthy",
+                    "research_projection": {
+                        "source_plan": {
+                            "summary": "Alert delivery should stay within the originating evidence chain.",
+                            "provider_hints": [],
+                            "platforms": [],
+                            "sites": ["example.com"],
+                            "time_range": "",
+                            "deep": False,
+                            "news": False
+                        },
+                        "coverage_gap": {
+                            "status": "review_required",
+                            "summary": "Alert delivery has 1 operator-visible coverage gap signal.",
+                            "reasons": ["One or more delivery routes are degraded or missing."],
+                            "operator_action": "review_delivery_and_evidence"
+                        }
+                    },
                     "routes": [
                         {
                             "name": "ops-webhook",
@@ -593,6 +679,7 @@ async def test_mcp_watch_show_tool(monkeypatch):
     assert payload["ok"] is True
     assert payload["mission"]["id"] == "ai-radar"
     assert payload["mission"]["run_stats"]["error"] == 1
+    assert payload["mission"]["research_projection"]["coverage_gap"]["operator_action"] == "tighten_watch_scope"
     assert payload["mission"]["recent_results"][0]["id"] == "item-1"
     assert payload["mission"]["result_filters"]["window_count"] == 1
     assert payload["mission"]["timeline_strip"][0]["kind"] == "alert"
@@ -755,6 +842,9 @@ async def test_mcp_runtime_introspection_tool():
     assert payload["surface_count"] == 5
     assert any(row["id"] == "skill" for row in payload["surfaces"])
     assert payload["reopen_rules"]["wave_id"] == "L27"
+    assert payload["intent_research_verification"]["wave_id"] == "L29"
+    assert payload["intent_research_verification"]["routing_audit"]["required_fields"][0] == "routing_policy.provider_hints_applied"
+    assert payload["intent_research_verification"]["reopen_rules"]["admissible_evidence"][1]["id"] == "provenance_drift"
 
 
 @pytest.mark.asyncio
@@ -779,6 +869,7 @@ async def test_mcp_ai_projection_tools(monkeypatch):
     mission_payload = json.loads(mission_raw)
     assert mission_payload["ok"] is True
     assert mission_payload["projection"]["output"]["contract_id"] == "datapulse_ai_watch_suggestion.v1"
+    assert mission_payload["projection"]["output"]["payload"]["research_projection"]["source_plan"]["news"] is True
 
     triage_raw = await app._run_tool("ai_triage_assist", {"item_id": "item-1", "limit": 3})
     triage_payload = json.loads(triage_raw)
@@ -790,6 +881,7 @@ async def test_mcp_ai_projection_tools(monkeypatch):
     claim_payload = json.loads(claim_raw)
     assert claim_payload["ok"] is True
     assert claim_payload["projection"]["output"]["contract_id"] == "datapulse_ai_claim_draft.v1"
+    assert claim_payload["projection"]["output"]["payload"]["research_projection"]["coverage_gap"]["status"] == "watch"
     assert claim_payload["projection"]["runtime_facts"]["request_id"] == "claim-123"
 
     report_raw = await app._run_tool("ai_report_draft", {"report_id": "report-runtime-closure", "mode": "review"})
@@ -803,6 +895,7 @@ async def test_mcp_ai_projection_tools(monkeypatch):
     delivery_payload = json.loads(delivery_raw)
     assert delivery_payload["ok"] is True
     assert delivery_payload["projection"]["output"]["contract_id"] == "datapulse_ai_delivery_summary.v1"
+    assert delivery_payload["projection"]["output"]["payload"]["research_projection"]["coverage_gap"]["status"] == "review_required"
     assert delivery_payload["projection"]["runtime_facts"]["request_id"] == "delivery-123"
 
 

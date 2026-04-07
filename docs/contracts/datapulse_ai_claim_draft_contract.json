@@ -61,6 +61,210 @@
           "type": "string",
           "minLength": 1
         },
+        "evidence_intake": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "story",
+            "summary",
+            "evidence_status",
+            "source_item_ids",
+            "source_urls",
+            "source_refs",
+            "evidence_inputs"
+          ],
+          "properties": {
+            "story": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              }
+            },
+            "summary": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "evidence_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "primary_evidence_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "secondary_evidence_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "source_item_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "source_url_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "source_ref_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "stitched_evidence_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "cross_validated_evidence_count": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "evidence_status": {
+              "enum": [
+                "bound",
+                "partial",
+                "missing"
+              ]
+            },
+            "source_item_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "source_urls": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "source_refs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "evidence_inputs": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "citation_bundle_candidates": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "citation_bundle_candidates": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "research_projection": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source_plan": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "summary",
+                "deep",
+                "news"
+              ],
+              "properties": {
+                "summary": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "provider_hints": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "platforms": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "sites": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "time_range": {
+                  "type": "string"
+                },
+                "deep": {
+                  "type": "boolean"
+                },
+                "news": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "coverage_gap": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "summary",
+                "reasons",
+                "operator_action"
+              ],
+              "properties": {
+                "status": {
+                  "enum": [
+                    "clear",
+                    "watch",
+                    "review_required",
+                    "blocked"
+                  ]
+                },
+                "summary": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasons": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "operator_action": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
         "claim_cards": {
           "type": "array",
           "minItems": 1,
@@ -171,6 +375,50 @@
                       "minLength": 1
                     },
                     "uniqueItems": true
+                  },
+                  "evidence_intake": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "story_id": {
+                        "type": "string"
+                      },
+                      "story_title": {
+                        "type": "string"
+                      },
+                      "evidence_count": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "source_ref_count": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "source_refs": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "uniqueItems": true
+                      },
+                      "stitched_evidence_count": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "cross_validated_evidence_count": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "citation_candidate_count": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "source_url_count": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
                   }
                 }
               }

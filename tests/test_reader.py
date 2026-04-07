@@ -1179,9 +1179,13 @@ def test_ai_mission_suggest_returns_governed_payload_without_mutation(tmp_path, 
     assert payload["precheck"]["mode_status"] == "admitted"
     assert payload["output"]["contract_id"] == "datapulse_ai_watch_suggestion.v1"
     assert payload["output"]["payload"]["proposed_query"] == "edge inference launch"
+    assert payload["output"]["payload"]["research_projection"]["source_plan"]["summary"]
+    assert payload["output"]["payload"]["research_projection"]["coverage_gap"]["status"] in {"clear", "watch", "review_required", "blocked"}
     assert payload["output"]["payload"]["run_readiness"]["status"] in {"ready", "needs_review", "blocked"}
     assert payload["runtime_facts"]["source"] == "deterministic"
     assert payload["runtime_facts"]["schema_valid"] is True
+    assert before["research_projection"]["source_plan"]["summary"]
+    assert after["research_projection"]["coverage_gap"]["status"] in {"clear", "watch", "review_required", "blocked"}
     assert before["updated_at"] == after["updated_at"]
 
 

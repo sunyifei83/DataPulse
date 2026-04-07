@@ -7,8 +7,10 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, TypeAlias, TypeVar
+from urllib.parse import urlparse
 
 from .alerts import DeliveryDispatchError, resolve_delivery_targets
+from .story import build_story_evidence_intake
 from .utils import generate_slug, reports_path_from_env
 
 
@@ -77,6 +79,437 @@ def _as_dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def normalize_report_evidence_intake(payload: Any) -> dict[str, Any]:
+    story_meta: dict[str, Any] = {}
+    raw_rows: list[dict[str, Any]] = []
+
+    if isinstance(payload, dict) and (
+        isinstance(payload.get("primary_evidence"), list) or isinstance(payload.get("secondary_evidence"), list)
+    ):
+        story_intake = build_story_evidence_intake(payload)
+        story_meta = dict(story_intake.get("story", {})) if isinstance(story_intake.get("story"), dict) else {}
+        raw_rows = [row for row in story_intake.get("evidence_inputs", []) if isinstance(row, dict)]
+    elif isinstance(payload, dict):
+        story_meta = dict(payload.get("story", {})) if isinstance(payload.get("story"), dict) else {}
+        raw_rows = [row for row in payload.get("evidence_inputs", []) if isinstance(row, dict)]
+    elif isinstance(payload, list):
+        raw_rows = [row for row in payload if isinstance(row, dict)]
+
+    evidence_inputs: list[dict[str, Any]] = []
+    source_refs: list[str] = []
+    story_id = str(story_meta.get("id", "") or "").strip()
+    story_title = str(story_meta.get("title", "") or "").strip()
+
+    for index, raw_row in enumerate(raw_rows, start=1):
+        provenance = dict(raw_row.get("provenance", {})) if isinstance(raw_row.get("provenance"), dict) else {}
+        source_row_refs = _normalize_string_list([
+            *_normalize_string_list(raw_row.get("source_refs")),
+            raw_row.get("source_name"),
+        ])
+        source_refs.extend(source_row_refs)
+        cross_validation = (
+            dict(raw_row.get("cross_validation", {}))
+            if isinstance(raw_row.get("cross_validation"), dict)
+            else {}
+        )
+        evidence_id = _normalize_optional_string(raw_row.get("evidence_id")) or f"evidence-{index}"
+        item_id = _normalize_optional_string(raw_row.get("item_id"))
+        url = _normalize_optional_string(raw_row.get("url"))
+        role = _normalize_optional_string(raw_row.get("role")).strip().lower() or "secondary"
+        cross_validated = bool(raw_row.get("cross_validated")) or bool(cross_validation.get("is_cross_validated"))
+        search_sources = _normalize_string_list(raw_row.get("search_sources"))
+        search_source_count = _coerce_int(raw_row.get("search_source_count"), default=len(search_sources))
+        if search_source_count <= 0 and search_sources:
+            search_source_count = len(search_sources)
+        stitched = bool(raw_row.get("stitched")) or len(source_row_refs) >= 2 or search_source_count >= 2 or cross_validated
+
+        if not story_id:
+            story_id = _normalize_optional_string(raw_row.get("story_id"))
+        if not story_title:
+            story_title = _normalize_optional_string(raw_row.get("story_title"))
+
+        evidence_inputs.append(
+            {
+                "evidence_id": evidence_id,
+                "story_id": _normalize_optional_string(raw_row.get("story_id")) or story_id,
+                "story_title": _normalize_optional_string(raw_row.get("story_title")) or story_title,
+                "item_id": item_id,
+                "title": _normalize_optional_string(raw_row.get("title")),
+                "url": url,
+                "source_name": _normalize_optional_string(raw_row.get("source_name")),
+                "source_type": _normalize_optional_string(raw_row.get("source_type")),
+                "role": role,
+                "review_state": _normalize_optional_string(raw_row.get("review_state")).strip().lower() or "new",
+                "confidence": round(max(0.0, min(1.0, _coerce_float(raw_row.get("confidence"), default=0.0))), 4),
+                "evidence_grade": _normalize_optional_string(raw_row.get("evidence_grade")).strip().lower() or "working",
+                "evidence_score": round(max(0.0, _coerce_float(raw_row.get("evidence_score"), default=0.0)), 4),
+                "grounded_claim_count": _coerce_int(raw_row.get("grounded_claim_count"), default=0),
+                "source_refs": source_row_refs,
+                "source_ref_count": len(source_row_refs),
+                "search_query": _normalize_optional_string(raw_row.get("search_query")),
+                "search_provider": _normalize_optional_string(raw_row.get("search_provider")),
+                "search_mode": _normalize_optional_string(raw_row.get("search_mode")),
+                "search_sources": search_sources,
+                "search_source_count": search_source_count,
+                "search_source_diversity": round(
+                    max(0.0, min(1.0, _coerce_float(raw_row.get("search_source_diversity"), default=0.0))),
+                    4,
+                ),
+                "cross_validation": cross_validation,
+                "cross_validated": cross_validated,
+                "stitched": stitched,
+                "provenance": provenance,
+            }
+        )
+
+    source_item_ids = _normalize_id_sequence([row.get("item_id") for row in evidence_inputs])
+    source_urls = _normalize_string_list([row.get("url") for row in evidence_inputs])
+    stitched_source_refs = _normalize_string_list(source_refs)
+    evidence_status = "bound" if source_item_ids else "partial" if source_urls else "missing"
+
+    return {
+        "story": {
+            "id": story_id,
+            "title": story_title,
+        },
+        "summary": {
+            "evidence_count": len(evidence_inputs),
+            "primary_evidence_count": sum(1 for row in evidence_inputs if row.get("role") == "primary"),
+            "secondary_evidence_count": sum(1 for row in evidence_inputs if row.get("role") == "secondary"),
+            "source_item_count": len(source_item_ids),
+            "source_url_count": len(source_urls),
+            "source_ref_count": len(stitched_source_refs),
+            "stitched_evidence_count": sum(1 for row in evidence_inputs if row.get("stitched")),
+            "cross_validated_evidence_count": sum(1 for row in evidence_inputs if row.get("cross_validated")),
+        },
+        "evidence_status": evidence_status,
+        "source_item_ids": source_item_ids,
+        "source_urls": source_urls,
+        "source_refs": stitched_source_refs,
+        "evidence_inputs": evidence_inputs,
+    }
+
+
+def _build_citation_bundle_candidate(
+    rows: list[dict[str, Any]],
+    *,
+    label: str,
+    candidate_kind: str,
+    story_meta: dict[str, Any],
+    claim_card_id: str = "",
+    evidence_status: str = "missing",
+) -> dict[str, Any]:
+    source_item_ids = _normalize_id_sequence([row.get("item_id") for row in rows])
+    source_urls = _normalize_string_list([row.get("url") for row in rows])
+    source_refs = _normalize_string_list(
+        [source_ref for row in rows for source_ref in row.get("source_refs", []) if str(source_ref or "").strip()]
+    )
+    story_id = _normalize_optional_string(story_meta.get("id"))
+    story_title = _normalize_optional_string(story_meta.get("title"))
+    evidence_summaries = [
+        {
+            "evidence_id": _normalize_optional_string(row.get("evidence_id")),
+            "item_id": _normalize_optional_string(row.get("item_id")),
+            "url": _normalize_optional_string(row.get("url")),
+            "source_name": _normalize_optional_string(row.get("source_name")),
+            "role": _normalize_optional_string(row.get("role")).strip().lower() or "secondary",
+            "stitched": bool(row.get("stitched")),
+            "cross_validated": bool(row.get("cross_validated")),
+        }
+        for row in rows
+    ]
+    return {
+        "label": label,
+        "claim_card_id": _normalize_optional_string(claim_card_id),
+        "source_item_ids": source_item_ids,
+        "source_urls": source_urls,
+        "note": (
+            f"Prepared from story `{story_title or story_id or 'untitled-story'}` "
+            f"with {len(rows)} evidence row(s) across {len(source_refs)} stitched source ref(s)."
+        ),
+        "governance": {
+            "candidate_kind": candidate_kind,
+            "evidence_status": evidence_status,
+            "story_id": story_id,
+            "story_title": story_title,
+            "source_refs": source_refs,
+            "source_ref_count": len(source_refs),
+            "stitched_evidence_count": sum(1 for row in rows if row.get("stitched")),
+            "cross_validated_evidence_count": sum(1 for row in rows if row.get("cross_validated")),
+            "evidence_inputs": evidence_summaries,
+        },
+    }
+
+
+def build_citation_bundle_candidates_from_story(
+    story_payload: dict[str, Any],
+    *,
+    claim_card_id: str = "",
+) -> list[dict[str, Any]]:
+    intake = normalize_report_evidence_intake(story_payload)
+    rows = intake.get("evidence_inputs", [])
+    if not isinstance(rows, list) or not rows:
+        return []
+    story_meta = intake.get("story", {}) if isinstance(intake.get("story"), dict) else {}
+    story_title = _normalize_optional_string(story_meta.get("title")) or "story"
+    evidence_status = _normalize_optional_string(intake.get("evidence_status")) or "missing"
+    primary_rows = [row for row in rows if isinstance(row, dict) and row.get("role") == "primary"]
+
+    candidates: list[dict[str, Any]] = []
+    if primary_rows:
+        candidates.append(
+            _build_citation_bundle_candidate(
+                primary_rows,
+                label=f"{story_title} primary evidence",
+                candidate_kind="story_primary_evidence_bundle",
+                story_meta=story_meta,
+                claim_card_id=claim_card_id,
+                evidence_status=evidence_status,
+            )
+        )
+    if len(rows) > len(primary_rows):
+        candidates.append(
+            _build_citation_bundle_candidate(
+                rows,
+                label=f"{story_title} stitched evidence",
+                candidate_kind="story_stitched_evidence_bundle",
+                story_meta=story_meta,
+                claim_card_id=claim_card_id,
+                evidence_status=evidence_status,
+            )
+        )
+    if not candidates:
+        candidates.append(
+            _build_citation_bundle_candidate(
+                rows,
+                label=f"{story_title} evidence",
+                candidate_kind="story_evidence_bundle",
+                story_meta=story_meta,
+                claim_card_id=claim_card_id,
+                evidence_status=evidence_status,
+            )
+        )
+    return candidates
+
+
+def build_report_intake_from_story(
+    story_payload: dict[str, Any],
+    *,
+    claim_card_id: str = "",
+) -> dict[str, Any]:
+    intake = normalize_report_evidence_intake(story_payload)
+    intake["citation_bundle_candidates"] = build_citation_bundle_candidates_from_story(
+        story_payload,
+        claim_card_id=claim_card_id,
+    )
+    return intake
+
+
+def _research_source_plan_summary(
+    *,
+    provider_hints: list[str],
+    sites: list[str],
+    time_range: str,
+    stitched_evidence_count: int,
+) -> str:
+    parts: list[str] = []
+    if provider_hints:
+        parts.append(f"keep provider coverage on {', '.join(provider_hints[:3])}")
+    if sites:
+        parts.append(f"maintain site coverage across {', '.join(sites[:3])}")
+    if time_range:
+        parts.append(f"hold a {time_range} freshness window")
+    if stitched_evidence_count > 0:
+        parts.append(f"preserve {stitched_evidence_count} stitched evidence path(s)")
+    if not parts:
+        return "Continue bounded evidence collection before drafting final claims."
+    return "Research should " + "; ".join(parts) + "."
+
+
+def build_story_research_projection(story_payload: dict[str, Any]) -> dict[str, Any]:
+    intake = build_report_intake_from_story(story_payload)
+    summary = _as_dict(intake.get("summary"))
+    evidence_rows = intake.get("evidence_inputs", []) if isinstance(intake.get("evidence_inputs"), list) else []
+    governance = _as_dict(story_payload.get("governance"))
+    factuality = _as_dict(governance.get("factuality"))
+    delivery_risk = _as_dict(governance.get("delivery_risk"))
+    contradictions = story_payload.get("contradictions") if isinstance(story_payload.get("contradictions"), list) else []
+
+    provider_hints = _normalize_string_list(
+        [
+            row.get("search_provider")
+            for row in evidence_rows
+            if isinstance(row, dict) and str(row.get("search_provider", "") or "").strip()
+        ]
+        + [
+            source
+            for row in evidence_rows
+            if isinstance(row, dict)
+            for source in _normalize_string_list(row.get("search_sources"))
+        ]
+    )
+    sites = _normalize_string_list(
+        [
+            urlparse(str(url or "").strip()).netloc.lower()
+            for url in intake.get("source_urls", [])
+            if str(url or "").strip()
+        ]
+    )
+    source_plan = {
+        "summary": _research_source_plan_summary(
+            provider_hints=provider_hints,
+            sites=sites,
+            time_range="",
+            stitched_evidence_count=int(summary.get("stitched_evidence_count", 0) or 0),
+        ),
+        "provider_hints": provider_hints,
+        "platforms": [],
+        "sites": sites,
+        "time_range": "",
+        "deep": bool(int(summary.get("stitched_evidence_count", 0) or 0) > 0),
+        "news": False,
+    }
+
+    reasons: list[str] = []
+    evidence_status = _normalize_optional_string(intake.get("evidence_status")).strip().lower() or "missing"
+    if evidence_status == "missing":
+        reasons.append("No bound evidence rows are attached to this story yet.")
+    elif evidence_status == "partial":
+        reasons.append("Story evidence is only partially bound to persisted items.")
+    if int(summary.get("source_ref_count", 0) or 0) < 2:
+        reasons.append("Story evidence does not yet show multi-source stitching.")
+    if int(summary.get("cross_validated_evidence_count", 0) or 0) <= 0:
+        reasons.append("No story evidence row is marked cross-validated.")
+    if contradictions:
+        reasons.append("Story contradictions remain unresolved and should be reviewed before claim drafting.")
+    factuality_status = _normalize_optional_string(factuality.get("status")).strip().lower()
+    if factuality_status in {"review_required", "blocked"}:
+        reasons.append("Factuality review is not yet ready for downstream delivery.")
+    delivery_status = _normalize_optional_string(delivery_risk.get("status")).strip().lower()
+    if delivery_status in {"review_required", "blocked"}:
+        reasons.append("Delivery readiness is constrained by current story governance.")
+
+    coverage_status = "clear"
+    if evidence_status == "missing" or factuality_status == "blocked" or delivery_status == "blocked":
+        coverage_status = "blocked"
+    elif evidence_status == "partial" or contradictions or factuality_status == "review_required" or delivery_status == "review_required":
+        coverage_status = "review_required"
+    elif reasons:
+        coverage_status = "watch"
+
+    operator_action = "continue_claim_prep"
+    if coverage_status == "blocked":
+        operator_action = "add_bound_evidence_before_claims"
+    elif coverage_status == "review_required":
+        operator_action = "review_story_evidence"
+    elif coverage_status == "watch":
+        operator_action = "monitor_source_diversity"
+
+    coverage_gap = {
+        "status": coverage_status,
+        "summary": (
+            "Story evidence coverage is ready for claim drafting."
+            if not reasons
+            else f"Story evidence coverage has {len(reasons)} review signal(s) before claim drafting."
+        ),
+        "reasons": reasons,
+        "operator_action": operator_action,
+    }
+    return {
+        "source_plan": source_plan,
+        "coverage_gap": coverage_gap,
+    }
+
+
+def _claim_governance_with_intake(existing: Any, intake: dict[str, Any]) -> dict[str, Any]:
+    governance = dict(existing or {}) if isinstance(existing, dict) else {}
+    summary = intake.get("summary", {}) if isinstance(intake.get("summary"), dict) else {}
+    story_meta = intake.get("story", {}) if isinstance(intake.get("story"), dict) else {}
+    current_evidence_intake = (
+        dict(governance.get("evidence_intake", {}))
+        if isinstance(governance.get("evidence_intake"), dict)
+        else {}
+    )
+    governance["evidence_status"] = _normalize_optional_string(governance.get("evidence_status")) or str(
+        intake.get("evidence_status", "missing") or "missing"
+    )
+    governance["evidence_intake"] = {
+        **current_evidence_intake,
+        "story_id": _normalize_optional_string(story_meta.get("id")),
+        "story_title": _normalize_optional_string(story_meta.get("title")),
+        "evidence_count": int(summary.get("evidence_count", 0) or 0),
+        "source_ref_count": len(_normalize_string_list(intake.get("source_refs"))),
+        "source_refs": _normalize_string_list(intake.get("source_refs")),
+        "stitched_evidence_count": int(summary.get("stitched_evidence_count", 0) or 0),
+        "cross_validated_evidence_count": int(summary.get("cross_validated_evidence_count", 0) or 0),
+        "source_url_count": len(_normalize_string_list(intake.get("source_urls"))),
+    }
+    return governance
+
+
+def _bundle_governance_with_intake(existing: Any, intake: dict[str, Any]) -> dict[str, Any]:
+    governance = dict(existing or {}) if isinstance(existing, dict) else {}
+    summary = intake.get("summary", {}) if isinstance(intake.get("summary"), dict) else {}
+    story_meta = intake.get("story", {}) if isinstance(intake.get("story"), dict) else {}
+    current_evidence_intake = (
+        dict(governance.get("evidence_intake", {}))
+        if isinstance(governance.get("evidence_intake"), dict)
+        else {}
+    )
+    governance["evidence_status"] = _normalize_optional_string(governance.get("evidence_status")) or str(
+        intake.get("evidence_status", "missing") or "missing"
+    )
+    governance["evidence_intake"] = {
+        **current_evidence_intake,
+        "story_id": _normalize_optional_string(story_meta.get("id")),
+        "story_title": _normalize_optional_string(story_meta.get("title")),
+        "evidence_count": int(summary.get("evidence_count", 0) or 0),
+        "source_ref_count": len(_normalize_string_list(intake.get("source_refs"))),
+        "source_refs": _normalize_string_list(intake.get("source_refs")),
+        "stitched_evidence_count": int(summary.get("stitched_evidence_count", 0) or 0),
+        "cross_validated_evidence_count": int(summary.get("cross_validated_evidence_count", 0) or 0),
+        "source_url_count": len(_normalize_string_list(intake.get("source_urls"))),
+    }
+    return governance
+
+
+def _prepare_claim_card_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    prepared = dict(payload)
+    intake_payload = prepared.get("evidence_intake", prepared.get("evidence_inputs"))
+    if intake_payload is None:
+        prepared.pop("evidence_inputs", None)
+        return prepared
+    intake = normalize_report_evidence_intake(intake_payload)
+    prepared["source_item_ids"] = _normalize_id_sequence(
+        [*prepared.get("source_item_ids", []), *intake.get("source_item_ids", [])]
+    )
+    prepared["governance"] = _claim_governance_with_intake(prepared.get("governance"), intake)
+    prepared.pop("evidence_inputs", None)
+    prepared.pop("evidence_intake", None)
+    return prepared
+
+
+def _prepare_citation_bundle_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    prepared = dict(payload)
+    intake_payload = prepared.get("evidence_intake", prepared.get("evidence_inputs"))
+    if intake_payload is None:
+        prepared.pop("evidence_inputs", None)
+        return prepared
+    intake = normalize_report_evidence_intake(intake_payload)
+    prepared["source_item_ids"] = _normalize_id_sequence(
+        [*prepared.get("source_item_ids", []), *intake.get("source_item_ids", [])]
+    )
+    prepared["source_urls"] = _normalize_string_list([*prepared.get("source_urls", []), *intake.get("source_urls", [])])
+    prepared["governance"] = _bundle_governance_with_intake(prepared.get("governance"), intake)
+    if not _normalize_optional_string(prepared.get("label")):
+        story_title = _normalize_optional_string(intake.get("story", {}).get("title") if isinstance(intake.get("story"), dict) else "")
+        if story_title:
+            prepared["label"] = f"{story_title} evidence"
+    prepared.pop("evidence_inputs", None)
+    prepared.pop("evidence_intake", None)
+    return prepared
+
+
 def build_claim_draft_from_story(
     story_payload: dict[str, Any],
     *,
@@ -99,16 +532,11 @@ def build_claim_draft_from_story(
             if claim_candidates:
                 break
 
-    evidence_rows: list[dict[str, Any]] = []
-    for field in ("primary_evidence", "secondary_evidence"):
-        raw_rows = story_payload.get(field)
-        if not isinstance(raw_rows, list):
-            continue
-        for raw_row in raw_rows:
-            if isinstance(raw_row, dict):
-                evidence_rows.append(raw_row)
-
-    source_item_ids = _normalize_id_sequence([row.get("item_id") for row in evidence_rows])
+    evidence_intake = build_report_intake_from_story(story_payload)
+    evidence_rows = evidence_intake.get("evidence_inputs", []) if isinstance(evidence_intake.get("evidence_inputs"), list) else []
+    source_item_ids = _normalize_id_sequence(evidence_intake.get("source_item_ids"))
+    source_urls = _normalize_string_list(evidence_intake.get("source_urls"))
+    source_refs = _normalize_string_list(evidence_intake.get("source_refs"))
     contradictions_raw = story_payload.get("contradictions")
     contradictions: list[dict[str, Any]] = []
     if isinstance(contradictions_raw, list):
@@ -130,10 +558,10 @@ def build_claim_draft_from_story(
     factuality = _as_dict(governance.get("factuality"))
     delivery_risk = _as_dict(governance.get("delivery_risk"))
     unresolved_flags: list[str] = []
-    if source_item_ids:
-        evidence_status = "bound"
-    else:
-        evidence_status = "missing"
+    evidence_status = _normalize_optional_string(evidence_intake.get("evidence_status")).strip().lower() or "missing"
+    if evidence_status not in {"bound", "partial", "missing"}:
+        evidence_status = "bound" if source_item_ids else "partial" if source_urls else "missing"
+    if evidence_status == "missing":
         unresolved_flags.append("missing_evidence_binding")
     if contradictions:
         unresolved_flags.append("story_contradictions_present")
@@ -176,6 +604,17 @@ def build_claim_draft_from_story(
                     "evidence_status": evidence_status,
                     "contradictions": contradictions,
                     "unresolved_flags": _normalize_string_list(unresolved_flags),
+                    "evidence_intake": {
+                        "story_id": _normalize_optional_string(evidence_intake.get("story", {}).get("id") if isinstance(evidence_intake.get("story"), dict) else ""),
+                        "story_title": _normalize_optional_string(evidence_intake.get("story", {}).get("title") if isinstance(evidence_intake.get("story"), dict) else ""),
+                        "evidence_count": int(evidence_intake.get("summary", {}).get("evidence_count", len(evidence_rows)) if isinstance(evidence_intake.get("summary"), dict) else len(evidence_rows)),
+                        "source_ref_count": len(source_refs),
+                        "source_refs": source_refs,
+                        "stitched_evidence_count": int(evidence_intake.get("summary", {}).get("stitched_evidence_count", 0) if isinstance(evidence_intake.get("summary"), dict) else 0),
+                        "cross_validated_evidence_count": int(evidence_intake.get("summary", {}).get("cross_validated_evidence_count", 0) if isinstance(evidence_intake.get("summary"), dict) else 0),
+                        "citation_candidate_count": len(evidence_intake.get("citation_bundle_candidates", [])) if isinstance(evidence_intake.get("citation_bundle_candidates"), list) else 0,
+                        "source_url_count": len(source_urls),
+                    },
                 },
             }
         )
@@ -183,6 +622,9 @@ def build_claim_draft_from_story(
     return {
         "summary": summary,
         "claim_cards": claim_cards,
+        "evidence_intake": evidence_intake,
+        "citation_bundle_candidates": evidence_intake.get("citation_bundle_candidates", []),
+        "research_projection": build_story_research_projection(story_payload),
     }
 
 
@@ -242,6 +684,43 @@ def validate_claim_draft_payload(payload: Any) -> list[str]:
                 errors.append(
                     f"claim_cards[{index}].governance.contradictions[{contradiction_index}].note is required"
                 )
+    evidence_intake = payload.get("evidence_intake")
+    if evidence_intake is not None:
+        if not isinstance(evidence_intake, dict):
+            errors.append("evidence_intake must be an object when present")
+        else:
+            intake_summary = evidence_intake.get("summary")
+            if not isinstance(intake_summary, dict):
+                errors.append("evidence_intake.summary must be an object when present")
+    citation_bundle_candidates = payload.get("citation_bundle_candidates")
+    if citation_bundle_candidates is not None:
+        if not isinstance(citation_bundle_candidates, list):
+            errors.append("citation_bundle_candidates must be a list when present")
+    research_projection = payload.get("research_projection")
+    if research_projection is not None:
+        if not isinstance(research_projection, dict):
+            errors.append("research_projection must be an object when present")
+        else:
+            source_plan = research_projection.get("source_plan")
+            if source_plan is not None:
+                if not isinstance(source_plan, dict):
+                    errors.append("research_projection.source_plan must be an object when present")
+                elif not str(source_plan.get("summary", "") or "").strip():
+                    errors.append("research_projection.source_plan.summary is required")
+            coverage_gap = research_projection.get("coverage_gap")
+            if coverage_gap is not None:
+                if not isinstance(coverage_gap, dict):
+                    errors.append("research_projection.coverage_gap must be an object when present")
+                else:
+                    if str(coverage_gap.get("status", "") or "").strip().lower() not in {
+                        "clear",
+                        "watch",
+                        "review_required",
+                        "blocked",
+                    }:
+                        errors.append("research_projection.coverage_gap.status is invalid")
+                    if not str(coverage_gap.get("summary", "") or "").strip():
+                        errors.append("research_projection.coverage_gap.summary is required")
     return errors
 
 
@@ -887,6 +1366,8 @@ class ReportStore:
 
     # ClaimCard CRUD
     def create_claim_card(self, payload: ClaimCard | dict[str, Any]) -> ClaimCard:
+        if isinstance(payload, dict):
+            payload = _prepare_claim_card_payload(payload)
         return self._create(payload, ClaimCard.from_dict, ClaimCard, self.claim_cards, id_prefix="claim-card")
 
     def list_claim_cards(self, *, limit: int = 20, status: str | None = None) -> list[ClaimCard]:
@@ -896,20 +1377,25 @@ class ReportStore:
         return self._lookup(self.claim_cards, identifier)
 
     def update_claim_card(self, identifier: str, **payload: Any) -> ClaimCard | None:
+        prepared_payload = _prepare_claim_card_payload(payload) if isinstance(payload, dict) else dict(payload)
         updates = {
-            "statement": payload.get("statement"),
-            "rationale": payload.get("rationale"),
-            "status": payload.get("status"),
-            "citation_bundle_ids": payload.get("citation_bundle_ids"),
-            "source_item_ids": payload.get("source_item_ids"),
-            "tags": payload.get("tags"),
-            "brief_id": payload.get("brief_id"),
+            "statement": prepared_payload.get("statement"),
+            "rationale": prepared_payload.get("rationale"),
+            "status": prepared_payload.get("status"),
+            "citation_bundle_ids": prepared_payload.get("citation_bundle_ids"),
+            "source_item_ids": prepared_payload.get("source_item_ids"),
+            "tags": prepared_payload.get("tags"),
+            "brief_id": prepared_payload.get("brief_id"),
         }
         claim = self._update_generic(identifier, self.claim_cards, updates=updates)
         if claim is None:
             return None
-        if "confidence" in payload:
-            claim.confidence = round(max(0.0, min(1.0, _coerce_float(payload.get("confidence"), default=claim.confidence))), 4)
+        if "governance" in prepared_payload:
+            claim.governance = dict(prepared_payload.get("governance") or {})
+            self._touch(claim)
+            self.save()
+        if "confidence" in prepared_payload:
+            claim.confidence = round(max(0.0, min(1.0, _coerce_float(prepared_payload.get("confidence"), default=claim.confidence))), 4)
             self._touch(claim)
             self.save()
         return claim
@@ -941,6 +1427,8 @@ class ReportStore:
 
     # CitationBundle CRUD
     def create_citation_bundle(self, payload: CitationBundle | dict[str, Any]) -> CitationBundle:
+        if isinstance(payload, dict):
+            payload = _prepare_citation_bundle_payload(payload)
         return self._create(payload, CitationBundle.from_dict, CitationBundle, self.citation_bundles, id_prefix="citation-bundle")
 
     def list_citation_bundles(self, *, limit: int = 20) -> list[CitationBundle]:
@@ -950,14 +1438,20 @@ class ReportStore:
         return self._lookup(self.citation_bundles, identifier)
 
     def update_citation_bundle(self, identifier: str, **payload: Any) -> CitationBundle | None:
+        prepared_payload = _prepare_citation_bundle_payload(payload) if isinstance(payload, dict) else dict(payload)
         updates = {
-            "label": payload.get("label"),
-            "claim_card_id": payload.get("claim_card_id"),
-            "note": payload.get("note"),
-            "source_item_ids": payload.get("source_item_ids"),
-            "source_urls": payload.get("source_urls"),
+            "label": prepared_payload.get("label"),
+            "claim_card_id": prepared_payload.get("claim_card_id"),
+            "note": prepared_payload.get("note"),
+            "source_item_ids": prepared_payload.get("source_item_ids"),
+            "source_urls": prepared_payload.get("source_urls"),
         }
-        return self._update_generic(identifier, self.citation_bundles, updates=updates)
+        bundle = self._update_generic(identifier, self.citation_bundles, updates=updates)
+        if bundle is not None and "governance" in prepared_payload:
+            bundle.governance = dict(prepared_payload.get("governance") or {})
+            self._touch(bundle)
+            self.save()
+        return bundle
 
     # Report CRUD
     def _normalize_report_identifier(self, identifier: str) -> str:

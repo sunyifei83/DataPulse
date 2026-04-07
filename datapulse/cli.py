@@ -94,6 +94,10 @@ def _print_alerts(alerts):
         print(f"{alert.get('id')}: {alert.get('mission_name')} | {alert.get('rule_name')} | channels={delivered}")
         print(f"    summary: {alert.get('summary', '')}")
         print(f"    created_at: {alert.get('created_at', '-')}")
+        research_projection = alert.get("research_projection", {}) if isinstance(alert, dict) else {}
+        coverage_gap = research_projection.get("coverage_gap", {}) if isinstance(research_projection, dict) else {}
+        if isinstance(coverage_gap, dict) and coverage_gap.get("summary"):
+            print(f"    coverage_gap: {coverage_gap.get('status', 'watch')} | {coverage_gap.get('summary')}")
         delivery_errors = alert.get("extra", {}).get("delivery_errors", {}) if isinstance(alert.get("extra"), dict) else {}
         if delivery_errors:
             print(f"    delivery_errors: {delivery_errors}")
@@ -332,6 +336,33 @@ def _print_watch_detail(payload):
             freshness_parts.append(f"max_age<={int(mission_intent.get('freshness_max_age_hours', 0))}h")
         if freshness_parts:
             print(f"  freshness: {' | '.join(freshness_parts)}")
+
+    research_projection = payload.get("research_projection", {}) if isinstance(payload, dict) else {}
+    if isinstance(research_projection, dict) and research_projection:
+        source_plan = research_projection.get("source_plan", {}) if isinstance(research_projection.get("source_plan"), dict) else {}
+        coverage_gap = research_projection.get("coverage_gap", {}) if isinstance(research_projection.get("coverage_gap"), dict) else {}
+        if source_plan:
+            print("research_source_plan:")
+            print(f"  summary: {source_plan.get('summary', '')}")
+            if source_plan.get("provider_hints"):
+                print(f"  provider_hints: {', '.join(str(value) for value in source_plan.get('provider_hints', []))}")
+            if source_plan.get("platforms"):
+                print(f"  platforms: {', '.join(str(value) for value in source_plan.get('platforms', []))}")
+            if source_plan.get("sites"):
+                print(f"  sites: {', '.join(str(value) for value in source_plan.get('sites', []))}")
+            if source_plan.get("time_range"):
+                print(f"  time_range: {source_plan.get('time_range')}")
+            print(f"  deep: {bool(source_plan.get('deep', False))}")
+            print(f"  news: {bool(source_plan.get('news', False))}")
+        if coverage_gap:
+            print("research_coverage_gap:")
+            print(f"  status: {coverage_gap.get('status', 'watch')}")
+            print(f"  summary: {coverage_gap.get('summary', '')}")
+            reasons = coverage_gap.get("reasons", [])
+            if reasons:
+                print(f"  reasons: {', '.join(str(reason) for reason in reasons)}")
+            if coverage_gap.get("operator_action"):
+                print(f"  operator_action: {coverage_gap.get('operator_action')}")
 
     if isinstance(last_failure, dict) and last_failure:
         print("last_failure:")

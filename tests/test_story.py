@@ -371,6 +371,130 @@ def test_story_build_governance_tracks_verified_primary_evidence(tmp_path):
     assert story["governance"]["factuality"]["status"] == "ready"
 
 
+def test_story_evidence_intake_projects_search_stitching_metadata(tmp_path):
+    first = _make_item(
+        "item-1",
+        title="Cross-source launch watch",
+        content="OpenAI launch watch confirms enterprise rollout across multiple provider hits.",
+        url="https://example.com/cross-source-launch",
+        source_name="src-a",
+        confidence=0.93,
+        entities=["OpenAI"],
+        review_state="verified",
+        processed=True,
+    )
+    first.extra.update(
+        {
+            "search_query": "OpenAI launch enterprise rollout",
+            "search_provider": "auto",
+            "search_mode": "multi",
+            "search_sources": ["jina", "tavily"],
+            "search_source_count": 2,
+            "search_source_diversity": 1.0,
+            "search_cross_validation": {
+                "is_cross_validated": True,
+                "providers": ["jina", "tavily"],
+            },
+        }
+    )
+    second = _make_item(
+        "item-2",
+        title="Partner recap",
+        content="Partner recap confirms the same OpenAI rollout for enterprise teams.",
+        url="https://another.com/partner-recap",
+        source_name="src-b",
+        confidence=0.88,
+        entities=["OpenAI"],
+        review_state="triaged",
+    )
+    reader = _reader(tmp_path, [first, second])
+
+    payload = reader.story_build(max_stories=3, evidence_limit=4)
+    story = payload["stories"][0]
+    intake = reader.story_evidence_intake(story["id"])
+
+    assert intake is not None
+    assert story["governance"]["provenance"]["source_ref_count"] >= 3
+    assert story["governance"]["provenance"]["stitched_evidence_count"] >= 1
+    assert story["governance"]["provenance"]["cross_validated_evidence_count"] >= 1
+    assert story["governance"]["provenance"]["evidence_chain"][0]["stitched"] is True
+    assert story["governance"]["provenance"]["evidence_chain"][0]["cross_validated"] is True
+    assert "jina" in story["governance"]["provenance"]["evidence_chain"][0]["source_refs"]
+    assert story["research_projection"]["source_plan"]["summary"]
+    assert story["research_projection"]["coverage_gap"]["status"] in {"watch", "review_required", "blocked"}
+    assert intake["summary"]["stitched_evidence_count"] >= 1
+    assert intake["summary"]["cross_validated_evidence_count"] >= 1
+    assert intake["evidence_inputs"][0]["search_source_count"] == 2
+    assert intake["evidence_inputs"][0]["cross_validated"] is True
+
+
+def test_story_research_projection_matches_stitched_evidence_intake(tmp_path):
+    reader = _reader(tmp_path, [])
+    story = reader.create_story(
+        title="Parity-checked story",
+        summary="Story projection should stay aligned with stitched evidence intake.",
+        status="active",
+        item_count=2,
+        confidence=0.84,
+        primary_evidence=[
+            {
+                "item_id": "item-1",
+                "title": "Primary stitched evidence",
+                "url": "https://example.com/item-1",
+                "source_name": "example",
+                "source_type": "generic",
+                "review_state": "verified",
+                "governance": {
+                    "evidence_grade": "verified",
+                    "evidence_score": 0.94,
+                    "provenance": {
+                        "source_refs": ["example", "jina", "tavily"],
+                        "research_support": {
+                            "search_query": "story parity evidence",
+                            "search_provider": "tavily",
+                            "search_mode": "multi",
+                            "search_sources": ["jina", "tavily"],
+                            "search_source_count": 2,
+                            "search_source_diversity": 1.0,
+                            "stitched": True,
+                        },
+                    },
+                },
+            }
+        ],
+        secondary_evidence=[
+            {
+                "item_id": "item-2",
+                "title": "Secondary corroboration",
+                "url": "https://partner.example.com/item-2",
+                "source_name": "partner",
+                "source_type": "generic",
+                "review_state": "triaged",
+                "governance": {
+                    "evidence_grade": "reviewed",
+                    "evidence_score": 0.71,
+                    "provenance": {
+                        "source_refs": ["partner"],
+                    },
+                },
+            }
+        ],
+    )
+
+    intake = reader.story_evidence_intake(story["id"])
+
+    assert intake is not None
+    assert intake["summary"]["stitched_evidence_count"] == 1
+    assert intake["summary"]["cross_validated_evidence_count"] == 0
+    assert story["research_projection"]["source_plan"]["deep"] is True
+    assert set(story["research_projection"]["source_plan"]["sites"]) == {"example.com", "partner.example.com"}
+    assert story["research_projection"]["coverage_gap"]["status"] == "watch"
+    assert story["research_projection"]["coverage_gap"]["reasons"] == [
+        "No story evidence row is marked cross-validated."
+    ]
+    assert story["research_projection"]["coverage_gap"]["operator_action"] == "monitor_source_diversity"
+
+
 def test_story_build_projects_grounding_backend_provenance(monkeypatch, tmp_path):
     monkeypatch.setenv("DATAPULSE_GROUNDING_BACKEND_CMD", "grounding-backend --json")
 

@@ -11,6 +11,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 _CATALOG_PATH = _REPO_ROOT / "docs" / "governance" / "datapulse-surface-capability-catalog.draft.json"
 _DEFAULT_SURFACES = ("cli", "mcp", "console", "agent", "skill")
 _SUPPORTED_AVAILABILITY = {"available", "documented", "unavailable"}
+_SUPPORTED_COVERAGE_GAP_STATUSES = ("clear", "watch", "review_required", "blocked")
 _BLUEPRINT_REOPEN_RULES = {
     "schema_version": "datapulse_runtime_reopen_rules.v1",
     "wave_id": "L27",
@@ -43,6 +44,106 @@ _BLUEPRINT_REOPEN_RULES = {
             "description": "Provider-specific AI convenience alone does not reopen the runtime boundary wave.",
         },
     ],
+}
+_INTENT_RESEARCH_VERIFICATION = {
+    "schema_version": "datapulse_intent_research_verification.v1",
+    "wave_id": "L29",
+    "slice_id": "L29.6",
+    "routing_audit": {
+        "artifact": "datapulse/core/search_gateway.py",
+        "required_fields": [
+            "routing_policy.provider_hints_applied",
+            "routing_policy.site_filters",
+            "routing_policy.time_range",
+            "routing_policy.deep",
+            "routing_policy.news",
+        ],
+    },
+    "evidence_stitching": {
+        "artifacts": [
+            "datapulse/core/story.py",
+            "datapulse/core/report.py",
+        ],
+        "required_summary_fields": [
+            "summary.stitched_evidence_count",
+            "summary.cross_validated_evidence_count",
+            "summary.source_ref_count",
+        ],
+    },
+    "research_projection": {
+        "artifacts": [
+            "datapulse/reader.py",
+            "datapulse/core/report.py",
+            "datapulse/core/watchlist.py",
+            "datapulse/core/alerts.py",
+        ],
+        "required_fields": [
+            "source_plan.summary",
+            "source_plan.provider_hints",
+            "source_plan.sites",
+            "source_plan.deep",
+            "coverage_gap.status",
+            "coverage_gap.summary",
+            "coverage_gap.operator_action",
+        ],
+        "coverage_gap_status_enum": list(_SUPPORTED_COVERAGE_GAP_STATUSES),
+    },
+    "surface_targets": {
+        "cli": [
+            "--watch-show",
+            "--runtime-introspection",
+            "--ai-mission-suggest",
+            "--ai-claim-draft",
+            "--ai-delivery-summary",
+        ],
+        "mcp": [
+            "watch_show",
+            "runtime_introspection",
+            "ai_mission_suggest",
+            "ai_claim_draft",
+            "ai_delivery_summary",
+        ],
+        "console": [
+            "GET /api/watches/{id}",
+            "GET /api/runtime/introspection",
+            "GET /api/watches/{id}/ai/mission-suggest",
+            "GET /api/stories/{id}/ai/claim-draft",
+            "GET /api/alerts/{id}/ai/delivery-summary",
+        ],
+    },
+    "reopen_rules": {
+        "schema_version": "datapulse_intent_research_reopen_rules.v1",
+        "wave_id": "L29",
+        "slice_id": "L29.6",
+        "admissible_evidence": [
+            {
+                "id": "planning_regression",
+                "description": "Repo evidence shows intent-aware routing metadata or provider-planning semantics no longer match the landed search audit contract.",
+            },
+            {
+                "id": "provenance_drift",
+                "description": "Repo evidence shows stitched evidence or coverage-gap projections lost source lineage, cross-validation facts, or bounded operator actions.",
+            },
+            {
+                "id": "cross_surface_contradiction",
+                "description": "Repo evidence shows CLI, MCP, console, or governed AI projections contradict the shared Reader-backed research semantics.",
+            },
+        ],
+        "inadmissible_reasons": [
+            {
+                "id": "collector_count_growth",
+                "description": "Collector-count growth alone does not reopen the intent-aware research substrate wave.",
+            },
+            {
+                "id": "provider_count_growth",
+                "description": "Adding or preferring another provider alone does not reopen the wave without a semantic routing contradiction.",
+            },
+            {
+                "id": "public_ai_surface_expansion",
+                "description": "Requests for a broader public AI surface do not reopen this internal research-substrate wave by themselves.",
+            },
+        ],
+    },
 }
 
 
@@ -88,6 +189,10 @@ def governed_ai_surface_ids() -> tuple[str, ...]:
 
 def runtime_reopen_rules() -> dict[str, Any]:
     return json.loads(json.dumps(_BLUEPRINT_REOPEN_RULES))
+
+
+def build_intent_research_verification() -> dict[str, Any]:
+    return json.loads(json.dumps(_INTENT_RESEARCH_VERIFICATION))
 
 
 def build_surface_capability_projection(
@@ -303,6 +408,7 @@ def build_runtime_surface_introspection(
         "surfaces": surface_rows,
         "parity": build_surface_parity_report(catalog=payload),
         "reopen_rules": runtime_reopen_rules(),
+        "intent_research_verification": build_intent_research_verification(),
     }
 
 

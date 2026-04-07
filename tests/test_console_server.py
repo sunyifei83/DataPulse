@@ -121,6 +121,23 @@ class _ConsoleReader:
                 "last_status": "success",
                 "last_error": "",
             },
+            "research_projection": {
+                "source_plan": {
+                    "summary": "Research should prefer qnaigc, tavily; focus on twitter; bound sites to openai.com.",
+                    "provider_hints": ["qnaigc", "tavily"],
+                    "platforms": ["twitter"],
+                    "sites": ["openai.com"],
+                    "time_range": "week",
+                    "deep": False,
+                    "news": True,
+                },
+                "coverage_gap": {
+                    "status": "watch",
+                    "summary": "Watch research coverage has 1 operator-visible gap signal.",
+                    "reasons": ["Named coverage targets have not been observed in persisted watch output yet."],
+                    "operator_action": "tighten_watch_scope",
+                },
+            },
             "last_failure": {
                 "id": "launch-ops:2026-03-05T23:00:00+00:00",
                 "mission_id": "launch-ops",
@@ -285,6 +302,14 @@ class _ConsoleReader:
                 "rule_name": "console-threshold",
                 "summary": "Launch Ops triggered console-threshold",
                 "delivered_channels": ["json", "webhook:ops-webhook"],
+                "research_projection": {
+                    "coverage_gap": {
+                        "status": "review_required",
+                        "summary": "Alert delivery has 1 operator-visible coverage gap signal.",
+                        "reasons": ["One or more delivery routes are degraded or missing."],
+                        "operator_action": "review_delivery_and_evidence",
+                    }
+                },
             }
         ]
 
@@ -444,6 +469,23 @@ class _ConsoleReader:
                 "payload": {
                     "summary": "Mission `Launch Ops` has 2 persisted result items and run readiness `ready`.",
                     "proposed_query": "OpenAI launch",
+                    "research_projection": {
+                        "source_plan": {
+                            "summary": "Research should prefer qnaigc, tavily; focus on twitter; bound sites to openai.com.",
+                            "provider_hints": ["qnaigc", "tavily"],
+                            "platforms": ["twitter"],
+                            "sites": ["openai.com"],
+                            "time_range": "week",
+                            "deep": False,
+                            "news": True,
+                        },
+                        "coverage_gap": {
+                            "status": "watch",
+                            "summary": "Watch research coverage has 1 operator-visible gap signal.",
+                            "reasons": ["Named coverage targets have not been observed in persisted watch output yet."],
+                            "operator_action": "tighten_watch_scope",
+                        },
+                    },
                 },
             },
             "runtime_facts": {"status": "fallback_used", "request_id": "mission-123"},
@@ -481,6 +523,23 @@ class _ConsoleReader:
                 "payload": {
                     "summary": "Draft evidence-bound claim cards without writing final report state.",
                     "claim_cards": [{"id": "claim-1", "statement": "Demand remains elevated."}],
+                    "research_projection": {
+                        "source_plan": {
+                            "summary": "Research should keep provider coverage on tavily; maintain site coverage across example.com.",
+                            "provider_hints": ["tavily"],
+                            "platforms": [],
+                            "sites": ["example.com"],
+                            "time_range": "",
+                            "deep": True,
+                            "news": False,
+                        },
+                        "coverage_gap": {
+                            "status": "watch",
+                            "summary": "Story evidence coverage has 1 review signal before claim drafting.",
+                            "reasons": ["No story evidence row is marked cross-validated."],
+                            "operator_action": "monitor_source_diversity",
+                        },
+                    },
                 },
             },
             "runtime_facts": {"status": "fallback_used", "request_id": "claim-123"},
@@ -523,6 +582,23 @@ class _ConsoleReader:
                 "payload": {
                     "summary": "Alert `console-threshold` is `healthy` across 1 delivery target.",
                     "overall_status": "healthy",
+                    "research_projection": {
+                        "source_plan": {
+                            "summary": "Alert delivery should stay within the originating evidence chain.",
+                            "provider_hints": [],
+                            "platforms": [],
+                            "sites": ["example.com"],
+                            "time_range": "",
+                            "deep": False,
+                            "news": False,
+                        },
+                        "coverage_gap": {
+                            "status": "review_required",
+                            "summary": "Alert delivery has 1 operator-visible coverage gap signal.",
+                            "reasons": ["One or more delivery routes are degraded or missing."],
+                            "operator_action": "review_delivery_and_evidence",
+                        },
+                    },
                     "routes": [
                         {
                             "name": "ops-webhook",
@@ -760,6 +836,23 @@ class _ConsoleReader:
                 "primary_item_id": "item-1",
                 "entities": ["OpenAI", "GPT-5", "Sam Altman"],
                 "source_names": ["OpenAI Blog", "The Verge"],
+                "research_projection": {
+                    "source_plan": {
+                        "summary": "Research should keep provider coverage on tavily; maintain site coverage across example.com.",
+                        "provider_hints": ["tavily"],
+                        "platforms": [],
+                        "sites": ["example.com"],
+                        "time_range": "",
+                        "deep": True,
+                        "news": False,
+                    },
+                    "coverage_gap": {
+                        "status": "watch",
+                        "summary": "Story evidence coverage has 1 review signal before claim drafting.",
+                        "reasons": ["No story evidence row is marked cross-validated."],
+                        "operator_action": "monitor_source_diversity",
+                    },
+                },
                 "primary_evidence": [
                     {
                         "item_id": "item-1",
@@ -1953,6 +2046,7 @@ def test_console_ai_surface_routes():
     assert mission_precheck.json()["mode"] == "review"
     assert delivery_projection.status_code == 200
     assert delivery_projection.json()["output"]["contract_id"] == "datapulse_ai_delivery_summary.v1"
+    assert delivery_projection.json()["output"]["payload"]["research_projection"]["coverage_gap"]["status"] == "review_required"
     assert delivery_projection.json()["runtime_facts"]["request_id"] == "delivery-123"
     assert report_projection.status_code == 200
     assert report_projection.json()["output"] is None
@@ -1960,11 +2054,13 @@ def test_console_ai_surface_routes():
     assert report_projection.json()["runtime_facts"]["served_by_alias"] == "dp.report.draft"
     assert mission_projection.status_code == 200
     assert mission_projection.json()["output"]["contract_id"] == "datapulse_ai_watch_suggestion.v1"
+    assert mission_projection.json()["output"]["payload"]["research_projection"]["source_plan"]["news"] is True
     assert triage_projection.status_code == 200
     assert triage_projection.json()["output"]["contract_id"] == "datapulse_ai_triage_explain.v1"
     assert triage_projection.json()["output"]["payload"]["returned_count"] == 1
     assert claim_projection.status_code == 200
     assert claim_projection.json()["output"]["contract_id"] == "datapulse_ai_claim_draft.v1"
+    assert claim_projection.json()["output"]["payload"]["research_projection"]["coverage_gap"]["status"] == "watch"
     assert claim_projection.json()["runtime_facts"]["request_id"] == "claim-123"
 
 
@@ -1979,6 +2075,14 @@ def test_console_surface_capabilities_routes():
     assert runtime_introspection.json()["schema_version"] == "datapulse_runtime_surface_introspection.v1"
     assert runtime_introspection.json()["parity"]["ok"] is True
     assert runtime_introspection.json()["reopen_rules"]["wave_id"] == "L27"
+    assert runtime_introspection.json()["intent_research_verification"]["wave_id"] == "L29"
+    assert runtime_introspection.json()["intent_research_verification"]["research_projection"]["coverage_gap_status_enum"] == [
+        "clear",
+        "watch",
+        "review_required",
+        "blocked",
+    ]
+    assert runtime_introspection.json()["intent_research_verification"]["reopen_rules"]["admissible_evidence"][2]["id"] == "cross_surface_contradiction"
 
     assert console_projection.status_code == 200
     assert console_projection.json()["surface"] == "console"
@@ -2030,6 +2134,7 @@ def test_console_watch_detail_route():
     payload = response.json()
     assert payload["id"] == "launch-ops"
     assert payload["run_stats"]["success"] == 1
+    assert payload["research_projection"]["coverage_gap"]["operator_action"] == "tighten_watch_scope"
     assert payload["last_failure"]["status"] == "error"
     assert payload["retry_advice"]["retry_command"] == "datapulse --watch-run launch-ops"
     assert payload["recent_results"][0]["id"] == "item-1"
@@ -2117,6 +2222,7 @@ def test_console_story_routes():
     assert from_triage.json()["item_count"] == 2
     assert detail.status_code == 200
     assert detail.json()["primary_item_id"] == "item-1"
+    assert detail.json()["research_projection"]["coverage_gap"]["status"] == "watch"
     assert update.status_code == 200
     assert update.json()["title"] == "OpenAI Launch Watch"
     assert update.json()["status"] == "monitoring"

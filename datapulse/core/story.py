@@ -577,6 +577,82 @@ def _normalize_string_list(values: Any) -> list[str]:
     return normalized
 
 
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _coerce_float(value: Any, *, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+
+def _build_story_research_support(item: DataPulseItem) -> dict[str, Any]:
+    search_sources = _normalize_string_list(item.extra.get("search_sources"))
+    source_refs = _normalize_string_list([item.source_name, *search_sources])
+    search_cross_validation = _as_dict(item.extra.get("search_cross_validation"))
+    search_consistency = _as_dict(item.extra.get("search_consistency"))
+    cross_validation = dict(search_cross_validation or search_consistency)
+    search_source_count = _coerce_nonnegative_int(
+        item.extra.get("search_source_count"),
+        default=len(search_sources),
+    )
+    if search_source_count <= 0 and search_sources:
+        search_source_count = len(search_sources)
+    search_source_diversity = round(
+        max(0.0, min(1.0, _coerce_float(item.extra.get("search_source_diversity"), default=0.0))),
+        4,
+    )
+    payload: dict[str, Any] = {
+        "search_query": str(item.extra.get("search_query", "") or "").strip(),
+        "search_provider": str(item.extra.get("search_provider", "") or "").strip(),
+        "search_mode": str(item.extra.get("search_mode", "") or "").strip(),
+        "search_sources": search_sources,
+        "search_source_count": search_source_count,
+        "search_source_diversity": search_source_diversity,
+        "cross_validation": cross_validation,
+        "source_refs": source_refs,
+    }
+    payload["cross_validated"] = bool(cross_validation.get("is_cross_validated"))
+    payload["stitched"] = (
+        len(source_refs) >= 2
+        or search_source_count >= 2
+        or payload["cross_validated"]
+    )
+    payload["available"] = bool(
+        payload["search_query"]
+        or payload["search_provider"]
+        or payload["search_sources"]
+        or payload["cross_validation"]
+    )
+    return payload
+
+
+def _merge_story_evidence_governance(item: DataPulseItem) -> dict[str, Any]:
+    governance = dict(build_item_governance(item))
+    provenance = dict(governance.get("provenance", {})) if isinstance(governance.get("provenance"), dict) else {}
+    research_support = _build_story_research_support(item)
+    source_refs = _normalize_string_list([*provenance.get("source_refs", []), *research_support.get("source_refs", [])])
+    if source_refs:
+        provenance["source_refs"] = source_refs
+    if research_support.get("available"):
+        provenance["research_support"] = {
+            "search_query": research_support.get("search_query", ""),
+            "search_provider": research_support.get("search_provider", ""),
+            "search_mode": research_support.get("search_mode", ""),
+            "search_sources": list(research_support.get("search_sources", [])),
+            "search_source_count": int(research_support.get("search_source_count", 0) or 0),
+            "search_source_diversity": float(research_support.get("search_source_diversity", 0.0) or 0.0),
+            "cross_validation": dict(research_support.get("cross_validation", {})),
+            "cross_validated": bool(research_support.get("cross_validated", False)),
+            "stitched": bool(research_support.get("stitched", False)),
+            "source_refs": list(source_refs),
+        }
+    governance["provenance"] = provenance
+    return governance
+
+
 def _coerce_nonnegative_int(value: Any, *, default: int = 0) -> int:
     try:
         return max(0, int(round(float(value))))
@@ -1676,12 +1752,28 @@ def _build_story_governance(
 
     provenance_chain: list[dict[str, Any]] = []
     review_states: dict[str, int] = {}
+    story_source_refs: list[str] = []
+    stitched_evidence_count = 0
+    cross_validated_evidence_count = 0
     for evidence in evidence_rows:
         governance = evidence.governance if isinstance(evidence.governance, dict) else {}
         provenance = governance.get("provenance", {}) if isinstance(governance.get("provenance"), dict) else {}
         grounding = governance.get("grounding", {}) if isinstance(governance.get("grounding"), dict) else {}
+        research_support = (
+            provenance.get("research_support", {})
+            if isinstance(provenance.get("research_support"), dict)
+            else {}
+        )
         review_state = str(governance.get("review_state") or evidence.review_state).strip().lower() or "new"
         review_states[review_state] = review_states.get(review_state, 0) + 1
+        source_refs = _normalize_string_list([*provenance.get("source_refs", []), evidence.source_name])
+        story_source_refs.extend(source_refs)
+        stitched = bool(research_support.get("stitched")) or len(source_refs) >= 2
+        cross_validated = bool(research_support.get("cross_validated"))
+        if stitched:
+            stitched_evidence_count += 1
+        if cross_validated:
+            cross_validated_evidence_count += 1
         provenance_chain.append(
             {
                 "item_id": evidence.item_id,
@@ -1693,11 +1785,17 @@ def _build_story_governance(
                 "evidence_grade": str(governance.get("evidence_grade", "working")).strip().lower() or "working",
                 "url": evidence.url,
                 "fetched_at": provenance.get("fetched_at", evidence.fetched_at),
+                "source_refs": source_refs,
+                "stitched": stitched,
+                "cross_validated": cross_validated,
+                "search_source_count": int(research_support.get("search_source_count", 0) or 0),
+                "search_source_diversity": float(research_support.get("search_source_diversity", 0.0) or 0.0),
                 "grounded_claim_count": int(grounding.get("claim_count", 0) or 0),
                 "grounded_evidence_span_count": int(grounding.get("evidence_span_count", 0) or 0),
             }
         )
 
+    stitched_source_refs = _normalize_string_list(story_source_refs)
     return {
         "subject": "story",
         "evidence_grade": evidence_grade,
@@ -1710,6 +1808,10 @@ def _build_story_governance(
             "primary_item_id": primary_item_id,
             "item_ids": [row["item_id"] for row in provenance_chain if row.get("item_id")],
             "source_names": list(source_names),
+            "source_refs": stitched_source_refs,
+            "source_ref_count": len(stitched_source_refs),
+            "stitched_evidence_count": stitched_evidence_count,
+            "cross_validated_evidence_count": cross_validated_evidence_count,
             "review_states": review_states,
             "evidence_chain": provenance_chain,
             "grounded_claim_count": int(story_grounding.get("claim_count", 0) or 0),
@@ -2090,7 +2192,7 @@ def build_story_from_items(
                 review_state=item.review_state,
                 role=role,
                 entities=row["entity_labels"],
-                governance=build_item_governance(item),
+                governance=_merge_story_evidence_governance(item),
             )
         )
 
@@ -2261,7 +2363,7 @@ def build_story_clusters(
                     review_state=item.review_state,
                     role=role,
                     entities=row["entity_labels"],
-                    governance=build_item_governance(item),
+                    governance=_merge_story_evidence_governance(item),
                 )
             )
 
@@ -2351,6 +2453,135 @@ def build_story_clusters(
         reverse=True,
     )
     return stories[: max(0, max_stories)]
+
+
+def build_story_evidence_intake(story_payload: Story | dict[str, Any]) -> dict[str, Any]:
+    payload = story_payload.to_dict() if isinstance(story_payload, Story) else dict(story_payload or {})
+    story_id = str(payload.get("id", "") or "").strip()
+    story_title = str(payload.get("title", "") or "").strip()
+    story_status = str(payload.get("status", "") or "").strip().lower()
+    story_governance = _as_dict(payload.get("governance"))
+    story_provenance = _as_dict(story_governance.get("provenance"))
+    evidence_inputs: list[dict[str, Any]] = []
+    all_source_refs: list[str] = []
+
+    for role, field_name in (("primary", "primary_evidence"), ("secondary", "secondary_evidence")):
+        raw_rows = payload.get(field_name)
+        if not isinstance(raw_rows, list):
+            continue
+        for index, raw_row in enumerate(raw_rows, start=1):
+            if not isinstance(raw_row, dict):
+                continue
+            governance = _as_dict(raw_row.get("governance"))
+            provenance = _as_dict(governance.get("provenance"))
+            grounding = _as_dict(governance.get("grounding"))
+            research_support = _as_dict(provenance.get("research_support"))
+            source_refs = _normalize_string_list([
+                *_normalize_string_list(provenance.get("source_refs")),
+                raw_row.get("source_name"),
+            ])
+            all_source_refs.extend(source_refs)
+            item_id = str(raw_row.get("item_id", "") or "").strip()
+            url = str(raw_row.get("url", "") or "").strip()
+            evidence_key = item_id or url or f"{role}:{index}"
+            cross_validation = dict(_as_dict(research_support.get("cross_validation")))
+            search_sources = _normalize_string_list(research_support.get("search_sources"))
+            search_source_count = _coerce_nonnegative_int(
+                research_support.get("search_source_count"),
+                default=len(search_sources),
+            )
+            if search_source_count <= 0 and search_sources:
+                search_source_count = len(search_sources)
+            cross_validated = bool(research_support.get("cross_validated")) or bool(
+                cross_validation.get("is_cross_validated")
+            )
+            stitched = bool(research_support.get("stitched")) or len(source_refs) >= 2 or search_source_count >= 2 or cross_validated
+            evidence_inputs.append(
+                {
+                    "evidence_id": f"{story_id or 'story'}:{evidence_key}",
+                    "story_id": story_id,
+                    "story_title": story_title,
+                    "item_id": item_id,
+                    "title": str(raw_row.get("title", "") or "").strip(),
+                    "url": url,
+                    "source_name": str(raw_row.get("source_name", "") or "").strip(),
+                    "source_type": str(raw_row.get("source_type", "") or "").strip(),
+                    "role": str(raw_row.get("role") or role).strip().lower() or role,
+                    "review_state": str(
+                        governance.get("review_state") or raw_row.get("review_state") or "new"
+                    ).strip().lower() or "new",
+                    "confidence": round(max(0.0, min(1.0, _coerce_float(raw_row.get("confidence"), default=0.0))), 4),
+                    "evidence_grade": str(governance.get("evidence_grade", "working")).strip().lower() or "working",
+                    "evidence_score": round(max(0.0, _coerce_float(governance.get("evidence_score"), default=0.0)), 4),
+                    "grounded_claim_count": int(grounding.get("claim_count", 0) or 0),
+                    "source_refs": source_refs,
+                    "source_ref_count": len(source_refs),
+                    "search_query": str(research_support.get("search_query", "") or "").strip(),
+                    "search_provider": str(research_support.get("search_provider", "") or "").strip(),
+                    "search_mode": str(research_support.get("search_mode", "") or "").strip(),
+                    "search_sources": search_sources,
+                    "search_source_count": search_source_count,
+                    "search_source_diversity": round(
+                        max(0.0, min(1.0, _coerce_float(research_support.get("search_source_diversity"), default=0.0))),
+                        4,
+                    ),
+                    "cross_validation": cross_validation,
+                    "cross_validated": cross_validated,
+                    "stitched": stitched,
+                    "provenance": {
+                        "kind": "story_evidence",
+                        "story_id": story_id,
+                        "story_title": story_title,
+                        "item_id": item_id,
+                        "url": url,
+                        "role": str(raw_row.get("role") or role).strip().lower() or role,
+                        "source_refs": source_refs,
+                        "research_support": {
+                            "search_query": str(research_support.get("search_query", "") or "").strip(),
+                            "search_provider": str(research_support.get("search_provider", "") or "").strip(),
+                            "search_mode": str(research_support.get("search_mode", "") or "").strip(),
+                            "search_sources": search_sources,
+                            "search_source_count": search_source_count,
+                            "search_source_diversity": round(
+                                max(
+                                    0.0,
+                                    min(1.0, _coerce_float(research_support.get("search_source_diversity"), default=0.0)),
+                                ),
+                                4,
+                            ),
+                            "cross_validation": cross_validation,
+                            "cross_validated": cross_validated,
+                            "stitched": stitched,
+                        },
+                    },
+                }
+            )
+
+    source_item_ids = [row["item_id"] for row in evidence_inputs if row.get("item_id")]
+    source_urls = [row["url"] for row in evidence_inputs if row.get("url")]
+    stitched_source_refs = _normalize_string_list([*all_source_refs, *story_provenance.get("source_refs", [])])
+    return {
+        "story": {
+            "id": story_id,
+            "title": story_title,
+            "status": story_status,
+        },
+        "summary": {
+            "evidence_count": len(evidence_inputs),
+            "primary_evidence_count": sum(1 for row in evidence_inputs if row.get("role") == "primary"),
+            "secondary_evidence_count": sum(1 for row in evidence_inputs if row.get("role") == "secondary"),
+            "source_item_count": len(_normalize_string_list(source_item_ids)),
+            "source_url_count": len(_normalize_string_list(source_urls)),
+            "source_ref_count": len(stitched_source_refs),
+            "stitched_evidence_count": sum(1 for row in evidence_inputs if row.get("stitched")),
+            "cross_validated_evidence_count": sum(1 for row in evidence_inputs if row.get("cross_validated")),
+        },
+        "source_item_ids": _normalize_string_list(source_item_ids),
+        "source_urls": _normalize_string_list(source_urls),
+        "source_refs": stitched_source_refs,
+        "story_provenance": story_provenance,
+        "evidence_inputs": evidence_inputs,
+    }
 
 
 class StoryService:

@@ -73,6 +73,96 @@
         "dispatch_explanation": {
           "type": "string"
         },
+        "research_projection": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source_plan": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "summary",
+                "deep",
+                "news"
+              ],
+              "properties": {
+                "summary": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "provider_hints": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "platforms": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "sites": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "time_range": {
+                  "type": "string"
+                },
+                "deep": {
+                  "type": "boolean"
+                },
+                "news": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "coverage_gap": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "summary",
+                "reasons",
+                "operator_action"
+              ],
+              "properties": {
+                "status": {
+                  "enum": [
+                    "clear",
+                    "watch",
+                    "review_required",
+                    "blocked"
+                  ]
+                },
+                "summary": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reasons": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "operator_action": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
         "report_output_kind": {
           "enum": [
             "brief",

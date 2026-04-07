@@ -30,6 +30,15 @@ logger = logging.getLogger("datapulse.search_gateway")
 DEFAULT_TIMEOUT = 8.0
 
 
+def _normalize_audit_text_list(values: list[str] | None) -> list[str]:
+    normalized: list[str] = []
+    for raw in values or []:
+        value = str(raw or "").strip().lower()
+        if value and value not in normalized:
+            normalized.append(value)
+    return normalized
+
+
 @dataclass
 class SearchHit:
     title: str
@@ -116,12 +125,20 @@ class SearchGateway:
             provider_hints=provider_hints,
         )
         requested_time_range = time_range or freshness
+        routing_policy = {
+            "provider_hints_applied": _normalize_audit_text_list(provider_hints),
+            "site_filters": _normalize_audit_text_list(sites),
+            "time_range": str(requested_time_range or "").strip(),
+            "deep": bool(deep),
+            "news": bool(news),
+        }
         search_meta: dict[str, Any] = {
             "query": query,
             "mode": mode,
             "requested_provider": provider,
             "provider_chain": providers[:],
             "provider_hints": list(provider_hints or []),
+            "routing_policy": routing_policy,
             "attempts": [],
             "timeout_seconds": self._timeout_seconds,
             "providers_selected": 0,

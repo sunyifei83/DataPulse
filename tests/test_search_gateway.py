@@ -262,3 +262,58 @@ def test_dedupe_hits_merges_mirror_pages():
     merged = gateway._dedupe_hits([hit_a, hit_b])
     assert len(merged) == 1
     assert set(merged[0].extra.get("sources", [])) == {"jina", "tavily"}
+
+
+def test_search_audit_exposes_routing_policy_for_intent_verification(monkeypatch: pytest.MonkeyPatch):
+    gateway = SearchGateway()
+
+    def fake_tavily(
+        *,
+        query: str,
+        sites: list[str] | None,
+        limit: int,
+        deep: bool,
+        news: bool,
+        time_range=None,
+    ):
+        assert query == "OpenAI launch routing"
+        assert sites == ["Example.com", "partner.example.com", "example.com"]
+        assert limit == 1
+        assert deep is True
+        assert news is True
+        assert time_range == "week"
+        return [
+            SearchHit(
+                title="Routing audit hit",
+                url="https://example.com/routing-audit",
+                snippet="Audit-friendly search payload.",
+                provider="tavily",
+                source="tavily",
+                score=0.42,
+                raw={},
+                extra={"sources": ["tavily"]},
+            )
+        ]
+
+    monkeypatch.setattr(gateway, "_search_tavily", fake_tavily)
+
+    hits, audit = gateway.search(
+        "OpenAI launch routing",
+        sites=["Example.com", "partner.example.com", "example.com"],
+        limit=1,
+        provider="tavily",
+        deep=True,
+        news=True,
+        time_range="week",
+        provider_hints=["Tavily", "jina", "tavily"],
+    )
+
+    assert len(hits) == 1
+    assert audit["routing_policy"] == {
+        "provider_hints_applied": ["tavily", "jina"],
+        "site_filters": ["example.com", "partner.example.com"],
+        "time_range": "week",
+        "deep": True,
+        "news": True,
+    }
+    assert hits[0].extra["search_audit"]["routing_policy"] == audit["routing_policy"]

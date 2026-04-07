@@ -3,65 +3,53 @@
 Status: draft only, not wired into runtime
 
 Created: 2026-03-07
+Updated: 2026-04-07
 
 ## Goal
 
-Declare which files should become future read-only projections once active loop truth sources exist.
+Declare which repo-native DataPulse outputs may later project into operator-visible read-only collaboration or reference surfaces once active truth sources and explicit admission work exist.
 
-## Active Truth Sources In The Future
+## Active Truth Sources In This Slice
 
-These should remain the machine truth:
+These remain the machine truth for `L30.3`:
 
-1. `docs/governance/datapulse-blueprint-plan.json`
-2. `out/code_landing_status.json`
-3. `out/project_specific_loop_state.json`
+1. `docs/governance/datapulse-blueprint-plan.draft.json`
+2. `docs/governance/datapulse-internal-external-surface-projection-table.draft.json`
+3. `docs/intelligence_delivery_contract.md`
+4. `/Users/sunyifei/ModelBusProject/docs/governance/tri_repo/handoffs/tri-repo-public-apis-control-plane-signals-20260402.datapulse.json`
+5. `/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/ModelBusProject/plan/public-apis-高价值信源摘取-2026-04-02.md`
 
-## Proposed Projection Targets
+## L30.3 Public-APIs Evidence Projection Baseline
 
-### Roadmap Projection
+The `public-apis` collaboration and reference pool contributes only future target classes in this slice:
 
-Source:
+- `GitHub`
+- `Notion`
+- `Airtable`
+- `Google Docs`
+- `Google Sheets`
+- `Google Slides`
 
-- `docs/governance/datapulse-blueprint-plan.json`
+They are design-only candidates for operator-visible read-only evidence projection. They are not runtime delivery routes, product subscriptions, or customer publication surfaces.
 
-Targets:
+## Candidate Target Classes
 
-- `docs/source_feed_enhancement_plan.md`
-- `docs/gui_intelligence_console_plan.md`
+| Candidate surface | Verdict | Admissible projection payloads | Fail-closed boundary |
+| --- | --- | --- | --- |
+| `GitHub` reference surfaces | `design_only_candidate` | story evidence packages, reviewed result manifests, delivery audit snapshots | no route wiring, no chat or issue-bot authoring, no customer-facing draft publication |
+| `Notion` evidence workspace surfaces | `design_only_candidate` | triage explanation results, story evidence pages, delivery summary review pages | no subscription management, no public rollout claim, no customer-facing draft publication |
+| `Airtable` evidence register surfaces | `design_only_candidate` | coverage-gap tables, delivery diagnostics, source-plan registers | no alert triggering, no reviewer state mutation, no customer-facing draft publication |
+| `Google Docs` read-only briefs | `design_only_candidate` | reviewed story or report narrative briefs, delivery summaries | no live drafting plane, no raw `claim_draft` or `report_draft` publication |
+| `Google Sheets` read-only registers | `design_only_candidate` | operator audit tables, evidence indexes, delivery dispatch facts | no subscription wiring, no trigger execution, no customer-facing draft publication |
+| `Google Slides` read-only briefings | `design_only_candidate` | operator briefing decks built from reviewed report or delivery outputs | no product rollout claim, no customer-facing draft publication |
 
-Rule:
+## Projection Rules
 
-- These markdown files stay human-readable summaries.
-- They should not become the loop source of truth again once the active JSON plan exists.
-
-### Delivery And Blocker Projection
-
-Source:
-
-- `out/code_landing_status.json`
-- `out/project_specific_loop_state.json`
-
-Targets:
-
-- `docs/issue_pool.md`
-- `docs/test_facts.md`
-
-Rule:
-
-- Keep issue narratives human-readable.
-- Allow structured loop outputs to drive summary sections and blocker rollups.
-
-### External Or Optional Projection
-
-Possible future targets:
-
-- Obsidian notes
-- release sidecar bundles
-- operator dashboards
-
-Rule:
-
-- Optional projections must never replace repo-local machine truth.
+1. Projection targets remain downstream of repo-native exports such as `export_story(...)`, reviewed report bundles, delivery diagnostics, and operator-visible coverage or source-plan summaries.
+2. Projection targets stay read-only from the DataPulse contract perspective; this slice does not admit authoring, subscription, chat, or trigger semantics on those surfaces.
+3. `claim_draft` may only appear as an operator review reference copy. It does not become a public or customer-facing draft.
+4. `report_draft` remains fail-closed in this slice and cannot be projected into any collaboration surface until separate contract admission and runtime evidence land.
+5. Any future sync or exporter that writes to these surfaces requires a separate blueprint slice; `L30.3` only records admissible target classes and boundaries.
 
 ## Non-Impact Rules
 
