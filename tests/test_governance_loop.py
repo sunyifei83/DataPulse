@@ -102,6 +102,45 @@ def _stub_release_gate_baseline(loop_contracts, monkeypatch, *, head: str = "abc
     )
 
 
+def test_active_overlay_truth_contract_matches_resolved_plan_and_tracked_loop_snapshot(loop_contracts) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    overlay_path = repo_root / "docs/governance/datapulse-blueprint-plan.json"
+    base_path = repo_root / "docs/governance/datapulse-blueprint-plan.draft.json"
+    loop_snapshot_path = repo_root / "artifacts/governance/snapshots/project_specific_loop_state.draft.json"
+
+    overlay = json.loads(overlay_path.read_text(encoding="utf-8"))
+    truth_contract = dict(overlay.get("truth_contract", {}))
+    canonical_phase_truth = dict(truth_contract.get("canonical_phase_truth", {}))
+    derived_execution_truth = dict(truth_contract.get("derived_execution_truth", {}))
+
+    assert overlay.get("base_plan") == "docs/governance/datapulse-blueprint-plan.draft.json"
+    assert overlay.get("status") == "completed"
+    assert truth_contract.get("overlay_role") == "active_entrypoint_and_activation_policy"
+    assert truth_contract.get("resolved_plan_semantics") == "deep_merge_overlay_onto_base_plan"
+    assert canonical_phase_truth.get("path") == "docs/governance/datapulse-blueprint-plan.draft.json"
+    assert derived_execution_truth.get("path") == "artifacts/governance/snapshots/project_specific_loop_state.draft.json"
+
+    resolved_plan = loop_contracts.load_plan(overlay_path)
+    expected_completed_slices = [
+        item.get("id", "")
+        for phase in resolved_plan.get("phases", [])
+        for item in phase.get("slices", [])
+        if item.get("status") == "completed"
+    ]
+
+    assert resolved_plan.get("_base_plan_path") == str(base_path.resolve())
+    assert resolved_plan.get("status") == "completed"
+    assert resolved_plan.get("recommended_next_slice", {}).get("id") == "no-open-slice"
+
+    loop_snapshot = json.loads(loop_snapshot_path.read_text(encoding="utf-8"))
+
+    assert loop_snapshot.get("source_plan") == "docs/governance/datapulse-blueprint-plan.json"
+    assert loop_snapshot.get("completed_slices") == expected_completed_slices
+    assert loop_snapshot.get("next_slice", {}).get("id") == resolved_plan.get("recommended_next_slice", {}).get("id")
+    assert loop_snapshot.get("remaining_promotion_gates") == []
+    assert loop_snapshot.get("stop_reason_if_run_now") == "loop_complete"
+
+
 def test_governance_path_read_prefers_configured_root_before_canonical(governance_paths, tmp_path: Path) -> None:
     configured_root = tmp_path / "configured"
     canonical_root = tmp_path / "artifacts" / "governance" / "snapshots"
