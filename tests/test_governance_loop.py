@@ -132,13 +132,42 @@ def test_active_overlay_truth_contract_matches_resolved_plan_and_tracked_loop_sn
     assert resolved_plan.get("status") == "completed"
     assert resolved_plan.get("recommended_next_slice", {}).get("id") == "no-open-slice"
 
-    loop_snapshot = json.loads(loop_snapshot_path.read_text(encoding="utf-8"))
+    resolved_plan["_source_path"] = str(overlay_path.resolve())
+    landing_status = {
+        "project": "DataPulse",
+        "workspace": {
+            "clean": True,
+        },
+        "promotion_levels": {
+            "repo_landed": {
+                "satisfied": True,
+                "reasons": [],
+            },
+            "ci_proven": {
+                "satisfied": True,
+                "reasons": [],
+            },
+        },
+        "gate_groups": {
+            "release_governance": [],
+        },
+    }
+
+    loop_snapshot = loop_contracts.build_project_loop_state(resolved_plan, landing_status)
 
     assert loop_snapshot.get("source_plan") == "docs/governance/datapulse-blueprint-plan.json"
     assert loop_snapshot.get("completed_slices") == expected_completed_slices
     assert loop_snapshot.get("next_slice", {}).get("id") == resolved_plan.get("recommended_next_slice", {}).get("id")
     assert loop_snapshot.get("remaining_promotion_gates") == []
     assert loop_snapshot.get("stop_reason_if_run_now") == "loop_complete"
+
+    if loop_snapshot_path.exists():
+        persisted_snapshot = json.loads(loop_snapshot_path.read_text(encoding="utf-8"))
+        assert persisted_snapshot.get("source_plan") == loop_snapshot.get("source_plan")
+        assert persisted_snapshot.get("completed_slices") == loop_snapshot.get("completed_slices")
+        assert persisted_snapshot.get("next_slice", {}).get("id") == loop_snapshot.get("next_slice", {}).get("id")
+        assert persisted_snapshot.get("remaining_promotion_gates") == loop_snapshot.get("remaining_promotion_gates")
+        assert persisted_snapshot.get("stop_reason_if_run_now") == loop_snapshot.get("stop_reason_if_run_now")
 
 
 def test_governance_path_read_prefers_configured_root_before_canonical(governance_paths, tmp_path: Path) -> None:
