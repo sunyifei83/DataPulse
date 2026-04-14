@@ -133,6 +133,43 @@ class TestWatchlistStore:
         assert restored.schedule == "@hourly"
         assert restored.alert_rules[0]["routes"] == ["exec-telegram"]
 
+    def test_market_context_sidecars_persist_with_watch_seed_only_boundary(self, tmp_path):
+        path = str(tmp_path / "watchlist.json")
+        store = WatchlistStore(path)
+
+        mission = store.create_mission(
+            name="NVDA Watch",
+            query="NVIDIA datacenter demand",
+            market_context_sidecars=[
+                {
+                    "sidecar_type": "technical_regime_sidecar",
+                    "label": "NVDA regime snapshot",
+                    "summary": "Weekly structure remains bullish but stretched.",
+                    "symbols": ["NVDA", "QQQ", "NVDA"],
+                    "signals": ["weekly_uptrend", "overextended"],
+                    "as_of": "2026-04-14T08:00:00Z",
+                    "source_ref": "tradingview-mcp/manual-note",
+                },
+                {
+                    "sidecar_type": "buy_sell_recommendations",
+                    "label": "Should be ignored",
+                    "summary": "Buy now.",
+                },
+            ],
+        )
+
+        reloaded = WatchlistStore(path)
+        restored = reloaded.get(mission.id)
+
+        assert restored is not None
+        assert len(restored.market_context_sidecars) == 1
+        sidecar = restored.market_context_sidecars[0]
+        assert sidecar.sidecar_type == "technical_regime_sidecar"
+        assert sidecar.symbols == ["NVDA", "QQQ"]
+        assert sidecar.input_kind == "market_context_sidecar"
+        assert sidecar.usage_mode == "watch_seed_only"
+        assert sidecar.admissible_usage == "watch_seed_and_operator_context"
+
 
 @pytest.mark.asyncio
 async def test_reader_run_watch_records_metadata(tmp_path, monkeypatch):
@@ -202,6 +239,64 @@ async def test_reader_run_watch_records_metadata(tmp_path, monkeypatch):
     assert reader.inbox.items[0].extra["watch_mission_intent"]["scope_topics"] == ["agents"]
     assert reader.inbox.items[0].extra["watch_seed_inputs"][0]["usage_mode"] == "watch_seed_only"
     assert "watch" in reader.inbox.items[0].tags
+
+
+@pytest.mark.asyncio
+async def test_reader_run_watch_projects_market_context_sidecars(tmp_path, monkeypatch):
+    watch_path = tmp_path / "watchlist.json"
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(watch_path))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    mission = reader.create_watch(
+        name="NVDA Context Watch",
+        query="NVIDIA datacenter demand",
+        market_context_sidecars=[
+            {
+                "sidecar_type": "technical_regime_sidecar",
+                "label": "NVDA regime snapshot",
+                "summary": "Trend remains constructive with elevated momentum.",
+                "symbols": ["NVDA"],
+                "signals": ["weekly_uptrend", "high_rsi"],
+                "as_of": "2026-04-14T08:00:00Z",
+                "source_ref": "tradingview-mcp/manual-note",
+            },
+            {
+                "sidecar_type": "strategy_robustness_backtest",
+                "label": "Breakout lane robustness",
+                "summary": "Walk-forward robustness stays acceptable but requires review.",
+                "symbols": ["NVDA"],
+                "signals": ["walk_forward_pass"],
+                "as_of": "2026-04-14T08:05:00Z",
+                "source_ref": "tradingview-mcp/manual-note",
+            },
+        ],
+        top_n=3,
+    )
+
+    async def fake_search(query, **kwargs):
+        item = DataPulseItem(
+            source_type=SourceType.GENERIC,
+            source_name="search",
+            title=f"{query} result",
+            content="Synthetic search result content",
+            url="https://example.com/nvda-demand",
+            confidence=0.84,
+            score=70,
+        )
+        reader.inbox.add(item, fingerprint_dedup=False)
+        reader.inbox.save()
+        return [item]
+
+    monkeypatch.setattr(reader, "search", fake_search)
+
+    payload = await reader.run_watch(mission["id"])
+
+    assert payload["mission"]["market_context_summary"]["sidecar_count"] == 2
+    assert payload["mission"]["market_context_summary"]["context_only_count"] == 1
+    assert payload["items"][0]["datapulse_context"]["market_context_seeded"] is True
+    assert payload["items"][0]["datapulse_context"]["market_context_sidecars"][0]["sidecar_type"] == "technical_regime_sidecar"
+    assert payload["items"][0]["extra"]["watch_market_context_sidecars"][0]["usage_mode"] == "watch_seed_only"
+    assert "trading advice" in payload["items"][0]["extra"]["watch_market_context_boundary"]
 
 
 @pytest.mark.asyncio

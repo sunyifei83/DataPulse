@@ -349,6 +349,24 @@ Contract rules:
 - Reader internals may decompose, but the public lifecycle nouns and their cross-surface semantics must remain stable through that facade.
 - surface wrappers must continue to call shared Reader-backed behavior rather than re-owning mission, triage, story, report, delivery, or AI workflows.
 
+### Local Market Wrapper Boundary
+
+Future tradingview-style local wrappers are not lifecycle owners.
+
+Their admissible repo-facing roles are limited to:
+
+- additive watchlist seed or market-context inputs inside the existing watch workflow
+- manual-acquisition artifacts that later enter the repo through `extra["manual_acquisition_provenance"]`
+- operator-local analysis context that remains non-public until a later admitted slice says otherwise
+
+Boundary rules:
+
+1. local wrappers must not create a parallel mission, triage, story, report, or delivery object chain
+2. local wrappers must not become a public trading surface, investor-advice surface, portfolio subsystem, or execution trigger
+3. scheduled governance workflows remain read-only governance drivers and must not execute wrapper-owned market jobs
+4. wrapper output becomes repo truth only after it resolves into existing lifecycle objects and review semantics
+5. donor MCP/runtime packaging details stay wrapper-local unless a later slice explicitly admits a new shared contract
+
 ### Target Service Seams For Future Work
 
 The allowed Reader-internal extraction targets are frozen to these seams:

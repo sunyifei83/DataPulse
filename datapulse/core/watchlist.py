@@ -43,6 +43,14 @@ def _dedup_text(values: list[Any]) -> list[str]:
     return out
 
 
+_MARKET_CONTEXT_SIDECAR_USAGE_BY_TYPE = {
+    "technical_regime_sidecar": "watch_seed_and_operator_context",
+    "market_quote_snapshot": "watch_seed_and_quote_context",
+    "strategy_robustness_backtest": "operator_context_only",
+    "sentiment_news_contra_sidecar": "operator_context_only",
+}
+
+
 def build_watch_run_readiness(
     mission: "WatchMission",
     *,
@@ -326,11 +334,63 @@ class TrendFeedInput:
 
 
 @dataclass
+class MarketContextSidecar:
+    sidecar_type: str = ""
+    label: str = ""
+    summary: str = ""
+    symbols: list[str] = field(default_factory=list)
+    signals: list[str] = field(default_factory=list)
+    as_of: str = ""
+    source_ref: str = ""
+    input_kind: str = "market_context_sidecar"
+    usage_mode: str = "watch_seed_only"
+    admissible_usage: str = ""
+    notes: str = ""
+
+    def __post_init__(self) -> None:
+        self.sidecar_type = str(self.sidecar_type or "").strip().lower()
+        if self.sidecar_type not in _MARKET_CONTEXT_SIDECAR_USAGE_BY_TYPE:
+            raise ValueError(f"Unsupported market context sidecar type: {self.sidecar_type}")
+        self.label = str(self.label or "").strip()
+        self.summary = str(self.summary or "").strip()
+        self.symbols = _dedup_text(self.symbols)
+        self.signals = _dedup_text(self.signals)
+        self.as_of = str(self.as_of or "").strip()
+        self.source_ref = str(self.source_ref or "").strip()
+        self.input_kind = "market_context_sidecar"
+        self.usage_mode = "watch_seed_only"
+        self.admissible_usage = _MARKET_CONTEXT_SIDECAR_USAGE_BY_TYPE[self.sidecar_type]
+        self.notes = str(self.notes or "").strip()
+
+    def has_content(self) -> bool:
+        return any(
+            (
+                self.label,
+                self.summary,
+                self.symbols,
+                self.signals,
+                self.as_of,
+                self.source_ref,
+                self.notes,
+            )
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "MarketContextSidecar":
+        valid = {f.name for f in cls.__dataclass_fields__.values()}
+        return cls(**{k: v for k, v in data.items() if k in valid})
+
+
+@dataclass
 class WatchMission:
     name: str
     query: str
     mission_intent: MissionIntent = field(default_factory=MissionIntent)
     trend_inputs: list[TrendFeedInput] = field(default_factory=list)
+    market_context_sidecars: list[MarketContextSidecar] = field(default_factory=list)
     platforms: list[str] = field(default_factory=list)
     sites: list[str] = field(default_factory=list)
     schedule: str = "manual"
@@ -382,7 +442,7 @@ class WatchMission:
                 continue
             if not trend_input.has_content():
                 continue
-            signature = (
+            trend_signature = (
                 trend_input.provider.casefold(),
                 trend_input.label.casefold(),
                 trend_input.location.casefold(),
@@ -390,11 +450,39 @@ class WatchMission:
                 trend_input.feed_url.casefold(),
                 trend_input.snapshot_time,
             )
-            if signature in seen_trend_inputs:
+            if trend_signature in seen_trend_inputs:
                 continue
-            seen_trend_inputs.add(signature)
+            seen_trend_inputs.add(trend_signature)
             normalized_trend_inputs.append(trend_input)
         self.trend_inputs = normalized_trend_inputs
+        normalized_market_context_sidecars: list[MarketContextSidecar] = []
+        seen_market_context_sidecars: set[tuple[str, str, str, tuple[str, ...], tuple[str, ...], str, str]] = set()
+        for sidecar_raw in self.market_context_sidecars:
+            if isinstance(sidecar_raw, MarketContextSidecar):
+                sidecar = sidecar_raw
+            elif isinstance(sidecar_raw, dict):
+                try:
+                    sidecar = MarketContextSidecar.from_dict(sidecar_raw)
+                except (TypeError, ValueError):
+                    continue
+            else:
+                continue
+            if not sidecar.has_content():
+                continue
+            sidecar_signature = (
+                sidecar.sidecar_type.casefold(),
+                sidecar.label.casefold(),
+                sidecar.summary.casefold(),
+                tuple(symbol.casefold() for symbol in sidecar.symbols),
+                tuple(signal.casefold() for signal in sidecar.signals),
+                sidecar.as_of,
+                sidecar.source_ref.casefold(),
+            )
+            if sidecar_signature in seen_market_context_sidecars:
+                continue
+            seen_market_context_sidecars.add(sidecar_signature)
+            normalized_market_context_sidecars.append(sidecar)
+        self.market_context_sidecars = normalized_market_context_sidecars
         self.platforms = _dedup_lower(self.platforms)
         self.sites = _dedup_lower(self.sites)
         self.schedule = str(self.schedule or "manual").strip().lower() or "manual"
@@ -437,6 +525,10 @@ class WatchMission:
             else {}
         )
         payload["trend_inputs"] = [trend_input.to_dict() for trend_input in self.trend_inputs]
+        payload["market_context_sidecars"] = [
+            sidecar.to_dict()
+            for sidecar in self.market_context_sidecars
+        ]
         return payload
 
     @classmethod
@@ -446,6 +538,11 @@ class WatchMission:
         payload["trend_inputs"] = [
             TrendFeedInput.from_dict(row)
             for row in payload.get("trend_inputs", [])
+            if isinstance(row, dict)
+        ]
+        payload["market_context_sidecars"] = [
+            MarketContextSidecar.from_dict(row)
+            for row in payload.get("market_context_sidecars", [])
             if isinstance(row, dict)
         ]
         payload["runs"] = [
@@ -530,6 +627,7 @@ class WatchlistStore:
         query: str,
         mission_intent: dict[str, Any] | MissionIntent | None = None,
         trend_inputs: list[dict[str, Any] | TrendFeedInput] | None = None,
+        market_context_sidecars: list[dict[str, Any] | MarketContextSidecar] | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
         schedule: str = "manual",
@@ -558,11 +656,25 @@ class WatchlistStore:
                 continue
             if trend_input.has_content():
                 normalized_trend_inputs.append(trend_input)
+        normalized_market_context_sidecars: list[MarketContextSidecar] = []
+        for sidecar_raw in market_context_sidecars or []:
+            if isinstance(sidecar_raw, MarketContextSidecar):
+                sidecar = sidecar_raw
+            elif isinstance(sidecar_raw, dict):
+                try:
+                    sidecar = MarketContextSidecar.from_dict(sidecar_raw)
+                except (TypeError, ValueError):
+                    continue
+            else:
+                continue
+            if sidecar.has_content():
+                normalized_market_context_sidecars.append(sidecar)
         mission = WatchMission(
             name=name,
             query=query,
             mission_intent=normalized_mission_intent,
             trend_inputs=normalized_trend_inputs,
+            market_context_sidecars=normalized_market_context_sidecars,
             platforms=list(platforms or []),
             sites=list(sites or []),
             schedule=schedule,
@@ -585,6 +697,7 @@ class WatchlistStore:
         query: str | None = None,
         mission_intent: dict[str, Any] | MissionIntent | None = None,
         trend_inputs: list[dict[str, Any] | TrendFeedInput] | None = None,
+        market_context_sidecars: list[dict[str, Any] | MarketContextSidecar] | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
         schedule: str | None = None,
@@ -620,12 +733,28 @@ class WatchlistStore:
                     continue
                 if trend_input.has_content():
                     normalized_trend_inputs.append(trend_input)
+        normalized_market_context_sidecars = list(mission.market_context_sidecars)
+        if market_context_sidecars is not None:
+            normalized_market_context_sidecars = []
+            for sidecar_raw in market_context_sidecars:
+                if isinstance(sidecar_raw, MarketContextSidecar):
+                    sidecar = sidecar_raw
+                elif isinstance(sidecar_raw, dict):
+                    try:
+                        sidecar = MarketContextSidecar.from_dict(sidecar_raw)
+                    except (TypeError, ValueError):
+                        continue
+                else:
+                    continue
+                if sidecar.has_content():
+                    normalized_market_context_sidecars.append(sidecar)
         updated = WatchMission(
             id=mission.id,
             name=mission.name if name is None else name,
             query=mission.query if query is None else query,
             mission_intent=normalized_mission_intent,
             trend_inputs=normalized_trend_inputs,
+            market_context_sidecars=normalized_market_context_sidecars,
             platforms=mission.platforms if platforms is None else list(platforms),
             sites=mission.sites if sites is None else list(sites),
             schedule=mission.schedule if schedule is None else schedule,
@@ -728,6 +857,7 @@ class WatchService:
         query: str,
         mission_intent: dict[str, Any] | None = None,
         trend_inputs: list[dict[str, Any] | TrendFeedInput] | None = None,
+        market_context_sidecars: list[dict[str, Any] | MarketContextSidecar] | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
         schedule: str = "manual",
@@ -741,6 +871,7 @@ class WatchService:
             query=query,
             mission_intent=mission_intent,
             trend_inputs=trend_inputs,
+            market_context_sidecars=market_context_sidecars,
             platforms=platforms,
             sites=sites,
             schedule=schedule,
@@ -759,6 +890,7 @@ class WatchService:
         query: str | None = None,
         mission_intent: dict[str, Any] | None = None,
         trend_inputs: list[dict[str, Any] | TrendFeedInput] | None = None,
+        market_context_sidecars: list[dict[str, Any] | MarketContextSidecar] | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
         schedule: str | None = None,
@@ -773,6 +905,7 @@ class WatchService:
             query=query,
             mission_intent=mission_intent,
             trend_inputs=trend_inputs,
+            market_context_sidecars=market_context_sidecars,
             platforms=platforms,
             sites=sites,
             schedule=schedule,
@@ -925,7 +1058,7 @@ class WatchService:
             return {
                 "mission": self.owner._serialize_watch_mission(updated),
                 "run": run.to_dict(),
-                "items": [item.to_dict() for item in items],
+                "items": [self.owner._serialize_watch_result(item) for item in items],
                 "alert_events": alert_events,
             }
         except Exception as exc:

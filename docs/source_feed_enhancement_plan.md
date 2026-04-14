@@ -187,6 +187,8 @@
 - 当前最适合被 DataPulse 吸收的是 `technical_regime_sidecar + market_quote_snapshot` 这一类 watch formation context；它们帮助决定“值得看什么”，不帮助决定“应该买卖什么”。
 - `strategy_robustness_backtest` 与 `sentiment_news_contra_sidecar` 可以保留为后续 `watchlist_market_context_sidecar` slice 的 operator context 素材，但在这一轮不能越界成自动决策或 item-level fact truth。
 - 因此 `L31.2` 落地后，后续实现必须复用现有 `trend_inputs` 与 `watch_seed_only` 语义，而不是新开 trading object chain；如果未来真的要接 donor wrapper，也必须在后续 slice 里单独收口 local-only boundary。
+- `L31.3` 现已在仓内落地 `datapulse/core/watchlist.py` 与 `datapulse/reader.py`：`WatchMission` 现在可持久化 `market_context_sidecars`，仅允许 `technical_regime_sidecar / market_quote_snapshot / strategy_robustness_backtest / sentiment_news_contra_sidecar` 四类受治理 donor 输入，并统一固定为 `input_kind=market_context_sidecar`、`usage_mode=watch_seed_only`。
+- watch 的 mission detail、recent results 与 JSON feed 现在都会把这批 donor context 作为 watch-scoped `datapulse_context` 投影出来，并附带明确的 `market_context_boundary`，说明它们只是 operator-visible market context，不是 item evidence、trading advice 或 execution truth。
 
 ## 与现网能力映射
 

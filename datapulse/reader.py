@@ -68,6 +68,7 @@ from datapulse.core.triage import (
 )
 from datapulse.core.utils import content_fingerprint, inbox_path_from_env, normalize_language
 from datapulse.core.watchlist import (
+    MarketContextSidecar,
     MissionIntent,
     MissionRun,
     TrendFeedInput,
@@ -488,6 +489,9 @@ _SEARCH_SITE_HINT_RE = re.compile(r"(?:^|\s)site:([a-z0-9.-]+\.[a-z]{2,})(?=\s|$
 
 TREND_SEED_BOUNDARY_TEXT = (
     "Trend inputs seed watches and feed surfaces only; item-level evidence still comes from collected URLs and search hits."
+)
+MARKET_CONTEXT_SIDECAR_BOUNDARY_TEXT = (
+    "Market-context sidecars stay watch-scoped and operator-visible; they do not become item-level evidence, trading advice, or execution truth."
 )
 _WATCH_QUERY_ASCII_TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9._-]{1,}", re.IGNORECASE)
 _WATCH_QUERY_CJK_TOKEN_RE = re.compile(r"[\u4e00-\u9fff]{2,}")
@@ -1720,6 +1724,11 @@ class DataPulseReader:
             for trend_input in mission.trend_inputs
         ]
         payload["trend_seed_summary"] = self._build_watch_trend_summary(mission.trend_inputs)
+        payload["market_context_sidecars"] = [
+            self._serialize_market_context_sidecar(sidecar)
+            for sidecar in mission.market_context_sidecars
+        ]
+        payload["market_context_summary"] = self._build_watch_market_context_summary(mission.market_context_sidecars)
         payload["schedule_label"] = describe_schedule(mission.schedule)
         payload["is_due"] = is_watch_due(mission)
         payload["next_run_at"] = next_run_at(mission)
@@ -1787,6 +1796,16 @@ class DataPulseReader:
         payload["topics_preview"] = list(trend_input.topics[:5])
         return payload
 
+    @staticmethod
+    def _serialize_market_context_sidecar(sidecar: MarketContextSidecar) -> dict[str, Any]:
+        payload = sidecar.to_dict()
+        payload["symbol_count"] = len(sidecar.symbols)
+        payload["signals_preview"] = list(sidecar.signals[:5])
+        payload["operator_visible"] = True
+        payload["context_boundary"] = MARKET_CONTEXT_SIDECAR_BOUNDARY_TEXT
+        payload["context_only"] = sidecar.admissible_usage == "operator_context_only"
+        return payload
+
     def _build_watch_trend_summary(self, trend_inputs: list[TrendFeedInput]) -> dict[str, Any]:
         providers: list[str] = []
         provider_seen: set[str] = set()
@@ -1829,6 +1848,52 @@ class DataPulseReader:
             "topics_preview": topics[:5],
             "latest_snapshot_time": latest_snapshot,
             "seed_boundary": TREND_SEED_BOUNDARY_TEXT if trend_inputs else "",
+        }
+
+    def _build_watch_market_context_summary(
+        self,
+        market_context_sidecars: list[MarketContextSidecar],
+    ) -> dict[str, Any]:
+        kinds: list[str] = []
+        kind_seen: set[str] = set()
+        symbols: list[str] = []
+        symbol_seen: set[str] = set()
+        latest_as_of = ""
+        context_only_count = 0
+
+        for sidecar in market_context_sidecars:
+            sidecar_type = str(sidecar.sidecar_type or "").strip().lower()
+            if sidecar_type and sidecar_type not in kind_seen:
+                kind_seen.add(sidecar_type)
+                kinds.append(sidecar_type)
+            if sidecar.admissible_usage == "operator_context_only":
+                context_only_count += 1
+            as_of = str(sidecar.as_of or "").strip()
+            if as_of and as_of > latest_as_of:
+                latest_as_of = as_of
+            for symbol in sidecar.symbols:
+                normalized = str(symbol or "").strip()
+                if not normalized:
+                    continue
+                key = normalized.casefold()
+                if key in symbol_seen:
+                    continue
+                symbol_seen.add(key)
+                symbols.append(normalized)
+
+        return {
+            "has_market_context_sidecars": bool(market_context_sidecars),
+            "sidecar_count": len(market_context_sidecars),
+            "sidecar_types": kinds,
+            "symbol_count": len(symbols),
+            "symbols_preview": symbols[:5],
+            "context_only_count": context_only_count,
+            "latest_as_of": latest_as_of,
+            "market_context_boundary": (
+                MARKET_CONTEXT_SIDECAR_BOUNDARY_TEXT
+                if market_context_sidecars
+                else ""
+            ),
         }
 
     @staticmethod
@@ -5336,6 +5401,7 @@ class DataPulseReader:
         query: str,
         mission_intent: dict[str, Any] | None = None,
         trend_inputs: list[dict[str, Any] | TrendFeedInput] | None = None,
+        market_context_sidecars: list[dict[str, Any] | MarketContextSidecar] | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
         schedule: str = "manual",
@@ -5356,6 +5422,7 @@ class DataPulseReader:
             query=query,
             mission_intent=mission_intent,
             trend_inputs=trend_inputs,
+            market_context_sidecars=market_context_sidecars,
             platforms=self._merge_unique_text(list(platforms or []), list(intake_intent.get("platform_hints", []))),
             sites=self._merge_unique_text(list(sites or []), list(intake_intent.get("site_hints", []))),
             schedule=schedule,
@@ -5375,6 +5442,7 @@ class DataPulseReader:
         query: str | None = None,
         mission_intent: dict[str, Any] | None = None,
         trend_inputs: list[dict[str, Any] | TrendFeedInput] | None = None,
+        market_context_sidecars: list[dict[str, Any] | MarketContextSidecar] | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
         schedule: str | None = None,
@@ -5414,6 +5482,7 @@ class DataPulseReader:
             query=query,
             mission_intent=mission_intent,
             trend_inputs=trend_inputs,
+            market_context_sidecars=market_context_sidecars,
             platforms=merged_platforms,
             sites=merged_sites,
             schedule=schedule,
@@ -5489,6 +5558,9 @@ class DataPulseReader:
 
     def _serialize_watch_result(self, item: DataPulseItem) -> dict[str, Any]:
         payload = item.to_dict()
+        watch_context = self._item_watch_context(item)
+        if watch_context is not None:
+            payload["datapulse_context"] = watch_context
         payload["watch_filters"] = self._watch_result_filter_tags(item)
         return payload
 
@@ -5636,6 +5708,10 @@ class DataPulseReader:
             return
         intent_payload = mission.mission_intent.to_dict() if mission.mission_intent.has_content() else {}
         trend_payload = [self._serialize_trend_input(trend_input) for trend_input in mission.trend_inputs]
+        market_context_payload = [
+            self._serialize_market_context_sidecar(sidecar)
+            for sidecar in mission.market_context_sidecars
+        ]
         changed = False
         for item in items:
             item.extra["watch_mission_id"] = mission.id
@@ -5646,6 +5722,9 @@ class DataPulseReader:
             if trend_payload:
                 item.extra["watch_seed_inputs"] = [dict(row) for row in trend_payload]
                 item.extra["watch_seed_boundary"] = TREND_SEED_BOUNDARY_TEXT
+            if market_context_payload:
+                item.extra["watch_market_context_sidecars"] = [dict(row) for row in market_context_payload]
+                item.extra["watch_market_context_boundary"] = MARKET_CONTEXT_SIDECAR_BOUNDARY_TEXT
             if "watch" not in item.tags:
                 item.tags.append("watch")
 
@@ -5660,6 +5739,9 @@ class DataPulseReader:
                 if trend_payload:
                     stored.extra["watch_seed_inputs"] = [dict(row) for row in trend_payload]
                     stored.extra["watch_seed_boundary"] = TREND_SEED_BOUNDARY_TEXT
+                if market_context_payload:
+                    stored.extra["watch_market_context_sidecars"] = [dict(row) for row in market_context_payload]
+                    stored.extra["watch_market_context_boundary"] = MARKET_CONTEXT_SIDECAR_BOUNDARY_TEXT
                 if "watch" not in stored.tags:
                     stored.tags.append("watch")
                 changed = True
@@ -5667,17 +5749,22 @@ class DataPulseReader:
         if changed:
             self.inbox.save()
 
-    def _item_trend_seed_context(self, item: DataPulseItem) -> dict[str, Any] | None:
+    def _item_watch_context(self, item: DataPulseItem) -> dict[str, Any] | None:
         mission_id = str(item.extra.get("watch_mission_id", "") or "").strip()
         mission_name = str(item.extra.get("watch_mission_name", "") or "").strip()
         trend_inputs: list[dict[str, Any]] = []
+        market_context_sidecars: list[dict[str, Any]] = []
 
         mission = self.watchlist.get(mission_id) if mission_id else None
-        if mission is not None and mission.trend_inputs:
+        if mission is not None:
             mission_name = mission.name
             trend_inputs = [
                 self._serialize_trend_input(trend_input)
                 for trend_input in mission.trend_inputs
+            ]
+            market_context_sidecars = [
+                self._serialize_market_context_sidecar(sidecar)
+                for sidecar in mission.market_context_sidecars
             ]
         else:
             raw_inputs = item.extra.get("watch_seed_inputs", [])
@@ -5689,61 +5776,133 @@ class DataPulseReader:
                     normalized["input_kind"] = "trend_feed"
                     normalized["usage_mode"] = "watch_seed_only"
                     trend_inputs.append(normalized)
+            raw_sidecars = item.extra.get("watch_market_context_sidecars", [])
+            if isinstance(raw_sidecars, list):
+                for raw in raw_sidecars:
+                    if not isinstance(raw, dict):
+                        continue
+                    try:
+                        sidecar = MarketContextSidecar.from_dict(raw)
+                    except (TypeError, ValueError):
+                        continue
+                    market_context_sidecars.append(self._serialize_market_context_sidecar(sidecar))
 
-        if not trend_inputs:
+        if not trend_inputs and not market_context_sidecars:
             return None
-        return {
+        payload: dict[str, Any] = {
             "watch_mission_id": mission_id,
             "watch_mission_name": mission_name,
+        }
+        if trend_inputs:
+            payload["trend_seeded"] = True
+            payload["seed_boundary"] = TREND_SEED_BOUNDARY_TEXT
+            payload["seed_inputs"] = trend_inputs
+        if market_context_sidecars:
+            payload["market_context_seeded"] = True
+            payload["market_context_boundary"] = MARKET_CONTEXT_SIDECAR_BOUNDARY_TEXT
+            payload["market_context_sidecars"] = market_context_sidecars
+        return payload
+
+    def _item_trend_seed_context(self, item: DataPulseItem) -> dict[str, Any] | None:
+        context = self._item_watch_context(item)
+        if context is None or not context.get("seed_inputs"):
+            return None
+        return {
+            "watch_mission_id": context.get("watch_mission_id", ""),
+            "watch_mission_name": context.get("watch_mission_name", ""),
             "trend_seeded": True,
             "seed_boundary": TREND_SEED_BOUNDARY_TEXT,
-            "seed_inputs": trend_inputs,
+            "seed_inputs": context.get("seed_inputs", []),
         }
 
     def _build_feed_context(self, items: list[DataPulseItem]) -> dict[str, Any] | None:
         seeded_watches: list[dict[str, Any]] = []
+        market_context_watches: list[dict[str, Any]] = []
         seen_watch_ids: set[str] = set()
+        seen_market_context_watch_ids: set[str] = set()
         seeded_item_count = 0
+        market_context_item_count = 0
 
         for item in items:
-            context = self._item_trend_seed_context(item)
+            context = self._item_watch_context(item)
             if context is None:
                 continue
-            seeded_item_count += 1
             watch_id = str(context.get("watch_mission_id", "") or "").strip() or str(item.id or "").strip()
-            if watch_id in seen_watch_ids:
-                continue
-            seen_watch_ids.add(watch_id)
             seed_inputs = context.get("seed_inputs", [])
-            topic_count = 0
-            providers: list[str] = []
-            provider_seen: set[str] = set()
-            for seed_input in seed_inputs if isinstance(seed_inputs, list) else []:
-                if not isinstance(seed_input, dict):
-                    continue
-                topic_count += len(seed_input.get("topics", []) or [])
-                provider = str(seed_input.get("provider", "") or "").strip().lower()
-                if provider and provider not in provider_seen:
-                    provider_seen.add(provider)
-                    providers.append(provider)
-            seeded_watches.append(
-                {
-                    "watch_mission_id": context.get("watch_mission_id", ""),
-                    "watch_mission_name": context.get("watch_mission_name", ""),
-                    "seed_input_count": len(seed_inputs) if isinstance(seed_inputs, list) else 0,
-                    "topic_count": topic_count,
-                    "providers": providers,
-                }
-            )
+            if isinstance(seed_inputs, list) and seed_inputs:
+                seeded_item_count += 1
+                if watch_id not in seen_watch_ids:
+                    seen_watch_ids.add(watch_id)
+                    topic_count = 0
+                    providers: list[str] = []
+                    provider_seen: set[str] = set()
+                    for seed_input in seed_inputs:
+                        if not isinstance(seed_input, dict):
+                            continue
+                        topic_count += len(seed_input.get("topics", []) or [])
+                        provider = str(seed_input.get("provider", "") or "").strip().lower()
+                        if provider and provider not in provider_seen:
+                            provider_seen.add(provider)
+                            providers.append(provider)
+                    seeded_watches.append(
+                        {
+                            "watch_mission_id": context.get("watch_mission_id", ""),
+                            "watch_mission_name": context.get("watch_mission_name", ""),
+                            "seed_input_count": len(seed_inputs),
+                            "topic_count": topic_count,
+                            "providers": providers,
+                        }
+                    )
+            sidecars = context.get("market_context_sidecars", [])
+            if isinstance(sidecars, list) and sidecars:
+                market_context_item_count += 1
+                if watch_id not in seen_market_context_watch_ids:
+                    seen_market_context_watch_ids.add(watch_id)
+                    sidecar_types: list[str] = []
+                    symbols: list[str] = []
+                    symbol_seen: set[str] = set()
+                    for sidecar in sidecars:
+                        if not isinstance(sidecar, dict):
+                            continue
+                        sidecar_type = str(sidecar.get("sidecar_type", "") or "").strip().lower()
+                        if sidecar_type and sidecar_type not in sidecar_types:
+                            sidecar_types.append(sidecar_type)
+                        for symbol in sidecar.get("symbols", []) or []:
+                            normalized = str(symbol or "").strip()
+                            if not normalized:
+                                continue
+                            key = normalized.casefold()
+                            if key in symbol_seen:
+                                continue
+                            symbol_seen.add(key)
+                            symbols.append(normalized)
+                    market_context_watches.append(
+                        {
+                            "watch_mission_id": context.get("watch_mission_id", ""),
+                            "watch_mission_name": context.get("watch_mission_name", ""),
+                            "sidecar_count": len(sidecars),
+                            "sidecar_types": sidecar_types,
+                            "symbols_preview": symbols[:5],
+                        }
+                    )
 
-        if not seeded_watches:
+        if not seeded_watches and not market_context_watches:
             return None
-        return {
+        payload = {
             "trend_seeded_item_count": seeded_item_count,
             "trend_seeded_watch_count": len(seeded_watches),
             "trend_seeded_watches": seeded_watches,
-            "seed_boundary": TREND_SEED_BOUNDARY_TEXT,
+            "market_context_item_count": market_context_item_count,
+            "market_context_watch_count": len(market_context_watches),
+            "market_context_watches": market_context_watches,
+            "seed_boundary": TREND_SEED_BOUNDARY_TEXT if seeded_watches else "",
+            "market_context_boundary": (
+                MARKET_CONTEXT_SIDECAR_BOUNDARY_TEXT
+                if market_context_watches
+                else ""
+            ),
         }
+        return payload
 
     def list_alerts(self, *, limit: int = 20, mission_id: str | None = None) -> list[dict[str, Any]]:
         return [self._with_alert_research_projection(row) for row in self.alert_service.list_alerts(limit=limit, mission_id=mission_id)]
@@ -5981,9 +6140,9 @@ class DataPulseReader:
                 "source_name": item.source_name,
                 "authors": [{"name": item.source_name}] if item.source_name else [],
             }
-            trend_context = self._item_trend_seed_context(item)
-            if trend_context is not None:
-                row["datapulse_context"] = trend_context
+            watch_context = self._item_watch_context(item)
+            if watch_context is not None:
+                row["datapulse_context"] = watch_context
             payload["items"].append(row)
         feed_context = self._build_feed_context(items)
         if feed_context is not None:

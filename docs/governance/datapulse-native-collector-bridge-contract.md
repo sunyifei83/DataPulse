@@ -24,6 +24,7 @@ This contract does not cover:
 - removing current `jina`, browser, or generic fallbacks
 - changing scheduled governance workflows into business executors
 - introducing new first-class `SourceType` values outside their own blueprint slices
+- treating tradingview-style quote, regime, robustness, or contra tooling as a generic market-runtime extension of `DATAPULSE_NATIVE_COLLECTOR_BRIDGE_CMD`
 
 ## Current Repo Anchors
 
@@ -269,6 +270,19 @@ Failure-code policy:
 | `unsupported_url` | continue fallback |
 
 No native bridge attempt may suppress a currently available fallback path merely because the sidecar is installed.
+
+## Excluded Local Market Wrapper Boundary
+
+Future tradingview-style market tooling is outside this native collector bridge contract.
+
+If DataPulse later uses a local wrapper or sidecar for quote snapshots, technical-regime checks, robustness runs, or sentiment-contra helpers, that path must stay outside the native collector shortlist and outside scheduled governance execution.
+
+Boundary rules:
+
+1. do not reuse `DATAPULSE_NATIVE_COLLECTOR_BRIDGE_CMD` as a generic market-tooling executor
+2. keep any such path local/manual and operator-visible rather than promoting it into `.github/workflows/governance-loop-auto.yml` or another scheduled governance runner
+3. admit repo-visible outputs only through existing watchlist seed, market-context sidecar, or manual-acquisition handoff semantics
+4. do not let wrapper-local output become first-class collector truth, a new public trading surface, or wrapper-owned business truth outside the lifecycle contract
 
 ## Invariants For Follow-Up Slices
 

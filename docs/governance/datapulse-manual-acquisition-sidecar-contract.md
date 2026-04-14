@@ -159,6 +159,20 @@ The manual acquisition lane is intentionally constrained:
 
 For `EasySpider`, `Crawlab`, and `f2`, the repo truth is the handoff contract and provenance vocabulary, not a new always-on executor.
 
+## Local Market Wrapper Boundary
+
+Future tradingview-style tooling belongs in DataPulse only as a local/manual wrapper or sidecar lane.
+
+Examples include quote snapshots, technical-regime screens, deterministic robustness checks, and sentiment-contra helpers. Those tools may inform watchlist seeding, operator triage context, or a manual evidence capture, but they do not become a new public trading surface or an automated business-runtime lane.
+
+Boundary rules:
+
+1. wrapper execution stays local/manual and must not be scheduled from `.github/workflows/governance-loop-auto.yml` or other governance-loop automation
+2. repo-visible truth must resolve through existing `url_recollection`, `manual_fact_item`, or `story_attachment_only` handoff modes
+3. watchlist or market-context usage must remain additive to existing lifecycle objects rather than inventing a wrapper-owned object chain
+4. wrapper output must not publish BUY/SELL conclusions, portfolio logic, execution triggers, or proxy-policy semantics as DataPulse repo truth
+5. any wrapper-local artifacts remain supporting context until triage, story, or manual-provenance handoff makes them attributable inside the current lifecycle contract
+
 ## Slice Outcome
 
 `L9.10` is complete when these facts remain true:

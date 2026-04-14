@@ -259,6 +259,17 @@ class TestBuildJsonFeed:
                     "snapshot_time": "2026-03-06T00:00:00Z",
                 }
             ],
+            market_context_sidecars=[
+                {
+                    "sidecar_type": "technical_regime_sidecar",
+                    "label": "AI software regime",
+                    "summary": "Momentum remains constructive but crowded.",
+                    "symbols": ["MSFT", "GOOGL"],
+                    "signals": ["sector_uptrend"],
+                    "as_of": "2026-04-14T08:00:00Z",
+                    "source_ref": "tradingview-mcp/manual-note",
+                }
+            ],
         )
 
         items = [
@@ -279,9 +290,13 @@ class TestBuildJsonFeed:
 
         assert feed["datapulse_context"]["trend_seeded_item_count"] == 1
         assert feed["datapulse_context"]["trend_seeded_watch_count"] == 1
+        assert feed["datapulse_context"]["market_context_watch_count"] == 1
         assert "item-level evidence" in feed["datapulse_context"]["seed_boundary"]
+        assert "trading advice" in feed["datapulse_context"]["market_context_boundary"]
         assert feed["items"][0]["datapulse_context"]["trend_seeded"] is True
         assert feed["items"][0]["datapulse_context"]["seed_inputs"][0]["input_kind"] == "trend_feed"
+        assert feed["items"][0]["datapulse_context"]["market_context_seeded"] is True
+        assert feed["items"][0]["datapulse_context"]["market_context_sidecars"][0]["sidecar_type"] == "technical_regime_sidecar"
 
 
 class TestFeedBundleAndDigestPayload:
