@@ -146,6 +146,28 @@ Contract consequences:
 
 These verdicts intentionally do not create a new public DataPulse surface. They only define which `public-apis` candidates are governance-compatible handoff seeds for later explicit admission work.
 
+## L31.2 Tradingview-Style Technical-Signal Seed Screening
+
+As of 2026-04-14, the `tradingview-mcp` donor handoff is screened for DataPulse only as watchlist-seed or operator-context input.
+
+Contract consequences:
+
+1. Qualified donor inputs stay additive to `watch_seed_only` or operator-visible market context; they do not become builtin `SourceCatalog` defaults in this slice.
+2. No donor input in this wave may be treated as item-level verified evidence, investor advice, execution truth, or a new public trading surface.
+3. Any sentiment-derived or robustness-derived import remains attributable, review-required, and secondary even when it is useful for watch formation or triage context.
+
+| Donor input | Verdict | Governance posture | Admissible usage | Explicit reason |
+| --- | --- | --- | --- | --- |
+| `technical_regime_sidecar` | `qualify` | `aggregator / hybrid / secondary / review_required` | watchlist seed and operator triage context | derived trend or regime labels can help seed a watch, but they summarize market behavior rather than proving a reportable fact |
+| `strategy_robustness_backtest` | `qualify_context_only` | `analyst / manual_fact / secondary / review_required` | operator context seed only | deterministic robustness summaries can help rank whether a signal lane is worth watching, but they remain imported analytic interpretation rather than primary evidence |
+| `market_quote_snapshot` | `qualify` | `aggregator / hybrid / secondary / review_required` | watchlist seed and quote context only | point-in-time price, volume, and indicator snapshots can prioritize watch candidates, but they are time-sensitive and insufficient for evidence truth on their own |
+| `sentiment_news_contra_sidecar` | `qualify_context_only` | `aggregator / hybrid / secondary / review_required` | operator context seed only | contra sentiment summaries can add cautionary context around a watch or triage decision, but weak-signal news or sentiment blends still require explicit downstream verification |
+| `BUY/SELL` summaries, target prices, or entry/exit calls | `reject_current_slice` | `analyst / manual_fact / secondary / review_required` | none | investor-facing recommendation language would cross from governed intake into advice semantics that DataPulse does not own |
+| portfolio, execution, or auto-trading triggers | `reject_current_slice` | `analyst / manual_fact / secondary / elevated` | none | execution intent and portfolio automation are outside the existing DataPulse lifecycle and must not be implied by donor screening |
+| weak-signal sentiment, Reddit, or RSS donor output asserted as primary evidence truth | `reject_current_slice` | `aggregator / hybrid / secondary / review_required` | none | derivative weak signals may inform review, but they cannot be promoted into primary evidence or machine-trusted truth in this wave |
+
+These verdicts intentionally keep the donor bounded to docs-only screening truth plus future sidecar or wrapper follow-up work. They do not authorize direct runtime admission, scheduled execution, or trading-facing publication.
+
 ## SearchGateway Mapping
 
 `SearchGateway` governs provider execution and search-provider mediation. It should use the same source-governance language without pretending that gateway execution fully classifies the underlying destination URL.

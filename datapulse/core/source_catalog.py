@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -365,6 +366,53 @@ class SourcePack:
 
 
 _SUPPORTED_CATALOG_VERSIONS = {1, 2}
+_DOCS_ONLY_SCREENED_SEED_WAVES: tuple[JSONSource, ...] = (
+    {
+        "screening_id": "L30.2.public_apis",
+        "source_of_truth": "docs/intelligence_source_governance_contract.md",
+        "usage_boundary": "governed_feed_or_context_seed_only",
+        "notes": [
+            "Qualified public API candidates remain docs-only until a later slice explicitly admits them into SourceCatalog runtime defaults or packs.",
+        ],
+    },
+    {
+        "screening_id": "L31.2.tradingview_style_market_signals",
+        "source_of_truth": "docs/intelligence_source_governance_contract.md",
+        "usage_boundary": "watchlist_seed_or_operator_context_only",
+        "qualified_inputs": [
+            {
+                "input_id": "technical_regime_sidecar",
+                "verdict": "qualify",
+                "allowed_usage": "watchlist_seed_or_triage_context",
+            },
+            {
+                "input_id": "strategy_robustness_backtest",
+                "verdict": "qualify_context_only",
+                "allowed_usage": "operator_context_only",
+            },
+            {
+                "input_id": "market_quote_snapshot",
+                "verdict": "qualify",
+                "allowed_usage": "watchlist_seed_or_quote_context",
+            },
+            {
+                "input_id": "sentiment_news_contra_sidecar",
+                "verdict": "qualify_context_only",
+                "allowed_usage": "operator_context_only",
+            },
+        ],
+        "rejected_inputs": [
+            "buy_sell_recommendations",
+            "target_price_or_entry_exit_calls",
+            "portfolio_execution_or_auto_trading_triggers",
+            "weak_signal_sentiment_or_rss_as_primary_evidence",
+        ],
+        "notes": [
+            "Tradingview-style donor inputs stay outside builtin runtime defaults until a later slice lands an explicit sidecar or wrapper boundary.",
+            "No screened donor input from this wave may be interpreted as investor advice, execution truth, or primary evidence.",
+        ],
+    },
+)
 # Only runtime-admitted defaults belong here. Governance-screened external
 # handoff seeds stay docs-only until a later slice explicitly admits them.
 _BUILTIN_SOURCE_SEEDS: tuple[JSONSource, ...] = (
@@ -552,6 +600,10 @@ class SourceCatalog:
         if public_only:
             items = [s for s in items if s.is_public]
         return sorted(items, key=lambda s: s.name.lower())
+
+    def docs_only_seed_screenings(self) -> list[dict[str, Any]]:
+        """Return docs-only screening waves that are intentionally not runtime-admitted."""
+        return copy.deepcopy(list(_DOCS_ONLY_SCREENED_SEED_WAVES))
 
     def build_authority_map(self) -> dict[str, float]:
         """Build a name/domain → authority_weight mapping from active sources."""

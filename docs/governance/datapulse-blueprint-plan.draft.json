@@ -94,7 +94,7 @@
     "L28": "completed",
     "L29": "completed",
     "L30": "completed",
-    "L31": "pending"
+    "L31": "in_progress"
   },
   "phases": [
     {
@@ -3920,7 +3920,7 @@
     {
       "id": "L31",
       "title": "tradingview-mcp donor decomposition",
-      "status": "pending",
+      "status": "in_progress",
       "slices": [
         {
           "id": "datapulse.coord.decomposition.tradingview_mcp_capability_intake.20260413",
@@ -3928,12 +3928,18 @@
           "category": "manual",
           "execution_profile": "workflow_change",
           "promotion_scope": "none",
-          "status": "pending",
+          "status": "completed",
           "artifacts": [
             "docs/governance/datapulse-blueprint-plan.draft.json"
           ],
+          "exit_condition": "Repo-native blueprint truth expands the tradingview-mcp donor intake into DataPulse follow-up slices that stay limited to technical-signal seed screening, watchlist market-context sidecars, and local wrapper boundaries without creating a new trading-facing public surface.",
           "fact_sources": [
             "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/plan/tradingview-mcp-\u4e09\u4ed3\u624b\u52a8\u70b9\u706b\u8ba1\u5212-2026-04-13.md"
+          ],
+          "notes": [
+            "This slice is decomposition-only and must not directly admit donor MCP runtime, proxy policy, or published trading surfaces into DataPulse.",
+            "DataPulse scope from this donor stays bounded to watchlist seeds, market-context sidecars, and local/manual wrapper packaging patterns.",
+            "BUY/SELL narration, portfolio or execution logic, and weak-signal feeds must remain outside primary repo truth in this wave."
           ],
           "fact_intake": {
             "imported_at_utc": "2026-04-14T06:43:13Z",
@@ -3946,13 +3952,76 @@
               "wikilink_name": "tradingview-mcp-\u4e09\u4ed3\u624b\u52a8\u70b9\u706b\u8ba1\u5212-2026-04-13"
             }
           }
+        },
+        {
+          "id": "datapulse.source_governance.technical_signal_seed_screening",
+          "title": "Screen tradingview-style technical signals and quote snapshots as governed watchlist seed candidates",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/intelligence_source_governance_contract.md",
+            "docs/source_feed_enhancement_plan.md",
+            "datapulse/core/source_catalog.py"
+          ],
+          "exit_condition": "Repo truth records which technical-regime, robustness, quote-snapshot, and sentiment-derived donor inputs qualify only as governed watchlist or context seeds, with explicit defer or reject reasons for anything that would imply investor advice, execution, or primary evidence truth.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/plan/tradingview-mcp-\u4e09\u4ed3\u624b\u52a8\u70b9\u706b\u8ba1\u5212-2026-04-13.md"
+          ],
+          "notes": [
+            "Admissible donor fit is seed-only: technical regime hints, deterministic robustness context, and quote snapshots may guide watch formation or operator triage but not item-level truth.",
+            "Sentiment or news-derived signals remain secondary and review-required; weak signals must not be upgraded into primary evidence or automated judgment."
+          ]
+        },
+        {
+          "id": "datapulse.workflow_assist.watchlist_market_context_sidecar",
+          "title": "Bind qualified donor signals into watchlist-scoped market-context sidecars",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "datapulse/core/watchlist.py",
+            "datapulse/reader.py",
+            "docs/source_feed_enhancement_plan.md"
+          ],
+          "exit_condition": "Qualified donor inputs can be represented only as additive watchlist seed or market-context sidecar data inside the existing watch workflow, preserving the watch_seed_only boundary and avoiding any new trading-facing workflow or item-evidence lane.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/plan/tradingview-mcp-\u4e09\u4ed3\u624b\u52a8\u70b9\u706b\u8ba1\u5212-2026-04-13.md"
+          ],
+          "notes": [
+            "Reuse existing trend_inputs and watch_seed_only semantics instead of inventing a new trading domain object chain.",
+            "Any market-context projection must stay operator-visible and additive to watch or triage flows rather than becoming a public recommendation surface."
+          ]
+        },
+        {
+          "id": "datapulse.tooling.local_market_wrapper_boundary",
+          "title": "Freeze a local-only wrapper boundary for future tradingview-style market tooling",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "artifacts": [
+            "docs/governance/datapulse-native-collector-bridge-contract.md",
+            "docs/governance/datapulse-manual-acquisition-sidecar-contract.md",
+            "docs/intelligence_lifecycle_contract.md"
+          ],
+          "exit_condition": "Any future tradingview-style adapter path is explicitly constrained to a local/manual wrapper or sidecar boundary, with no donor MCP runtime lift into scheduled governance workflows, no new public trading surface, and no wrapper-owned business truth outside the existing lifecycle contract.",
+          "fact_sources": [
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-\u9879\u76ee\u5f00\u53d1/ModelBusProject/plan/tradingview-mcp-\u4e09\u4ed3\u624b\u52a8\u70b9\u706b\u8ba1\u5212-2026-04-13.md"
+          ],
+          "notes": [
+            "Keep .github/workflows/governance-loop-auto.yml read-only as a governance driver; do not turn it into a donor business executor.",
+            "Do not absorb donor proxy policy, portfolio logic, auto-trading, or BUY/SELL conclusions into DataPulse wrapper semantics."
+          ]
         }
       ]
     }
   ],
   "recommended_next_slice": {
-    "id": "datapulse.coord.decomposition.tradingview_mcp_capability_intake.20260413",
-    "title": "Decompose tradingview-mcp donor intake into DataPulse repo-relevant slices",
+    "id": "datapulse.workflow_assist.watchlist_market_context_sidecar",
+    "title": "Bind qualified donor signals into watchlist-scoped market-context sidecars",
     "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
@@ -4490,7 +4559,17 @@
       "at_utc": "2026-04-07T06:34:02Z",
       "slice_id": "L29.4",
       "status": "completed"
+    },
+    {
+      "at_utc": "2026-04-14T06:52:38Z",
+      "slice_id": "datapulse.coord.decomposition.tradingview_mcp_capability_intake.20260413",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-04-14T07:18:00Z",
+      "slice_id": "datapulse.source_governance.technical_signal_seed_screening",
+      "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-04-14T06:43:23Z"
+  "last_updated_utc": "2026-04-14T07:18:00Z"
 }

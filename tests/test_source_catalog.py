@@ -351,3 +351,14 @@ class TestSourceCatalog:
         ]
         filtered = catalog.filter_by_subscription(items, profile="default")
         assert len(filtered) == 2
+
+    def test_docs_only_seed_screenings_include_tradingview_wave(self, tmp_path: Path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("DATAPULSE_SOURCE_CATALOG", raising=False)
+        catalog = SourceCatalog()
+        screenings = catalog.docs_only_seed_screenings()
+        l31 = next(item for item in screenings if item["screening_id"] == "L31.2.tradingview_style_market_signals")
+        qualified = {entry["input_id"]: entry["verdict"] for entry in l31["qualified_inputs"]}
+        assert qualified["technical_regime_sidecar"] == "qualify"
+        assert qualified["strategy_robustness_backtest"] == "qualify_context_only"
+        assert "buy_sell_recommendations" in l31["rejected_inputs"]

@@ -173,6 +173,21 @@
 - `Geoapify/OpenCage` 只解决地点归一化与上下文增强；`OpenWeatherMap` 和 `stormglass.io` 都不应被误写成当前 feed 主线，其中 `stormglass.io` 直接超出本 slice 的 intelligence context 需求。
 - `Associated Press API` 与 `MarketAux` 继续保留在可追溯 defer 状态：前者卡在 licensed content / rights review，后者更接近 market-reference specialization，应等待更明确的 downstream need 再决定是否重开。
 
+## L31：tradingview-mcp donor 技术信号 seed screening（2026-04-14）
+
+- `L31.2` 的完成语义不是把 `tradingview-mcp` donor 变成 DataPulse 的新 published source，也不是把技术指标、回测或情绪信号写成 item evidence。
+- 当前仓内 truth 已固定在 [intelligence_source_governance_contract.md](/Users/sunyifei/DataPulse/docs/intelligence_source_governance_contract.md) 的 `L31.2 Tradingview-Style Technical-Signal Seed Screening`：
+  - `qualify`：`technical_regime_sidecar`、`market_quote_snapshot`
+  - `qualify_context_only`：`strategy_robustness_backtest`、`sentiment_news_contra_sidecar`
+  - `reject_current_slice`：`BUY/SELL` 结论、target price / entry-exit calls、portfolio / execution / auto-trading triggers、以及任何试图把 weak-signal sentiment / Reddit / RSS donor output 升格成 primary evidence truth 的路径
+- 这批 donor 输入的共同边界已经固定：
+  - 只能作为 `watchlist seed` 或 operator-visible `market context`
+  - 默认仍按 `secondary + review_required` 的导入姿态处理；`strategy_robustness_backtest` 在当前仓里更接近 `manual_fact` 风格的解释性 context
+  - 不会因为进入 repo truth 就变成 builtin `SourceCatalog` default、已发布 public surface，或 DataPulse 的 investor-facing judgment
+- 当前最适合被 DataPulse 吸收的是 `technical_regime_sidecar + market_quote_snapshot` 这一类 watch formation context；它们帮助决定“值得看什么”，不帮助决定“应该买卖什么”。
+- `strategy_robustness_backtest` 与 `sentiment_news_contra_sidecar` 可以保留为后续 `watchlist_market_context_sidecar` slice 的 operator context 素材，但在这一轮不能越界成自动决策或 item-level fact truth。
+- 因此 `L31.2` 落地后，后续实现必须复用现有 `trend_inputs` 与 `watch_seed_only` 语义，而不是新开 trading object chain；如果未来真的要接 donor wrapper，也必须在后续 slice 里单独收口 local-only boundary。
+
 ## 与现网能力映射
 
 | 目标 | 目前落地状态 | 下一步 |
