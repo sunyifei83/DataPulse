@@ -3655,8 +3655,41 @@ def render_console_client_script(initial_state: str) -> str:
       return descriptors[normalized] || descriptors.intake;
     }}
 
+    function workspaceModeHasPopulation(modeId) {{
+      const normalizedMode = normalizeWorkspaceMode(modeId);
+      if (normalizedMode === "intake") {{
+        return hasIntakePopulation();
+      }}
+      if (normalizedMode === "missions") {{
+        return Boolean(state.watches.length || getSelectedWatchForContext());
+      }}
+      if (normalizedMode === "review") {{
+        return Boolean(
+          state.triage.length
+          || state.stories.length
+          || state.claimCards.length
+          || state.reports.length
+          || state.selectedTriageId
+          || state.selectedStoryId
+        );
+      }}
+      return Boolean(
+        state.routes.length
+        || state.alerts.length
+        || state.deliverySubscriptions.length
+        || state.deliveryDispatchRecords.length
+        || normalizeRouteName(state.contextRouteName)
+      );
+    }}
+
     function workspaceModeCurrentObjectLabel(activeSectionId) {{
       if (activeSectionId === "section-intake") {{
+        if (hasIntakePopulation()) {{
+          const selectedWatch = getSelectedWatchForContext() || state.watches[0] || null;
+          if (selectedWatch) {{
+            return clampLabel(selectedWatch?.name || selectedWatch?.id || copy("Live mission focus", "实时任务聚焦"), 42);
+          }}
+        }}
         const draftName = String(state.createWatchDraft?.name || "").trim();
         const draftQuery = String(state.createWatchDraft?.query || "").trim();
         return clampLabel(draftName || draftQuery || copy("Mission draft not started", "任务草稿尚未开始"), 42);
@@ -3695,6 +3728,16 @@ def render_console_client_script(initial_state: str) -> str:
 
     function workspaceModeOwnedOutputLabel(modeId, activeSectionId) {{
       if (modeId === "intake") {{
+        if (hasIntakePopulation()) {{
+          return phrase(
+            "{{missions}} live missions | {{queue}} open triage",
+            "{{missions}} 条实时任务 | {{queue}} 条待分诊",
+            {{
+              missions: Number(state.overview?.enabled_watches ?? state.watches.filter((watch) => watch.enabled !== false).length ?? 0),
+              queue: Number(state.overview?.triage_open_count ?? state.triageStats?.open_count ?? 0),
+            }},
+          );
+        }}
         const hasRequiredInput = Boolean(String(state.createWatchDraft?.name || "").trim() && String(state.createWatchDraft?.query || "").trim());
         return hasRequiredInput
           ? copy("Mission draft ready to create", "任务草稿已具备创建条件")
@@ -3760,6 +3803,12 @@ def render_console_client_script(initial_state: str) -> str:
 
     function workspaceModeNextActionLabel(modeId, activeSectionId) {{
       if (modeId === "intake") {{
+        if (hasIntakePopulation()) {{
+          const selectedWatch = getSelectedWatchForContext() || state.watches[0] || null;
+          return selectedWatch
+            ? copy("Open Cockpit for the current mission", "打开当前任务详情")
+            : copy("Open the mission board", "打开任务列表");
+        }}
         const hasRequiredInput = Boolean(String(state.createWatchDraft?.name || "").trim() && String(state.createWatchDraft?.query || "").trim());
         return hasRequiredInput
           ? copy("Create the mission", "创建任务")
@@ -3785,6 +3834,109 @@ def render_console_client_script(initial_state: str) -> str:
       return state.routes.length
         ? copy("Inspect route posture or dispatch current output", "查看路由姿态或分发当前输出")
         : copy("Create a named route", "创建一个命名路由");
+    }}
+
+    function workspaceModeContinuityFacts(modeId, activeSectionId, ownedOutput) {{
+      const normalizedMode = normalizeWorkspaceMode(modeId);
+      const facts = [
+        {{ label: copy("Surface", "视图"), value: activeSectionLabel(activeSectionId) }},
+        {{ label: copy("Owned output", "阶段产出"), value: ownedOutput }},
+      ];
+      if (normalizedMode === "intake") {{
+        facts.push(
+          {{ label: copy("Ready stories", "待交付故事"), value: String(state.overview?.story_ready_count ?? 0) }},
+          {{ label: copy("Routes", "路由数"), value: String(state.overview?.route_count ?? state.routes.length ?? 0) }},
+        );
+        return facts;
+      }}
+      if (normalizedMode === "missions") {{
+        facts.push(
+          {{ label: copy("Due now", "当前待执行"), value: String(state.overview?.due_watches ?? 0) }},
+          {{ label: copy("Open queue", "待分诊"), value: String(state.overview?.triage_open_count ?? state.triageStats?.open_count ?? 0) }},
+        );
+        return facts;
+      }}
+      if (normalizedMode === "review") {{
+        facts.push(
+          {{ label: copy("Ready stories", "待交付故事"), value: String(state.overview?.story_ready_count ?? 0) }},
+          {{ label: copy("Reports", "报告"), value: String(state.reports.length || 0) }},
+        );
+        return facts;
+      }}
+      facts.push(
+        {{ label: copy("Healthy routes", "健康路由"), value: String(state.ops?.route_summary?.healthy ?? 0) }},
+        {{ label: copy("Alerts", "告警数"), value: String(state.alerts.length || 0) }},
+      );
+      return facts;
+    }}
+
+    function workspaceModeActionHierarchy(modeId, activeSectionId) {{
+      const normalizedMode = normalizeWorkspaceMode(modeId);
+      if (normalizedMode === "intake") {{
+        if (!hasIntakePopulation()) {{
+          const hasRequiredInput = Boolean(String(state.createWatchDraft?.name || "").trim() && String(state.createWatchDraft?.query || "").trim());
+          return {{
+            primary: hasRequiredInput
+              ? {{ label: copy("Create Mission", "创建任务"), attrs: {{ "data-empty-focus": "mission", "data-empty-field": "name" }} }}
+              : {{ label: copy("Focus Mission Draft", "聚焦任务草稿"), attrs: {{ "data-empty-focus": "mission", "data-empty-field": "name" }} }},
+            secondary: [],
+          }};
+        }}
+        const selectedWatch = getSelectedWatchForContext() || state.watches[0] || null;
+        return {{
+          primary: selectedWatch
+            ? {{ label: copy("Open Cockpit", "打开任务详情"), attrs: {{ "data-empty-jump": "section-cockpit" }} }}
+            : {{ label: copy("Open Mission Board", "打开任务列表"), attrs: {{ "data-empty-jump": "section-board" }} }},
+          secondary: [
+            {{ label: copy("Open Triage", "打开分诊"), attrs: {{ "data-empty-jump": "section-triage" }} }},
+            {{ label: copy("Focus Mission Draft", "聚焦任务草稿"), attrs: {{ "data-empty-focus": "mission", "data-empty-field": "name" }} }},
+          ],
+        }};
+      }}
+      if (normalizedMode === "missions") {{
+        const selectedWatch = getSelectedWatchForContext() || null;
+        return {{
+          primary: selectedWatch
+            ? (
+                activeSectionId === "section-cockpit" && selectedWatch.enabled !== false
+                  ? {{ label: copy("Run Mission", "执行任务"), attrs: {{ "data-empty-run-watch": selectedWatch.id }} }}
+                  : activeSectionId === "section-cockpit" && selectedWatch.enabled === false
+                    ? {{ label: copy("Enable Mission", "启用任务"), attrs: {{ "data-watch-toggle": selectedWatch.id, "data-watch-enabled": "0" }} }}
+                    : {{ label: copy("Open Cockpit", "打开任务详情"), attrs: {{ "data-empty-jump": "section-cockpit" }} }}
+              )
+            : {{ label: copy("Open Mission Board", "打开任务列表"), attrs: {{ "data-empty-jump": "section-board" }} }},
+          secondary: [
+            {{ label: copy("Open Triage", "打开分诊"), attrs: {{ "data-empty-jump": "section-triage" }} }},
+          ],
+        }};
+      }}
+      if (normalizedMode === "review") {{
+        const selectedStory = getStoryRecord(state.selectedStoryId);
+        return {{
+          primary: selectedStory
+            ? {{
+                label: copy("Open Story Editor", "打开故事编辑"),
+                attrs: {{ "data-empty-jump": "section-story", "data-story-workspace-mode": "editor" }},
+              }}
+            : {{ label: copy("Open Triage", "打开分诊"), attrs: {{ "data-empty-jump": "section-triage" }} }},
+          secondary: [
+            {{ label: copy("Open Story Workspace", "打开故事工作台"), attrs: {{ "data-empty-jump": "section-story" }} }},
+            {{ label: copy("Open Report Studio", "打开报告工作台"), attrs: {{ "data-empty-jump": "section-report-studio" }} }},
+          ],
+        }};
+      }}
+      if (!state.routes.length) {{
+        return {{
+          primary: {{ label: copy("Focus Route Draft", "聚焦路由草稿"), attrs: {{ "data-empty-focus": "route", "data-empty-field": "name" }} }},
+          secondary: [],
+        }};
+      }}
+      return {{
+        primary: {{ label: copy("Open Delivery Lane", "打开交付工作线"), attrs: {{ "data-empty-jump": "section-ops" }} }},
+        secondary: [
+          {{ label: copy("Focus Route Draft", "聚焦路由草稿"), attrs: {{ "data-empty-focus": "route", "data-empty-field": "name" }} }},
+        ],
+      }};
     }}
 
     function syncAdvancedSurfaceShells() {{
@@ -3824,12 +3976,16 @@ def render_console_client_script(initial_state: str) -> str:
       const currentObject = workspaceModeCurrentObjectLabel(activeSectionId);
       const ownedOutput = workspaceModeOwnedOutputLabel(modeDescriptor.id, activeSectionId);
       const nextAction = workspaceModeNextActionLabel(modeDescriptor.id, activeSectionId);
+      const hasPopulation = workspaceModeHasPopulation(modeDescriptor.id);
+      const continuityFacts = workspaceModeContinuityFacts(modeDescriptor.id, activeSectionId, ownedOutput);
+      const actionHierarchy = workspaceModeActionHierarchy(modeDescriptor.id, activeSectionId);
       const cards = Array.isArray(modeDescriptor.modules) ? modeDescriptor.modules : [];
       const advancedActions = Array.isArray(modeDescriptor.advancedActions) ? modeDescriptor.advancedActions : [];
       const traceCard = renderStageLinkedTraceCard();
       const sharedSignalCard = renderSharedSignalTaxonomyCard();
 
       root.hidden = false;
+      root.dataset.workspaceChrome = hasPopulation ? "compact" : "default";
       root.innerHTML = `
         <div class="workspace-mode-head">
           <div class="workspace-mode-summary">
@@ -3837,12 +3993,31 @@ def render_console_client_script(initial_state: str) -> str:
             <div class="workspace-mode-title">${{escapeHtml(modeDescriptor.label)}}</div>
             <div class="workspace-mode-copy">${{escapeHtml(modeDescriptor.summary)}}</div>
           </div>
-          <div class="workspace-mode-meta">
-            <span class="chip">${{copy("Current surface", "当前视图")}}: ${{escapeHtml(activeSectionLabel(activeSectionId))}}</span>
-            <span class="chip ok">${{copy("Current object", "当前对象")}}: ${{escapeHtml(currentObject)}}</span>
-            <span class="chip">${{copy("Owned output", "阶段产出")}}: ${{escapeHtml(ownedOutput)}}</span>
-            <span class="chip hot">${{copy("Next action", "下一步动作")}}: ${{escapeHtml(nextAction)}}</span>
-          </div>
+          ${{
+            hasPopulation
+              ? `
+                <div class="workspace-mode-object-anchor" data-workspace-object-anchor="true">
+                  <div class="workspace-mode-object-head">
+                    <div>
+                      <div class="workspace-mode-object-kicker">${{copy("Current object", "当前对象")}}</div>
+                      <div class="workspace-mode-object-title">${{escapeHtml(currentObject)}}</div>
+                    </div>
+                    <span class="chip ok">${{escapeHtml(activeSectionLabel(activeSectionId))}}</span>
+                  </div>
+                  <div class="workspace-mode-object-copy">${{escapeHtml(nextAction)}}</div>
+                  ${{renderSectionSummaryFacts(continuityFacts)}}
+                  ${{renderCardActionHierarchy(actionHierarchy)}}
+                </div>
+              `
+              : `
+                <div class="workspace-mode-meta">
+                  <span class="chip">${{copy("Current surface", "当前视图")}}: ${{escapeHtml(activeSectionLabel(activeSectionId))}}</span>
+                  <span class="chip ok">${{copy("Current object", "当前对象")}}: ${{escapeHtml(currentObject)}}</span>
+                  <span class="chip">${{copy("Owned output", "阶段产出")}}: ${{escapeHtml(ownedOutput)}}</span>
+                  <span class="chip hot">${{copy("Next action", "下一步动作")}}: ${{escapeHtml(nextAction)}}</span>
+                </div>
+              `
+          }}
         </div>
         <div class="workspace-mode-insight-grid">
           ${{traceCard}}
@@ -4643,90 +4818,76 @@ def render_console_client_script(initial_state: str) -> str:
       }}
 
       const overview = state.overview || {{}};
-      const selectedWatch = state.watches.find((watch) => watch.id === state.selectedWatchId) || null;
+      const selectedWatch = getSelectedWatchForContext() || state.watches[0] || null;
       const selectedName = String((selectedWatch && (selectedWatch.name || selectedWatch.id)) || "").trim() || copy("No mission selected", "未选择任务");
       const enabledCount = Number(overview.enabled_watches ?? 0);
       const dueCount = Number(overview.due_watches ?? 0);
       const openQueue = Number(overview.triage_open_count ?? 0);
       const readyStories = Number(overview.story_ready_count ?? 0);
       const alertingMissions = Number(overview.alerting_mission_count ?? 0);
-      const heroActions = selectedWatch ? [
-        {{ label: copy("Open Cockpit", "打开任务详情"), section: "section-cockpit" }},
-        {{ label: copy("Open Triage", "打开分诊"), section: "section-triage" }},
-        selectedWatch.enabled
-          ? {{ label: copy("Run Mission", "立即执行任务"), runWatch: selectedWatch.id }}
-          : {{ label: copy("Enable Mission", "启用任务"), toggleWatch: selectedWatch.id, watchEnabled: "0" }},
-      ] : [
-        {{ label: copy("Create Mission", "新建任务"), focus: "mission", field: "name" }},
-        {{ label: copy("Open Mission Board", "打开任务列表"), section: "section-board" }},
+      const heroActionHierarchy = {{
+        primary: selectedWatch
+          ? (
+              selectedWatch.enabled === false
+                ? {{
+                    label: copy("Enable Mission", "启用任务"),
+                    attrs: {{ "data-watch-toggle": selectedWatch.id, "data-watch-enabled": "0" }},
+                  }}
+                : {{
+                    label: copy("Open Cockpit", "打开任务详情"),
+                    attrs: {{ "data-empty-jump": "section-cockpit" }},
+                  }}
+            )
+          : {{
+              label: copy("Open Mission Board", "打开任务列表"),
+              attrs: {{ "data-empty-jump": "section-board" }},
+            }},
+        secondary: [
+          selectedWatch && selectedWatch.enabled !== false
+            ? {{ label: copy("Run Mission", "立即执行任务"), attrs: {{ "data-empty-run-watch": selectedWatch.id }} }}
+            : null,
+          {{ label: copy("Open Triage", "打开分诊"), attrs: {{ "data-empty-jump": "section-triage" }} }},
+          {{ label: copy("Focus Mission Draft", "聚焦任务草稿"), attrs: {{ "data-empty-focus": "mission", "data-empty-field": "name" }} }},
+          {{ label: copy("Reset Draft", "清空草稿"), attrs: {{ "data-empty-reset": "mission" }} }},
+        ].filter(Boolean),
+      }};
+      const stageFacts = [
+        {{ label: copy("Open queue", "待分诊"), value: String(openQueue) }},
+        {{ label: copy("Ready stories", "待交付故事"), value: String(readyStories) }},
+        {{ label: copy("Alerting missions", "告警中任务"), value: String(alertingMissions) }},
       ];
-      const heroActionsHtml = heroActions.length
-        ? heroActions.map((action) => `
-            <button
-              class="btn-primary"
-              type="button"
-              ${{action.runWatch ? `data-empty-run-watch="${{escapeHtml(action.runWatch)}}"` : ""}}
-              ${{action.toggleWatch ? `data-watch-toggle="${{escapeHtml(action.toggleWatch)}}"` : ""}}
-              ${{action.watchEnabled ? `data-watch-enabled="${{escapeHtml(action.watchEnabled)}}"` : ""}}
-              ${{action.section ? `data-empty-jump="${{escapeHtml(action.section)}}"` : ""}}
-              ${{action.focus ? `data-empty-focus="${{escapeHtml(action.focus)}}"` : ""}}
-              ${{action.field ? `data-empty-field="${{escapeHtml(action.field)}}"` : ""}}
-            >${{escapeHtml(action.label)}}</button>
-          `).join("")
-        : "";
-      const sideActions = [
-        {{ label: copy("Open Story Workspace", "打开故事工作台"), section: "section-story" }},
-        {{ label: copy("Open Delivery", "打开交付"), section: "section-ops" }},
-        {{ label: copy("Reset Draft", "清空草稿"), reset: "mission" }},
+      const guidanceFacts = [
+        {{ label: copy("Enabled missions", "活跃任务"), value: String(enabledCount) }},
+        {{ label: copy("Due now", "当前待执行"), value: String(dueCount) }},
+        {{ label: copy("Routes", "路由数"), value: String(overview.route_count ?? state.routes.length ?? 0) }},
       ];
-      const sideActionsHtml = sideActions.map((action) => `
-        <button
-          class="chip-btn"
-          type="button"
-          ${{action.section ? `data-empty-jump="${{escapeHtml(action.section)}}"` : ""}}
-          ${{action.focus ? `data-empty-focus="${{escapeHtml(action.focus)}}"` : ""}}
-          ${{action.field ? `data-empty-field="${{escapeHtml(action.field)}}"` : ""}}
-          ${{action.reset ? `data-empty-reset="${{escapeHtml(action.reset)}}"` : ""}}
-        >${{escapeHtml(action.label)}}</button>
-      `).join("");
 
       liveHero.innerHTML = `
-        <div class="card">
-          <div class="card-top">
+        <div class="card live-object-anchor" data-intake-populated-hero="true">
+          <div class="live-object-head">
             <div>
-              <div class="mono">${{copy("Live Intake Desk", "实时工作台")}}</div>
-              <h3 class="panel-title" style="margin-top:8px;">${{escapeHtml(selectedName)}}</h3>
+              <div class="live-object-kicker">${{copy("Current object", "当前对象")}}</div>
+              <div class="live-object-title" data-intake-current-object>${{escapeHtml(selectedName)}}</div>
             </div>
             <span class="chip ${{selectedWatch ? "ok" : "hot"}}">${{selectedWatch ? copy("Mission Focus", "任务聚焦") : copy("Population Present", "已有数据")}}</span>
           </div>
-          <div class="panel-sub">${{copy("Current object facts and pressure signal", "先显示当前对象事实与压力信号，再展示下一步动作。")}}</div>
-          <div class="meta">
-            <span class="chip ok">${{copy("Enabled missions", "活跃任务")}}=${{enabledCount}}</span>
-            <span class="chip hot">${{copy("Due now", "当前待执行")}}=${{dueCount}}</span>
-            <span class="chip">${{copy("Open queue", "待分诊")}}=${{openQueue}}</span>
-            <span class="chip">${{copy("Ready stories", "待交付故事")}}=${{readyStories}}</span>
-            <span class="chip">${{copy("Alerting missions", "告警中任务")}}=${{alertingMissions}}</span>
-          </div>
-          <div class="meta">${{copy("Next actions", "下一步动作")}}</div>
-          <div class="actions">${{heroActionsHtml}}</div>
+          <div class="live-object-copy">${{copy("The workspace is already populated, so stay on the current mission and use review or delivery counts as continuity instead of re-reading onboarding.", "当前工作区已经有实时对象，因此先围绕当前任务推进，并把审阅和交付计数作为连续性事实，而不是重新阅读引导文案。")}}</div>
+          ${{renderSectionSummaryFacts(stageFacts)}}
+          ${{renderCardActionHierarchy(heroActionHierarchy)}}
         </div>
       `;
 
       liveSide.innerHTML = `
-        <div class="card">
+        <div class="card guide-compact-card" data-intake-guide-compact="true">
           <div class="card-top">
             <div>
-              <div class="mono">${{copy("Current Object", "当前对象")}}</div>
-              <h3 class="panel-title" style="margin-top:8px;">${{copy("Mission and Route Handoff", "任务与交付交接")}}</h3>
+              <div class="mono">${{copy("Stage frame", "阶段框架")}}</div>
+              <h3 class="panel-title" style="margin-top:8px;">${{copy("Monitor -> Review -> Deliver", "监测 -> 审阅 -> 交付")}}</h3>
             </div>
+            <span class="chip">${{copy("compact guidance", "紧凑指引")}}</span>
           </div>
-          <div class="panel-sub">${{copy("Mission continuity keeps review and routing actions close to live evidence so the shell opens on actionability before guidance text.", "任务连续性优先显示审阅与交付动作，避免先看到引导文案。")}}</div>
-          <div class="meta">
-            <span class="chip">${{copy("Object", "对象")}}=${{escapeHtml(selectedName)}}</span>
-            <span class="chip">${{copy("Status", "状态")}}=${{selectedWatch ? (selectedWatch.enabled ? copy("enabled", "已启用") : copy("paused", "已暂停")) : copy("idle", "空闲")}}</span>
-            <span class="chip">${{copy("Pressure", "压力")}}=${{openQueue + dueCount}}</span>
-          </div>
-          <div class="actions">${{sideActionsHtml}}</div>
+          <div class="panel-sub">${{copy("Keep one sentence of stage framing visible while the current mission, review queue, and route readiness carry the first scan path.", "保留一条阶段说明即可，让当前任务、分诊队列和路由就绪度承担第一扫描路径。")}}</div>
+          ${{renderSectionSummaryFacts(guidanceFacts)}}
         </div>
       `;
 

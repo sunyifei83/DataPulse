@@ -1,6 +1,6 @@
 # DataPulse Console Subtractive Convergence Blueprint
 
-Status: repo-scoped follow-up blueprint, `L33.1` and `L33.2` landed; `L33.3` is the next manual ignition target
+Status: repo-scoped follow-up blueprint, completed in repo truth through `L33.6`; current reopening target `no-open-slice`
 
 Created: 2026-04-16
 
@@ -201,13 +201,14 @@ Recommended order:
 
 ## Manual Ignition Boundary
 
-`L33.1` and `L33.2` are now landed, so the next manual ignition target is `L33.3`.
+`L33` is now completed in repo truth through `L33.6`, so this wave no longer exposes a current manual ignition target.
 
-Reason:
+Closeout summary:
 
-- `L25` already solved shell order and first-rank stage ownership
-- `L26` already solved client boundary, stage-linked traceability, signal ownership, and bounded frontend escalation
-- `L33.2` now freezes the subtractive-convergence contract, so the next repo-owned gap is the first concrete implementation boundary: restore stability plus pinned-only dock visibility
+- `L33.3` landed saved-view, dock, and workspace-context restore stability while demoting dock visibility to pinned-only contexts.
+- `L33.4` landed stage-aware hydration and deferred advanced preloads until the active stage or selected object actually needs them.
+- `L33.5` compacted populated-workspace chrome so live objects outrank onboarding and accelerator copy.
+- `L33.6` hardened browser acceptance around request scope, hidden-dock behavior, populated chrome, and restored-context stability.
 
 After the blueprint landing is committed and the repo returns to a clean baseline, the normal local ignition entrypoint remains:
 
@@ -215,7 +216,7 @@ After the blueprint landing is committed and the repo returns to a clean baselin
 bash scripts/governance/ignite_datapulse_codex_loop.sh
 ```
 
-Expected next slice after this contract freeze landing: `L33.3`
+Expected next slice after this wave: `no-open-slice`
 
 ## Fact Sources
 
@@ -227,9 +228,9 @@ Expected next slice after this contract freeze landing: `L33.3`
 
 ## Success Condition
 
-DataPulse reopens console follow-up work without reopening the wrong questions:
+DataPulse closes this console follow-up wave without reopening the wrong questions:
 
-- the contract-freeze slice for subtraction is now landed, and the next ignition target is the restore-stability plus pinned-dock implementation boundary
-- first-load scope, accelerator rank, and populated-workspace chrome all become explicit repo truth before implementation starts
-- restore-path stability is promoted into a first-class acceptance boundary
+- first-load scope, accelerator rank, populated-workspace chrome, and restore-path stability all became explicit repo truth inside the current shell
+- browser acceptance now fails closed on over-broad request scope, hidden-dock regressions, populated-chrome regressions, and restored-context instability
 - the current shell remains the implementation surface, while lifecycle truth, shell order, and frontend-escalation boundaries stay intact
+- current blueprint reopening target for this lane is `no-open-slice`

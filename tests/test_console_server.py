@@ -1635,7 +1635,7 @@ def test_console_index_serves_shell():
     assert "data-context-object-section=\"section-story\"" in response.text
     assert "data-context-object-section=\"section-ops\"" in response.text
     assert "function activateContextObjectRailStep" in response.text
-    assert "data-empty-reset=" in response.text
+    assert "data-empty-reset" in response.text
     assert "Boolean(state.ops)" not in response.text
     assert "context-lens-backdrop" in response.text
     assert 'aria-modal="true"' in response.text
@@ -1792,10 +1792,15 @@ def test_console_client_script_keeps_restored_context_and_guidance_contract():
     assert "function renderStageLinkedTraceCard" in script
     assert "function buildSharedSignalTaxonomy" in script
     assert "function renderSharedSignalTaxonomyCard" in script
+    assert "function workspaceModeHasPopulation" in script
+    assert "function workspaceModeActionHierarchy" in script
     assert "function hydrateBoardForSection" in script
     assert "function ensureReportFamilyData" in script
     assert "function ensureDeliveryData" in script
     assert "sharedSignalFocus: \"quality\"" in script
+    assert 'data-workspace-object-anchor="true"' in script
+    assert 'data-intake-populated-hero="true"' in script
+    assert 'data-intake-guide-compact="true"' in script
     assert "wireLifecycleGuideActions(root);" in script
     assert "hydrateBoardForSection(state.activeSectionId).catch" in script
 

@@ -808,6 +808,16 @@ def render_console_html(title: str) -> str:
       align-items: start;
       justify-content: space-between;
     }}
+    .workspace-mode-shell[data-workspace-chrome="compact"] {{
+      gap: 12px;
+      padding: 16px 18px;
+    }}
+    .workspace-mode-shell[data-workspace-chrome="compact"] .workspace-mode-head {{
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+      gap: 12px;
+      align-items: stretch;
+    }}
     .workspace-mode-summary {{
       display: grid;
       gap: 6px;
@@ -825,6 +835,50 @@ def render_console_html(title: str) -> str:
       gap: 8px;
       align-items: center;
       justify-content: flex-end;
+    }}
+    .workspace-mode-object-anchor {{
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(127, 228, 255, 0.24);
+      background:
+        linear-gradient(180deg, rgba(127, 228, 255, 0.12), rgba(255, 106, 130, 0.08)),
+        rgba(10, 18, 31, 0.74);
+      box-shadow:
+        0 14px 34px rgba(3, 8, 18, 0.18),
+        inset 0 0 0 1px rgba(127, 228, 255, 0.06);
+    }}
+    .workspace-mode-object-head {{
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      align-items: start;
+    }}
+    .workspace-mode-object-kicker {{
+      color: var(--accent-2);
+      font: 700 0.74rem/1 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }}
+    .workspace-mode-object-title {{
+      margin-top: 6px;
+      font-family: var(--headline);
+      font-size: clamp(1.4rem, 3vw, 2.2rem);
+      line-height: 1;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }}
+    body[data-lang="zh"] .workspace-mode-object-title {{
+      font-family: var(--headline-zh);
+      text-transform: none;
+      letter-spacing: 0;
+      line-height: 1.15;
+    }}
+    .workspace-mode-object-copy {{
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.55;
     }}
     .workspace-mode-grid {{
       display: grid;
@@ -905,6 +959,9 @@ def render_console_html(title: str) -> str:
       gap: 12px;
       align-items: start;
     }}
+    .workspace-mode-shell[data-workspace-chrome="compact"] .workspace-mode-insight-grid {{
+      gap: 10px;
+    }}
     .workflow-trace-card,
     .shared-signal-taxonomy-card {{
       height: 100%;
@@ -918,6 +975,11 @@ def render_console_html(title: str) -> str:
       gap: 10px;
       margin-top: 14px;
     }}
+    .workspace-mode-shell[data-workspace-chrome="compact"] .trace-stage-grid {{
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }}
     .trace-stage {{
       display: grid;
       gap: 10px;
@@ -925,6 +987,11 @@ def render_console_html(title: str) -> str:
       border-radius: 18px;
       border: 1px solid rgba(147, 181, 215, 0.14);
       background: rgba(12, 21, 34, 0.7);
+    }}
+    .workspace-mode-shell[data-workspace-chrome="compact"] .trace-stage,
+    .workspace-mode-shell[data-workspace-chrome="compact"] .shared-signal-detail {{
+      gap: 8px;
+      padding: 12px;
     }}
     .trace-stage.ok {{
       border-color: rgba(127, 228, 255, 0.26);
@@ -964,6 +1031,10 @@ def render_console_html(title: str) -> str:
       gap: 8px;
       margin-top: 14px;
     }}
+    .workspace-mode-shell[data-workspace-chrome="compact"] .shared-signal-row {{
+      gap: 6px;
+      margin-top: 12px;
+    }}
     .shared-signal-button.ok {{
       border-color: rgba(127, 228, 255, 0.26);
     }}
@@ -978,6 +1049,11 @@ def render_console_html(title: str) -> str:
       border-radius: 18px;
       border: 1px solid rgba(147, 181, 215, 0.14);
       background: rgba(12, 21, 34, 0.72);
+    }}
+    .workspace-mode-shell[data-workspace-chrome="compact"] .workflow-trace-card .panel-sub,
+    .workspace-mode-shell[data-workspace-chrome="compact"] .shared-signal-taxonomy-card .panel-sub {{
+      font-size: 0.82rem;
+      line-height: 1.5;
     }}
     .shared-signal-detail.ok {{
       border-color: rgba(127, 228, 255, 0.26);
@@ -1087,6 +1163,58 @@ def render_console_html(title: str) -> str:
     .intake-live-shell {{
       display: grid;
       gap: 12px;
+    }}
+    .live-object-anchor {{
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      background:
+        linear-gradient(160deg, rgba(20, 34, 53, 0.92), rgba(8, 14, 24, 0.9)),
+        var(--panel);
+      box-shadow:
+        0 18px 44px rgba(3, 8, 18, 0.28),
+        inset 0 0 0 1px rgba(127, 228, 255, 0.05);
+    }}
+    .live-object-head {{
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: start;
+    }}
+    .live-object-kicker {{
+      color: var(--accent-2);
+      font: 700 0.74rem/1 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }}
+    .live-object-title {{
+      margin-top: 8px;
+      font-family: var(--headline);
+      font-size: clamp(1.8rem, 4vw, 3.1rem);
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+      text-transform: uppercase;
+    }}
+    body[data-lang="zh"] .live-object-title {{
+      font-family: var(--headline-zh);
+      line-height: 1.12;
+      letter-spacing: 0;
+      text-transform: none;
+    }}
+    .live-object-copy {{
+      max-width: 56ch;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.58;
+    }}
+    .guide-compact-card {{
+      display: grid;
+      gap: 12px;
+      padding: 18px;
+      background:
+        linear-gradient(180deg, rgba(18, 28, 45, 0.9), rgba(9, 14, 24, 0.88)),
+        var(--panel);
+      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
     }}
     .hero-visual {{
       position: absolute;
@@ -2267,6 +2395,12 @@ def render_console_html(title: str) -> str:
       .topbar-nav::-webkit-scrollbar {{ display: none; }}
       .workspace-mode-grid {{ grid-template-columns: 1fr; }}
       .workspace-mode-insight-grid {{ grid-template-columns: 1fr; }}
+      .workspace-mode-shell[data-workspace-chrome="compact"] .workspace-mode-head {{
+        grid-template-columns: 1fr;
+      }}
+      .workspace-mode-shell[data-workspace-chrome="compact"] .trace-stage-grid {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }}
       .advanced-surface-grid {{ grid-template-columns: 1fr; }}
       .workspace-mode-group[data-workspace-group="review"] {{
         grid-template-columns: 1fr;
@@ -2330,6 +2464,17 @@ def render_console_html(title: str) -> str:
       .guide-grid {{ gap: 10px; }}
       .workspace-mode-shell {{ padding: 14px; }}
       .workspace-mode-card {{ padding: 14px; }}
+      .workspace-mode-object-anchor,
+      .live-object-anchor,
+      .guide-compact-card {{
+        padding: 14px;
+      }}
+      .workspace-mode-object-title {{
+        font-size: 1.28rem;
+      }}
+      .live-object-title {{
+        font-size: 1.54rem;
+      }}
       .guide-card, .deck-section, .control-cluster {{ padding: 12px; }}
       .deck-mode-strip {{ padding: 12px; }}
       .batch-toolbar-card {{ top: 132px; }}
@@ -2368,6 +2513,9 @@ def render_console_html(title: str) -> str:
       .palette-trigger {{ flex: 1 1 auto; }}
       .lang-switch {{ margin-left: auto; }}
       .hero-stage {{ display: none; }}
+      .workspace-mode-shell[data-workspace-chrome="compact"] .trace-stage-grid {{
+        grid-template-columns: 1fr;
+      }}
       .nav-pill {{ white-space: nowrap; }}
       .batch-toolbar-card {{ top: 122px; }}
     }}

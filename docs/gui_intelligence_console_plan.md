@@ -1213,10 +1213,10 @@ Recommended ignition order:
 
 - `L33.1` promote the subtractive-convergence blueprint; landed
 - `L33.2` freeze the first-load, accelerator, compaction, and restore-stability contract; landed
-- `L33.3` harden saved-view, dock, and workspace-context restore stability while demoting dock visibility to pinned-only contexts
-- `L33.4` introduce stage-aware hydration and defer advanced preloads until the active stage or selected object needs them
-- `L33.5` compact populated-workspace chrome and demote onboarding or accelerator copy behind live objects
-- `L33.6` harden browser smoke and acceptance around request scope, hidden dock rules, populated chrome, and restore stability
+- `L33.3` harden saved-view, dock, and workspace-context restore stability while demoting dock visibility to pinned-only contexts; landed
+- `L33.4` introduce stage-aware hydration and defer advanced preloads until the active stage or selected object needs them; landed
+- `L33.5` compact populated-workspace chrome and demote onboarding or accelerator copy behind live objects; landed
+- `L33.6` harden browser smoke and acceptance around request scope, hidden dock rules, populated chrome, and restore stability; landed
 
 Target product judgment for this wave:
 
@@ -1239,7 +1239,7 @@ Target product judgment for this wave:
 
 Current blueprint reopening target:
 
-- `L33.3`
+- `no-open-slice`
 
 ## Console Modularity And Traceability Follow-up
 

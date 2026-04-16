@@ -2115,8 +2115,15 @@ def _wait_for_stage_shell(page: Page) -> None:
                 return false;
             }
             const chips = Array.from(shell.querySelectorAll('.workspace-mode-meta .chip')).filter((chip) => (chip.textContent || '').trim());
+            const anchor = shell.querySelector('[data-workspace-object-anchor]');
+            const anchorTitle = (anchor?.querySelector('.workspace-mode-object-title')?.textContent || '').trim();
+            const anchorPrimary = (anchor?.querySelector('[data-card-action-primary] button, [data-card-action-primary] a')?.textContent || '').trim();
+            const anchorFacts = anchor ? Array.from(anchor.querySelectorAll('.continuity-fact')).filter((fact) => (fact.textContent || '').trim()) : [];
             const cards = Array.from(shell.querySelectorAll('[data-workspace-jump]')).filter((button) => (button.textContent || '').trim());
-            return chips.length >= 4 && cards.length >= 1;
+            return cards.length >= 1 && (
+                chips.length >= 4
+                || (anchorTitle.length > 0 && anchorPrimary.length > 0 && anchorFacts.length >= 3)
+            );
         }""",
         timeout=10000,
     )
@@ -2137,6 +2144,13 @@ def _stage_shell_snapshot(page: Page) -> Row:
                     chipMap[String(parts[0] || '').trim()] = parts.slice(1).join(':').trim();
                 }
             });
+            Array.from(shell.querySelectorAll('[data-workspace-object-anchor] .continuity-fact')).forEach((fact) => {
+                const label = (fact.querySelector('span')?.textContent || '').trim();
+                const value = (fact.querySelector('strong')?.textContent || '').trim();
+                if (label && value) {
+                    chipMap[label] = value;
+                }
+            });
             const cards = Array.from(shell.querySelectorAll('[data-workspace-jump]')).map((button) => ({
                 jump: button.getAttribute('data-workspace-jump') || '',
                 title: (button.querySelector('.workspace-mode-card-head .workspace-mode-title')?.textContent || '').trim(),
@@ -2144,6 +2158,10 @@ def _stage_shell_snapshot(page: Page) -> Row:
             }));
             return {
                 stage: (shell.querySelector('.workspace-mode-head .workspace-mode-title')?.textContent || '').trim(),
+                chrome: shell.getAttribute('data-workspace-chrome') || '',
+                anchor_title: (shell.querySelector('[data-workspace-object-anchor] .workspace-mode-object-title')?.textContent || '').trim(),
+                anchor_primary: (shell.querySelector('[data-workspace-object-anchor] [data-card-action-primary] button, [data-workspace-object-anchor] [data-card-action-primary] a')?.textContent || '').trim(),
+                anchor_fact_count: shell.querySelectorAll('[data-workspace-object-anchor] .continuity-fact').length,
                 chips: chipMap,
                 cards,
             };
@@ -2161,6 +2179,7 @@ def _assert_stage_shell(
     current_object_contains: str | Sequence[str],
     owned_output_contains: str | Sequence[str],
     next_action_contains: str | Sequence[str],
+    compact: bool | None = None,
 ) -> None:
     def _options(value: str | Sequence[str]) -> list[str]:
         if isinstance(value, str):
@@ -2178,15 +2197,51 @@ def _assert_stage_shell(
     snapshot = _stage_shell_snapshot(page)
     chips = _row(snapshot.get("chips")) or {}
     stage_value = str(snapshot.get("stage") or "").strip()
-    current_surface_value = _chip_value(chips, "Current surface", "当前视图")
+    current_surface_value = _chip_value(chips, "Current surface", "当前视图", "Surface", "视图")
     current_object_value = _chip_value(chips, "Current object", "当前对象")
     owned_output_value = _chip_value(chips, "Owned output", "阶段产出")
     next_action_value = _chip_value(chips, "Next action", "下一步动作")
     assert any(stage_value == option for option in _options(stage)), f"stage shell stage mismatch: {snapshot}"
+    if compact is True:
+        anchor_title = str(snapshot.get("anchor_title") or "").strip()
+        anchor_primary = str(snapshot.get("anchor_primary") or "").strip()
+        anchor_fact_count = _as_int(snapshot.get("anchor_fact_count"))
+        assert str(snapshot.get("chrome") or "").strip() == "compact", f"stage shell was not compact: {snapshot}"
+        assert any(option in anchor_title for option in _options(current_object_contains)), f"compact current object mismatch: {snapshot}"
+        assert any(option in current_surface_value for option in _options(current_surface)), f"current surface mismatch: {snapshot}"
+        assert any(option in owned_output_value for option in _options(owned_output_contains)), f"owned output mismatch: {snapshot}"
+        assert any(option in anchor_primary for option in _options(next_action_contains)), f"primary action mismatch: {snapshot}"
+        assert anchor_fact_count >= 3, f"compact continuity facts missing: {snapshot}"
+        return
+    if compact is False:
+        assert str(snapshot.get("chrome") or "").strip() == "default", f"stage shell unexpectedly compact: {snapshot}"
     assert any(option in current_surface_value for option in _options(current_surface)), f"current surface mismatch: {snapshot}"
     assert any(option in current_object_value for option in _options(current_object_contains)), f"current object mismatch: {snapshot}"
     assert any(option in owned_output_value for option in _options(owned_output_contains)), f"owned output mismatch: {snapshot}"
     assert any(option in next_action_value for option in _options(next_action_contains)), f"next action mismatch: {snapshot}"
+
+
+def _assert_populated_intake_chrome(page: Page, expected_object: str | Sequence[str]) -> None:
+    expected = [expected_object] if isinstance(expected_object, str) else [str(item).strip() for item in expected_object if str(item).strip()]
+    page.wait_for_function(
+        """(expectedObjects) => {
+            const hero = document.querySelector('[data-intake-populated-hero="true"]');
+            const guide = document.querySelector('[data-intake-guide-compact="true"]');
+            const currentObject = hero?.querySelector('[data-intake-current-object]')?.textContent || '';
+            const primary = hero?.querySelector('[data-card-action-primary] button, [data-card-action-primary] a')?.textContent || '';
+            const factCount = hero?.querySelectorAll('.continuity-fact').length || 0;
+            const onboardingHidden = document.querySelector('#intake-hero-onboarding')?.hidden === true
+                && document.querySelector('#intake-side-onboarding')?.hidden === true;
+            return !!hero
+                && !!guide
+                && onboardingHidden
+                && expectedObjects.some((entry) => currentObject.includes(entry))
+                && primary.trim().length > 0
+                && factCount >= 3;
+        }""",
+        arg=expected,
+        timeout=10000,
+    )
 
 
 def _wait_for_trace_and_signal_taxonomy(page: Page) -> None:
@@ -2935,9 +2990,10 @@ def _exercise_workflow_stage_acceptance(page: Page) -> None:
         page,
         stage=["Start", "开始"],
         current_surface=["Mission Intake", "任务录入"],
-        current_object_contains=["Mission draft not started", "任务草稿尚未开始"],
-        owned_output_contains=["Waiting for Name + Query", "等待填写名称和查询词"],
-        next_action_contains=["Fill the required mission input", "补全任务必填信息"],
+        current_object_contains=["Launch Ops", "Launch Ops"],
+        owned_output_contains=["live missions", "实时任务", "open triage", "待分诊"],
+        next_action_contains=["Open Cockpit", "打开任务详情"],
+        compact=True,
     )
     page.fill("#create-watch-form [name='name']", "")
     page.fill("#create-watch-form [name='query']", "")
@@ -2984,6 +3040,20 @@ def _exercise_workflow_stage_acceptance(page: Page) -> None:
     assert no_result_watch_row is not None, "no-result acceptance watch could not be resolved"
     no_result_watch_id = str(no_result_watch_row.get("id") or "").strip()
     assert no_result_watch_id, f"missing no-result watch id: {no_result_watch_row}"
+    page.evaluate("(identifier) => loadWatch(identifier)", no_result_watch_id)
+    page.evaluate("jumpToSection('section-intake')")
+    page.wait_for_function("() => window.location.hash === '#section-intake'", timeout=10000)
+    _wait_for_active_rail(page, "nav-intake", "#section-intake")
+    _assert_stage_shell(
+        page,
+        stage=["Start", "开始"],
+        current_surface=["Mission Intake", "任务录入"],
+        current_object_contains=[no_result_watch_name, "Launch Ops"],
+        owned_output_contains=["live missions", "实时任务", "open triage", "待分诊"],
+        next_action_contains=["Open Cockpit", "Open Mission Board", "打开任务详情", "打开任务列表"],
+        compact=True,
+    )
+    _assert_populated_intake_chrome(page, [no_result_watch_name, "Launch Ops"])
     page.evaluate("refreshBoard()")
     page.evaluate("jumpToSection('section-board')")
     page.wait_for_function("() => window.location.hash === '#section-board'", timeout=10000)
@@ -2993,9 +3063,10 @@ def _exercise_workflow_stage_acceptance(page: Page) -> None:
         page,
         stage=["Monitor", "监测"],
         current_surface=["Mission Board", "任务列表"],
-        current_object_contains=["Launch Ops", "Launch Ops"],
+        current_object_contains=[no_result_watch_name, "Launch Ops"],
         owned_output_contains=["stored results", "已存储结果"],
-        next_action_contains=["Open Cockpit or run the mission", "打开任务详情或立即执行任务"],
+        next_action_contains=["Open Cockpit", "打开任务详情"],
+        compact=True,
     )
     page.fill("[data-watch-search]", "__monitor_no_match__")
     page.wait_for_function(
@@ -3030,11 +3101,12 @@ def _exercise_workflow_stage_acceptance(page: Page) -> None:
         current_object_contains=["OpenAI launch post", "OpenAI launch post"],
         owned_output_contains=["open items in triage", "分诊中有"],
         next_action_contains=[
-            "Verify or promote the selected evidence",
-            "Refine the story and confirm readiness",
-            "核验或提升当前证据",
-            "完善故事并确认交付就绪度",
+            "Open Story Editor",
+            "Open Triage",
+            "打开故事编辑",
+            "打开分诊",
         ],
+        compact=True,
     )
 
     page.evaluate("jumpToSection('section-ops')")
@@ -3046,18 +3118,20 @@ def _exercise_workflow_stage_acceptance(page: Page) -> None:
         current_surface=["Delivery Lane", "Ops Snapshot", "交付工作线", "运行状态"],
         current_object_contains=["ops-webhook", "ops-webhook"],
         owned_output_contains=["healthy routes", "健康路由"],
-        next_action_contains=["Inspect route posture or dispatch current output", "查看路由姿态或分发当前输出"],
+        next_action_contains=["Open Delivery Lane", "打开交付工作线"],
+        compact=True,
     )
     _wait_for_trace_and_signal_taxonomy(page)
     page.wait_for_function(
-        """() => {
+        """(expectedStarts) => {
             const stageIds = Array.from(document.querySelectorAll('[data-stage-trace="workflow"] [data-trace-stage]')).map((node) => node.getAttribute('data-trace-stage'));
             const start = document.querySelector('[data-trace-stage="start"]')?.textContent || '';
             const deliver = document.querySelector('[data-trace-stage="deliver"]')?.textContent || '';
             return JSON.stringify(stageIds) === JSON.stringify(['start', 'monitor', 'review', 'deliver'])
-                && start.includes('Launch Ops')
+                && expectedStarts.some((entry) => start.includes(entry))
                 && (deliver.includes('ops-webhook') || deliver.includes('Delivery outcome'));
         }""",
+        arg=[no_result_watch_name, "Launch Ops"],
         timeout=10000,
     )
     _assert_signal_owner(
