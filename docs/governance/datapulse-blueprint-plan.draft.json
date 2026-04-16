@@ -2,7 +2,7 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-04-02T09:19:31Z",
+  "generated_at_utc": "2026-04-15T12:32:55Z",
   "status": "completed",
   "activation": {
     "wired": false,
@@ -94,7 +94,8 @@
     "L28": "completed",
     "L29": "completed",
     "L30": "completed",
-    "L31": "completed"
+    "L31": "completed",
+    "L32": "completed"
   },
   "phases": [
     {
@@ -4017,6 +4018,158 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L32",
+      "title": "execution-control-plane activation",
+      "goal": "Open repo-native execution-control-plane truth so shared instructions, worktree-session mapping, local execution-confidence sidecars, typed handoff resources, and model-tier execution profiles can strengthen the existing Reader-backed runtime without creating a second control plane or a new public AI surface.",
+      "status": "completed",
+      "slices": [
+        {
+          "id": "datapulse.coord.decomposition.claude_code_codex_execution_control_plane_intake.20260415",
+          "title": "Decompose Claude Code and Codex execution-control-plane intake into DataPulse repo-native slices",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "exit_condition": "Repo-native blueprint truth expands the execution-control-plane intake into DataPulse follow-up slices that stay bounded to instructions, worktree-session mapping, local confidence sidecars, typed handoffs/resources, and model-tier execution profiles without creating a second control plane or a new public AI surface.",
+          "fact_sources": [
+            "/Users/sunyifei/ModelBusProject/docs/governance/tri_repo/claude-code-codex-execution-control-plane-intake-2026-04-15.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/ModelBusProject/三仓/doing/ClaudeCode-Codex高价值能力萃取与三仓点火候选-2026-04-15.md"
+          ],
+          "notes": [
+            "This slice is decomposition-only and must not treat Claude Code or Codex tooling convenience as already-admitted DataPulse runtime capability.",
+            "DataPulse scope stays on repo-native execution guidance over the existing Reader-backed lifecycle kernel, not on duplicating ModelBus or inventing a GUI-only control plane."
+          ],
+          "fact_intake": {
+            "imported_at_utc": "2026-04-15T11:32:12Z",
+            "source_count": 2,
+            "source_note": {
+              "path": "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/ModelBusProject/三仓/doing/ClaudeCode-Codex高价值能力萃取与三仓点火候选-2026-04-15.md",
+              "frontmatter_title": "",
+              "first_heading": "ClaudeCode-Codex高价值能力萃取与三仓点火候选-2026-04-15",
+              "selected_heading": "",
+              "wikilink_name": "ClaudeCode-Codex高价值能力萃取与三仓点火候选-2026-04-15"
+            }
+          }
+        },
+        {
+          "id": "datapulse.execution_control.shared_instruction_plane_contract",
+          "title": "Define a shared instruction plane for AGENTS, future CLAUDE entrypoints, and DataPulse governance-loop startup",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "AGENTS.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json",
+            "CLAUDE.md",
+            "docs/governance/datapulse-codex-blueprint-loop.draft.md"
+          ],
+          "exit_condition": "Repo truth names one shared instruction chain for AGENTS, future CLAUDE entrypoints, and governance-loop startup so Codex, Claude Code, and repo-native handoff docs stop drifting independently.",
+          "fact_sources": [
+            "/Users/sunyifei/ModelBusProject/docs/governance/tri_repo/claude-code-codex-execution-control-plane-intake-2026-04-15.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/ModelBusProject/三仓/doing/ClaudeCode-Codex高价值能力萃取与三仓点火候选-2026-04-15.md"
+          ],
+          "notes": [
+            "Keep one constitutional chain instead of letting AGENTS, CLAUDE, and handoff prose diverge.",
+            "This slice is instruction-synchronization only; it must not create a second runtime control plane or bypass existing lifecycle truth."
+          ]
+        },
+        {
+          "id": "datapulse.execution_control.worktree_session_resume_contract",
+          "title": "Map worktree, session, resume, and output-root ownership for DataPulse execution lanes",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-codex-blueprint-loop.draft.md",
+            "docs/governance/datapulse-auto-continuation-policy.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json"
+          ],
+          "exit_condition": "Repo truth explicitly maps `repo x worktree x session x output_root` for loop-driven and local-sidecar execution so resume and dirty-worktree carryover stop depending on operator memory alone.",
+          "fact_sources": [
+            "/Users/sunyifei/ModelBusProject/docs/governance/tri_repo/claude-code-codex-execution-control-plane-intake-2026-04-15.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/ModelBusProject/三仓/doing/ClaudeCode-Codex高价值能力萃取与三仓点火候选-2026-04-15.md"
+          ],
+          "notes": [
+            "Preserve the existing Reader-backed lifecycle kernel and dirty-worktree policy; only make the execution mapping explicit and replayable.",
+            "Do not reinterpret worktree parallelism as a second publish surface or as permission to bypass existing governance locks."
+          ]
+        },
+        {
+          "id": "datapulse.execution_control.local_execution_confidence_sidecar",
+          "title": "Add a local execution-confidence sidecar for instruction loading, worktree choice, and verification triggers",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-loop-adapter-design.md",
+            "docs/governance/datapulse-manual-acquisition-sidecar-contract.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "exit_condition": "DataPulse has a repo-native local execution-confidence contract that records which instructions, worktree, session, and minimal verification hooks were used during a run without claiming inescapable gate coverage over all tool paths.",
+          "fact_sources": [
+            "/Users/sunyifei/ModelBusProject/docs/governance/tri_repo/claude-code-codex-execution-control-plane-intake-2026-04-15.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/ModelBusProject/三仓/doing/ClaudeCode-Codex高价值能力萃取与三仓点火候选-2026-04-15.md"
+          ],
+          "notes": [
+            "The sidecar may record execution facts and trigger minimal smoke or lint guidance, but it must not be narrated as a published release gate by itself.",
+            "Tool and MCP outputs remain untrusted until schema-plus-policy validation says otherwise."
+          ]
+        },
+        {
+          "id": "datapulse.execution_control.typed_handoff_resource_plane",
+          "title": "Define typed local-first handoff and resource-plane contracts for current truth and blocking reasons",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/governance-loop-adoption-playbook.draft.md",
+            "docs/governance/datapulse-intelligence-runtime-surface-projection-blueprint.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "exit_condition": "Current truth, blocking reasons, and execution handoffs can be projected as typed local-first resources for agents and operators without upgrading metadata into final truth or creating a new public API surface.",
+          "fact_sources": [
+            "/Users/sunyifei/ModelBusProject/docs/governance/tri_repo/claude-code-codex-execution-control-plane-intake-2026-04-15.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/ModelBusProject/三仓/doing/ClaudeCode-Codex高价值能力萃取与三仓点火候选-2026-04-15.md"
+          ],
+          "notes": [
+            "Use local-first typed resources for current truth and blocking reasons before any remote MCP expansion is discussed.",
+            "Resource metadata cannot replace source-governed fact truth or lifecycle admission."
+          ]
+        },
+        {
+          "id": "datapulse.execution_control.model_tier_execution_profile_contract",
+          "title": "Define model-tier execution profiles for planning, bounded edits, and local operator lanes",
+          "category": "manual",
+          "execution_profile": "draft_only",
+          "promotion_scope": "none",
+          "status": "completed",
+          "artifacts": [
+            "docs/governance/datapulse-modelbus-ai-governance-blueprint.md",
+            "docs/governance/datapulse-blueprint-plan.draft.json"
+          ],
+          "exit_condition": "Repo truth names bounded execution profiles for architecture review, small exporter or doc edits, historical Codex compatibility lanes, and Claude-Code-style local operator recovery without altering the public ModelBus runtime contract.",
+          "fact_sources": [
+            "/Users/sunyifei/ModelBusProject/docs/governance/tri_repo/claude-code-codex-execution-control-plane-intake-2026-04-15.md",
+            "/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/ModelBusProject/三仓/doing/ClaudeCode-Codex高价值能力萃取与三仓点火候选-2026-04-15.md"
+          ],
+          "notes": [
+            "This is L1 execution economics only and must not be narrated as public ModelBus routing or release-policy change.",
+            "Keep explicit allowlist and fail-closed boundaries for any future execution-profile consumer."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
@@ -4025,6 +4178,36 @@
     "reason": "All current slices are completed in this working copy."
   },
   "progress_log": [
+    {
+      "at_utc": "2026-04-15T12:32:55Z",
+      "slice_id": "datapulse.execution_control.model_tier_execution_profile_contract",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-04-15T12:24:25Z",
+      "slice_id": "datapulse.execution_control.typed_handoff_resource_plane",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-04-15T12:18:27Z",
+      "slice_id": "datapulse.execution_control.local_execution_confidence_sidecar",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-04-15T12:08:04Z",
+      "slice_id": "datapulse.execution_control.worktree_session_resume_contract",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-04-15T12:00:52Z",
+      "slice_id": "datapulse.execution_control.shared_instruction_plane_contract",
+      "status": "completed"
+    },
+    {
+      "at_utc": "2026-04-15T11:32:12Z",
+      "slice_id": "datapulse.coord.decomposition.claude_code_codex_execution_control_plane_intake.20260415",
+      "status": "completed"
+    },
     {
       "at_utc": "2026-04-14T00:00:00Z",
       "slice_id": "datapulse.workflow_assist.watchlist_market_context_sidecar",
@@ -4581,5 +4764,5 @@
       "status": "completed"
     }
   ],
-  "last_updated_utc": "2026-04-14T07:30:37Z"
+  "last_updated_utc": "2026-04-15T12:32:55Z"
 }

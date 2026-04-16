@@ -287,6 +287,69 @@ Seam rules:
 - a reopen above this contract requires repo evidence of one of three things: a layer-map contradiction, a seam that cannot stay behind `DataPulseReader`, or a parity requirement that cannot be expressed without inventing wrapper-owned business truth
 - collector-count growth, standalone-frontend preference, or provider-specific AI convenience are not by themselves valid reasons to reopen this boundary contract
 
+## L32 Typed Local-First Handoff Resource Plane
+
+`L32` adds one execution-control follow-up over the frozen runtime map: a typed local-first resource plane for current truth, blocking reasons, and execution handoffs.
+
+This does not reopen `L27` and it does not create a new product surface.
+
+It is a control-plane projection layer for agents and operators that sits on top of existing local files and generated snapshots.
+
+### Resource Kinds And Backing Truth
+
+| Resource kind | Backing repo truth | Purpose | Must not become |
+| --- | --- | --- | --- |
+| `datapulse.execution.current_truth.v1` | resolved blueprint plan plus `artifacts/governance/snapshots/project_specific_loop_state.draft.json` | one typed read of `current_level`, `next_slice`, `status_if_run_now`, `reason_if_run_now`, and promotion posture | a replacement for the phase tree or lifecycle truth |
+| `datapulse.execution.blocking_reasons.v1` | `project_specific_loop_state.draft.json` plus `code_landing_status.draft.json` | one typed read of `blocking_facts`, remaining promotion gates, and unsatisfied promotion reasons | a metadata-only trust upgrade for tool or MCP output |
+| `datapulse.execution.handoff.v1` | current slice brief, target artifacts, verification commands, and local execution-confidence sidecar refs when present | make the next manual slice or blocked handoff replayable without prompt archaeology | a new public API, chat surface, or alternate runtime chain |
+| `datapulse.execution.resource_index.v1` | local manifest over the resources above | stable discovery entrypoint for agents, operators, and future local wrappers | canonical business truth by itself |
+
+### Local-First Addressing Rules
+
+- the first lookup path is always a repo file or generated local snapshot, not a remote MCP server
+- future MCP or console projections may mirror these resources, but they must preserve the original repo path and generation window
+- resource ids should stay stable across projection surfaces so the same handoff can be reopened without restating file paths in prose
+- every resource should keep a `trust_boundary` section that says the projection is typed consumption aid only, not final truth by itself
+
+### Current Truth And Blocking Payload Boundary
+
+`datapulse.execution.current_truth.v1` should expose only the execution headline needed to decide whether the loop can continue:
+
+- current level and current next slice
+- `status_if_run_now` and `reason_if_run_now`
+- workspace cleanliness and promotion mode
+- generated-at time plus source refs back to the plan and loop snapshot
+
+`datapulse.execution.blocking_reasons.v1` should expose only the machine-decidable blockers and their provenance:
+
+- `blocking_facts`
+- remaining promotion gates
+- unsatisfied reasons for `repo_landed` or `ci_proven`
+- freshness pointers back to the landing-status snapshot or attestation source when relevant
+
+Neither resource may upgrade sidecar facts, MCP payloads, or tool metadata into admitted lifecycle truth.
+
+### Execution Handoff Boundary
+
+`datapulse.execution.handoff.v1` is the typed handoff object for local slice execution.
+
+It should bind:
+
+- the slice id, title, execution profile, and exit condition
+- target artifacts and verification commands
+- repo/worktree/session/output-root lane refs when the slice depends on them
+- local execution-confidence sidecar refs when a run captured them
+- the current-truth and blocking-reasons resource ids that justified the handoff
+
+This keeps handoffs local-first and typed without narrating the governance plane as a new operator product or a second runtime kernel.
+
+### Runtime And Surface Constraints
+
+- Reader-backed lifecycle objects remain canonical for missions, triage, story, report, delivery, and governed AI flows
+- surface projections may consume the execution resource plane, but they must present it as governance or operator context rather than as business-runtime state
+- the governance control plane may emit or mirror these typed resources, but it still does not own mission execution, delivery dispatch, or AI provider semantics
+- resource metadata may summarize current truth and blockers, but source-governed files remain the authority that later validation and replay must trace back to
+
 ## L27 Slice Map
 
 | Slice | Outcome | Why it exists |

@@ -216,6 +216,27 @@ All follow-up slices in this phase should obey the same constraints:
 8. project the same AI assistance nouns through Reader, CLI, MCP, API, and browser instead of inventing GUI-only state
 9. keep slices narrow enough that the loop can stop on machine-decidable progress
 
+## L32 Execution-Control Model-Tier Profile Contract
+
+`L32` is a repo-native execution-control overlay, not a public runtime or ModelBus routing change.
+
+The profiles below govern local planning and bounded execution lanes only. They must not be narrated as new public AI surfaces, published alias policy, or release-routing semantics.
+
+| Profile id | Preferred local lane now | Allowed task shape | Must stay out of scope |
+| --- | --- | --- | --- |
+| `planning_architecture_review` | `gpt-5.4` | architecture review, slice planning, contract diffs, cross-repo governance reasoning | broad code churn, silent runtime policy rewrites, or public-surface expansion |
+| `bounded_exporter_doc_edit` | `gpt-5.4-mini` | small exporter updates, doc sync, mirror or classifier touchups, bounded repo edits with explicit artifact targets | multi-phase refactors, open-ended codebase rewrites, or implicit promotion-policy changes |
+| `codex_compatibility_repair` | `gpt-5.3-codex` | historical Codex-compatible repair lanes, strong coding regressions, or compatibility-preserving bounded edits where the existing Codex lane still matters | default routing for all work, new provider-policy narrative, or a claim that older Codex lanes remain the public runtime baseline |
+| `local_operator_recovery` | `Claude Code` style local operator lane | resume, recap, worktree/session recovery, protocol repair, and tool-native local runtime experiments under operator supervision | direct published-runtime authority, automatic release promotion, or hidden trust elevation for hooks, MCP metadata, or tool output |
+
+Contract rules for any future consumer of these profiles:
+
+- treat the profile id as repo-governance truth and the model binding above as the current preferred local binding, not as a public ModelBus alias contract
+- use explicit allowlists when a loop runner, handoff resource, or sidecar claims one of these profiles
+- fail closed to manual operator review when a requested profile is missing, ambiguous, or wider than the slice's declared artifact and verification scope
+- keep profile choice inside `L1` execution economics; `L0` published runtime contracts, surface admission, and ModelBus fallback ownership remain unchanged
+- preserve the Reader-backed lifecycle kernel as canonical business truth; these profiles only steer how local operators and agent runtimes approach repo work
+
 ## Stage Preview
 
 Recommended stage language for this follow-up wave:

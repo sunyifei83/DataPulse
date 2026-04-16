@@ -257,6 +257,79 @@ Recommended adapter surface:
 - `promotion_workflow_map()`
 - `projection_targets()`
 
+## Local Execution-Confidence Sidecar
+
+Purpose:
+
+- record which instruction chain, worktree, session boundary, and minimal verification hooks a local run actually used
+- make local execution lanes replayable without promoting tool-local metadata into canonical blueprint or release truth
+
+Recommended minimum payload:
+
+```json
+{
+  "schema_version": "datapulse_local_execution_confidence.v1",
+  "captured_at_utc": "2026-04-15T12:18:27Z",
+  "lane": "local_codex_blueprint_loop",
+  "plan_path": "docs/governance/datapulse-blueprint-plan.json",
+  "next_slice_id": "datapulse.execution_control.local_execution_confidence_sidecar",
+  "instruction_chain": [
+    {
+      "path": "AGENTS.md",
+      "role": "repo_instruction_plane",
+      "loaded": true
+    },
+    {
+      "path": "CLAUDE.md",
+      "role": "runtime_overlay",
+      "loaded": false
+    },
+    {
+      "path": "docs/governance/datapulse-codex-blueprint-loop.draft.md",
+      "role": "loop_startup_contract",
+      "loaded": true
+    }
+  ],
+  "worktree": {
+    "repo_root": "/repo/DataPulse",
+    "worktree_root": "/repo/DataPulse",
+    "ownership": "machine_exclusive_loop_worktree",
+    "carryover_mode": "clean_baseline_or_repo_landed_carryover"
+  },
+  "session_boundary": {
+    "declared_env": "DATAPULSE_SESSION_DIR",
+    "mode": "unused_or_reused_shared_boundary"
+  },
+  "verification_hooks": {
+    "slice_verification_commands": [],
+    "pre_promotion_gate_command": "uv run python scripts/governance/run_datapulse_quick_test_gate.py",
+    "trigger_points": [
+      "post_round",
+      "pre_repo_landed_auto_promotion"
+    ]
+  },
+  "local_outputs": {
+    "prompt_path": "out/codex_blueprint_loop/round-03/prompt.txt",
+    "last_message_path": "out/codex_blueprint_loop/round-03/last_message.txt"
+  },
+  "trust_boundary": {
+    "tool_outputs_untrusted_until_validated": true,
+    "mcp_outputs_untrusted_until_validated": true,
+    "sidecar_is_not_a_release_gate": true
+  }
+}
+```
+
+Contract rules:
+
+- the sidecar is local execution metadata only; it may live in `out/codex_blueprint_loop/` or another tool-local output root, but it does not become tracked blueprint truth by itself
+- it must record which instruction files were actually loaded for the run, not just which files exist in the repository
+- it must distinguish repo worktree ownership from sidecar-local working directories and distinguish the shared `DATAPULSE_SESSION_DIR` boundary from tool-local secret stores
+- it may list the minimal verification hooks that were triggered, but it must not claim that those hooks cover every tool path or every sidecar output
+- tool output, MCP metadata, and sidecar artifacts remain untrusted until schema-plus-policy validation says otherwise
+
+This sidecar is intentionally narrower than release evidence or landing truth. It exists to make local execution replayable and inspectable, not to create an inescapable gate over all local helper paths.
+
 ## DataPulse-Specific Gate Map
 
 ### Local Verification

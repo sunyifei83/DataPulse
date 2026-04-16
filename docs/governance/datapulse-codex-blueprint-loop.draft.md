@@ -31,6 +31,16 @@ It is:
 
 DataPulse keeps two separate entrypoints on purpose:
 
+## Shared Instruction Plane
+
+DataPulse now names one shared instruction chain for repo-native execution:
+
+1. `AGENTS.md` is the canonical repo-root instruction plane for agent runtimes and repo-native handoff docs.
+2. `CLAUDE.md` is a thin Claude-compatible entrypoint that extends `AGENTS.md` instead of duplicating it.
+3. Governance-loop startup reads `AGENTS.md` first and then this document for loop-specific execution behavior.
+
+Future Claude-specific entrypoints must extend `CLAUDE.md` and `AGENTS.md` rather than maintaining a parallel constitutional copy. Loop prompts and operator handoffs should cite the same chain instead of restating policy in prose.
+
 ### 1. Scheduled Governance Refresh
 
 - `.github/workflows/governance-loop-auto.yml`
@@ -74,6 +84,16 @@ That dirty-worktree auto-settle path only applies when the runtime is already on
 
 The local loop log directory `out/codex_blueprint_loop/` is also treated as ignored operational output so blueprint-only or closeout-only runs do not reopen the repository by themselves.
 
+## Execution Lane Ownership
+
+DataPulse now treats `repo x worktree x session x output_root` as an explicit lane contract rather than operator memory:
+
+| Lane | Repo ownership | Worktree ownership | Session ownership | Output-root ownership | Resume contract |
+| --- | --- | --- | --- | --- | --- |
+| Scheduled governance refresh | Runs against the active repo truth at `docs/governance/datapulse-blueprint-plan.json`; it does not land business slices. | The workflow checkout is read-only for governance purposes and must not become a mutable loop worktree. | None. This lane must not depend on browser login state or sidecar-only session files. | May refresh `governance_snapshot_root` and `evidence_bundle_root` through exporters; it does not own `out/codex_blueprint_loop/`. | Re-run `scripts/governance/run_datapulse_auto_continuation.py` from the same repo root and stop on machine-decided `blocked` or `stopped` truth. |
+| Local Codex blueprint loop | Uses the same active repo truth and may mutate the current `next_slice` only. | One dedicated, machine-exclusive loop worktree owns the mutable round state. Dirty-worktree carryover, auto-settle retries, and promotion retries are scoped to that same worktree only. | The loop has no private credential store. When a slice uses authenticated collectors or sidecars, it may only reuse the existing shared `DATAPULSE_SESSION_DIR` boundary; session files are not stored under the loop output directory. | `out/codex_blueprint_loop/` owns prompts, last-message captures, and promotion-auto-repair checkpoints; tracked closeout writes still go through `governance_snapshot_root` and `evidence_bundle_root`, while `runtime_bundle_root` remains a resolver input rather than round scratch space. | Resume from the same repo worktree plus refreshed governance snapshots and the existing `out/codex_blueprint_loop/` state. `workspace_dirty` carryover is admissible only on the same `repo_landed` boundary and must not be reinterpreted as a clean baseline or a second publish lane. |
+| Local sidecar execution | The repo checkout remains the only blueprint and governance truth even when a helper sidecar uses its own checkout or runtime files. | A sidecar may use `DATAPULSE_NATIVE_COLLECTOR_BRIDGE_WORKDIR` or another tool-local working directory, but that directory is sidecar-owned runtime state, not an alternate blueprint worktree. | Shared authenticated session files live under `DATAPULSE_SESSION_DIR`; sidecar-local cookies, API keys, or secret stores remain outside the repo contract and must not be promoted into governance truth. | Sidecar scratch/state belongs in `DATAPULSE_NATIVE_COLLECTOR_STATE_DIR` or tool-local outputs. Any repo-governance export still resolves through the canonical snapshot and evidence roots instead of inventing a sidecar bundle root. | Resume by reusing the same repo checkout, sidecar workdir, and declared session boundary; clearing a missing-session or dirty-worktree blocker must not require reconstructing lane ownership from memory alone. |
+
 Recommended trigger:
 
 ```bash
@@ -115,12 +135,14 @@ SYSTEM_VERSION_COMPAT=1 uv run python scripts/governance/run_codex_blueprint_loo
 ## Guardrails
 
 - The local Codex loop may mutate the repository to land the current `next_slice`.
+- Loop startup must stay on the shared instruction chain: `AGENTS.md` -> `CLAUDE.md` when a Claude-compatible runtime is present -> `docs/governance/datapulse-codex-blueprint-loop.draft.md`.
 - The scheduled governance workflow must remain read-only.
 - Confirmed blueprint targets still must be declared only as structured `phase + slices + status`.
 - The Codex loop should land only the current `next_slice`, unless a tightly-scoped prerequisite is unavoidable.
 - After each round, governance truth must be refreshed before deciding whether to continue.
 - If the slice catalog is missing an entry for the current slice, use the synthesized execution brief instead of inventing prose-only instructions.
 - `--promotion-mode auto` now means "allow local repo_landed auto-promotion, then auto-resolve the current `ci_proven` path by pushing and waiting for real GitHub workflow evidence". It still does not mean release/tag autopilot.
+- Worktree, session, and output-root ownership stay lane-scoped: the scheduled workflow stays read-only, sidecar state stays sidecar-local, and only repo-native plan truth may advance `next_slice`.
 - Dirty-worktree auto-settle is limited to `repo_landed` candidate boundaries; it must not manufacture checkpoint commits for an unfinished slice solely to make the worktree look clean.
 - The local Codex loop now keeps in-round evaluation ephemeral, but on a terminal `stopped` result it refreshes the resolver-addressed governance and evidence outputs so local truth does not lag behind the last successful run.
 - Legacy `out/governance` and `out/*release_bundle*` directories are no longer required tracked stop-truth surfaces; they are ignored compatibility fallbacks.

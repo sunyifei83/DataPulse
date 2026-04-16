@@ -104,6 +104,7 @@ Recommended manifest shape:
     "/secure/manual-captures/2026-03-09/wechat-article.json",
     "/secure/manual-captures/2026-03-09/wechat-article.png"
   ],
+  "execution_confidence_sidecar_ref": "/secure/manual-captures/2026-03-09/wechat-article.execution-confidence.json",
   "notes": "Used after native and jina paths were insufficient during an urgent capture window."
 }
 ```
@@ -113,6 +114,7 @@ Manifest rules:
 - `tool_class`, `operator`, `executed_at_utc`, `trigger_reason`, and `handoff_mode` are required
 - `output_refs` may point to local secure paths, object storage IDs, or case-system references, but should not assume the raw bundle lives in git
 - if the run consumed login state or cookies, `session_mode` must say so without leaking the secret material itself
+- if a local execution-confidence companion is kept, reference it by path or case ID instead of copying its fields into repo-visible provenance
 
 ## Provenance Contract For Repo-Visible Intake
 
@@ -146,6 +148,17 @@ Repo-visible handoff rules:
 - set the source-governance posture to the existing manual-fact defaults: `source_class=analyst`, `collection_mode=manual_fact`, `sensitivity=review_required`
 - preserve the canonical public URL when one exists, even if the actual capture came from a manual export
 - manual acquisition does not auto-upgrade an item to `verified`; triage and story layers still own review-state truth
+
+## Execution-Confidence Companion Boundary
+
+When a manual acquisition run also participates in a local governance or analyst execution lane, operators may keep a separate local execution-confidence sidecar that records the instruction chain, repo/worktree boundary, session boundary, and any minimal verification hooks used during that run.
+
+Boundary rules:
+
+1. keep execution-confidence data separate from `manual_acquisition_provenance` and `collector_provenance`
+2. do not copy local worktree paths, prompt transcripts, or session-directory internals into repo-visible item metadata
+3. treat the companion sidecar as replay and audit support only; it does not prove that third-party tool output is valid or fully covered by DataPulse gates
+4. a companion sidecar may mention review or smoke triggers, but it cannot upgrade a manual run into scheduled-governance truth or an automated collector success signal
 
 ## Operational Boundaries
 
