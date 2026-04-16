@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-04-15T12:24:25Z",
+  "generated_at_utc": "2026-04-16T05:13:29Z",
   "status": "in_progress",
   "truth_contract": {
     "overlay_role": "active_entrypoint_and_activation_policy",
@@ -65,8 +65,9 @@
       "L29 does not publish a new public AI surface, does not admit report_draft, and does not reopen collector-count or provider-count growth as the primary storyline.",
       "The L29 intent-aware research substrate wave is now completed in repo truth through L29.6, with machine-checkable routing audit fields, projection parity checks, and bounded reopen rules over planning regressions, provenance drift, and cross-surface contradiction.",
       "The L30 public-apis feed screening and evidence projection seeds wave is now completed in repo truth through L30.3.",
-      "The L32 execution-control-plane activation wave remains open in repo truth through landed decomposition, shared-instruction-plane, worktree/session/resume ownership, local execution-confidence, and typed handoff/resource-plane contracts.",
-      "Operators and simple automation should treat the current next_slice as the model-tier execution-profile follow-up over the same repo/worktree/session/resource contract, not as evidence that older research or public-surface waves reopened.",
+      "The L32 execution-control-plane activation wave is now completed in repo truth through the model-tier execution-profile contract.",
+      "The L33 console subtractive-convergence and first-load-reduction wave is now open in repo truth through landed blueprint promotion `L33.1`.",
+      "Operators and simple automation should treat the current `next_slice` as `L33.2`, the subtractive-convergence contract-freeze follow-up over first-load scope, accelerator rank, populated-workspace chrome, and restore stability, not as evidence that older research, public-surface, or earlier console-structure waves reopened.",
       "L27 kept Reader-backed lifecycle truth canonical, treated collectors as acquisition adapters, kept AI as a governed overlay, and did not reopen shell-order simplification or force a frontend-stack migration.",
       "Operator review should treat any post-closeout truth drift as a coupling bug to remove rather than as evidence that L27 is still open or needs a parallel control plane."
     ]

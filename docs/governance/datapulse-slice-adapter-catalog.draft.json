@@ -1,7 +1,7 @@
 {
   "schema_version": "slice_adapter_catalog.v1",
   "project": "DataPulse",
-  "generated_at_utc": "2026-03-31T13:14:57Z",
+  "generated_at_utc": "2026-04-16T05:13:29Z",
   "wired": false,
   "slices": {
     "L4.1": {
@@ -885,6 +885,135 @@
       "notes": [
         "Reopen standalone frontend engineering only if the narrower follow-up proves the current shell still cannot evolve safely enough.",
         "Acceptance should verify operator comprehension and traceability, not only basic route reachability."
+      ]
+    },
+    "L33.1": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_edit",
+      "summary": "Promote the console subtractive-convergence checklist into repo-native blueprint truth and expose the next manual ignition target.",
+      "candidate_commands": [
+        "sed -n '1,260p' docs/governance/datapulse-console-subtractive-convergence-blueprint.md",
+        "tail -n 90 docs/gui_intelligence_console_plan.md",
+        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json",
+        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.json",
+        "python3 -m json.tool docs/governance/datapulse-slice-adapter-catalog.draft.json"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-console-subtractive-convergence-blueprint.md",
+        "docs/gui_intelligence_console_plan.md",
+        "docs/governance/datapulse-blueprint-plan.draft.json",
+        "docs/governance/datapulse-blueprint-plan.json",
+        "docs/governance/datapulse-slice-adapter-catalog.draft.json"
+      ],
+      "notes": [
+        "Open a new wave because the remaining gap is second-round subtraction over the current shell, not another replay of shell-order or traceability work.",
+        "Use this slice to make `L33.2` the unambiguous next manual ignition target before implementation begins."
+      ]
+    },
+    "L33.2": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_edit",
+      "summary": "Freeze the subtractive-convergence contract for first-load scope, accelerator rank, chrome compaction, and restore stability before implementation.",
+      "candidate_commands": [
+        "sed -n '108,220p' docs/governance/datapulse-console-subtractive-convergence-blueprint.md",
+        "sed -n '1210,1255p' docs/gui_intelligence_console_plan.md",
+        "python3 -m json.tool docs/governance/datapulse-blueprint-plan.draft.json"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-console-subtractive-convergence-blueprint.md",
+        "docs/gui_intelligence_console_plan.md",
+        "docs/governance/datapulse-blueprint-plan.draft.json"
+      ],
+      "notes": [
+        "Do not reopen `L25` shell-order or `L26` client-boundary questions in this slice unless a direct contradiction is proven.",
+        "Freeze the contract first so request-scope reduction and chrome demotion do not drift into subjective polish debate."
+      ]
+    },
+    "L33.3": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Harden saved-view restore stability while hiding the dock unless pinned saved views are available.",
+      "candidate_commands": [
+        "sed -n '118,176p' docs/governance/datapulse-console-subtractive-convergence-blueprint.md",
+        "sed -n '1,260p' datapulse/console_client.py",
+        "uv run pytest tests/test_console_server.py -q",
+        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
+      ],
+      "target_artifacts": [
+        "datapulse/console_client.py",
+        "datapulse/console_markup.py",
+        "datapulse/console_server.py",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py"
+      ],
+      "notes": [
+        "Treat restore continuity as a first-class product-fit boundary rather than as incidental browser smoke.",
+        "Dock and saved-view affordances may remain shareable or restorable, but they must not read as an always-on second navigation system."
+      ]
+    },
+    "L33.4": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Reduce default first-load scope to active-stage and selected-object data, deferring advanced surfaces until needed.",
+      "candidate_commands": [
+        "sed -n '118,152p' docs/governance/datapulse-console-subtractive-convergence-blueprint.md",
+        "sed -n '1,260p' datapulse/console_api_client.py",
+        "uv run pytest tests/test_console_server.py -q",
+        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
+      ],
+      "target_artifacts": [
+        "datapulse/console_api_client.py",
+        "datapulse/console_client.py",
+        "datapulse/console_server.py",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py"
+      ],
+      "notes": [
+        "Keep Reader, API, and persisted lifecycle truth unchanged; only browser fetch scope and timing may change.",
+        "Fetch observation can prove request scope, but it must not become a browser-only lifecycle semantics layer."
+      ]
+    },
+    "L33.5": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Compact populated-workspace hero and guide chrome so live objects become the first visual anchor.",
+      "candidate_commands": [
+        "sed -n '152,176p' docs/governance/datapulse-console-subtractive-convergence-blueprint.md",
+        "sed -n '1,260p' datapulse/console_markup.py",
+        "uv run pytest tests/test_console_server.py -q",
+        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
+      ],
+      "target_artifacts": [
+        "datapulse/console_markup.py",
+        "datapulse/console_client.py",
+        "datapulse/console_server.py",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py"
+      ],
+      "notes": [
+        "Guidance may stay prominent for first-run, empty, or explicitly blocked states, but populated workspaces should privilege live objects over explanation copy.",
+        "Preserve the command-chamber identity during compaction instead of flattening the surface into generic admin minimalism."
+      ]
+    },
+    "L33.6": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_verification",
+      "summary": "Turn request-scope, dock-visibility, populated-chrome, and restore-path regressions into machine-detectable smoke failures.",
+      "candidate_commands": [
+        "bash scripts/datapulse_console_smoke.sh",
+        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh",
+        "uv run --extra console --with playwright python scripts/datapulse_console_browser_smoke.py"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-console-subtractive-convergence-blueprint.md",
+        "docs/gui_intelligence_console_plan.md",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py",
+        "scripts/datapulse_console_smoke.sh"
+      ],
+      "notes": [
+        "Acceptance should prove subtraction outcomes and restore stability, not only route reachability.",
+        "Keep the verification surface machine-detectable without reinterpreting browser observations as a new lifecycle truth plane."
       ]
     }
   }

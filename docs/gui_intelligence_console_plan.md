@@ -1192,9 +1192,53 @@ Target product judgment for this wave:
 - toasts are only for transient started or completed acknowledgements; actionable warnings, blocked states, and no-result explanations belong to the stage-owned message or empty-state surface
 - empty states must name why the stage is empty, the primary next action, and where that action lives
 
-Current blueprint reopening target:
+Historical reopening target after `L26`:
 
 - `no-open-slice`
+
+## Console Subtractive Convergence And First-Load Reduction Follow-up
+
+The modularity-and-traceability wave solved the "who owns request wiring, trace visibility, shared signals, and bounded frontend escalation?" problem.
+
+It did not solve the next product-fit problems:
+
+- the default console still preloads too many advanced or hidden surfaces before the active stage needs them
+- accelerators such as saved views, dock, context lens, deep links, and palette semantics still consume too much first-rank visual attention
+- populated workspaces still carry too much onboarding chrome relative to the live object the operator is trying to handle
+- restored-context instability has now shown up in browser smoke, so complexity cost is no longer only a readability concern
+
+The promoted repo-scoped blueprint for this follow-up now lives in `docs/governance/datapulse-console-subtractive-convergence-blueprint.md`.
+
+Recommended ignition order:
+
+- `L33.1` promote the subtractive-convergence blueprint; landed
+- `L33.2` freeze the first-load, accelerator, compaction, and restore-stability contract; next manual ignition target
+- `L33.3` harden saved-view, dock, and workspace-context restore stability while demoting dock visibility to pinned-only contexts
+- `L33.4` introduce stage-aware hydration and defer advanced preloads until the active stage or selected object needs them
+- `L33.5` compact populated-workspace chrome and demote onboarding or accelerator copy behind live objects
+- `L33.6` harden browser smoke and acceptance around request scope, hidden dock rules, populated chrome, and restore stability
+
+Target product judgment for this wave:
+
+- keep the workflow-first shell order from `L25`
+- keep the client boundary, trace surface, and signal taxonomy from `L26`
+- reduce first-load scope to the active stage and current object rather than preloading every hidden capability
+- demote accelerators back into accelerators, not co-primary navigation
+- let live work objects outrank onboarding chrome once the workspace is populated
+- treat restored-context stability as a first-class product-fit acceptance boundary
+
+`L33.2` frozen contract:
+
+- first load may only fetch the active stage list, the selected object detail when required, and the minimum cross-stage continuity counts needed to answer "what next"
+- report-family, delivery-audit, digest, and non-critical AI projection payloads are deferred until the active stage or selected object actually needs them
+- the visible navigation hierarchy is one lifecycle rail plus one context bar; accelerators such as dock, saved views, deep links, palette, and context lens must not read as a second navigation system
+- the dock stays hidden when there is no pinned saved view to expose
+- onboarding and guide chrome may stay prominent only in first-run, empty, or explicitly blocked states; once live objects exist, hero and guide surfaces must compact behind the current object
+- restored-context acceptance must keep `body dataset`, `aria-expanded`, backdrop open state, and active section aligned after saved-view restore and dock-driven reopen
+
+Current blueprint reopening target:
+
+- `L33.2`
 
 ## Console Modularity And Traceability Follow-up
 
