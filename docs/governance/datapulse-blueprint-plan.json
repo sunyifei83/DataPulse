@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-04-16T07:17:30Z",
+  "generated_at_utc": "2026-04-16T07:48:32Z",
   "status": "in_progress",
   "truth_contract": {
     "overlay_role": "active_entrypoint_and_activation_policy",
@@ -67,7 +67,7 @@
       "The L30 public-apis feed screening and evidence projection seeds wave is now completed in repo truth through L30.3.",
       "The L32 execution-control-plane activation wave is now completed in repo truth through the model-tier execution-profile contract.",
       "The L33 console subtractive-convergence and first-load-reduction wave is now open in repo truth through landed blueprint promotion `L33.1`, contract freeze `L33.2`, and restore-stability plus pinned-only dock implementation `L33.3`.",
-      "Operators and simple automation should treat the current `next_slice` as `L33.4`, the stage-aware hydration follow-up that defers non-critical preloads behind the active stage or selected object, not as evidence that older research, public-surface, or earlier console-structure waves reopened.",
+      "Operators and simple automation should treat the current `next_slice` as `L33.5`, the populated-workspace chrome compaction follow-up that keeps live objects ahead of guide surfaces without reopening lifecycle truth, not as evidence that older research, public-surface, or earlier console-structure waves reopened.",
       "L27 kept Reader-backed lifecycle truth canonical, treated collectors as acquisition adapters, kept AI as a governed overlay, and did not reopen shell-order simplification or force a frontend-stack migration.",
       "Operator review should treat any post-closeout truth drift as a coupling bug to remove rather than as evidence that L27 is still open or needs a parallel control plane."
     ]

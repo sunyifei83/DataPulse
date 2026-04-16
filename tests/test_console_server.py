@@ -1774,6 +1774,7 @@ def test_console_client_script_keeps_restored_context_and_guidance_contract():
     script = render_console_client_script("{}")
 
     assert "createConsoleApiClient" in script
+    assert "const hydration =" in script
     assert "normalizeRequestOptions" in script
     assert "payload" in script
     assert "watch_search" in script
@@ -1791,8 +1792,12 @@ def test_console_client_script_keeps_restored_context_and_guidance_contract():
     assert "function renderStageLinkedTraceCard" in script
     assert "function buildSharedSignalTaxonomy" in script
     assert "function renderSharedSignalTaxonomyCard" in script
+    assert "function hydrateBoardForSection" in script
+    assert "function ensureReportFamilyData" in script
+    assert "function ensureDeliveryData" in script
     assert "sharedSignalFocus: \"quality\"" in script
     assert "wireLifecycleGuideActions(root);" in script
+    assert "hydrateBoardForSection(state.activeSectionId).catch" in script
 
 
 def test_console_api_client_script_normalizes_payload_requests():

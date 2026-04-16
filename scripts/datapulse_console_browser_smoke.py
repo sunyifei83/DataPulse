@@ -10,6 +10,7 @@ import time
 from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
 from typing import Any, cast
+from urllib.parse import urlsplit
 
 import uvicorn
 
@@ -2069,6 +2070,24 @@ def _bind_page_logging(page: Page, label: str) -> None:
     page.on("dialog", lambda dialog: dialog.accept())
 
 
+def _track_api_requests(page: Page) -> list[str]:
+    requests: list[str] = []
+
+    def handle_request(request) -> None:
+        path = _request_path(request.url)
+        if path.startswith("/api/"):
+            requests.append(path)
+
+    page.on("request", handle_request)
+    return requests
+
+
+def _request_path(url: str) -> str:
+    split = urlsplit(url)
+    path = split.path or "/"
+    return f"{path}?{split.query}" if split.query else path
+
+
 def _wait_for_console_ready(page: Page) -> None:
     page.wait_for_selector("#create-watch-form", state="attached", timeout=10000)
     page.wait_for_function("() => document.querySelector('#triage-list') && document.querySelector('#story-list')", timeout=20000)
@@ -2851,6 +2870,17 @@ def _exercise_deep_link_and_existing_flow(page: Page, base_url: str) -> None:
     page.wait_for_function("() => document.body.textContent.includes('Due missions dispatched')", timeout=10000)
     page.keyboard.press("Escape")
     page.wait_for_function("() => !document.querySelector('.palette-backdrop')?.classList.contains('open')", timeout=10000)
+
+
+def _exercise_stage_aware_initial_hydration(page: Page, base_url: str) -> None:
+    _log("[console-browser-smoke] stage-aware initial hydration")
+    requests = _track_api_requests(page)
+    _goto(page, base_url)
+    _wait_for_console_ready(page)
+    page.wait_for_function("() => !window.location.hash || window.location.hash === '#section-intake'", timeout=10000)
+    time.sleep(0.4)
+    api_paths = {path for path in requests if path.startswith("/api/")}
+    assert api_paths == {"/api/overview"}, f"unexpected initial api scope: {sorted(api_paths)}"
 
 
 def _exercise_navigation_convergence(page: Page) -> None:
@@ -3675,6 +3705,7 @@ def main() -> int:
             context = browser.new_context()
             page = context.new_page()
             _bind_page_logging(page, "page-1")
+            _exercise_stage_aware_initial_hydration(page, base_url)
             _exercise_deep_link_and_existing_flow(page, base_url)
             _exercise_navigation_convergence(page)
             _exercise_workflow_stage_acceptance(page)

@@ -121,6 +121,10 @@ def render_console_client_script(initial_state: str) -> str:
     }};
 
     const $ = (id) => document.getElementById(id);
+    const hydration = {{
+      loaded: Object.create(null),
+      pending: Object.create(null),
+    }};
 {render_console_api_client_script()}
 
     function jumpToSection(targetId, {{ updateHash = true }} = {{}}) {{
@@ -141,6 +145,9 @@ def render_console_client_script(initial_state: str) -> str:
       state.activeSectionId = normalized;
       renderWorkspaceModeChrome();
       renderTopbarContext();
+      hydrateBoardForSection(normalized).catch((error) => {{
+        reportError(error, copy("Load workspace stage", "加载工作阶段"));
+      }});
       if (shouldScroll) {{
         target.scrollIntoView({{ block: "start", behavior: "smooth" }});
       }}
@@ -172,6 +179,59 @@ def render_console_client_script(initial_state: str) -> str:
         return text;
       }}
       return `${{text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}}…`;
+    }}
+
+    function markHydrationLoaded(key) {{
+      hydration.loaded[String(key || "").trim()] = true;
+    }}
+
+    function markHydrationLoadedMany(keys) {{
+      (Array.isArray(keys) ? keys : []).forEach((key) => {{
+        if (key) {{
+          markHydrationLoaded(key);
+        }}
+      }});
+    }}
+
+    function isHydrationLoaded(key) {{
+      return Boolean(hydration.loaded[String(key || "").trim()]);
+    }}
+
+    async function runHydrationTask(key, loader, {{ force = false }} = {{}}) {{
+      const normalizedKey = String(key || "").trim();
+      if (!normalizedKey) {{
+        return null;
+      }}
+      if (hydration.pending[normalizedKey]) {{
+        return hydration.pending[normalizedKey];
+      }}
+      if (!force && isHydrationLoaded(normalizedKey)) {{
+        return null;
+      }}
+      const task = (async () => {{
+        const result = await loader();
+        markHydrationLoaded(normalizedKey);
+        return result;
+      }})();
+      hydration.pending[normalizedKey] = task;
+      try {{
+        return await task;
+      }} finally {{
+        if (hydration.pending[normalizedKey] === task) {{
+          delete hydration.pending[normalizedKey];
+        }}
+      }}
+    }}
+
+    function selectExistingOrFirst(rows, currentId = "") {{
+      const availableRows = Array.isArray(rows) ? rows : [];
+      if (!availableRows.length) {{
+        return "";
+      }}
+      const normalizedCurrentId = String(currentId || "").trim();
+      return availableRows.some((row) => String(row.id || "").trim() === normalizedCurrentId)
+        ? normalizedCurrentId
+        : String(availableRows[0].id || "").trim();
     }}
 
     const textFitSegmenter = typeof Intl !== "undefined" && typeof Intl.Segmenter === "function"
@@ -1738,13 +1798,15 @@ def render_console_client_script(initial_state: str) -> str:
       }}
     }}
 
-    async function loadReportComposition(identifier, {{ includeMarkdown = false, render = true }} = {{}}) {{
+    async function loadReportComposition(identifier, {{ includeMarkdown = false, render = true, force = false }} = {{}}) {{
       const normalized = String(identifier || "").trim();
       if (!normalized) {{
         return;
       }}
-      state.reportCompositions[normalized] = await api(`/api/reports/${{normalized}}/compose`);
-      if (includeMarkdown) {{
+      if (force || !state.reportCompositions[normalized]) {{
+        state.reportCompositions[normalized] = await api(`/api/reports/${{normalized}}/compose`);
+      }}
+      if (includeMarkdown && (force || !state.reportMarkdown[normalized])) {{
         state.reportMarkdown[normalized] = await apiText(`/api/reports/${{normalized}}/export?output_format=markdown`);
       }}
       if (render) {{
@@ -2061,7 +2123,16 @@ def render_console_client_script(initial_state: str) -> str:
       }}
     }}
 
-    async function loadDigestConsole({{ render = true, preserveDraft = true }} = {{}}) {{
+    async function loadDigestConsole({{ render = true, preserveDraft = true, force = false }} = {{}}) {{
+      if (!force && state.digestConsole) {{
+        if (!preserveDraft || !state.digestProfileDraft) {{
+          state.digestProfileDraft = normalizeDigestProfileDraft(state.digestConsole?.profile?.profile || defaultDigestProfileDraft());
+        }}
+        if (render) {{
+          renderDeliveryWorkspace();
+        }}
+        return state.digestConsole;
+      }}
       const payload = await api("/api/digest/console?profile=default&limit=8");
       state.digestConsole = payload;
       if (!preserveDraft || !state.digestProfileDraft) {{
@@ -5619,7 +5690,6 @@ def render_console_client_script(initial_state: str) -> str:
 
       syncCreateWatchForm();
       renderCreateWatchDeck();
-      queueCreateWatchSuggestions(true);
 
       form.addEventListener("input", () => {{
         state.createWatchPresetId = "";
@@ -5855,6 +5925,9 @@ def render_console_client_script(initial_state: str) -> str:
           state.activeSectionId = nextSectionId;
           renderWorkspaceModeChrome();
           renderTopbarContext();
+          hydrateBoardForSection(nextSectionId).catch((error) => {{
+            reportError(error, copy("Load workspace stage", "加载工作阶段"));
+          }});
         }}, {{
           root: null,
           rootMargin: "-18% 0px -56% 0px",
@@ -5866,6 +5939,9 @@ def render_console_client_script(initial_state: str) -> str:
         state.activeSectionId = normalizeSectionId(window.location.hash || state.activeSectionId);
         renderWorkspaceModeChrome();
         renderTopbarContext();
+        hydrateBoardForSection(state.activeSectionId).catch((error) => {{
+          reportError(error, copy("Load workspace stage", "加载工作阶段"));
+        }});
       }});
     }}
 
@@ -9520,19 +9596,26 @@ def render_console_client_script(initial_state: str) -> str:
       renderTopbarContext();
     }}
 
-    async function loadWatch(identifier) {{
-      state.selectedWatchId = identifier;
+    async function loadWatch(identifier, {{ force = false }} = {{}}) {{
+      const normalizedId = String(identifier || "").trim();
+      if (!normalizedId) {{
+        return null;
+      }}
+      state.selectedWatchId = normalizedId;
       state.loading.watchDetail = true;
       renderWatches();
       renderWatchDetail();
       try {{
-        state.watchDetails[identifier] = await api(`/api/watches/${{identifier}}`);
+        if (force || !state.watchDetails[normalizedId]) {{
+          state.watchDetails[normalizedId] = await api(`/api/watches/${{normalizedId}}`);
+        }}
       }} finally {{
         state.loading.watchDetail = false;
       }}
       setContextRouteFromWatch();
       renderWatches();
       renderWatchDetail();
+      return state.watchDetails[normalizedId] || null;
     }}
 
     function renderWatchDetail() {{
@@ -13019,7 +13102,7 @@ def render_console_client_script(initial_state: str) -> str:
       scheduleCanvasTextFit(root);
     }}
 
-    async function loadStory(identifier, {{ mode = null, syncUrl = true }} = {{}}) {{
+    async function loadStory(identifier, {{ mode = null, syncUrl = true, force = false }} = {{}}) {{
       const normalizedId = String(identifier || "").trim();
       if (!normalizedId) {{
         return;
@@ -13032,12 +13115,14 @@ def render_console_client_script(initial_state: str) -> str:
       state.loading.storyDetail = true;
       renderStories();
       try {{
-        const [detail, graph] = await Promise.all([
-          api(`/api/stories/${{normalizedId}}`),
-          api(`/api/stories/${{normalizedId}}/graph`),
-        ]);
-        state.storyDetails[normalizedId] = detail;
-        state.storyGraph[normalizedId] = graph;
+        if (force || !state.storyDetails[normalizedId] || !state.storyGraph[normalizedId]) {{
+          const [detail, graph] = await Promise.all([
+            api(`/api/stories/${{normalizedId}}`),
+            api(`/api/stories/${{normalizedId}}/graph`),
+          ]);
+          state.storyDetails[normalizedId] = detail;
+          state.storyGraph[normalizedId] = graph;
+        }}
       }} finally {{
         state.loading.storyDetail = false;
       }}
@@ -14848,8 +14933,7 @@ def render_console_client_script(initial_state: str) -> str:
       scheduleCanvasTextFit(root);
     }}
 
-    async function refreshBoard() {{
-      state.loading.board = true;
+    function renderBoardShell() {{
       renderOverview();
       renderWatches();
       renderWatchDetail();
@@ -14863,6 +14947,214 @@ def render_console_client_script(initial_state: str) -> str:
       renderStories();
       renderClaimsWorkspace();
       renderReportStudio();
+    }}
+
+    async function ensureOverview({{ force = false }} = {{}}) {{
+      await runHydrationTask("overview", async () => {{
+        state.overview = await api("/api/overview");
+        return state.overview;
+      }}, {{ force }});
+    }}
+
+    async function ensureMonitorData({{ force = false }} = {{}}) {{
+      await runHydrationTask("monitor", async () => {{
+        const [watches, alerts, routes, status] = await Promise.all([
+          api("/api/watches?include_disabled=true"),
+          api("/api/alerts?limit=8"),
+          api("/api/alert-routes"),
+          api("/api/watch-status"),
+        ]);
+        state.watches = watches;
+        state.alerts = alerts;
+        state.routes = routes;
+        state.status = status;
+        if (state.watches.length) {{
+          state.selectedWatchId = selectExistingOrFirst(state.watches, state.selectedWatchId);
+        }} else {{
+          state.selectedWatchId = "";
+          setContextRouteName("", "");
+        }}
+        setContextRouteFromWatch();
+        return watches;
+      }}, {{ force }});
+    }}
+
+    async function ensureReviewData({{ force = false }} = {{}}) {{
+      await runHydrationTask("review", async () => {{
+        const [triage, triageStats, stories] = await Promise.all([
+          api("/api/triage?limit=12&include_closed=true"),
+          api("/api/triage/stats"),
+          api("/api/stories?limit=6&min_items=0"),
+        ]);
+        state.triage = triage;
+        state.triageStats = triageStats;
+        state.stories = stories;
+        if (state.stories.length) {{
+          const selectedStoryId = selectExistingOrFirst(state.stories, state.selectedStoryId);
+          state.selectedStoryId = selectedStoryId;
+          if (!state.storyDetails[selectedStoryId]) {{
+            const seeded = state.stories.find((story) => String(story.id || "").trim() === selectedStoryId);
+            if (seeded) {{
+              state.storyDetails[selectedStoryId] = seeded;
+            }}
+          }}
+        }} else {{
+          state.selectedStoryId = "";
+        }}
+        state.selectedTriageId = selectExistingOrFirst(state.triage, state.selectedTriageId);
+        return triage;
+      }}, {{ force }});
+    }}
+
+    async function ensureReportFamilyData({{ force = false }} = {{}}) {{
+      await runHydrationTask("report-family", async () => {{
+        const [reportBriefs, claimCards, citationBundles, reportSections, reports, exportProfiles] = await Promise.all([
+          api("/api/report-briefs?limit=20"),
+          api("/api/claim-cards?limit=40"),
+          api("/api/citation-bundles?limit=40"),
+          api("/api/report-sections?limit=40"),
+          api("/api/reports?limit=20"),
+          api("/api/export-profiles?limit=40"),
+        ]);
+        state.reportBriefs = reportBriefs;
+        state.claimCards = claimCards;
+        state.citationBundles = citationBundles;
+        state.reportSections = reportSections;
+        state.reports = reports;
+        state.exportProfiles = exportProfiles;
+        syncReportSelectionState();
+        return reports;
+      }}, {{ force }});
+    }}
+
+    async function ensureDeliveryData({{ force = false }} = {{}}) {{
+      await runHydrationTask("delivery", async () => {{
+        const [alerts, routes, routeHealth, deliverySubscriptions, deliveryDispatchRecords, status, ops, reports, exportProfiles] = await Promise.all([
+          api("/api/alerts?limit=8"),
+          api("/api/alert-routes"),
+          api("/api/alert-routes/health?limit=60"),
+          api("/api/delivery-subscriptions?limit=40"),
+          api("/api/delivery-dispatch-records?limit=40"),
+          api("/api/watch-status"),
+          api("/api/ops"),
+          api("/api/reports?limit=20"),
+          api("/api/export-profiles?limit=40"),
+        ]);
+        state.alerts = alerts;
+        state.routes = routes;
+        state.routeHealth = routeHealth;
+        state.deliverySubscriptions = deliverySubscriptions;
+        state.deliveryDispatchRecords = deliveryDispatchRecords;
+        state.status = status;
+        state.ops = ops;
+        state.reports = reports;
+        state.exportProfiles = exportProfiles;
+        syncDeliverySelectionState();
+        return deliverySubscriptions;
+      }}, {{ force }});
+    }}
+
+    async function ensureSelectedWatchDetail({{ force = false }} = {{}}) {{
+      const selectedWatchId = selectExistingOrFirst(state.watches, state.selectedWatchId);
+      if (!selectedWatchId) {{
+        state.selectedWatchId = "";
+        return null;
+      }}
+      state.selectedWatchId = selectedWatchId;
+      if (!force && state.watchDetails[selectedWatchId]) {{
+        return state.watchDetails[selectedWatchId];
+      }}
+      return loadWatch(selectedWatchId, {{ force }});
+    }}
+
+    async function ensureSelectedStoryDetail({{ force = false }} = {{}}) {{
+      const selectedStoryId = selectExistingOrFirst(state.stories, state.selectedStoryId);
+      if (!selectedStoryId) {{
+        state.selectedStoryId = "";
+        return null;
+      }}
+      state.selectedStoryId = selectedStoryId;
+      if (!force && state.storyDetails[selectedStoryId] && state.storyGraph[selectedStoryId]) {{
+        return state.storyDetails[selectedStoryId];
+      }}
+      await loadStory(selectedStoryId, {{ syncUrl: false, force }});
+      return state.storyDetails[selectedStoryId] || null;
+    }}
+
+    async function ensureSelectedReportComposition({{ force = false }} = {{}}) {{
+      syncReportSelectionState();
+      if (!state.selectedReportId) {{
+        return null;
+      }}
+      if (!force && state.reportCompositions[state.selectedReportId]) {{
+        return state.reportCompositions[state.selectedReportId];
+      }}
+      await loadReportComposition(state.selectedReportId, {{ render: false, force }});
+      return state.reportCompositions[state.selectedReportId] || null;
+    }}
+
+    async function ensureDigestData({{ force = false }} = {{}}) {{
+      await runHydrationTask("digest", async () => {{
+        return loadDigestConsole({{ render: false, preserveDraft: true, force }});
+      }}, {{ force }});
+    }}
+
+    async function ensureAiSurfacePrecheck(surfaceId, {{ force = false }} = {{}}) {{
+      const normalizedSurfaceId = String(surfaceId || "").trim();
+      if (!normalizedSurfaceId) {{
+        return null;
+      }}
+      const cacheKey = `ai-precheck:${{normalizedSurfaceId}}`;
+      if (!force && state.aiSurfacePrechecks[normalizedSurfaceId]) {{
+        markHydrationLoaded(cacheKey);
+        return state.aiSurfacePrechecks[normalizedSurfaceId];
+      }}
+      await runHydrationTask(cacheKey, async () => {{
+        state.aiSurfacePrechecks[normalizedSurfaceId] = await api(`/api/ai/surfaces/${{normalizedSurfaceId}}/precheck?mode=assist`);
+        return state.aiSurfacePrechecks[normalizedSurfaceId];
+      }}, {{ force }});
+      return state.aiSurfacePrechecks[normalizedSurfaceId] || null;
+    }}
+
+    async function hydrateBoardForSection(sectionId, {{ force = false }} = {{}}) {{
+      const normalizedSectionId = normalizeSectionId(sectionId || state.activeSectionId);
+      state.loading.board = true;
+      renderBoardShell();
+      try {{
+        await ensureOverview({{ force }});
+        if (normalizedSectionId === "section-board") {{
+          await ensureMonitorData({{ force }});
+          await ensureAiSurfacePrecheck("mission_suggest");
+        }} else if (normalizedSectionId === "section-cockpit") {{
+          await ensureMonitorData({{ force }});
+          await ensureSelectedWatchDetail({{ force }});
+          await ensureAiSurfacePrecheck("mission_suggest");
+        }} else if (normalizedSectionId === "section-triage") {{
+          await ensureReviewData({{ force }});
+          await ensureAiSurfacePrecheck("triage_assist");
+        }} else if (normalizedSectionId === "section-story") {{
+          await ensureReviewData({{ force }});
+          await ensureSelectedStoryDetail({{ force }});
+          await ensureAiSurfacePrecheck("claim_draft");
+        }} else if (normalizedSectionId === "section-claims" || normalizedSectionId === "section-report-studio") {{
+          await ensureReviewData({{ force }});
+          await ensureReportFamilyData({{ force }});
+          await ensureSelectedReportComposition({{ force }});
+        }} else if (normalizedSectionId === "section-ops") {{
+          await ensureDeliveryData({{ force }});
+          await ensureDigestData({{ force }});
+        }}
+      }} finally {{
+        state.loading.board = false;
+      }}
+      renderBoardShell();
+      renderCreateWatchDeck();
+      applyDefaultSavedViewOnBoot();
+    }}
+
+    async function refreshBoard() {{
+      state.loading.board = true;
+      renderBoardShell();
       try {{
         const [overview, watches, alerts, routes, routeHealth, deliverySubscriptions, deliveryDispatchRecords, digestConsole, status, ops, triage, triageStats, stories, reportBriefs, claimCards, citationBundles, reportSections, reports, exportProfiles, missionSuggestPrecheck, triageAssistPrecheck, claimDraftPrecheck] = await Promise.all([
           api("/api/overview"),
@@ -14981,22 +15273,21 @@ def render_console_client_script(initial_state: str) -> str:
             state.deliveryPackageErrors[String(selectedDelivery.id || "").trim()] = error.message;
           }}
         }}
+        markHydrationLoadedMany([
+          "overview",
+          "monitor",
+          "review",
+          "report-family",
+          "delivery",
+          "digest",
+          "ai-precheck:mission_suggest",
+          "ai-precheck:triage_assist",
+          "ai-precheck:claim_draft",
+        ]);
       }} finally {{
         state.loading.board = false;
       }}
-      renderOverview();
-      renderWatches();
-      renderWatchDetail();
-      renderAlerts();
-      renderRoutes();
-      renderRouteHealth();
-      renderDeliveryWorkspace();
-      renderAiSurfaces();
-      renderStatus();
-      renderTriage();
-      renderStories();
-      renderClaimsWorkspace();
-      renderReportStudio();
+      renderBoardShell();
       renderCreateWatchDeck();
       applyDefaultSavedViewOnBoot();
     }}
@@ -15245,7 +15536,7 @@ def render_console_client_script(initial_state: str) -> str:
     state.consoleOverflowEvidence = defaultConsoleOverflowEvidence();
     window.getConsoleOverflowEvidence = getConsoleOverflowEvidence;
 
-    refreshBoard().catch((error) => {{
+    hydrateBoardForSection(state.activeSectionId).catch((error) => {{
       reportError(error, copy("Console boot failed", "控制台启动失败"));
     }});
 
