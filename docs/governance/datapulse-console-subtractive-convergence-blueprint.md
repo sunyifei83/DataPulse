@@ -1,6 +1,6 @@
 # DataPulse Console Subtractive Convergence Blueprint
 
-Status: repo-scoped follow-up blueprint, `L33.1` landed; `L33.2` is the next manual ignition target
+Status: repo-scoped follow-up blueprint, `L33.1` and `L33.2` landed; `L33.3` is the next manual ignition target
 
 Created: 2026-04-16
 
@@ -107,7 +107,7 @@ This wave must not:
 
 ## L33 Contract Targets
 
-`L33.2` should freeze five things before implementation begins:
+`L33.2` freezes five things before implementation begins:
 
 1. the default first-load hydration boundary by stage and selected object
 2. the visible navigation hierarchy and accelerator demotion rules
@@ -193,7 +193,7 @@ This wave must not:
 
 Recommended order:
 
-1. `L33.2`
+1. `L33.2`; landed
 2. `L33.3`
 3. `L33.4`
 4. `L33.5`
@@ -201,13 +201,13 @@ Recommended order:
 
 ## Manual Ignition Boundary
 
-`L33.1` is now landed, so the next manual ignition target is `L33.2`.
+`L33.1` and `L33.2` are now landed, so the next manual ignition target is `L33.3`.
 
 Reason:
 
 - `L25` already solved shell order and first-rank stage ownership
 - `L26` already solved client boundary, stage-linked traceability, signal ownership, and bounded frontend escalation
-- the current repo evidence now points to second-round subtraction: first-load scope, accelerator rank, populated chrome, and restore stability
+- `L33.2` now freezes the subtractive-convergence contract, so the next repo-owned gap is the first concrete implementation boundary: restore stability plus pinned-only dock visibility
 
 After the blueprint landing is committed and the repo returns to a clean baseline, the normal local ignition entrypoint remains:
 
@@ -215,7 +215,7 @@ After the blueprint landing is committed and the repo returns to a clean baselin
 bash scripts/governance/ignite_datapulse_codex_loop.sh
 ```
 
-Expected next slice after this blueprint landing: `L33.2`
+Expected next slice after this contract freeze landing: `L33.3`
 
 ## Fact Sources
 
@@ -229,7 +229,7 @@ Expected next slice after this blueprint landing: `L33.2`
 
 DataPulse reopens console follow-up work without reopening the wrong questions:
 
-- the next ignition target is a contract-freeze slice for subtraction rather than another generic "improve the UI" discussion
+- the contract-freeze slice for subtraction is now landed, and the next ignition target is the restore-stability plus pinned-dock implementation boundary
 - first-load scope, accelerator rank, and populated-workspace chrome all become explicit repo truth before implementation starts
 - restore-path stability is promoted into a first-class acceptance boundary
 - the current shell remains the implementation surface, while lifecycle truth, shell order, and frontend-escalation boundaries stay intact

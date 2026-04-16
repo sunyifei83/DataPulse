@@ -4031,13 +4031,7 @@ def render_console_client_script(initial_state: str) -> str:
       const remainingSlots = Math.max(0, 4 - pinnedCount);
       const onIntake = normalizeSectionId(state.activeSectionId) === "section-intake";
       const showSectionRail = stageSections.length > 1;
-      const shouldShowDock = Boolean(
-        pinnedEntries.length ||
-        showSectionRail ||
-        !onIntake ||
-        currentSavedEntry ||
-        defaultEntry
-      );
+      const shouldShowDock = Boolean(pinnedEntries.length);
       const showUnsavedHint = Boolean(
         current &&
         !currentSavedEntry &&
@@ -4047,15 +4041,10 @@ def render_console_client_script(initial_state: str) -> str:
       const canSaveCurrent = Boolean(!onIntake && current && !currentSavedEntry);
       const canPinCurrent = Boolean(currentSavedIndex >= 0 && currentSavedEntry && !currentSavedEntry.pinned);
       const summaryLabel = current?.summary || copy("No active context", "当前没有激活上下文");
-      const summaryCopy = pinnedEntries.length
-        ? copy(
-            "Use the lifecycle rail for primary movement. Pinned views stay here as accelerators, while deep links and palette actions remain optional speed paths.",
-            "主导航仍由生命周期主轨负责；这里保留固定视图作为加速入口，而深链和命令面板继续只是可选捷径。"
-          )
-        : copy(
-            "Use the lifecycle rail for primary movement. Open Workspace Context only when you need section detail, saved views, or shareable links.",
-            "主导航由生命周期主轨负责；只有在需要区块细节、保存视图或分享链接时，再展开“工作上下文”。"
-          );
+      const summaryCopy = copy(
+        "Use the lifecycle rail for primary movement. Pinned views stay here as accelerators, while deep links and palette actions remain optional speed paths.",
+        "主导航仍由生命周期主轨负责；这里保留固定视图作为加速入口，而深链和命令面板继续只是可选捷径。"
+      );
       root.hidden = !shouldShowDock;
       if (!shouldShowDock) {{
         root.innerHTML = "";
@@ -4290,6 +4279,27 @@ def render_console_client_script(initial_state: str) -> str:
       }});
     }}
 
+    function syncContextLensChrome() {{
+      const summary = $("context-summary");
+      const lens = $("context-lens");
+      const backdrop = $("context-lens-backdrop");
+      const lensOpen = Boolean(state.contextLensOpen);
+      if (summary) {{
+        summary.setAttribute("aria-expanded", lensOpen ? "true" : "false");
+      }}
+      if (document.body) {{
+        document.body.dataset.contextLensOpen = lensOpen ? "true" : "false";
+      }}
+      if (backdrop) {{
+        backdrop.hidden = !lensOpen;
+        backdrop.classList.toggle("open", lensOpen);
+      }}
+      if (lens) {{
+        lens.hidden = !lensOpen;
+        lens.setAttribute("aria-hidden", lensOpen ? "false" : "true");
+      }}
+    }}
+
     function renderContextLens(descriptor = buildTopbarContextDescriptor()) {{
       const body = $("context-lens-body");
       if (!body) {{
@@ -4318,23 +4328,8 @@ def render_console_client_script(initial_state: str) -> str:
 
     function setContextLensOpen(nextOpen) {{
       state.contextLensOpen = Boolean(nextOpen);
-      const summary = $("context-summary");
-      const lens = $("context-lens");
-      const backdrop = $("context-lens-backdrop");
       const shell = $("context-lens-shell");
-      if (summary) {{
-        summary.setAttribute("aria-expanded", state.contextLensOpen ? "true" : "false");
-      }}
-      if (document.body) {{
-        document.body.dataset.contextLensOpen = state.contextLensOpen ? "true" : "false";
-      }}
-      if (backdrop) {{
-        backdrop.hidden = !state.contextLensOpen;
-        backdrop.classList.toggle("open", state.contextLensOpen);
-      }}
-      if (lens) {{
-        lens.hidden = !state.contextLensOpen;
-      }}
+      syncContextLensChrome();
       if (state.contextLensOpen) {{
         renderContextLens();
         window.setTimeout(() => {{
@@ -4676,6 +4671,7 @@ def render_console_client_script(initial_state: str) -> str:
       renderContextObjectRail();
       renderContextLens(descriptor);
       renderContextViewDock();
+      syncContextLensChrome();
       renderIntakeLiveDesk();
       renderWorkspaceModeShell();
       scheduleCanvasTextFit($("context-shell"));

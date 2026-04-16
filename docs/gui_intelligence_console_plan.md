@@ -1212,7 +1212,7 @@ The promoted repo-scoped blueprint for this follow-up now lives in `docs/governa
 Recommended ignition order:
 
 - `L33.1` promote the subtractive-convergence blueprint; landed
-- `L33.2` freeze the first-load, accelerator, compaction, and restore-stability contract; next manual ignition target
+- `L33.2` freeze the first-load, accelerator, compaction, and restore-stability contract; landed
 - `L33.3` harden saved-view, dock, and workspace-context restore stability while demoting dock visibility to pinned-only contexts
 - `L33.4` introduce stage-aware hydration and defer advanced preloads until the active stage or selected object needs them
 - `L33.5` compact populated-workspace chrome and demote onboarding or accelerator copy behind live objects
@@ -1235,10 +1235,11 @@ Target product judgment for this wave:
 - the dock stays hidden when there is no pinned saved view to expose
 - onboarding and guide chrome may stay prominent only in first-run, empty, or explicitly blocked states; once live objects exist, hero and guide surfaces must compact behind the current object
 - restored-context acceptance must keep `body dataset`, `aria-expanded`, backdrop open state, and active section aligned after saved-view restore and dock-driven reopen
+- later browser acceptance must also verify hidden-dock behavior, compact populated-workspace chrome, and first-load request scope staying inside the active stage boundary without inventing browser-only lifecycle semantics
 
 Current blueprint reopening target:
 
-- `L33.2`
+- `L33.3`
 
 ## Console Modularity And Traceability Follow-up
 

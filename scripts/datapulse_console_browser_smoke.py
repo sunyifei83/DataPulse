@@ -2188,12 +2188,17 @@ def _wait_for_shared_signal_panel(page: Page, signal_id: str) -> None:
     page.wait_for_function(
         """(expectedSignalId) => {
             const panel = document.querySelector('[data-shared-signal-panel]');
+            const button = document.querySelector(`[data-shared-signal-button="${expectedSignalId}"]`);
             return !!panel
+                && typeof state === 'object'
+                && state.sharedSignalFocus === expectedSignalId
+                && !!button
+                && button.classList.contains('active')
                 && panel.getAttribute('data-shared-signal-panel') === expectedSignalId
                 && (panel.textContent || '').trim().length > 0;
         }""",
         arg=signal_id,
-        timeout=10000,
+        timeout=15000,
     )
 
 
@@ -2201,14 +2206,14 @@ def _select_shared_signal(page: Page, signal_id: str) -> None:
     selector = f'[data-shared-signal-button="{signal_id}"]'
     _wait_for_interactive_button(page, selector)
     last_error: Exception | None = None
-    for _ in range(3):
+    for _ in range(4):
         _click(page, selector)
         try:
             _wait_for_shared_signal_panel(page, signal_id)
             return
         except PlaywrightTimeoutError as exc:
             last_error = exc
-            page.wait_for_timeout(150)
+            page.wait_for_timeout(250)
     if last_error is not None:
         raise last_error
     raise AssertionError(f"shared signal panel did not settle for {signal_id}")
@@ -2369,13 +2374,60 @@ def _wait_for_context_lens_state(page: Page, *, open_state: bool) -> None:
     expression = (
         "() => document.body.dataset.contextLensOpen === 'true'"
         " && document.querySelector('#context-lens-backdrop')?.classList.contains('open')"
+        " && document.querySelector('#context-lens-backdrop')?.hidden === false"
+        " && document.querySelector('#context-lens')?.hidden === false"
         " && document.querySelector('#context-summary')?.getAttribute('aria-expanded') === 'true'"
         if open_state
         else "() => document.body.dataset.contextLensOpen !== 'true'"
         " && !document.querySelector('#context-lens-backdrop')?.classList.contains('open')"
+        " && document.querySelector('#context-lens-backdrop')?.hidden === true"
+        " && document.querySelector('#context-lens')?.hidden === true"
         " && document.querySelector('#context-summary')?.getAttribute('aria-expanded') === 'false'"
     )
     page.wait_for_function(expression, timeout=10000)
+
+
+def _wait_for_context_dock_state(page: Page, *, visible: bool) -> None:
+    expression = (
+        "() => {"
+        " const root = document.querySelector('#context-view-dock');"
+        " return !!root"
+        "   && root.hidden === false"
+        "   && root.querySelectorAll('[data-context-dock-open]').length > 0;"
+        "}"
+        if visible
+        else "() => {"
+        " const root = document.querySelector('#context-view-dock');"
+        " return !!root"
+        "   && root.hidden === true"
+        "   && !root.querySelector('[data-context-dock-open]');"
+        "}"
+    )
+    page.wait_for_function(expression, timeout=10000)
+
+
+def _wait_for_digest_dispatch_result(page: Page, *, route_name: str, status: str) -> None:
+    page.wait_for_function(
+        """([expectedRouteName, expectedStatus]) => {
+            if (typeof state !== 'object' || !Array.isArray(state.digestDispatchResult)) {
+                return false;
+            }
+            return state.digestDispatchResult.some((row) => {
+                if (!row || typeof row !== 'object') {
+                    return false;
+                }
+                const routeName = String(row.route_name || '').trim();
+                const rowStatus = String(row.status || '').trim().toLowerCase();
+                const diagnostics = row.governance?.delivery_diagnostics;
+                return routeName === expectedRouteName
+                    && rowStatus === expectedStatus
+                    && !!diagnostics
+                    && typeof diagnostics === 'object';
+            });
+        }""",
+        arg=[route_name, status],
+        timeout=20000,
+    )
 
 
 def _open_context_lens(page: Page, trigger_selector: str) -> None:
@@ -3010,11 +3062,14 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
     page.wait_for_function("() => window.location.search.includes('triage_filter=verified')", timeout=10000)
     page.wait_for_function("() => !!document.querySelector('[data-triage-card=\"item-2\"]')", timeout=10000)
     _wait_for_section_summary(page, "section-triage")
+    _wait_for_context_dock_state(page, visible=False)
     _open_context_lens(page, "#context-summary")
     page.fill("#context-save-name", saved_view_name)
     _click(page, "#context-save-submit")
     page.wait_for_function("(expectedName) => document.querySelector('#context-lens-saved')?.textContent?.includes(expectedName)", arg=saved_view_name, timeout=10000)
+    _wait_for_context_dock_state(page, visible=False)
     _click(page, "[data-context-saved-pin='0']")
+    _wait_for_context_dock_state(page, visible=True)
     page.wait_for_function(
         """(expectedName) => {
             const button = document.querySelector('[data-context-dock-open="0"]');
@@ -3043,6 +3098,7 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
     next_page.wait_for_function("() => document.querySelector('[data-triage-card=\"item-2\"]')?.classList.contains('selected')", timeout=10000)
     _wait_for_section_summary(next_page, "section-triage")
     _wait_for_operator_guidance_surface(next_page, "triage-guidance-surface")
+    _wait_for_context_dock_state(next_page, visible=True)
     next_page.wait_for_function(
         """(expectedName) => {
             const button = document.querySelector('[data-context-dock-open="0"]');
@@ -3093,6 +3149,10 @@ def _exercise_saved_views_and_dock(page: Page, base_url: str, browser) -> Page:
     _wait_for_active_rail(next_page, "nav-review", "#section-triage")
     _wait_for_section_summary(next_page, "section-triage")
     _wait_for_operator_guidance_surface(next_page, "triage-guidance-surface")
+    _open_context_lens(next_page, "#context-summary")
+    next_page.evaluate("renderTopbarContext()")
+    _wait_for_context_lens_state(next_page, open_state=True)
+    _close_context_lens(next_page)
     return next_page
 
 
@@ -3425,11 +3485,14 @@ def _exercise_delivery_workspace(page: Page, report_context: Row) -> None:
         timeout=20000,
     )
     _click(page, "[data-digest-dispatch]")
+    _wait_for_digest_dispatch_result(page, route_name="ops-webhook", status="delivered")
     page.wait_for_function(
         """() => {
             const diagnostics = document.querySelector('#digest-route-diagnostics');
-            const text = diagnostics ? diagnostics.textContent || '' : '';
-            return text.includes('webhook:ops-webhook') && text.toLowerCase().includes('delivered');
+            const text = diagnostics ? (diagnostics.textContent || '').trim() : '';
+            return !!text
+                && !text.includes('No route-backed diagnostic row is visible yet.')
+                && !text.includes('当前还没有看到路由诊断记录');
         }""",
         timeout=20000,
     )

@@ -1665,6 +1665,8 @@ def test_console_index_serves_shell():
     assert 'data-action-sheet-mode="inline"' in response.text
     assert "data-context-dock-open" in response.text
     assert "data-context-saved-default" in response.text
+    assert "function syncContextLensChrome" in response.text
+    assert "const shouldShowDock = Boolean(pinnedEntries.length);" in response.text
     assert '<section class="workspace-mode-shell" id="workspace-mode-shell" hidden></section>' in response.text
     assert "Workspace Modes" not in response.text
     assert "function resolveResponsiveInteractionContract" in response.text

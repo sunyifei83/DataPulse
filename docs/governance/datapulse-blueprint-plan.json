@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-04-16T05:13:29Z",
+  "generated_at_utc": "2026-04-16T07:17:30Z",
   "status": "in_progress",
   "truth_contract": {
     "overlay_role": "active_entrypoint_and_activation_policy",
@@ -66,8 +66,8 @@
       "The L29 intent-aware research substrate wave is now completed in repo truth through L29.6, with machine-checkable routing audit fields, projection parity checks, and bounded reopen rules over planning regressions, provenance drift, and cross-surface contradiction.",
       "The L30 public-apis feed screening and evidence projection seeds wave is now completed in repo truth through L30.3.",
       "The L32 execution-control-plane activation wave is now completed in repo truth through the model-tier execution-profile contract.",
-      "The L33 console subtractive-convergence and first-load-reduction wave is now open in repo truth through landed blueprint promotion `L33.1`.",
-      "Operators and simple automation should treat the current `next_slice` as `L33.2`, the subtractive-convergence contract-freeze follow-up over first-load scope, accelerator rank, populated-workspace chrome, and restore stability, not as evidence that older research, public-surface, or earlier console-structure waves reopened.",
+      "The L33 console subtractive-convergence and first-load-reduction wave is now open in repo truth through landed blueprint promotion `L33.1`, contract freeze `L33.2`, and restore-stability plus pinned-only dock implementation `L33.3`.",
+      "Operators and simple automation should treat the current `next_slice` as `L33.4`, the stage-aware hydration follow-up that defers non-critical preloads behind the active stage or selected object, not as evidence that older research, public-surface, or earlier console-structure waves reopened.",
       "L27 kept Reader-backed lifecycle truth canonical, treated collectors as acquisition adapters, kept AI as a governed overlay, and did not reopen shell-order simplification or force a frontend-stack migration.",
       "Operator review should treat any post-closeout truth drift as a coupling bug to remove rather than as evidence that L27 is still open or needs a parallel control plane."
     ]
