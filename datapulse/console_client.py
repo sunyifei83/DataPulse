@@ -13053,58 +13053,68 @@ def render_console_client_script(initial_state: str) -> str:
         scheduleCanvasTextFit(root);
         return;
       }}
-      root.innerHTML = `
-        ${{triageSearchCard}}
-        <div class="card">
-          <div class="mono">${{copy("triage filters", "分诊筛选")}}</div>
-          <div class="panel-sub">${{copy("Slice the queue by current review state before applying notes or state transitions.", "在写备注或修改状态前，先按审核状态切分队列。")}}</div>
-          <div class="stack" style="margin-top:12px;">${{filterBlock}}</div>
-        </div>
-        <div class="card">
-          <div class="mono">${{copy("triage shortcuts", "分诊快捷键")}}</div>
-          <div class="panel-sub">${{copy("Use J/K to move, V to verify, T to triage, E to escalate, I to ignore, S to create a story, D to explain duplicates, and N to focus the note composer.", "使用 J/K 上下移动，V 核验，T 分诊，E 升级，I 忽略，S 生成故事，D 查看重复解释，N 聚焦备注输入。")}}</div>
-        </div>
-        ${{batchToolbar}}
-        ${{triageWorkbench}}
-        ${{
-          filteredItems.length
-            ? filteredItems.map((item) => {{
-                const linkedStories = getStoriesForEvidenceItem(item.id);
-                const noteCount = Array.isArray(item.review_notes) ? item.review_notes.length : 0;
-                const itemMission = String(item?.extra?.watch_mission_name || item?.watch_mission_name || "").trim();
-                const actionHierarchy = getTriageCardActionHierarchy(item, linkedStories);
-                return `
-        <div class="card selectable ${{item.id === state.selectedTriageId ? "selected" : ""}}" data-triage-card="${{item.id}}">
-          <div class="card-top">
-            <div class="triage-card-head">
-              <label class="checkbox-inline">
-                <input type="checkbox" data-triage-select="${{item.id}}" ${{isTriageItemSelected(item.id) ? "checked" : ""}}>
-                <span>${{copy("select", "选择")}}</span>
-              </label>
-              <div>
-                <h3 class="card-title">${{item.title}}</h3>
-                <div class="meta">
-                  <span>${{item.id}}</span>
-                  <span>${{copy("state", "状态")}}=${{localizeWord(item.review_state || "new")}}</span>
-                  <span>${{copy("score", "分数")}}=${{item.score || 0}}</span>
-                  <span>${{copy("confidence", "置信度")}}=${{Number(item.confidence || 0).toFixed(2)}}</span>
-                </div>
+      const listItemsHtml = filteredItems.length
+        ? filteredItems.map((item) => {{
+            const linkedStories = getStoriesForEvidenceItem(item.id);
+            const noteCount = Array.isArray(item.review_notes) ? item.review_notes.length : 0;
+            const itemMission = String(item?.extra?.watch_mission_name || item?.watch_mission_name || "").trim();
+            const actionHierarchy = getTriageCardActionHierarchy(item, linkedStories);
+            return `
+      <div class="card selectable ${{item.id === state.selectedTriageId ? "selected" : ""}}" data-triage-card="${{item.id}}">
+        <div class="card-top">
+          <div class="triage-card-head">
+            <label class="checkbox-inline">
+              <input type="checkbox" data-triage-select="${{item.id}}" ${{isTriageItemSelected(item.id) ? "checked" : ""}}>
+              <span>${{copy("select", "选择")}}</span>
+            </label>
+            <div>
+              <h3 class="card-title">${{item.title}}</h3>
+              <div class="meta">
+                <span>${{item.id}}</span>
+                <span>${{copy("state", "状态")}}=${{localizeWord(item.review_state || "new")}}</span>
+                <span>${{copy("score", "分数")}}=${{item.score || 0}}</span>
+                <span>${{copy("confidence", "置信度")}}=${{Number(item.confidence || 0).toFixed(2)}}</span>
               </div>
             </div>
-            <span class="chip ${{item.review_state === "escalated" ? "hot" : ""}}">${{localizeWord(item.review_state || "new")}}</span>
           </div>
-          <div class="panel-sub">${{item.url}}</div>
-          <div class="meta">
-            <span>${{copy("notes", "备注")}}=${{noteCount}}</span>
-            <span>${{copy("stories", "故事")}}=${{linkedStories.length}}</span>
-            ${{itemMission ? `<span>${{copy("mission", "任务")}}=${{escapeHtml(clampLabel(itemMission, 28))}}</span>` : ""}}
-          </div>
-          ${{renderCardActionHierarchy(actionHierarchy)}}
+          <span class="chip ${{item.review_state === "escalated" ? "hot" : ""}}">${{localizeWord(item.review_state || "new")}}</span>
         </div>
-      `;
-              }}).join("")
-            : `<div class="empty">${{copy("No triage item matched the active queue filter.", "没有条目匹配当前分诊筛选。")}}</div>`
-        }}
+        <div class="panel-sub">${{item.url}}</div>
+        <div class="meta">
+          <span>${{copy("notes", "备注")}}=${{noteCount}}</span>
+          <span>${{copy("stories", "故事")}}=${{linkedStories.length}}</span>
+          ${{itemMission ? `<span>${{copy("mission", "任务")}}=${{escapeHtml(clampLabel(itemMission, 28))}}</span>` : ""}}
+        </div>
+        ${{renderCardActionHierarchy(actionHierarchy)}}
+      </div>
+    `;
+          }}).join("")
+        : `<div class="empty">${{copy("No triage item matched the active queue filter.", "没有条目匹配当前分诊筛选。")}}</div>`;
+
+      const detailHtml = triageWorkbench
+        ? triageWorkbench
+        : `<div class="md-detail-empty">${{copy("Select an evidence item from the queue to open the review workbench.", "在左侧队列中选择一条证据，打开审阅工作台。")}}</div>`;
+
+      root.innerHTML = `
+        <div class="md-shell" data-layout="master-detail" data-md-mode="${{selectedTriageItem ? "detail" : "list"}}">
+          <aside class="md-list">
+            <div class="md-list-head">
+              ${{triageSearchCard}}
+              <div class="md-list-filter" role="group" aria-label="${{escapeHtml(copy("Triage queue filters", "分诊队列筛选"))}}">
+                ${{filterOptions.map((option) => `
+                  <button class="ui-segment-button ${{activeFilter === option.key ? "active" : ""}}" type="button" data-triage-filter="${{escapeHtml(option.key)}}" aria-pressed="${{activeFilter === option.key ? "true" : "false"}}">${{escapeHtml(option.label)}} (${{option.count || 0}})</button>
+                `).join("")}}
+              </div>
+              ${{batchToolbar}}
+            </div>
+            <div class="md-list-scroll">
+              ${{listItemsHtml}}
+            </div>
+          </aside>
+          <section class="md-detail">
+            ${{detailHtml}}
+          </section>
+        </div>
       `;
 
       root.querySelectorAll("[data-triage-filter]").forEach((button) => {{

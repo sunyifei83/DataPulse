@@ -862,13 +862,16 @@ def render_console_html(title: str) -> str:
     }}
     .guide-grid {{
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap: 12px;
       margin-top: 20px;
     }}
     .guide-card {{
       display: grid;
       gap: 8px;
+      min-width: 0;
+      overflow: hidden;
+      overflow-wrap: anywhere;
       padding: var(--guide-padding);
       border-radius: 18px;
       border: 1px solid rgba(214, 196, 177, 0.16);
@@ -1022,11 +1025,13 @@ def render_console_html(title: str) -> str:
     }}
     .workspace-mode-grid {{
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(320px, 480px));
+      justify-content: start;
       gap: 12px;
     }}
     .workspace-mode-card {{
       width: 100%;
+      min-width: 0;
       display: grid;
       gap: 14px;
       text-align: left;
@@ -1036,6 +1041,8 @@ def render_console_html(title: str) -> str:
       background: linear-gradient(180deg, rgba(36, 28, 22, 0.72), rgba(23, 18, 15, 0.58));
       color: var(--ink);
       box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.03);
+      overflow: hidden;
+      overflow-wrap: anywhere;
     }}
     .workspace-mode-card.active {{
       border-color: rgba(214, 196, 177, 0.22);
@@ -1046,11 +1053,13 @@ def render_console_html(title: str) -> str:
         0 14px 34px rgba(8, 5, 3, 0.24),
         inset 0 0 0 1px rgba(248, 239, 230, 0.06);
     }}
-    .workspace-mode-card:hover,
-    .workspace-mode-card:focus-visible {{
+    .workspace-mode-card:hover {{
       transform: translateY(-1px);
+      position: relative;
+      z-index: 2;
       border-color: rgba(214, 196, 177, 0.2);
       background: linear-gradient(180deg, rgba(41, 31, 24, 0.78), rgba(27, 20, 16, 0.72));
+      box-shadow: 0 10px 26px rgba(8, 5, 3, 0.28), inset 0 0 0 1px rgba(248, 239, 230, 0.04);
     }}
     .workspace-mode-card-head {{
       display: flex;
@@ -1129,6 +1138,15 @@ def render_console_html(title: str) -> str:
       border-radius: 18px;
       border: 1px solid rgba(214, 196, 177, 0.14);
       background: rgba(248, 239, 230, 0.03);
+      min-width: 0;
+      overflow: hidden;
+    }}
+    .trace-stage-title,
+    .trace-stage-copy,
+    .trace-stage-head {{
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }}
     .workspace-mode-shell[data-workspace-chrome="compact"] .trace-stage,
     .workspace-mode-shell[data-workspace-chrome="compact"] .shared-signal-detail {{
@@ -1552,6 +1570,32 @@ def render_console_html(title: str) -> str:
       align-items: start;
       animation: rise .76s ease-out both;
       animation-delay: .12s;
+    }}
+    .dual-grid[data-layout="master-detail"] {{
+      grid-template-columns: minmax(300px, 34%) 1fr;
+    }}
+    .dual-grid[data-layout="master-detail"] > #section-board {{
+      position: sticky;
+      top: 92px;
+      max-height: calc(100vh - 120px);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+    }}
+    .dual-grid[data-layout="master-detail"] > #section-board > #watch-list {{
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 4px;
+      scrollbar-width: thin;
+    }}
+    .dual-grid[data-layout="master-detail"] > #section-board > #watch-list::-webkit-scrollbar {{ width: 6px; }}
+    .dual-grid[data-layout="master-detail"] > #section-board > #watch-list::-webkit-scrollbar-thumb {{
+      background: rgba(214, 196, 177, 0.18);
+      border-radius: 3px;
+    }}
+    .dual-grid[data-layout="master-detail"] > #section-cockpit {{
+      min-width: 0;
     }}
     .panel {{
       padding: var(--panel-padding);
@@ -2346,9 +2390,26 @@ def render_console_html(title: str) -> str:
     }}
     .story-grid {{
       display: grid;
-      grid-template-columns: 0.96fr 1.14fr;
+      grid-template-columns: minmax(300px, 34%) 1fr;
       gap: 16px;
       align-items: start;
+    }}
+    .story-grid > .story-list {{
+      position: sticky;
+      top: 92px;
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 6px;
+      scrollbar-width: thin;
+    }}
+    .story-grid > .story-list::-webkit-scrollbar {{ width: 6px; }}
+    .story-grid > .story-list::-webkit-scrollbar-thumb {{
+      background: rgba(214, 196, 177, 0.18);
+      border-radius: 3px;
+    }}
+    .story-grid > .story-detail {{
+      min-width: 0;
     }}
     .story-workspace-mode-switch {{
       display: flex;
@@ -2372,8 +2433,10 @@ def render_console_html(title: str) -> str:
       padding-right: 4px;
     }}
     .card.selected {{
-      border-color: rgba(207, 129, 94, 0.28);
-      box-shadow: inset 0 0 0 1px rgba(207, 129, 94, 0.12);
+      border-color: rgba(207, 129, 94, 0.56);
+      box-shadow:
+        inset 0 0 0 1px rgba(207, 129, 94, 0.28),
+        0 0 0 2px rgba(207, 129, 94, 0.32);
       background: rgba(45, 34, 27, 0.9);
     }}
     .card.selectable {{
@@ -2429,13 +2492,16 @@ def render_console_html(title: str) -> str:
     }}
     .story-fact-grid {{
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 12px;
     }}
     .story-fact-card {{
       display: grid;
       gap: 10px;
       min-height: 124px;
+      min-width: 0;
+      overflow: hidden;
+      overflow-wrap: anywhere;
       border-radius: 18px;
       border: 1px solid rgba(214, 196, 177, 0.16);
       padding: 16px;
@@ -2887,9 +2953,24 @@ def render_console_html(title: str) -> str:
         grid-template-columns: 1fr;
       }}
       .hero, .grid, .dual-grid {{ grid-template-columns: 1fr; }}
+      .dual-grid[data-layout="master-detail"] > #section-board {{
+        position: static;
+        max-height: none;
+        overflow: visible;
+        grid-template-rows: none;
+      }}
+      .dual-grid[data-layout="master-detail"] > #section-board > #watch-list {{
+        overflow: visible;
+        padding-right: 0;
+      }}
       .hero-main {{ order: 0; }}
       .hero-side {{ order: 1; }}
       .story-grid, .story-columns, .story-fact-grid {{ grid-template-columns: 1fr; }}
+      .story-grid > .story-list {{
+        position: static;
+        max-height: none;
+        padding-right: 0;
+      }}
       .preview-grid, .guide-grid, .operator-guidance-grid, .section-summary-grid {{ grid-template-columns: 1fr; }}
       .batch-toolbar-card {{ top: 152px; }}
     }}
@@ -2998,6 +3079,176 @@ def render_console_html(title: str) -> str:
       }}
       .nav-pill {{ white-space: nowrap; }}
       .batch-toolbar-card {{ top: 122px; }}
+    }}
+    @media (orientation: portrait) and (max-width: 900px) {{
+      .shell {{ grid-template-columns: 1fr; }}
+      .guide-grid,
+      .workspace-mode-grid,
+      .workspace-mode-insight-grid,
+      .advanced-surface-grid,
+      .continuity-lane,
+      .operator-guidance-grid,
+      .section-summary-grid,
+      .trace-stage-grid,
+      .workbench-columns,
+      .preview-grid,
+      .dual-grid,
+      .story-grid,
+      .story-columns {{
+        grid-template-columns: 1fr;
+      }}
+      .story-fact-grid {{
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      }}
+      .topbar-nav {{
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+      }}
+      .topbar-nav::-webkit-scrollbar {{ display: none; }}
+      .topbar-nav > * {{ scroll-snap-align: start; }}
+      .context-lens-shell,
+      .story-inspector-shell {{
+        inset: auto 0 0 0;
+        width: 100%;
+        max-height: 85vh;
+        border-radius: 22px 22px 0 0;
+      }}
+    }}
+    @media (min-aspect-ratio: 21/9) {{
+      .shell {{ max-width: 1760px; margin: 0 auto; }}
+      .workspace-mode-grid {{
+        grid-template-columns: repeat(auto-fit, minmax(360px, 440px));
+      }}
+    }}
+    @media (orientation: landscape) and (max-height: 600px) {{
+      .topbar {{ padding-block: 8px; top: 8px; }}
+      .hero-stage {{ display: none; }}
+      .workspace-mode-shell {{ padding: 14px; }}
+    }}
+    .card,
+    .panel,
+    .continuity-stage,
+    .control-cluster,
+    .deck-section,
+    .batch-toolbar-card,
+    .hero-main,
+    .hero-side {{
+      min-width: 0;
+      overflow: hidden;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }}
+    .md-shell {{
+      container-type: inline-size;
+      container-name: md-shell;
+      display: grid;
+      grid-template-columns: minmax(300px, 34%) 1fr;
+      gap: 16px;
+      align-items: start;
+      min-height: calc(100vh - 220px);
+    }}
+    .md-list {{
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 10px;
+      padding-right: 14px;
+      border-right: 1px solid var(--line);
+      position: sticky;
+      top: 92px;
+      max-height: calc(100vh - 120px);
+      overflow: hidden;
+    }}
+    .md-list-head {{
+      display: grid;
+      gap: 10px;
+    }}
+    .md-list-scroll {{
+      min-width: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: grid;
+      gap: 8px;
+      padding-right: 4px;
+      scrollbar-width: thin;
+    }}
+    .md-list-scroll::-webkit-scrollbar {{ width: 6px; }}
+    .md-list-scroll::-webkit-scrollbar-thumb {{
+      background: rgba(214, 196, 177, 0.18);
+      border-radius: 3px;
+    }}
+    .md-detail {{
+      min-width: 0;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }}
+    .md-detail-empty {{
+      padding: 36px 28px;
+      text-align: center;
+      border-radius: 18px;
+      border: 1px dashed rgba(214, 196, 177, 0.22);
+      color: var(--muted);
+      background: rgba(248, 239, 230, 0.02);
+    }}
+    .md-list .md-list-filter {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }}
+    .md-list .md-list-search {{
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }}
+    .md-list .md-list-search input {{
+      width: 100%;
+      min-width: 0;
+    }}
+    .md-list .card.selectable {{
+      padding: 12px 14px;
+    }}
+    .md-list .card.selectable .card-title {{
+      font-size: 0.95rem;
+      line-height: 1.35;
+    }}
+    .md-back-btn {{ display: none; }}
+    @container md-shell (max-width: 820px) {{
+      .md-shell {{
+        grid-template-columns: 1fr;
+        min-height: 0;
+      }}
+      .md-shell[data-md-mode="detail"] .md-list {{ display: none; }}
+      .md-shell[data-md-mode="list"] .md-detail {{ display: none; }}
+      .md-list {{
+        position: static;
+        padding-right: 0;
+        border-right: none;
+        max-height: none;
+      }}
+      .md-back-btn {{ display: inline-flex; }}
+    }}
+    a:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    [tabindex]:not([tabindex="-1"]):focus-visible,
+    .workspace-mode-card:focus-visible,
+    .nav-pill:focus-visible,
+    .card:focus-visible {{
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: inherit;
+    }}
+    @media (prefers-reduced-motion: reduce) {{
+      *, *::before, *::after {{
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+      }}
     }}
   </style>
 </head>
@@ -3217,7 +3468,7 @@ def render_console_html(title: str) -> str:
     <section class="workspace-mode-shell" id="workspace-mode-shell" hidden></section>
 
     <div class="workspace-mode-group" data-workspace-group="missions" hidden>
-    <section class="dual-grid">
+    <section class="dual-grid" data-layout="master-detail">
       <article class="panel" id="section-board">
         <div class="panel-head">
           <div>
