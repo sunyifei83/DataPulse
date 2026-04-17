@@ -1595,14 +1595,18 @@ def test_console_index_serves_shell():
     assert "section-report-studio" in response.text
     assert "Primary Workflow Stages" in response.text
     assert "Start -&gt; Monitor -&gt; Review -&gt; Deliver" in response.text
-    assert 'data-context-object-step="report"' in response.text
+    assert 'data-workspace-object-anchor="true"' in response.text
     assert "Claim Composer" in response.text
     assert "Report Studio" in response.text
     assert "Delivery Workspace" in response.text
     assert "review-advanced-shell" in response.text
     assert "delivery-advanced-shell" in response.text
-    assert "Advanced Review Surfaces" in response.text
-    assert "Advanced Delivery Surfaces" in response.text
+    assert "Secondary Review Tools" in response.text
+    assert "Claim & Report Tools" in response.text
+    assert "Secondary Delivery Tools" in response.text
+    assert "AI & Route Health" in response.text
+    assert "Advanced Review Surfaces" not in response.text
+    assert "Advanced Delivery Surfaces" not in response.text
     assert "delivery-workspace-shell" in response.text
     assert "Subscription Intake" in response.text
     assert "Report Package Audit" in response.text
@@ -1624,16 +1628,13 @@ def test_console_index_serves_shell():
     assert "command-palette" in response.text
     assert "context-summary" in response.text
     assert "context-object-rail" in response.text
-    assert '<button class="context-object-step" type="button"' in response.text
-    assert "data-context-object-step=\"mission\"" in response.text
-    assert "data-context-object-step=\"evidence\"" in response.text
-    assert "data-context-object-step=\"story\"" in response.text
-    assert "data-context-object-step=\"route\"" in response.text
-    assert "data-context-object-id=\"\"" in response.text
-    assert "data-context-object-section=\"section-board\"" in response.text
-    assert "data-context-object-section=\"section-triage\"" in response.text
-    assert "data-context-object-section=\"section-story\"" in response.text
-    assert "data-context-object-section=\"section-ops\"" in response.text
+    assert "context-object-step-title" in response.text
+    assert "context-object-step-value" in response.text
+    assert 'data-context-object-step="${step.step}"' in response.text
+    assert 'data-context-object-id="${escapeHtml(step.id || "")}"' in response.text
+    assert 'data-context-object-section="${step.sectionId}"' in response.text
+    assert "function buildContextObjectRailDescriptor" in response.text
+    assert "function renderContextObjectRail" in response.text
     assert "function activateContextObjectRailStep" in response.text
     assert "data-empty-reset" in response.text
     assert "Boolean(state.ops)" not in response.text
@@ -1648,10 +1649,7 @@ def test_console_index_serves_shell():
     assert "triage-section-summary" in response.text
     assert "story-section-summary" in response.text
     assert "ops-section-summary" in response.text
-    assert 'data-fit-text="context-summary"' in response.text
-    assert 'data-fit-text="dock-summary"' in response.text
     assert 'data-fit-text="context-object-value"' in response.text
-    assert 'data-fit-text="saved-view-chip"' in response.text
     assert 'data-fit-text="triage-mission-chip"' in response.text
     assert 'data-fit-text="claim-url-chip"' in response.text
     assert 'data-fit-text="report-section-claim-chip"' in response.text
@@ -1663,15 +1661,15 @@ def test_console_index_serves_shell():
     assert 'data-pane-contract="split"' in response.text
     assert 'data-modal-presentation="side-panel"' in response.text
     assert 'data-action-sheet-mode="inline"' in response.text
-    assert "data-context-dock-open" in response.text
     assert "data-context-saved-default" in response.text
     assert "function syncContextLensChrome" in response.text
-    assert "const shouldShowDock = Boolean(pinnedEntries.length);" in response.text
     assert '<section class="workspace-mode-shell" id="workspace-mode-shell" hidden></section>' in response.text
     assert "Workspace Modes" not in response.text
     assert "function resolveResponsiveInteractionContract" in response.text
     assert "function applyResponsiveInteractionContract" in response.text
     assert "function bindResponsiveInteractionContract" in response.text
+    assert 'body[data-responsive-viewport="compact"] .topbar' in response.text
+    assert 'body[data-responsive-viewport="touch"] .topbar' in response.text
     assert "function fitTextToWidth" in response.text
     assert "function applyCanvasTextFit" in response.text
     assert "function scheduleCanvasTextFit" in response.text
@@ -1770,6 +1768,96 @@ def test_console_index_serves_shell():
     assert "datapulse --story-build / MCP story tools first" not in response.text
 
 
+def test_console_index_keeps_story_and_report_exports_in_sheet_surfaces():
+    client = _client()
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "story-inspector-shell" in response.text
+    assert "story export sheet" in response.text
+    assert "report export sheet" in response.text
+    assert "data-story-inspector-view" in response.text
+    assert "data-report-preview-markdown" in response.text
+    assert "data-report-json" in response.text
+    assert "Markdown Preview" not in response.text
+
+
+def test_console_index_keeps_segment_and_button_semantics_for_refactored_controls():
+    client = _client()
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Story view shortcuts" in response.text
+    assert "Story view presets" in response.text
+    assert "Story status filters" in response.text
+    assert "Mission presets" in response.text
+    assert "Mission schedule lanes" in response.text
+    assert "Mission platform lanes" in response.text
+    assert "Mission route snaps" in response.text
+    assert "Shared signal classes" in response.text
+    assert "Triage queue filters" in response.text
+    assert "Result state filters" in response.text
+    assert "Result source filters" in response.text
+    assert "Result domain filters" in response.text
+    assert "Delivery route selection" in response.text
+    assert "Route channel selection" in response.text
+    assert "Story draft status selection" in response.text
+    assert "Claim & Report Tools" in response.text
+    assert "AI & Route Health" in response.text
+    assert "Open AI & Route Health" in response.text
+    assert "ui-segment ui-segment-wrap" in response.text
+    assert 'class="btn-secondary" type="button" data-create-watch-clone=' in response.text
+    assert 'class="btn-secondary" type="button" data-suggestion-apply="thresholds"' in response.text
+    assert 'class="chip-btn' not in response.text
+    assert "chip-btn shared-signal-button" not in response.text
+    assert "workspace-mode-actions" in response.text
+
+
+def test_console_index_uses_warm_material_tokens_without_legacy_cool_palette():
+    client = _client()
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "--surface-warm" in response.text
+    assert "#cf815e" in response.text
+    assert "#91a17d" in response.text
+    assert "rgba(145, 161, 125, 0.3)" in response.text
+    assert "#7fe4ff" not in response.text
+    assert "rgba(127, 228, 255" not in response.text
+    assert "rgba(147, 181, 215" not in response.text
+
+
+def test_console_index_keeps_landscape_hero_and_guidance_layouts_non_stretching():
+    client = _client()
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert ".hero {" in response.text
+    assert "grid-template-columns: 1.4fr 0.8fr;\n      gap: 18px;\n      align-items: start;" in response.text
+    assert ".grid {" in response.text
+    assert "grid-template-columns: 1.05fr 1.05fr 0.9fr;\n      gap: 18px;\n      align-items: start;" in response.text
+    assert ".dual-grid {" in response.text
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr));\n      gap: 18px;\n      align-items: start;" in response.text
+    assert ".operator-guidance-grid {" in response.text
+    assert "grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));" in response.text
+    assert ".operator-guidance-column {" in response.text
+    assert "min-width: 0;" in response.text
+    assert 'body[data-responsive-viewport="desktop"] .hero-side {' in response.text
+    assert "max-height: calc(100vh - 146px);" in response.text
+    assert "overflow-y: auto;" in response.text
+    assert '.workspace-mode-shell[data-workspace-chrome="compact"] .workspace-mode-head {' in response.text
+    assert "grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);\n      gap: 12px;\n      align-items: start;" in response.text
+    assert ".workspace-mode-summary {" in response.text
+    assert "max-width: 72ch;\n      align-content: start;" in response.text
+    assert '.workspace-mode-shell[data-workspace-chrome="compact"] .workspace-mode-object-anchor {' in response.text
+    assert "gap: 10px;\n      padding: 14px;" in response.text
+    assert ".workflow-trace-card,\n    .shared-signal-taxonomy-card {\n      background:" in response.text
+    assert 'body[data-responsive-viewport="desktop"] .workspace-mode-shell[data-workspace-chrome="compact"] .workspace-mode-object-anchor .continuity-fact-list {' in response.text
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr));" in response.text
+    assert 'body[data-responsive-viewport="desktop"] .workspace-mode-shell[data-workspace-chrome="compact"] .workspace-mode-object-anchor .action-secondary-row {' in response.text
+    assert "display: none;" in response.text
+
+
 def test_console_client_script_keeps_restored_context_and_guidance_contract():
     script = render_console_client_script("{}")
 
@@ -1785,6 +1873,7 @@ def test_console_client_script_keeps_restored_context_and_guidance_contract():
     assert "buildTriageGuidanceSurface" in script
     assert "function syncAdvancedSurfaceShells" in script
     assert "function openAdvancedSurfaceShell" in script
+    assert "function currentViewportMetrics" in script
     assert "function workspaceModeOwnedOutputLabel" in script
     assert "function stageFeedbackIdForSection" in script
     assert "function stageFeedbackKindLabel" in script
@@ -1792,11 +1881,46 @@ def test_console_client_script_keeps_restored_context_and_guidance_contract():
     assert "function renderStageLinkedTraceCard" in script
     assert "function buildSharedSignalTaxonomy" in script
     assert "function renderSharedSignalTaxonomyCard" in script
+    assert "const compactObjectFacts = continuityFacts.map((fact) => {" in script
+    assert 'const compactObjectActions = actionHierarchy?.primary ? renderCardActionHierarchy({ primary: actionHierarchy.primary }) : "";' in script
+    assert "(pointer: coarse)" in script
+    assert "metrics.shortEdge <= 820" in script
+    assert "metrics.shortEdge <= 1024" in script
     assert "function workspaceModeHasPopulation" in script
     assert "function workspaceModeActionHierarchy" in script
     assert "function hydrateBoardForSection" in script
     assert "function ensureReportFamilyData" in script
     assert "function ensureDeliveryData" in script
+    assert "/api/reports/${normalizedId}" in script
+    assert "story export sheet" in script
+    assert "report export sheet" in script
+    assert "Story view shortcuts" in script
+    assert "Story view presets" in script
+    assert "Story status filters" in script
+    assert "Mission presets" in script
+    assert "Mission schedule lanes" in script
+    assert "Mission platform lanes" in script
+    assert "Mission route snaps" in script
+    assert "Shared signal classes" in script
+    assert "Triage queue filters" in script
+    assert "Result state filters" in script
+    assert "Result source filters" in script
+    assert "Result domain filters" in script
+    assert "Delivery route selection" in script
+    assert "Route channel selection" in script
+    assert "Story draft status selection" in script
+    assert "Secondary Review Tools" in script
+    assert "Claim & Report Tools" in script
+    assert "Secondary Delivery Tools" in script
+    assert "AI & Route Health" in script
+    assert "Open AI & Route Health" in script
+    assert "Advanced Review Surfaces" not in script
+    assert "Advanced Delivery Surfaces" not in script
+    assert 'aria-pressed="${active ? "true" : "false"}"' in script
+    assert 'class="chip-btn' not in script
+    assert "chip-btn shared-signal-button" not in script
+    assert "workspace-mode-actions" in script
+    assert 'data-suggestion-apply="thresholds"' in script
     assert "sharedSignalFocus: \"quality\"" in script
     assert 'data-workspace-object-anchor="true"' in script
     assert 'data-intake-populated-hero="true"' in script

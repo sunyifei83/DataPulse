@@ -39,16 +39,19 @@ def render_console_html(title: str) -> str:
   <link rel="apple-touch-icon" href="/brand/square">
   <style>
     :root {{
-      --paper: #08111c;
-      --mist: #112033;
-      --panel: rgba(10, 18, 31, 0.76);
-      --panel-strong: rgba(9, 15, 28, 0.9);
-      --ink: #eaf4ff;
-      --muted: #9fb3ca;
-      --accent: #ff6a82;
-      --accent-2: #7fe4ff;
-      --line: rgba(146, 175, 210, 0.18);
-      --warn: #ff6a82;
+      --paper: #16110d;
+      --mist: #261d16;
+      --panel: rgba(31, 24, 19, 0.84);
+      --panel-strong: rgba(24, 18, 15, 0.94);
+      --ink: #f6efe8;
+      --muted: #b8aa9b;
+      --accent: #cf815e;
+      --accent-2: #91a17d;
+      --line: rgba(214, 196, 177, 0.16);
+      --line-strong: rgba(214, 196, 177, 0.22);
+      --surface-soft: rgba(248, 239, 230, 0.04);
+      --surface-warm: rgba(207, 129, 94, 0.08);
+      --warn: #d36c57;
       --shadow: 0 28px 90px rgba(3, 8, 18, 0.5);
       --headline: "Eurostile Extended", "Avenir Next Condensed", "Arial Narrow", sans-serif;
       --body: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
@@ -62,7 +65,7 @@ def render_console_html(title: str) -> str:
       --guide-padding: 14px;
       --deck-padding: 14px;
       --control-height: 44px;
-      --action-control-height: 36px;
+      --action-control-height: 44px;
       --context-lens-width: 540px;
       --context-lens-radius: 28px;
       --context-lens-padding: 24px 22px;
@@ -73,14 +76,15 @@ def render_console_html(title: str) -> str:
       min-height: 100vh;
       color: var(--ink);
       background:
-        radial-gradient(circle at 50% 24%, rgba(255, 106, 130, 0.16), transparent 18%),
-        radial-gradient(circle at 50% 26%, rgba(127, 228, 255, 0.14), transparent 24%),
-        radial-gradient(circle at 10% 10%, rgba(255, 106, 130, 0.14), transparent 26%),
-        radial-gradient(circle at 90% 8%, rgba(127, 228, 255, 0.12), transparent 22%),
-        linear-gradient(180deg, #101a2c 0%, #0a111c 52%, var(--paper) 100%);
+        radial-gradient(circle at 48% 22%, rgba(207, 129, 94, 0.16), transparent 18%),
+        radial-gradient(circle at 72% 18%, rgba(145, 161, 125, 0.12), transparent 22%),
+        radial-gradient(circle at 12% 12%, rgba(207, 129, 94, 0.12), transparent 26%),
+        radial-gradient(circle at 88% 9%, rgba(248, 239, 230, 0.06), transparent 20%),
+        linear-gradient(180deg, #2b2119 0%, #1f1813 54%, var(--paper) 100%);
       font-family: var(--body);
     }}
-    body[data-context-lens-open="true"] {{
+    body[data-context-lens-open="true"],
+    body[data-story-inspector-open="true"] {{
       overflow: hidden;
     }}
     body[data-density-mode="comfortable"] {{
@@ -90,7 +94,7 @@ def render_console_html(title: str) -> str:
       --guide-padding: 14px;
       --deck-padding: 14px;
       --control-height: 44px;
-      --action-control-height: 36px;
+      --action-control-height: 44px;
       --context-lens-width: 540px;
       --context-lens-radius: 28px;
       --context-lens-padding: 24px 22px;
@@ -102,7 +106,7 @@ def render_console_html(title: str) -> str:
       --guide-padding: 13px;
       --deck-padding: 13px;
       --control-height: 44px;
-      --action-control-height: 38px;
+      --action-control-height: 44px;
       --context-lens-width: 680px;
       --context-lens-radius: 24px;
       --context-lens-padding: 22px 20px;
@@ -114,7 +118,7 @@ def render_console_html(title: str) -> str:
       --guide-padding: 12px;
       --deck-padding: 12px;
       --control-height: 48px;
-      --action-control-height: 42px;
+      --action-control-height: 44px;
       --context-lens-width: 100%;
       --context-lens-radius: 0;
       --context-lens-padding: 20px 18px;
@@ -130,7 +134,6 @@ def render_console_html(title: str) -> str:
     body[data-lang="zh"] .preview-label,
     body[data-lang="zh"] .palette-kicker,
     body[data-lang="zh"] .chip,
-    body[data-lang="zh"] .chip-btn,
     body[data-lang="zh"] button,
     body[data-lang="zh"] label {{
       font-family: var(--body-zh);
@@ -153,8 +156,8 @@ def render_console_html(title: str) -> str:
       inset: 0;
       pointer-events: none;
       background-image:
-        linear-gradient(rgba(148, 176, 209, 0.07) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(148, 176, 209, 0.07) 1px, transparent 1px);
+        linear-gradient(rgba(214, 196, 177, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(214, 196, 177, 0.05) 1px, transparent 1px);
       background-size: 28px 28px;
       mask-image: linear-gradient(180deg, rgba(0,0,0,0.55), transparent 92%);
     }}
@@ -166,10 +169,10 @@ def render_console_html(title: str) -> str:
       width: 32px;
       height: 32px;
       transform: rotate(45deg);
-      border: 1px solid rgba(234, 244, 255, 0.32);
+      border: 1px solid rgba(214, 196, 177, 0.26);
       box-shadow:
-        0 0 22px rgba(255, 106, 130, 0.14),
-        0 0 32px rgba(127, 228, 255, 0.12);
+        0 0 22px rgba(207, 129, 94, 0.16),
+        0 0 30px rgba(145, 161, 125, 0.12);
       pointer-events: none;
     }}
     .shell {{
@@ -188,11 +191,11 @@ def render_console_html(title: str) -> str:
       gap: 16px;
       align-items: center;
       padding: 14px 18px;
-      border: 1px solid rgba(147, 181, 215, 0.16);
+      border: 1px solid rgba(214, 196, 177, 0.16);
       border-radius: 22px;
-      background: rgba(8, 14, 24, 0.78);
+      background: rgba(24, 18, 15, 0.8);
       backdrop-filter: blur(14px);
-      box-shadow: 0 18px 44px rgba(3, 8, 18, 0.28);
+      box-shadow: 0 18px 44px rgba(8, 5, 3, 0.28);
     }}
     .topbar-brand {{
       display: flex;
@@ -219,49 +222,125 @@ def render_console_html(title: str) -> str:
       text-overflow: ellipsis;
     }}
     .topbar-nav {{
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+      display: inline-flex;
+      align-items: center;
       justify-content: center;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid rgba(214, 196, 177, 0.14);
+      background: rgba(248, 239, 230, 0.03);
     }}
     .nav-pill {{
-      padding: 10px 14px;
-      border: 1px solid rgba(147, 181, 215, 0.16);
-      background: rgba(127, 228, 255, 0.05);
+      min-height: 44px;
+      padding: 10px 16px;
+      border: 1px solid transparent;
+      background: transparent;
       color: var(--muted);
-      font-size: 0.82rem;
+      font-size: 0.8rem;
     }}
     .nav-pill.active {{
       color: var(--ink);
-      border-color: rgba(127, 228, 255, 0.34);
+      border-color: rgba(214, 196, 177, 0.18);
       background:
-        linear-gradient(180deg, rgba(127, 228, 255, 0.16), rgba(127, 228, 255, 0.08));
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.08);
+        linear-gradient(180deg, rgba(207, 129, 94, 0.18), rgba(207, 129, 94, 0.1));
+      box-shadow:
+        0 8px 22px rgba(8, 5, 3, 0.16),
+        inset 0 0 0 1px rgba(248, 239, 230, 0.04);
     }}
     .nav-pill:hover,
     .nav-pill:focus-visible {{
       color: var(--ink);
-      border-color: rgba(127, 228, 255, 0.3);
-      background: rgba(127, 228, 255, 0.1);
+      border-color: rgba(214, 196, 177, 0.2);
+      background: rgba(248, 239, 230, 0.04);
     }}
     .topbar-tools {{
       position: relative;
       display: flex;
       align-items: center;
       justify-content: flex-end;
-      gap: 10px;
+      gap: 12px;
+    }}
+    .topbar-object-anchor {{
+      min-width: min(340px, 32vw);
+      max-width: 100%;
+      display: grid;
+      gap: 4px;
+      padding: 10px 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(214, 196, 177, 0.16);
+      background:
+        linear-gradient(180deg, rgba(248, 239, 230, 0.03), rgba(248, 239, 230, 0.01)),
+        rgba(16, 12, 10, 0.72);
+      text-align: left;
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.02);
+    }}
+    .topbar-object-anchor[aria-expanded="true"] {{
+      border-color: rgba(207, 129, 94, 0.28);
+      background:
+        linear-gradient(180deg, rgba(207, 129, 94, 0.16), rgba(207, 129, 94, 0.08)),
+        rgba(16, 12, 10, 0.76);
+    }}
+    .topbar-object-kicker {{
+      color: var(--muted);
+      font: 700 0.7rem/1 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }}
+    .topbar-object-title {{
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--ink);
+      font: 600 0.94rem/1.25 var(--body);
+      letter-spacing: 0.01em;
+    }}
+    .ui-badge {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(214, 196, 177, 0.14);
+      background: rgba(248, 239, 230, 0.04);
+      color: var(--muted);
+      font: 700 12px/1 var(--mono);
+      text-transform: uppercase;
+    }}
+    .ui-segment {{
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid rgba(214, 196, 177, 0.14);
+      background: rgba(248, 239, 230, 0.03);
+    }}
+    .ui-segment-wrap {{
+      display: flex;
+      flex-wrap: wrap;
+      width: 100%;
+    }}
+    .ui-segment-button {{
+      min-height: 44px;
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+    }}
+    .ui-segment-button.active {{
+      color: var(--ink);
+      border-color: rgba(214, 196, 177, 0.18);
+      background: linear-gradient(180deg, rgba(207, 129, 94, 0.18), rgba(207, 129, 94, 0.1));
+    }}
+    .ui-action-button {{
+      min-height: 44px;
     }}
     .context-view-dock {{
-      display: grid;
-      gap: 10px;
-      padding: 12px 14px;
-      border: 1px solid rgba(147, 181, 215, 0.14);
-      border-radius: 20px;
-      background:
-        linear-gradient(180deg, rgba(10, 18, 31, 0.64), rgba(9, 15, 25, 0.42));
-      box-shadow:
-        inset 0 0 0 1px rgba(127, 228, 255, 0.03),
-        0 10px 24px rgba(3, 8, 18, 0.12);
+      display: none;
     }}
     .context-view-dock[hidden] {{
       display: none;
@@ -349,8 +428,8 @@ def render_console_html(title: str) -> str:
       gap: 7px;
       padding: 3px 8px;
       border-radius: 999px;
-      border: 1px solid rgba(127, 228, 255, 0.24);
-      background: rgba(127, 228, 255, 0.06);
+      border: 1px solid rgba(214, 196, 177, 0.18);
+      background: rgba(248, 239, 230, 0.04);
       min-height: 26px;
       max-width: 210px;
       appearance: none;
@@ -358,6 +437,27 @@ def render_console_html(title: str) -> str:
       cursor: pointer;
       font: inherit;
       text-align: left;
+    }}
+    .context-lens .context-object-rail {{
+      display: grid;
+      gap: 10px;
+      margin-bottom: 0;
+    }}
+    .context-lens .context-object-divider {{
+      display: none;
+    }}
+    .context-lens .context-object-step {{
+      width: 100%;
+      min-height: 44px;
+      max-width: none;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-color: rgba(214, 196, 177, 0.14);
+      background: rgba(248, 239, 230, 0.03);
+    }}
+    .context-lens .context-object-step-value {{
+      max-width: min(58%, 320px);
+      text-align: right;
     }}
     .context-object-step-title {{
       opacity: 0.85;
@@ -370,7 +470,7 @@ def render_console_html(title: str) -> str:
       max-width: 130px;
     }}
     .context-object-divider {{
-      color: rgba(127, 228, 255, 0.4);
+      color: rgba(214, 196, 177, 0.36);
       font-weight: 700;
       margin: 0 1px;
     }}
@@ -391,10 +491,10 @@ def render_console_html(title: str) -> str:
     }}
     .context-chip-button[aria-expanded="true"] {{
       color: var(--ink);
-      border-color: rgba(127, 228, 255, 0.34);
+      border-color: rgba(207, 129, 94, 0.32);
       background:
-        linear-gradient(180deg, rgba(127, 228, 255, 0.16), rgba(127, 228, 255, 0.08));
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.08);
+        linear-gradient(180deg, rgba(207, 129, 94, 0.18), rgba(248, 239, 230, 0.08));
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.04);
     }}
     .context-lens-backdrop {{
       position: fixed;
@@ -404,7 +504,7 @@ def render_console_html(title: str) -> str:
       align-items: stretch;
       justify-content: flex-end;
       padding: 16px;
-      background: rgba(4, 8, 16, 0.6);
+      background: rgba(15, 11, 9, 0.56);
       backdrop-filter: blur(12px);
     }}
     .context-lens-backdrop.open {{
@@ -413,15 +513,15 @@ def render_console_html(title: str) -> str:
     .context-lens-shell {{
       width: min(var(--context-lens-width), 100%);
       height: 100%;
-      border: 1px solid rgba(147, 181, 215, 0.18);
+      border: 1px solid rgba(214, 196, 177, 0.16);
       border-radius: var(--context-lens-radius);
       background:
-        linear-gradient(180deg, rgba(17, 29, 46, 0.98), rgba(8, 14, 24, 0.97));
-      box-shadow: 0 30px 80px rgba(3, 8, 18, 0.52);
+        linear-gradient(180deg, rgba(38, 29, 22, 0.98), rgba(22, 17, 14, 0.97));
+      box-shadow: 0 30px 80px rgba(8, 5, 3, 0.42);
       overflow: hidden;
     }}
     .context-lens-shell:focus {{
-      outline: 2px solid rgba(127, 228, 255, 0.38);
+      outline: 2px solid rgba(207, 129, 94, 0.38);
       outline-offset: 0;
     }}
     .context-lens {{
@@ -469,8 +569,8 @@ def render_console_html(title: str) -> str:
       align-items: start;
       padding: 12px 14px;
       border-radius: 16px;
-      border: 1px solid rgba(147, 181, 215, 0.12);
-      background: rgba(127, 228, 255, 0.04);
+      border: 1px solid rgba(214, 196, 177, 0.12);
+      background: rgba(248, 239, 230, 0.03);
     }}
     .context-lens-label {{
       color: var(--muted);
@@ -497,7 +597,27 @@ def render_console_html(title: str) -> str:
       flex-wrap: wrap;
       gap: 8px;
       padding-top: 8px;
-      border-top: 1px solid rgba(147, 181, 215, 0.12);
+      border-top: 1px solid rgba(214, 196, 177, 0.12);
+    }}
+    .context-lens-utility-shell {{
+      display: grid;
+      gap: 10px;
+      width: 100%;
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(214, 196, 177, 0.12);
+      background: rgba(248, 239, 230, 0.025);
+    }}
+    .context-lens-utility-title {{
+      color: var(--muted);
+      font: 700 0.72rem/1 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }}
+    .context-lens-utility-row {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
     }}
     .context-lens-history {{
       display: grid;
@@ -538,8 +658,8 @@ def render_console_html(title: str) -> str:
       gap: 8px;
       padding: 12px;
       border-radius: 14px;
-      border: 1px solid rgba(147, 181, 215, 0.12);
-      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(214, 196, 177, 0.12);
+      background: rgba(248, 239, 230, 0.03);
     }}
     .context-history-summary {{
       font-size: 0.9rem;
@@ -578,26 +698,27 @@ def render_console_html(title: str) -> str:
       padding: 4px;
       gap: 4px;
       border-radius: 999px;
-      border: 1px solid rgba(147, 181, 215, 0.16);
-      background: rgba(16, 27, 43, 0.7);
+      border: 1px solid rgba(214, 196, 177, 0.16);
+      background: rgba(16, 12, 10, 0.72);
     }}
     .lang-btn {{
       min-width: 68px;
+      min-height: 44px;
       padding: 9px 12px;
       background: transparent;
       color: var(--muted);
       font-size: 0.76rem;
     }}
     .lang-btn.active {{
-      background: linear-gradient(135deg, rgba(127, 228, 255, 0.22), rgba(255, 106, 130, 0.18));
+      background: linear-gradient(135deg, rgba(207, 129, 94, 0.22), rgba(145, 161, 125, 0.16));
       color: var(--ink);
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.12);
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.06);
     }}
     .hero {{
       display: grid;
       grid-template-columns: 1.4fr 0.8fr;
       gap: 18px;
-      align-items: stretch;
+      align-items: start;
       animation: rise .55s ease-out both;
     }}
     .hero-main, .hero-side, .panel {{
@@ -612,7 +733,7 @@ def render_console_html(title: str) -> str:
       position: relative;
       padding: 28px;
       background:
-        linear-gradient(160deg, rgba(20, 34, 53, 0.94), rgba(8, 14, 24, 0.92)),
+        linear-gradient(160deg, rgba(49, 36, 28, 0.95), rgba(23, 18, 15, 0.92)),
         var(--panel);
     }}
     .hero-main::before {{
@@ -621,8 +742,8 @@ def render_console_html(title: str) -> str:
       inset: -12% 22% 26% 22%;
       border-radius: 999px;
       background:
-        radial-gradient(circle, rgba(127, 228, 255, 0.16), transparent 46%),
-        radial-gradient(circle, rgba(255, 106, 130, 0.12), transparent 58%);
+        radial-gradient(circle, rgba(207, 129, 94, 0.16), transparent 46%),
+        radial-gradient(circle, rgba(145, 161, 125, 0.12), transparent 58%);
       filter: blur(6px);
       pointer-events: none;
     }}
@@ -633,10 +754,10 @@ def render_console_html(title: str) -> str:
       width: 240px;
       height: 240px;
       border-radius: 999px;
-      border: 1px solid rgba(255, 136, 154, 0.28);
+      border: 1px solid rgba(207, 129, 94, 0.24);
       box-shadow:
-        inset 0 0 0 16px rgba(255, 106, 130, 0.06),
-        0 0 48px rgba(255, 106, 130, 0.18);
+        inset 0 0 0 16px rgba(248, 239, 230, 0.04),
+        0 0 48px rgba(207, 129, 94, 0.16);
       opacity: 0.7;
       pointer-events: none;
     }}
@@ -646,8 +767,15 @@ def render_console_html(title: str) -> str:
       gap: 12px;
       align-content: start;
       background:
-        linear-gradient(180deg, rgba(18, 28, 45, 0.92), rgba(9, 14, 24, 0.9)),
+        linear-gradient(180deg, rgba(39, 30, 24, 0.92), rgba(20, 16, 13, 0.9)),
         var(--panel);
+    }}
+    body[data-responsive-viewport="desktop"] .hero-side {{
+      align-self: start;
+      max-height: calc(100vh - 146px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable both-edges;
     }}
     .brand-tile {{
       display: grid;
@@ -656,19 +784,19 @@ def render_console_html(title: str) -> str:
       align-items: center;
       padding: 12px;
       border-radius: 20px;
-      border: 1px solid rgba(147, 181, 215, 0.18);
-      background: linear-gradient(180deg, rgba(14, 24, 39, 0.9), rgba(9, 14, 24, 0.94));
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.05);
+      border: 1px solid rgba(214, 196, 177, 0.18);
+      background: linear-gradient(180deg, rgba(45, 34, 27, 0.92), rgba(24, 18, 15, 0.94));
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.04);
     }}
     .brand-image {{
       width: 88px;
       height: 88px;
       border-radius: 20px;
       object-fit: cover;
-      border: 1px solid rgba(147, 181, 215, 0.24);
+      border: 1px solid rgba(214, 196, 177, 0.22);
       box-shadow:
-        0 0 24px rgba(127, 228, 255, 0.08),
-        0 0 18px rgba(255, 106, 130, 0.1);
+        0 0 24px rgba(248, 239, 230, 0.06),
+        0 0 18px rgba(207, 129, 94, 0.1);
     }}
     .brand-copy {{
       display: grid;
@@ -743,9 +871,9 @@ def render_console_html(title: str) -> str:
       gap: 8px;
       padding: var(--guide-padding);
       border-radius: 18px;
-      border: 1px solid rgba(147, 181, 215, 0.16);
-      background: rgba(12, 20, 34, 0.68);
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+      border: 1px solid rgba(214, 196, 177, 0.16);
+      background: linear-gradient(180deg, rgba(40, 30, 24, 0.72), rgba(24, 18, 15, 0.68));
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.03);
     }}
     .guide-step {{
       width: 34px;
@@ -756,8 +884,8 @@ def render_console_html(title: str) -> str:
       border-radius: 999px;
       font: 700 12px/1 var(--mono);
       color: var(--ink);
-      border: 1px solid rgba(127, 228, 255, 0.26);
-      background: linear-gradient(180deg, rgba(127, 228, 255, 0.12), rgba(255, 106, 130, 0.12));
+      border: 1px solid rgba(214, 196, 177, 0.22);
+      background: linear-gradient(180deg, rgba(207, 129, 94, 0.16), rgba(145, 161, 125, 0.12));
     }}
     button {{
       border: 0;
@@ -770,6 +898,12 @@ def render_console_html(title: str) -> str:
       transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
     }}
     button:hover {{ transform: translateY(-1px); }}
+    button:focus-visible {{
+      outline: none;
+      box-shadow:
+        0 0 0 1px rgba(248, 239, 230, 0.18),
+        0 0 0 4px rgba(207, 129, 94, 0.18);
+    }}
     button:disabled {{
       opacity: 0.62;
       cursor: wait;
@@ -781,8 +915,9 @@ def render_console_html(title: str) -> str:
       box-shadow: 0 10px 28px rgba(255, 106, 130, 0.3);
     }}
     .btn-secondary {{
-      background: rgba(127, 228, 255, 0.08);
+      background: linear-gradient(180deg, rgba(248, 239, 230, 0.05), rgba(207, 129, 94, 0.07));
       color: var(--ink);
+      box-shadow: inset 0 0 0 1px rgba(214, 196, 177, 0.12);
     }}
     .btn-danger {{
       background: rgba(255, 106, 130, 0.14);
@@ -793,11 +928,11 @@ def render_console_html(title: str) -> str:
       display: grid;
       gap: 16px;
       padding: 20px;
-      border: 1px solid rgba(147, 181, 215, 0.16);
+      border: 1px solid rgba(214, 196, 177, 0.16);
       border-radius: 24px;
       background:
-        linear-gradient(180deg, rgba(13, 21, 35, 0.84), rgba(9, 15, 25, 0.62));
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+        linear-gradient(180deg, rgba(39, 30, 24, 0.84), rgba(21, 17, 14, 0.66));
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.03);
       animation: rise .6s ease-out both;
       animation-delay: .04s;
     }}
@@ -816,12 +951,13 @@ def render_console_html(title: str) -> str:
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
       gap: 12px;
-      align-items: stretch;
+      align-items: start;
     }}
     .workspace-mode-summary {{
       display: grid;
       gap: 6px;
       max-width: 72ch;
+      align-content: start;
     }}
     .workspace-mode-title {{
       font-family: var(--headline);
@@ -841,13 +977,17 @@ def render_console_html(title: str) -> str:
       gap: 12px;
       padding: 16px;
       border-radius: 20px;
-      border: 1px solid rgba(127, 228, 255, 0.24);
+      border: 1px solid rgba(214, 196, 177, 0.22);
       background:
-        linear-gradient(180deg, rgba(127, 228, 255, 0.12), rgba(255, 106, 130, 0.08)),
-        rgba(10, 18, 31, 0.74);
+        linear-gradient(180deg, rgba(207, 129, 94, 0.14), rgba(248, 239, 230, 0.05)),
+        rgba(26, 20, 16, 0.8);
       box-shadow:
-        0 14px 34px rgba(3, 8, 18, 0.18),
-        inset 0 0 0 1px rgba(127, 228, 255, 0.06);
+        0 14px 34px rgba(8, 5, 3, 0.18),
+        inset 0 0 0 1px rgba(248, 239, 230, 0.05);
+    }}
+    .workspace-mode-shell[data-workspace-chrome="compact"] .workspace-mode-object-anchor {{
+      gap: 10px;
+      padding: 14px;
     }}
     .workspace-mode-object-head {{
       display: flex;
@@ -856,7 +996,7 @@ def render_console_html(title: str) -> str:
       align-items: start;
     }}
     .workspace-mode-object-kicker {{
-      color: var(--accent-2);
+      color: var(--accent);
       font: 700 0.74rem/1 var(--mono);
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -892,25 +1032,25 @@ def render_console_html(title: str) -> str:
       text-align: left;
       padding: 18px;
       border-radius: 20px;
-      border: 1px solid rgba(147, 181, 215, 0.14);
-      background: rgba(10, 18, 31, 0.52);
+      border: 1px solid rgba(214, 196, 177, 0.14);
+      background: linear-gradient(180deg, rgba(36, 28, 22, 0.72), rgba(23, 18, 15, 0.58));
       color: var(--ink);
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.03);
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.03);
     }}
     .workspace-mode-card.active {{
-      border-color: rgba(127, 228, 255, 0.32);
+      border-color: rgba(214, 196, 177, 0.22);
       background:
-        linear-gradient(180deg, rgba(127, 228, 255, 0.12), rgba(255, 106, 130, 0.08)),
-        rgba(10, 18, 31, 0.72);
+        linear-gradient(180deg, rgba(207, 129, 94, 0.14), rgba(248, 239, 230, 0.05)),
+        rgba(28, 21, 17, 0.82);
       box-shadow:
-        0 14px 34px rgba(3, 8, 18, 0.24),
-        inset 0 0 0 1px rgba(127, 228, 255, 0.08);
+        0 14px 34px rgba(8, 5, 3, 0.24),
+        inset 0 0 0 1px rgba(248, 239, 230, 0.06);
     }}
     .workspace-mode-card:hover,
     .workspace-mode-card:focus-visible {{
       transform: translateY(-1px);
-      border-color: rgba(127, 228, 255, 0.24);
-      background: rgba(12, 21, 36, 0.7);
+      border-color: rgba(214, 196, 177, 0.2);
+      background: linear-gradient(180deg, rgba(41, 31, 24, 0.78), rgba(27, 20, 16, 0.72));
     }}
     .workspace-mode-card-head {{
       display: flex;
@@ -940,8 +1080,8 @@ def render_console_html(title: str) -> str:
       gap: 6px;
       border-radius: 999px;
       padding: 6px 10px;
-      border: 1px solid rgba(147, 181, 215, 0.14);
-      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(214, 196, 177, 0.14);
+      background: rgba(248, 239, 230, 0.03);
       color: var(--ink);
       font: 700 11px/1 var(--mono);
       text-transform: uppercase;
@@ -952,6 +1092,9 @@ def render_console_html(title: str) -> str:
       gap: 10px;
       color: var(--muted);
       font-size: 0.76rem;
+    }}
+    .workspace-mode-actions {{
+      margin-top: 0;
     }}
     .workspace-mode-insight-grid {{
       display: grid;
@@ -964,10 +1107,9 @@ def render_console_html(title: str) -> str:
     }}
     .workflow-trace-card,
     .shared-signal-taxonomy-card {{
-      height: 100%;
       background:
-        linear-gradient(180deg, rgba(14, 24, 39, 0.88), rgba(9, 15, 25, 0.72));
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+        linear-gradient(180deg, rgba(38, 29, 22, 0.88), rgba(22, 17, 14, 0.74));
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.03);
     }}
     .trace-stage-grid {{
       display: grid;
@@ -985,8 +1127,8 @@ def render_console_html(title: str) -> str:
       gap: 10px;
       padding: 14px;
       border-radius: 18px;
-      border: 1px solid rgba(147, 181, 215, 0.14);
-      background: rgba(12, 21, 34, 0.7);
+      border: 1px solid rgba(214, 196, 177, 0.14);
+      background: rgba(248, 239, 230, 0.03);
     }}
     .workspace-mode-shell[data-workspace-chrome="compact"] .trace-stage,
     .workspace-mode-shell[data-workspace-chrome="compact"] .shared-signal-detail {{
@@ -994,8 +1136,8 @@ def render_console_html(title: str) -> str:
       padding: 12px;
     }}
     .trace-stage.ok {{
-      border-color: rgba(127, 228, 255, 0.26);
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+      border-color: rgba(145, 161, 125, 0.3);
+      box-shadow: inset 0 0 0 1px rgba(145, 161, 125, 0.06);
     }}
     .trace-stage.hot {{
       border-color: rgba(255, 106, 130, 0.28);
@@ -1036,7 +1178,7 @@ def render_console_html(title: str) -> str:
       margin-top: 12px;
     }}
     .shared-signal-button.ok {{
-      border-color: rgba(127, 228, 255, 0.26);
+      border-color: rgba(145, 161, 125, 0.3);
     }}
     .shared-signal-button.hot {{
       border-color: rgba(255, 106, 130, 0.28);
@@ -1047,17 +1189,31 @@ def render_console_html(title: str) -> str:
       margin-top: 14px;
       padding: 14px;
       border-radius: 18px;
-      border: 1px solid rgba(147, 181, 215, 0.14);
-      background: rgba(12, 21, 34, 0.72);
+      border: 1px solid rgba(214, 196, 177, 0.14);
+      background: rgba(248, 239, 230, 0.03);
     }}
     .workspace-mode-shell[data-workspace-chrome="compact"] .workflow-trace-card .panel-sub,
     .workspace-mode-shell[data-workspace-chrome="compact"] .shared-signal-taxonomy-card .panel-sub {{
       font-size: 0.82rem;
       line-height: 1.5;
     }}
+    body[data-responsive-viewport="desktop"] .workspace-mode-shell[data-workspace-chrome="compact"] .workspace-mode-object-anchor .continuity-fact-list {{
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+    }}
+    body[data-responsive-viewport="desktop"] .workspace-mode-shell[data-workspace-chrome="compact"] .workspace-mode-object-anchor .continuity-fact {{
+      display: grid;
+      gap: 4px;
+    }}
+    body[data-responsive-viewport="desktop"] .workspace-mode-shell[data-workspace-chrome="compact"] .workspace-mode-object-anchor .continuity-fact strong {{
+      text-align: left;
+    }}
+    body[data-responsive-viewport="desktop"] .workspace-mode-shell[data-workspace-chrome="compact"] .workspace-mode-object-anchor .action-secondary-row {{
+      display: none;
+    }}
     .shared-signal-detail.ok {{
-      border-color: rgba(127, 228, 255, 0.26);
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+      border-color: rgba(145, 161, 125, 0.3);
+      box-shadow: inset 0 0 0 1px rgba(145, 161, 125, 0.06);
     }}
     .shared-signal-detail.hot {{
       border-color: rgba(255, 106, 130, 0.28);
@@ -1065,38 +1221,56 @@ def render_console_html(title: str) -> str:
     }}
     .advanced-surface-shell {{
       grid-column: 1 / -1;
-      border: 1px solid rgba(147, 181, 215, 0.14);
+      border: 1px solid rgba(214, 196, 177, 0.14);
       border-radius: 22px;
-      background: rgba(9, 15, 25, 0.74);
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.03);
+      background:
+        linear-gradient(180deg, rgba(18, 16, 17, 0.82), rgba(10, 14, 20, 0.74));
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.03);
       overflow: hidden;
     }}
     .advanced-surface-shell summary {{
       list-style: none;
       display: flex;
       flex-wrap: wrap;
-      gap: 14px;
-      align-items: center;
+      gap: 12px;
+      align-items: flex-start;
       justify-content: space-between;
-      padding: 18px 20px;
+      padding: 16px 18px;
       cursor: pointer;
     }}
     .advanced-surface-shell summary::-webkit-details-marker {{
       display: none;
     }}
     .advanced-surface-shell[open] summary {{
-      border-bottom: 1px solid rgba(147, 181, 215, 0.12);
-      background: rgba(127, 228, 255, 0.04);
+      border-bottom: 1px solid rgba(214, 196, 177, 0.12);
+      background: rgba(207, 129, 94, 0.06);
     }}
     .advanced-surface-summary-copy {{
       display: grid;
-      gap: 4px;
+      gap: 6px;
+      flex: 1 1 320px;
+      min-width: 0;
+    }}
+    .advanced-surface-kicker {{
+      font: 700 11px/1 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
     }}
     .advanced-surface-title {{
       font-family: var(--headline);
       font-size: 1rem;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
+      letter-spacing: 0.01em;
+      text-transform: none;
+    }}
+    .advanced-surface-meta {{
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      align-items: center;
+      justify-content: flex-end;
+      font: 700 12px/1.35 var(--mono);
+      color: var(--muted);
     }}
     .advanced-surface-grid {{
       display: grid;
@@ -1130,11 +1304,11 @@ def render_console_html(title: str) -> str:
       height: 220px;
       margin: 18px 0 10px;
       border-radius: 24px;
-      border: 1px solid rgba(147, 181, 215, 0.16);
+      border: 1px solid rgba(214, 196, 177, 0.18);
       background:
-        radial-gradient(circle at 50% 42%, rgba(127, 228, 255, 0.12), transparent 18%),
-        radial-gradient(circle at 50% 46%, rgba(255, 106, 130, 0.14), transparent 24%),
-        linear-gradient(180deg, rgba(15, 24, 39, 0.82), rgba(7, 11, 18, 0.94));
+        radial-gradient(circle at 50% 42%, rgba(207, 129, 94, 0.14), transparent 18%),
+        radial-gradient(circle at 50% 46%, rgba(145, 161, 125, 0.12), transparent 24%),
+        linear-gradient(180deg, rgba(43, 33, 25, 0.82), rgba(18, 13, 10, 0.94));
       overflow: hidden;
       transform-style: preserve-3d;
       transition: transform .28s ease, box-shadow .28s ease;
@@ -1145,8 +1319,8 @@ def render_console_html(title: str) -> str:
       position: absolute;
       inset: 0;
       background:
-        linear-gradient(180deg, rgba(8, 14, 24, 0.08), rgba(8, 14, 24, 0.44)),
-        radial-gradient(circle at 50% 42%, rgba(127, 228, 255, 0.1), transparent 30%);
+        linear-gradient(180deg, rgba(18, 13, 10, 0.08), rgba(18, 13, 10, 0.42)),
+        radial-gradient(circle at 50% 42%, rgba(248, 239, 230, 0.08), transparent 30%);
       pointer-events: none;
     }}
     .hero-stage::before {{
@@ -1155,8 +1329,8 @@ def render_console_html(title: str) -> str:
       inset: auto 0 0 0;
       height: 68px;
       background:
-        linear-gradient(rgba(147, 181, 215, 0.08) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(147, 181, 215, 0.08) 1px, transparent 1px);
+        linear-gradient(rgba(214, 196, 177, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(214, 196, 177, 0.08) 1px, transparent 1px);
       background-size: 30px 30px;
       opacity: 0.85;
     }}
@@ -1169,11 +1343,11 @@ def render_console_html(title: str) -> str:
       gap: 14px;
       padding: 18px;
       background:
-        linear-gradient(160deg, rgba(20, 34, 53, 0.92), rgba(8, 14, 24, 0.9)),
+        linear-gradient(160deg, rgba(47, 35, 28, 0.92), rgba(18, 13, 10, 0.9)),
         var(--panel);
       box-shadow:
         0 18px 44px rgba(3, 8, 18, 0.28),
-        inset 0 0 0 1px rgba(127, 228, 255, 0.05);
+        inset 0 0 0 1px rgba(248, 239, 230, 0.04);
     }}
     .live-object-head {{
       display: flex;
@@ -1212,9 +1386,9 @@ def render_console_html(title: str) -> str:
       gap: 12px;
       padding: 18px;
       background:
-        linear-gradient(180deg, rgba(18, 28, 45, 0.9), rgba(9, 14, 24, 0.88)),
+        linear-gradient(180deg, rgba(41, 31, 25, 0.9), rgba(20, 16, 13, 0.88)),
         var(--panel);
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.03);
     }}
     .hero-visual {{
       position: absolute;
@@ -1262,13 +1436,13 @@ def render_console_html(title: str) -> str:
       height: 168px;
       transform: translateX(-50%);
       border-radius: 999px;
-      border: 2px solid rgba(167, 238, 255, 0.48);
+      border: 2px solid rgba(145, 161, 125, 0.38);
       background:
-        radial-gradient(circle at 50% 46%, rgba(127, 228, 255, 0.14), transparent 58%),
-        radial-gradient(circle at 42% 40%, rgba(255, 122, 143, 0.18), transparent 48%);
+        radial-gradient(circle at 50% 46%, rgba(145, 161, 125, 0.14), transparent 58%),
+        radial-gradient(circle at 42% 40%, rgba(207, 129, 94, 0.18), transparent 48%);
       box-shadow:
-        inset 0 0 42px rgba(127, 228, 255, 0.12),
-        0 0 42px rgba(127, 228, 255, 0.12);
+        inset 0 0 42px rgba(145, 161, 125, 0.1),
+        0 0 42px rgba(207, 129, 94, 0.12);
       transition: transform .28s ease, box-shadow .28s ease;
       will-change: transform;
     }}
@@ -1278,13 +1452,13 @@ def render_console_html(title: str) -> str:
       position: absolute;
       border-radius: 999px;
       inset: 18px;
-      border: 1px solid rgba(167, 238, 255, 0.22);
+      border: 1px solid rgba(214, 196, 177, 0.22);
     }}
     .stage-globe::after {{
       inset: 48% 8px auto 8px;
       height: 1px;
       border: 0;
-      background: rgba(167, 238, 255, 0.28);
+      background: rgba(214, 196, 177, 0.26);
     }}
     .stage-console {{
       position: absolute;
@@ -1292,10 +1466,10 @@ def render_console_html(title: str) -> str:
       width: 126px;
       height: 58px;
       border-radius: 16px;
-      border: 1px solid rgba(147, 181, 215, 0.24);
+      border: 1px solid rgba(214, 196, 177, 0.22);
       background:
-        linear-gradient(180deg, rgba(16, 26, 41, 0.94), rgba(9, 14, 24, 0.98));
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.06);
+        linear-gradient(180deg, rgba(38, 29, 22, 0.94), rgba(18, 13, 10, 0.98));
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.05);
       transition: transform .28s ease;
       will-change: transform;
     }}
@@ -1309,7 +1483,7 @@ def render_console_html(title: str) -> str:
       top: 16px;
       height: 4px;
       background:
-        linear-gradient(90deg, rgba(127, 228, 255, 0.54), rgba(255, 106, 130, 0.72));
+        linear-gradient(90deg, rgba(145, 161, 125, 0.62), rgba(207, 129, 94, 0.78));
       border-radius: 999px;
     }}
     .stage-hud {{
@@ -1321,10 +1495,10 @@ def render_console_html(title: str) -> str:
       gap: 8px;
       padding: 12px 14px;
       border-radius: 18px;
-      border: 1px solid rgba(147, 181, 215, 0.22);
-      background: linear-gradient(180deg, rgba(8, 14, 24, 0.76), rgba(8, 14, 24, 0.28));
+      border: 1px solid rgba(214, 196, 177, 0.18);
+      background: linear-gradient(180deg, rgba(24, 18, 15, 0.78), rgba(24, 18, 15, 0.32));
       backdrop-filter: blur(10px);
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.05);
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.03);
       z-index: 2;
       pointer-events: none;
     }}
@@ -1367,6 +1541,7 @@ def render_console_html(title: str) -> str:
       display: grid;
       grid-template-columns: 1.05fr 1.05fr 0.9fr;
       gap: 18px;
+      align-items: start;
       animation: rise .7s ease-out both;
       animation-delay: .08s;
     }}
@@ -1374,6 +1549,7 @@ def render_console_html(title: str) -> str:
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 18px;
+      align-items: start;
       animation: rise .76s ease-out both;
       animation-delay: .12s;
     }}
@@ -1409,7 +1585,8 @@ def render_console_html(title: str) -> str:
       border: 1px solid var(--line);
       border-radius: 18px;
       padding: var(--card-padding);
-      background: rgba(16, 27, 43, 0.76);
+      background: linear-gradient(180deg, rgba(37, 28, 22, 0.76), rgba(24, 18, 15, 0.72));
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.03);
     }}
     .card-top {{
       display: flex;
@@ -1430,36 +1607,16 @@ def render_console_html(title: str) -> str:
       padding: 6px 10px;
       font: 700 12px/1 var(--mono);
       text-transform: uppercase;
-      background: rgba(127, 228, 255, 0.08);
+      background: rgba(248, 239, 230, 0.06);
       color: var(--muted);
     }}
-    .chip.hot {{ background: rgba(255, 106, 130, 0.14); color: var(--accent); }}
-    .chip.ok {{ background: rgba(127, 228, 255, 0.14); color: var(--accent-2); }}
+    .chip.hot {{ background: rgba(207, 129, 94, 0.14); color: var(--accent); }}
+    .chip.ok {{ background: rgba(145, 161, 125, 0.16); color: var(--accent-2); }}
     .chip-row {{
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       margin-top: 8px;
-    }}
-    .chip-btn {{
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      padding: 6px 10px;
-      background: rgba(127, 228, 255, 0.05);
-      color: var(--muted);
-      font: 700 11px/1 var(--mono);
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
-    }}
-    .chip-btn:hover {{
-      border-color: rgba(127, 228, 255, 0.32);
-      color: var(--text);
-    }}
-    .chip-btn.active {{
-      background: rgba(127, 228, 255, 0.16);
-      border-color: rgba(127, 228, 255, 0.36);
-      color: var(--accent-2);
     }}
     .meta {{
       margin-top: 10px;
@@ -1489,10 +1646,11 @@ def render_console_html(title: str) -> str:
       min-height: var(--action-control-height);
       font: 700 0.76rem/1 var(--mono);
       letter-spacing: 0.02em;
-      background: rgba(127, 228, 255, 0.08);
+      background: linear-gradient(180deg, rgba(248, 239, 230, 0.05), rgba(207, 129, 94, 0.07));
       color: var(--ink);
       text-decoration: none;
       transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+      box-shadow: inset 0 0 0 1px rgba(214, 196, 177, 0.12);
     }}
     .actions a:hover {{
       transform: translateY(-1px);
@@ -1528,7 +1686,7 @@ def render_console_html(title: str) -> str:
       padding: 10px 12px;
       min-height: var(--action-control-height);
       border-radius: 999px;
-      background: rgba(127, 228, 255, 0.08);
+      background: linear-gradient(180deg, rgba(248, 239, 230, 0.05), rgba(207, 129, 94, 0.07));
       color: var(--ink);
       font: 700 0.76rem/1 var(--mono);
       letter-spacing: 0.02em;
@@ -1551,7 +1709,7 @@ def render_console_html(title: str) -> str:
       gap: 8px;
       margin-top: 10px;
       padding-top: 10px;
-      border-top: 1px solid rgba(147, 181, 215, 0.12);
+      border-top: 1px solid rgba(214, 196, 177, 0.12);
     }}
     form {{
       display: grid;
@@ -1562,18 +1720,18 @@ def render_console_html(title: str) -> str:
       gap: 10px;
       padding: var(--cluster-padding);
       border-radius: 18px;
-      border: 1px solid rgba(147, 181, 215, 0.14);
-      background: rgba(10, 18, 31, 0.44);
+      border: 1px solid rgba(214, 196, 177, 0.14);
+      background: linear-gradient(180deg, rgba(38, 29, 22, 0.54), rgba(22, 17, 14, 0.42));
     }}
     .deck-mode-strip {{
       display: grid;
       gap: 12px;
       padding: 14px;
       border-radius: 18px;
-      border: 1px solid rgba(147, 181, 215, 0.14);
+      border: 1px solid rgba(214, 196, 177, 0.14);
       background:
-        linear-gradient(180deg, rgba(13, 22, 37, 0.84), rgba(10, 18, 31, 0.58));
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+        linear-gradient(180deg, rgba(41, 31, 24, 0.84), rgba(24, 18, 15, 0.6));
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.03);
     }}
     .deck-mode-head {{
       display: flex;
@@ -1589,7 +1747,7 @@ def render_console_html(title: str) -> str:
       min-height: 36px;
     }}
     .advanced-summary .chip {{
-      background: rgba(255, 255, 255, 0.04);
+      background: rgba(248, 239, 230, 0.05);
     }}
     .compact-stack {{
       gap: 8px;
@@ -1615,8 +1773,8 @@ def render_console_html(title: str) -> str:
       gap: 12px;
       padding: var(--deck-padding);
       border-radius: 18px;
-      border: 1px solid rgba(147, 181, 215, 0.14);
-      background: rgba(10, 18, 31, 0.5);
+      border: 1px solid rgba(214, 196, 177, 0.14);
+      background: linear-gradient(180deg, rgba(38, 29, 22, 0.6), rgba(22, 17, 14, 0.5));
     }}
     .deck-section-head {{
       display: flex;
@@ -1633,8 +1791,8 @@ def render_console_html(title: str) -> str:
       justify-content: center;
       font: 700 12px/1 var(--mono);
       color: var(--ink);
-      border: 1px solid rgba(147, 181, 215, 0.16);
-      background: rgba(127, 228, 255, 0.08);
+      border: 1px solid rgba(214, 196, 177, 0.16);
+      background: linear-gradient(180deg, rgba(207, 129, 94, 0.14), rgba(248, 239, 230, 0.05));
     }}
     .field-hint {{
       display: block;
@@ -1657,10 +1815,10 @@ def render_console_html(title: str) -> str:
       gap: 12px;
       padding: 14px;
       border-radius: 18px;
-      border: 1px solid rgba(147, 181, 215, 0.14);
+      border: 1px solid rgba(214, 196, 177, 0.14);
       background:
-        linear-gradient(180deg, rgba(11, 19, 31, 0.78), rgba(9, 15, 25, 0.54));
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+        linear-gradient(180deg, rgba(38, 29, 22, 0.8), rgba(22, 17, 14, 0.56));
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.03);
     }}
     .section-toolbox-head {{
       display: flex;
@@ -1689,13 +1847,13 @@ def render_console_html(title: str) -> str:
       top: 92px;
       z-index: 12;
       backdrop-filter: blur(12px);
-      background: rgba(9, 15, 26, 0.86);
+      background: rgba(24, 18, 15, 0.88);
     }}
     .batch-toolbar-card.selection-live {{
-      border-color: rgba(127, 228, 255, 0.24);
+      border-color: rgba(145, 161, 125, 0.28);
       box-shadow:
         var(--shadow),
-        inset 0 0 0 1px rgba(127, 228, 255, 0.08);
+        inset 0 0 0 1px rgba(145, 161, 125, 0.08);
     }}
     .batch-toolbar-head {{
       display: flex;
@@ -1716,12 +1874,12 @@ def render_console_html(title: str) -> str:
       display: grid;
       gap: 14px;
       background:
-        linear-gradient(180deg, rgba(14, 24, 39, 0.88), rgba(9, 15, 25, 0.72));
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+        linear-gradient(180deg, rgba(38, 29, 22, 0.88), rgba(22, 17, 14, 0.74));
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.03);
     }}
     .section-summary-grid {{
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
       gap: 10px;
     }}
     .section-summary-signal {{
@@ -1729,12 +1887,12 @@ def render_console_html(title: str) -> str:
       gap: 10px;
       padding: 14px;
       border-radius: 18px;
-      border: 1px solid rgba(147, 181, 215, 0.14);
-      background: rgba(12, 21, 34, 0.74);
+      border: 1px solid rgba(214, 196, 177, 0.14);
+      background: rgba(248, 239, 230, 0.03);
     }}
     .section-summary-signal.ok {{
-      border-color: rgba(127, 228, 255, 0.26);
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+      border-color: rgba(145, 161, 125, 0.3);
+      box-shadow: inset 0 0 0 1px rgba(145, 161, 125, 0.06);
     }}
     .section-summary-signal.hot {{
       border-color: rgba(255, 106, 130, 0.28);
@@ -1761,12 +1919,12 @@ def render_console_html(title: str) -> str:
       gap: 12px;
       padding: 14px;
       border-radius: 18px;
-      border: 1px solid rgba(147, 181, 215, 0.16);
-      background: rgba(12, 21, 34, 0.74);
+      border: 1px solid rgba(214, 196, 177, 0.16);
+      background: rgba(248, 239, 230, 0.03);
     }}
     .section-summary-feedback.ok {{
-      border-color: rgba(127, 228, 255, 0.28);
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+      border-color: rgba(145, 161, 125, 0.3);
+      box-shadow: inset 0 0 0 1px rgba(145, 161, 125, 0.06);
     }}
     .section-summary-feedback.hot {{
       border-color: rgba(255, 106, 130, 0.28);
@@ -1788,27 +1946,29 @@ def render_console_html(title: str) -> str:
       display: grid;
       gap: 14px;
       background:
-        linear-gradient(180deg, rgba(13, 23, 36, 0.88), rgba(8, 14, 24, 0.78));
+        linear-gradient(180deg, rgba(37, 28, 22, 0.88), rgba(18, 13, 10, 0.78));
       box-shadow:
         var(--shadow),
-        inset 0 0 0 1px rgba(127, 228, 255, 0.05);
+        inset 0 0 0 1px rgba(248, 239, 230, 0.03);
     }}
     .operator-guidance-grid {{
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
       gap: 10px;
     }}
     .operator-guidance-column {{
       display: grid;
       gap: 10px;
+      min-width: 0;
       padding: 14px;
       border-radius: 18px;
-      border: 1px solid rgba(147, 181, 215, 0.14);
-      background: rgba(12, 21, 34, 0.72);
+      border: 1px solid rgba(214, 196, 177, 0.14);
+      background: rgba(248, 239, 230, 0.03);
     }}
     .operator-guidance-column-head {{
       display: grid;
       gap: 4px;
+      min-width: 0;
     }}
     .operator-guidance-column-head .mono {{
       color: var(--muted);
@@ -1820,14 +1980,15 @@ def render_console_html(title: str) -> str:
     .operator-guidance-item {{
       display: grid;
       gap: 8px;
+      min-width: 0;
       padding: 12px;
       border-radius: 16px;
-      border: 1px solid rgba(147, 181, 215, 0.12);
-      background: rgba(7, 14, 24, 0.72);
+      border: 1px solid rgba(214, 196, 177, 0.12);
+      background: rgba(248, 239, 230, 0.02);
     }}
     .operator-guidance-item.ok {{
-      border-color: rgba(127, 228, 255, 0.26);
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.04);
+      border-color: rgba(145, 161, 125, 0.3);
+      box-shadow: inset 0 0 0 1px rgba(145, 161, 125, 0.06);
     }}
     .operator-guidance-item.hot {{
       border-color: rgba(255, 106, 130, 0.28);
@@ -1838,20 +1999,25 @@ def render_console_html(title: str) -> str:
       align-items: start;
       justify-content: space-between;
       gap: 10px;
+      min-width: 0;
     }}
     .operator-guidance-item-title {{
+      min-width: 0;
       font-size: 0.92rem;
       line-height: 1.4;
       color: var(--ink);
+      overflow-wrap: anywhere;
     }}
     .operator-guidance-item-copy {{
+      min-width: 0;
       font-size: 0.82rem;
       line-height: 1.55;
       color: var(--muted);
+      overflow-wrap: anywhere;
     }}
     .continuity-lane {{
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
       gap: 10px;
     }}
     .continuity-stage {{
@@ -1859,11 +2025,11 @@ def render_console_html(title: str) -> str:
       gap: 10px;
       padding: 14px;
       border-radius: 18px;
-      border: 1px solid rgba(147, 181, 215, 0.14);
-      background: rgba(12, 21, 34, 0.74);
+      border: 1px solid rgba(214, 196, 177, 0.14);
+      background: rgba(248, 239, 230, 0.03);
     }}
     .continuity-stage.ok {{
-      border-color: rgba(127, 228, 255, 0.26);
+      border-color: rgba(145, 161, 125, 0.3);
     }}
     .continuity-stage.hot {{
       border-color: rgba(255, 106, 130, 0.28);
@@ -1954,9 +2120,9 @@ def render_console_html(title: str) -> str:
     }}
     input, select, textarea {{
       width: 100%;
-      border: 1px solid rgba(147, 181, 215, 0.16);
+      border: 1px solid rgba(214, 196, 177, 0.16);
       border-radius: 14px;
-      background: rgba(11, 18, 30, 0.86);
+      background: rgba(24, 18, 15, 0.84);
       color: var(--ink);
       padding: 13px 14px;
       font: 500 0.96rem/1.2 var(--body);
@@ -1967,14 +2133,14 @@ def render_console_html(title: str) -> str:
     }}
     input:focus, select:focus, textarea:focus {{
       outline: none;
-      border-color: rgba(127, 228, 255, 0.48);
+      border-color: rgba(207, 129, 94, 0.42);
       box-shadow:
-        0 0 0 1px rgba(127, 228, 255, 0.24),
-        0 0 0 5px rgba(127, 228, 255, 0.08);
+        0 0 0 1px rgba(207, 129, 94, 0.22),
+        0 0 0 5px rgba(207, 129, 94, 0.08);
     }}
     .mission-preview.ready {{
-      border-color: rgba(127, 228, 255, 0.28);
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.08);
+      border-color: rgba(145, 161, 125, 0.3);
+      box-shadow: inset 0 0 0 1px rgba(145, 161, 125, 0.08);
     }}
     .preview-grid {{
       display: grid;
@@ -1985,7 +2151,7 @@ def render_console_html(title: str) -> str:
       border-radius: 14px;
       border: 1px solid var(--line);
       padding: 12px;
-      background: rgba(16, 27, 43, 0.64);
+      background: rgba(248, 239, 230, 0.04);
     }}
     .preview-label {{
       font: 700 11px/1 var(--mono);
@@ -2003,13 +2169,13 @@ def render_console_html(title: str) -> str:
       height: 10px;
       border-radius: 999px;
       overflow: hidden;
-      background: rgba(127, 228, 255, 0.08);
-      border: 1px solid rgba(147, 181, 215, 0.16);
+      background: rgba(248, 239, 230, 0.08);
+      border: 1px solid rgba(214, 196, 177, 0.16);
     }}
     .preview-meter-fill {{
       height: 100%;
       border-radius: 999px;
-      background: linear-gradient(90deg, rgba(127, 228, 255, 0.72), rgba(255, 106, 130, 0.82));
+      background: linear-gradient(90deg, rgba(145, 161, 125, 0.72), rgba(207, 129, 94, 0.84));
       transition: width .24s ease;
     }}
     .shortcut-strip {{
@@ -2033,17 +2199,17 @@ def render_console_html(title: str) -> str:
     .toast {{
       padding: 14px 16px;
       border-radius: 18px;
-      border: 1px solid rgba(147, 181, 215, 0.24);
-      background: rgba(9, 15, 28, 0.94);
+      border: 1px solid rgba(214, 196, 177, 0.22);
+      background: rgba(24, 18, 15, 0.94);
       color: var(--ink);
       box-shadow: var(--shadow);
       animation: rise .22s ease-out both;
     }}
     .toast.success {{
-      border-color: rgba(127, 228, 255, 0.3);
+      border-color: rgba(145, 161, 125, 0.32);
       box-shadow:
         var(--shadow),
-        0 0 0 1px rgba(127, 228, 255, 0.08);
+        0 0 0 1px rgba(145, 161, 125, 0.08);
     }}
     .toast.error {{
       border-color: rgba(255, 106, 130, 0.3);
@@ -2061,12 +2227,12 @@ def render_console_html(title: str) -> str:
       border-radius: 16px;
       border: 1px solid var(--line);
       padding: 12px;
-      background: rgba(16, 27, 43, 0.72);
+      background: rgba(248, 239, 230, 0.04);
     }}
     .palette-backdrop {{
       position: fixed;
       inset: 0;
-      background: rgba(4, 8, 16, 0.72);
+      background: rgba(15, 11, 9, 0.72);
       backdrop-filter: blur(10px);
       z-index: 60;
       display: none;
@@ -2080,8 +2246,8 @@ def render_console_html(title: str) -> str:
     .palette-shell {{
       width: min(760px, 100%);
       border-radius: 24px;
-      border: 1px solid rgba(147, 181, 215, 0.24);
-      background: rgba(7, 12, 22, 0.96);
+      border: 1px solid rgba(214, 196, 177, 0.22);
+      background: rgba(22, 17, 14, 0.96);
       box-shadow: var(--shadow);
       overflow: hidden;
     }}
@@ -2092,8 +2258,8 @@ def render_console_html(title: str) -> str:
     .palette-input {{
       width: 100%;
       border-radius: 16px;
-      border: 1px solid rgba(147, 181, 215, 0.18);
-      background: rgba(11, 18, 30, 0.92);
+      border: 1px solid rgba(214, 196, 177, 0.18);
+      background: rgba(31, 24, 19, 0.92);
       color: var(--ink);
       padding: 14px 16px;
       font: 500 1rem/1.2 var(--body);
@@ -2108,15 +2274,15 @@ def render_console_html(title: str) -> str:
       display: grid;
       gap: 6px;
       padding: 14px 16px;
-      border-bottom: 1px solid rgba(147, 181, 215, 0.1);
+      border-bottom: 1px solid rgba(214, 196, 177, 0.1);
       cursor: pointer;
       transition: background .14s ease;
     }}
     .palette-item.active {{
-      background: rgba(127, 228, 255, 0.12);
+      background: rgba(207, 129, 94, 0.12);
     }}
     .palette-item:hover {{
-      background: rgba(127, 228, 255, 0.08);
+      background: rgba(248, 239, 230, 0.06);
     }}
     .palette-kicker {{
       font: 700 11px/1 var(--mono);
@@ -2147,7 +2313,7 @@ def render_console_html(title: str) -> str:
     .skeleton-block {{
       height: 14px;
       border-radius: 999px;
-      background: rgba(147, 181, 215, 0.12);
+      background: rgba(214, 196, 177, 0.12);
     }}
     .skeleton-block.short {{ width: 34%; }}
     .skeleton-block.medium {{ width: 58%; }}
@@ -2159,11 +2325,11 @@ def render_console_html(title: str) -> str:
     .state-banner {{
       border-radius: 18px;
       padding: 16px;
-      background: linear-gradient(135deg, rgba(127, 228, 255, 0.12), rgba(10, 18, 31, 0.74));
-      border: 1px solid rgba(127, 228, 255, 0.16);
+      background: linear-gradient(135deg, rgba(207, 129, 94, 0.14), rgba(24, 18, 15, 0.74));
+      border: 1px solid rgba(214, 196, 177, 0.16);
     }}
     .state-banner.error {{
-      background: linear-gradient(135deg, rgba(255, 106, 130, 0.16), rgba(10, 18, 31, 0.72));
+      background: linear-gradient(135deg, rgba(255, 106, 130, 0.18), rgba(24, 18, 15, 0.76));
       border-color: rgba(255, 106, 130, 0.18);
     }}
     .mono {{
@@ -2174,7 +2340,7 @@ def render_console_html(title: str) -> str:
     .empty {{
       padding: 24px;
       border-radius: 16px;
-      border: 1px dashed rgba(147, 181, 215, 0.24);
+      border: 1px dashed rgba(214, 196, 177, 0.24);
       color: var(--muted);
       text-align: center;
     }}
@@ -2191,6 +2357,13 @@ def render_console_html(title: str) -> str:
       align-items: center;
       margin: 12px 0 6px;
     }}
+    .story-workspace-mode-switch.ui-segment {{
+      justify-content: flex-start;
+      padding: 6px;
+    }}
+    .story-workspace-mode-switch .mono {{
+      padding-inline: 6px;
+    }}
     .story-list {{
       display: grid;
       gap: 12px;
@@ -2199,9 +2372,9 @@ def render_console_html(title: str) -> str:
       padding-right: 4px;
     }}
     .card.selected {{
-      border-color: rgba(127, 228, 255, 0.3);
-      box-shadow: inset 0 0 0 1px rgba(127, 228, 255, 0.16);
-      background: rgba(15, 26, 41, 0.9);
+      border-color: rgba(207, 129, 94, 0.28);
+      box-shadow: inset 0 0 0 1px rgba(207, 129, 94, 0.12);
+      background: rgba(45, 34, 27, 0.9);
     }}
     .card.selectable {{
       cursor: pointer;
@@ -2209,7 +2382,7 @@ def render_console_html(title: str) -> str:
     }}
     .card.selectable:hover {{
       transform: translateY(-1px);
-      border-color: rgba(127, 228, 255, 0.24);
+      border-color: rgba(207, 129, 94, 0.22);
     }}
     .entity-row {{
       display: flex;
@@ -2220,6 +2393,65 @@ def render_console_html(title: str) -> str:
     .story-detail {{
       display: grid;
       gap: 12px;
+    }}
+    .story-detail-shell {{
+      display: grid;
+      gap: 12px;
+    }}
+    .story-detail-toolbar {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+    }}
+    .story-detail-actions {{
+      margin-top: 0;
+    }}
+    .story-detail-actions > button,
+    .story-detail-actions > a {{
+      min-height: 44px;
+    }}
+    .story-detail-pane {{
+      display: grid;
+      gap: 12px;
+    }}
+    .story-pane-head {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: start;
+      justify-content: space-between;
+    }}
+    .story-pane-copy {{
+      max-width: 720px;
+    }}
+    .story-fact-grid {{
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }}
+    .story-fact-card {{
+      display: grid;
+      gap: 10px;
+      min-height: 124px;
+      border-radius: 18px;
+      border: 1px solid rgba(214, 196, 177, 0.16);
+      padding: 16px;
+      background: linear-gradient(180deg, rgba(248, 239, 230, 0.05), rgba(248, 239, 230, 0.02));
+    }}
+    .story-fact-value {{
+      font-family: var(--headline);
+      font-size: 1.34rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }}
+    .story-fact-copy {{
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
     }}
     body[data-story-workspace-mode="editor"] .story-list {{
       display: none;
@@ -2241,12 +2473,12 @@ def render_console_html(title: str) -> str:
       border-radius: 16px;
       border: 1px solid var(--line);
       padding: 12px;
-      background: rgba(16, 27, 43, 0.78);
+      background: rgba(248, 239, 230, 0.04);
       display: grid;
       gap: 8px;
     }}
     .timeline-event.ok {{
-      border-color: rgba(127, 228, 255, 0.28);
+      border-color: rgba(145, 161, 125, 0.3);
     }}
     .timeline-event.hot {{
       border-color: rgba(255, 106, 130, 0.28);
@@ -2259,8 +2491,8 @@ def render_console_html(title: str) -> str:
       border-radius: 18px;
       border: 1px solid var(--line);
       background:
-        radial-gradient(circle at 50% 45%, rgba(127, 228, 255, 0.12), transparent 42%),
-        linear-gradient(180deg, rgba(17, 27, 43, 0.92), rgba(9, 14, 24, 0.94));
+        radial-gradient(circle at 50% 45%, rgba(207, 129, 94, 0.16), transparent 42%),
+        linear-gradient(180deg, rgba(38, 29, 22, 0.94), rgba(18, 13, 10, 0.96));
       overflow: hidden;
     }}
     .graph-canvas svg {{
@@ -2281,7 +2513,7 @@ def render_console_html(title: str) -> str:
       border-radius: 14px;
       border: 1px solid var(--line);
       padding: 10px 12px;
-      background: rgba(16, 27, 43, 0.72);
+      background: rgba(248, 239, 230, 0.04);
       font: 700 12px/1.4 var(--mono);
       color: var(--muted);
     }}
@@ -2290,11 +2522,101 @@ def render_console_html(title: str) -> str:
       padding: 14px;
       border-radius: 14px;
       border: 1px solid var(--line);
-      background: rgba(16, 27, 43, 0.74);
+      background: rgba(248, 239, 230, 0.04);
       white-space: pre-wrap;
       overflow: auto;
       font: 500 12px/1.55 var(--mono);
       color: var(--ink);
+    }}
+    .story-inspector-backdrop {{
+      position: fixed;
+      inset: 0;
+      z-index: 66;
+      display: none;
+      align-items: stretch;
+      justify-content: flex-end;
+      padding: 16px;
+      background: rgba(15, 11, 9, 0.62);
+      backdrop-filter: blur(12px);
+    }}
+    .story-inspector-backdrop.open {{
+      display: flex;
+    }}
+    .story-inspector-shell {{
+      width: min(720px, 100%);
+      height: 100%;
+      border: 1px solid rgba(214, 196, 177, 0.16);
+      border-radius: 30px;
+      background: linear-gradient(180deg, rgba(38, 29, 22, 0.98), rgba(22, 17, 14, 0.97));
+      box-shadow: 0 30px 80px rgba(8, 5, 3, 0.42);
+      overflow: hidden;
+    }}
+    .story-inspector-shell:focus {{
+      outline: 2px solid rgba(207, 129, 94, 0.38);
+      outline-offset: 0;
+    }}
+    .story-inspector {{
+      height: 100%;
+      padding: 24px 22px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 16px;
+    }}
+    .story-inspector-head {{
+      display: flex;
+      gap: 14px;
+      align-items: start;
+      justify-content: space-between;
+    }}
+    .story-inspector-head-copy {{
+      min-width: 0;
+      display: grid;
+      gap: 6px;
+    }}
+    .story-inspector-title {{
+      font-family: var(--headline);
+      font-size: 0.94rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }}
+    .story-inspector-copy {{
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }}
+    .story-inspector-body {{
+      min-height: 0;
+      overflow-y: auto;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }}
+    .story-inspector-toolbar {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }}
+    .story-inspector-toolbar .meta {{
+      margin-top: 0;
+    }}
+    .story-inspector-panel {{
+      display: grid;
+      gap: 12px;
+    }}
+    .story-inspector-pre {{
+      min-height: min(54vh, 520px);
+    }}
+    .story-inspector-footer {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }}
+    .story-inspector-footer > button,
+    .story-inspector-footer > a {{
+      min-height: 44px;
     }}
     .footer-note {{
       padding: 18px 0 8px;
@@ -2306,6 +2628,7 @@ def render_console_html(title: str) -> str:
     body[data-pane-contract="stacked"] .grid,
     body[data-pane-contract="stacked"] .story-grid,
     body[data-pane-contract="stacked"] .story-columns,
+    body[data-pane-contract="stacked"] .story-fact-grid,
     body[data-pane-contract="stacked"] .preview-grid,
     body[data-pane-contract="stacked"] .guide-grid,
     body[data-pane-contract="stacked"] .operator-guidance-grid,
@@ -2318,6 +2641,7 @@ def render_console_html(title: str) -> str:
     body[data-pane-contract="single"] .grid,
     body[data-pane-contract="single"] .story-grid,
     body[data-pane-contract="single"] .story-columns,
+    body[data-pane-contract="single"] .story-fact-grid,
     body[data-pane-contract="single"] .preview-grid,
     body[data-pane-contract="single"] .guide-grid,
     body[data-pane-contract="single"] .operator-guidance-grid,
@@ -2327,6 +2651,140 @@ def render_console_html(title: str) -> str:
     body[data-pane-contract="single"] .trace-stage-grid,
     body[data-pane-contract="single"] .workbench-columns {{
       grid-template-columns: 1fr;
+    }}
+    body[data-responsive-viewport="compact"] .topbar,
+    body[data-responsive-viewport="touch"] .topbar {{
+      grid-template-columns: 1fr;
+    }}
+    body[data-responsive-viewport="compact"] .topbar-nav,
+    body[data-responsive-viewport="touch"] .topbar-nav {{
+      justify-content: start;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: none;
+    }}
+    body[data-responsive-viewport="compact"] .topbar-nav::-webkit-scrollbar,
+    body[data-responsive-viewport="touch"] .topbar-nav::-webkit-scrollbar {{
+      display: none;
+    }}
+    body[data-responsive-viewport="compact"] .workspace-mode-grid,
+    body[data-responsive-viewport="compact"] .workspace-mode-insight-grid,
+    body[data-responsive-viewport="compact"] .advanced-surface-grid,
+    body[data-responsive-viewport="compact"] .workspace-mode-group[data-workspace-group="review"],
+    body[data-responsive-viewport="compact"] .hero,
+    body[data-responsive-viewport="compact"] .grid,
+    body[data-responsive-viewport="compact"] .dual-grid,
+    body[data-responsive-viewport="touch"] .workspace-mode-grid,
+    body[data-responsive-viewport="touch"] .workspace-mode-insight-grid,
+    body[data-responsive-viewport="touch"] .advanced-surface-grid,
+    body[data-responsive-viewport="touch"] .workspace-mode-group[data-workspace-group="review"],
+    body[data-responsive-viewport="touch"] .hero,
+    body[data-responsive-viewport="touch"] .grid,
+    body[data-responsive-viewport="touch"] .dual-grid {{
+      grid-template-columns: 1fr;
+    }}
+    body[data-responsive-viewport="compact"] .batch-toolbar-card {{
+      top: 152px;
+    }}
+    body[data-responsive-viewport="touch"] .shell {{
+      padding: 16px;
+    }}
+    body[data-responsive-viewport="touch"] .topbar {{
+      top: 10px;
+      padding: 12px 14px;
+    }}
+    body[data-responsive-viewport="touch"] .topbar-copy span {{
+      white-space: normal;
+    }}
+    body[data-responsive-viewport="touch"] .topbar-tools {{
+      flex-wrap: wrap;
+      justify-content: start;
+      width: 100%;
+    }}
+    body[data-responsive-viewport="touch"] .topbar-context {{
+      width: 100%;
+    }}
+    body[data-responsive-viewport="touch"] .topbar-object-anchor {{
+      width: 100%;
+      min-width: 0;
+    }}
+    body[data-responsive-viewport="touch"] .continuity-lane,
+    body[data-responsive-viewport="touch"] .operator-guidance-grid,
+    body[data-responsive-viewport="touch"] .section-summary-grid,
+    body[data-responsive-viewport="touch"] .trace-stage-grid,
+    body[data-responsive-viewport="touch"] .workbench-columns {{
+      grid-template-columns: 1fr;
+    }}
+    body[data-responsive-viewport="touch"] .context-chip {{
+      max-width: 100%;
+    }}
+    body[data-responsive-viewport="touch"] .hero-main,
+    body[data-responsive-viewport="touch"] .hero-side,
+    body[data-responsive-viewport="touch"] .panel {{
+      border-radius: 22px;
+      padding: 18px;
+    }}
+    body[data-responsive-viewport="touch"] h1 {{
+      max-width: none;
+      font-size: clamp(2.2rem, 11vw, 3.3rem);
+      line-height: 1.02;
+    }}
+    body[data-responsive-viewport="touch"][data-lang="zh"] h1 {{
+      font-size: clamp(2rem, 10vw, 3.1rem);
+      line-height: 1.14;
+    }}
+    body[data-responsive-viewport="touch"] .hero-copy {{
+      font-size: 0.98rem;
+    }}
+    body[data-responsive-viewport="touch"] .hero-stage {{
+      height: 150px;
+    }}
+    body[data-responsive-viewport="touch"] .stage-ring {{
+      top: 24px;
+      bottom: 20px;
+      width: 124px;
+    }}
+    body[data-responsive-viewport="touch"] .stage-globe {{
+      width: 112px;
+      height: 112px;
+      top: 22px;
+    }}
+    body[data-responsive-viewport="touch"] .stage-console {{
+      width: 88px;
+      height: 42px;
+      bottom: 18px;
+    }}
+    body[data-responsive-viewport="touch"] .guide-grid {{
+      gap: 10px;
+    }}
+    body[data-responsive-viewport="touch"] .workspace-mode-shell {{
+      padding: 14px;
+    }}
+    body[data-responsive-viewport="touch"] .workspace-mode-card {{
+      padding: 14px;
+    }}
+    body[data-responsive-viewport="touch"] .workspace-mode-object-anchor,
+    body[data-responsive-viewport="touch"] .live-object-anchor,
+    body[data-responsive-viewport="touch"] .guide-compact-card {{
+      padding: 14px;
+    }}
+    body[data-responsive-viewport="touch"] .workspace-mode-object-title {{
+      font-size: 1.28rem;
+    }}
+    body[data-responsive-viewport="touch"] .live-object-title {{
+      font-size: 1.54rem;
+    }}
+    body[data-responsive-viewport="touch"] .guide-card,
+    body[data-responsive-viewport="touch"] .deck-section,
+    body[data-responsive-viewport="touch"] .control-cluster {{
+      padding: 12px;
+    }}
+    body[data-responsive-viewport="touch"] .deck-mode-strip {{
+      padding: 12px;
+    }}
+    body[data-responsive-viewport="touch"] .batch-toolbar-card {{
+      top: 132px;
     }}
     body[data-modal-presentation="sheet"] .context-lens-backdrop {{
       align-items: flex-end;
@@ -2339,12 +2797,35 @@ def render_console_html(title: str) -> str:
       border-bottom-left-radius: 0;
       border-bottom-right-radius: 0;
     }}
+    body[data-modal-presentation="sheet"] .story-inspector-backdrop {{
+      align-items: flex-end;
+      justify-content: center;
+      padding: 12px;
+    }}
+    body[data-modal-presentation="sheet"] .story-inspector-shell {{
+      width: min(720px, 100%);
+      height: min(84vh, 780px);
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }}
     body[data-modal-presentation="fullscreen"] .context-lens-backdrop {{
       padding: 0;
       align-items: stretch;
       justify-content: stretch;
     }}
     body[data-modal-presentation="fullscreen"] .context-lens-shell {{
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+      border-left: 0;
+      border-right: 0;
+    }}
+    body[data-modal-presentation="fullscreen"] .story-inspector-backdrop {{
+      padding: 0;
+      align-items: stretch;
+      justify-content: stretch;
+    }}
+    body[data-modal-presentation="fullscreen"] .story-inspector-shell {{
       width: 100%;
       height: 100%;
       border-radius: 0;
@@ -2408,7 +2889,7 @@ def render_console_html(title: str) -> str:
       .hero, .grid, .dual-grid {{ grid-template-columns: 1fr; }}
       .hero-main {{ order: 0; }}
       .hero-side {{ order: 1; }}
-      .story-grid, .story-columns {{ grid-template-columns: 1fr; }}
+      .story-grid, .story-columns, .story-fact-grid {{ grid-template-columns: 1fr; }}
       .preview-grid, .guide-grid, .operator-guidance-grid, .section-summary-grid {{ grid-template-columns: 1fr; }}
       .batch-toolbar-card {{ top: 152px; }}
     }}
@@ -2422,20 +2903,24 @@ def render_console_html(title: str) -> str:
       .signal-strip, .field-grid {{ grid-template-columns: 1fr 1fr; }}
       .topbar-tools {{ flex-wrap: wrap; justify-content: start; }}
       .topbar-context {{ width: 100%; }}
-      .context-view-dock-tools {{
-        flex-direction: column;
-        align-items: start;
-      }}
-      .context-view-dock-actions {{
-        justify-content: start;
-      }}
-      .context-chip-button {{ max-width: 100%; width: 100%; }}
+      .topbar-object-anchor {{ width: 100%; min-width: 0; }}
       .context-lens-backdrop {{
         padding: 12px;
       }}
       .context-lens-shell {{
         width: min(100%, 520px);
         border-radius: 24px;
+      }}
+      .story-inspector-backdrop {{
+        padding: 0;
+        align-items: flex-end;
+        justify-content: stretch;
+      }}
+      .story-inspector-shell {{
+        width: 100%;
+        height: min(88vh, 100%);
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
       }}
       .continuity-lane,
       .operator-guidance-grid,
@@ -2504,14 +2989,9 @@ def render_console_html(title: str) -> str:
         grid-template-columns: 1fr;
         gap: 4px;
       }}
-      .context-view-dock-form {{
-        grid-template-columns: 1fr;
-      }}
       .context-save-form {{
         grid-template-columns: 1fr;
       }}
-      .palette-trigger {{ flex: 1 1 auto; }}
-      .lang-switch {{ margin-left: auto; }}
       .hero-stage {{ display: none; }}
       .workspace-mode-shell[data-workspace-chrome="compact"] .trace-stage-grid {{
         grid-template-columns: 1fr;
@@ -2531,47 +3011,18 @@ def render_console_html(title: str) -> str:
           <span id="topbar-subtitle">Workflow stages | Start -&gt; Monitor -&gt; Review -&gt; Deliver</span>
         </div>
       </div>
-      <nav class="topbar-nav" aria-label="Primary Workflow Stages">
-        <button class="nav-pill" id="nav-intake" type="button" data-jump-target="section-intake" data-workspace-mode="intake">Start</button>
-        <button class="nav-pill" id="nav-missions" type="button" data-jump-target="section-board" data-workspace-mode="missions">Monitor</button>
-        <button class="nav-pill" id="nav-review" type="button" data-jump-target="section-triage" data-workspace-mode="review">Review</button>
-        <button class="nav-pill" id="nav-delivery" type="button" data-jump-target="section-ops" data-workspace-mode="delivery">Deliver</button>
+      <nav class="topbar-nav ui-segment" aria-label="Primary Workflow Stages">
+        <button class="nav-pill ui-segment-button" id="nav-intake" type="button" data-jump-target="section-intake" data-workspace-mode="intake">Start</button>
+        <button class="nav-pill ui-segment-button" id="nav-missions" type="button" data-jump-target="section-board" data-workspace-mode="missions">Monitor</button>
+        <button class="nav-pill ui-segment-button" id="nav-review" type="button" data-jump-target="section-triage" data-workspace-mode="review">Review</button>
+        <button class="nav-pill ui-segment-button" id="nav-delivery" type="button" data-jump-target="section-ops" data-workspace-mode="delivery">Deliver</button>
       </nav>
-    <div class="topbar-tools">
+      <div class="topbar-tools">
         <div class="topbar-context" id="context-shell">
-          <div class="context-object-rail" id="context-object-rail" data-context-object-rail>
-            <button class="context-object-step" type="button" data-context-object-step="mission" data-context-object-id="" data-context-object-section="section-board">
-              <span class="context-object-step-title">Mission</span>
-              <span class="context-object-step-value" data-fit-text="context-object-value" data-fit-fallback="18">Not set</span>
-            </button>
-            <span class="context-object-divider">→</span>
-            <button class="context-object-step" type="button" data-context-object-step="evidence" data-context-object-id="" data-context-object-section="section-triage">
-              <span class="context-object-step-title">Evidence</span>
-              <span class="context-object-step-value" data-fit-text="context-object-value" data-fit-fallback="18">Not set</span>
-            </button>
-            <span class="context-object-divider">→</span>
-            <button class="context-object-step" type="button" data-context-object-step="story" data-context-object-id="" data-context-object-section="section-story">
-              <span class="context-object-step-title">Story</span>
-              <span class="context-object-step-value" data-fit-text="context-object-value" data-fit-fallback="18">Not set</span>
-            </button>
-            <span class="context-object-divider">→</span>
-            <button class="context-object-step" type="button" data-context-object-step="report" data-context-object-id="" data-context-object-section="section-report-studio">
-              <span class="context-object-step-title">Report</span>
-              <span class="context-object-step-value" data-fit-text="context-object-value" data-fit-fallback="18">Not set</span>
-            </button>
-            <span class="context-object-divider">→</span>
-            <button class="context-object-step" type="button" data-context-object-step="route" data-context-object-id="" data-context-object-section="section-ops">
-              <span class="context-object-step-title">Route</span>
-              <span class="context-object-step-value" data-fit-text="context-object-value" data-fit-fallback="18">Not set</span>
-            </button>
-          </div>
-          <button class="chip context-chip context-chip-button" id="context-summary" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="context-lens-shell" data-fit-text="context-summary" data-fit-fallback="28">Start | Mission intake</button>
-        </div>
-        <button class="btn-secondary palette-trigger" id="palette-open" type="button">Command Palette</button>
-        <button class="btn-secondary" id="context-reset" type="button">Reset Context</button>
-        <div class="lang-switch" id="language-switch" aria-label="Language Switch">
-          <button class="lang-btn active" id="lang-en" type="button" data-lang="en">EN</button>
-          <button class="lang-btn" id="lang-zh" type="button" data-lang="zh">简中</button>
+          <button class="topbar-object-anchor ui-action-button" id="context-summary" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="context-lens-shell">
+            <span class="topbar-object-kicker" id="context-summary-kicker">Mission Intake</span>
+            <span class="topbar-object-title" id="context-summary-detail" data-fit-text="context-summary-detail" data-fit-fallback="30">No active object</span>
+          </button>
         </div>
       </div>
     </header>
@@ -2641,11 +3092,11 @@ def render_console_html(title: str) -> str:
               <span class="chip" id="shortcut-preset">1-4 load preset</span>
               <span class="chip" id="shortcut-submit">Cmd/Ctrl+Enter deploy</span>
             </div>
-            <div class="chip-row section-jumps">
-              <button class="chip-btn" id="jump-cockpit" type="button" data-jump-target="section-cockpit">Cockpit</button>
-              <button class="chip-btn" id="jump-triage" type="button" data-jump-target="section-triage">Triage</button>
-              <button class="chip-btn" id="jump-story" type="button" data-jump-target="section-story">Stories</button>
-              <button class="chip-btn" id="jump-ops" type="button" data-jump-target="section-ops">Ops</button>
+            <div class="actions section-jumps">
+              <button class="btn-secondary" id="jump-cockpit" type="button" data-jump-target="section-cockpit">Cockpit</button>
+              <button class="btn-secondary" id="jump-triage" type="button" data-jump-target="section-triage">Triage</button>
+              <button class="btn-secondary" id="jump-story" type="button" data-jump-target="section-story">Stories</button>
+              <button class="btn-secondary" id="jump-ops" type="button" data-jump-target="section-ops">Ops</button>
             </div>
             <div class="chip-row section-jumps" id="story-view-jumps"></div>
           </div>
@@ -2752,7 +3203,7 @@ def render_console_html(title: str) -> str:
         <div class="control-cluster" id="create-watch-clone-panel">
           <div class="mono" id="clone-title">Clone Existing Mission</div>
           <div class="panel-sub" id="clone-copy">Fork an existing watch when the current mission is only a variation in route, threshold, or query wording.</div>
-          <div class="chip-row" id="create-watch-clones"></div>
+          <div class="actions" id="create-watch-clones"></div>
         </div>
         <div class="control-cluster">
           <div class="mono" id="actions-title">Recent Actions</div>
@@ -2812,10 +3263,10 @@ def render_console_html(title: str) -> str:
         </div>
       </div>
       <div class="meta" id="story-stats-inline"></div>
-      <div class="story-workspace-mode-switch" id="story-workspace-mode-switch">
+      <div class="story-workspace-mode-switch ui-segment" id="story-workspace-mode-switch">
         <span class="mono" id="story-mode-switch-label"></span>
-        <button class="chip-btn" id="story-mode-board-button" type="button" data-story-workspace-mode="board"></button>
-        <button class="chip-btn" id="story-mode-editor-button" type="button" data-story-workspace-mode="editor"></button>
+        <button class="ui-segment-button" id="story-mode-board-button" type="button" data-story-workspace-mode="board"></button>
+        <button class="ui-segment-button" id="story-mode-editor-button" type="button" data-story-workspace-mode="editor"></button>
       </div>
       <div class="section-summary-shell" id="story-section-summary"></div>
       <div class="control-cluster" id="story-intake-shell">
@@ -2837,11 +3288,12 @@ def render_console_html(title: str) -> str:
     <details class="advanced-surface-shell" id="review-advanced-shell">
       <summary>
         <div class="advanced-surface-summary-copy">
-          <div class="advanced-surface-title" id="review-advanced-title">Advanced Review Surfaces</div>
-          <div class="panel-sub" id="review-advanced-copy">Claim composition and report assembly stay available here without competing with triage and story work by default.</div>
+          <div class="advanced-surface-kicker" id="review-advanced-kicker">Secondary Review Tools</div>
+          <div class="advanced-surface-title" id="review-advanced-title">Claim &amp; Report Tools</div>
+          <div class="panel-sub" id="review-advanced-copy">Open claim composition and report assembly only when review needs structured output beyond triage and story editing.</div>
         </div>
-        <div class="chip-row">
-          <span class="chip" id="review-advanced-chip">Claim Composer + Report Studio</span>
+        <div class="advanced-surface-meta">
+          <span id="review-advanced-chip">On demand · Claim Composer · Report Studio</span>
         </div>
       </summary>
       <div class="advanced-surface-grid">
@@ -2859,7 +3311,7 @@ def render_console_html(title: str) -> str:
           <div class="panel-head">
             <div>
               <h2 class="panel-title" id="report-studio-title">Report Studio</h2>
-              <div class="panel-sub" id="report-studio-copy">Inspect report sections, quality guardrails, and export previews over persisted report objects.</div>
+              <div class="panel-sub" id="report-studio-copy">Inspect report sections, quality guardrails, and export sheets over persisted report objects.</div>
             </div>
           </div>
           <div class="stack" id="report-studio-shell"></div>
@@ -2928,11 +3380,12 @@ def render_console_html(title: str) -> str:
       <details class="advanced-surface-shell" id="delivery-advanced-shell">
         <summary>
           <div class="advanced-surface-summary-copy">
-            <div class="advanced-surface-title" id="delivery-advanced-title">Advanced Delivery Surfaces</div>
-            <div class="panel-sub" id="delivery-advanced-copy">AI projection inspection and route-health drill-down stay available here without competing with dispatch posture and delivery history by default.</div>
+            <div class="advanced-surface-kicker" id="delivery-advanced-kicker">Secondary Delivery Tools</div>
+            <div class="advanced-surface-title" id="delivery-advanced-title">AI &amp; Route Health</div>
+            <div class="panel-sub" id="delivery-advanced-copy">Open AI projection inspection and route-health drill-down only when delivery needs diagnosis beyond dispatch posture and history.</div>
           </div>
-          <div class="chip-row">
-            <span class="chip" id="delivery-advanced-chip">AI Assistance + Distribution Health</span>
+          <div class="advanced-surface-meta">
+            <span id="delivery-advanced-chip">On demand · AI Assistance · Distribution Health</span>
           </div>
         </summary>
         <div class="advanced-surface-grid">
@@ -2975,6 +3428,7 @@ def render_console_html(title: str) -> str:
           </div>
           <button class="btn-secondary context-lens-close" id="context-lens-close" type="button">Close</button>
         </div>
+        <div class="context-object-rail" id="context-object-rail" data-context-object-rail></div>
         <div class="context-lens-body" id="context-lens-body"></div>
         <div class="context-lens-save">
           <div class="context-lens-history-head">
@@ -2988,9 +3442,38 @@ def render_console_html(title: str) -> str:
         <div class="context-lens-saved" id="context-lens-saved"></div>
         <div class="context-lens-history" id="context-lens-history"></div>
         <div class="context-lens-actions">
-          <button class="btn-secondary" id="context-open-section" type="button">Open Section</button>
-          <button class="btn-secondary" id="context-copy-link" type="button">Copy Link</button>
+          <div class="context-lens-utility-shell">
+            <div class="context-lens-utility-title" id="context-utilities-title">Utilities</div>
+            <div class="context-lens-utility-row">
+              <button class="btn-secondary palette-trigger" id="palette-open" type="button">Command Palette</button>
+              <button class="btn-secondary" id="context-reset" type="button">Reset Context</button>
+            </div>
+            <div class="context-lens-utility-row">
+              <button class="btn-secondary" id="context-open-section" type="button">Open Section</button>
+              <button class="btn-secondary" id="context-copy-link" type="button">Copy Link</button>
+            </div>
+            <div class="lang-switch" id="language-switch" aria-label="Language Switch">
+              <button class="lang-btn active" id="lang-en" type="button" data-lang="en">EN</button>
+              <button class="lang-btn" id="lang-zh" type="button" data-lang="zh">简中</button>
+            </div>
+          </div>
         </div>
+      </div>
+    </div>
+  </div>
+  <div class="story-inspector-backdrop" id="story-inspector-backdrop" hidden>
+    <div class="story-inspector-shell" id="story-inspector-shell" role="dialog" aria-modal="true" aria-labelledby="story-inspector-title" aria-describedby="story-inspector-copy" tabindex="-1">
+      <div class="story-inspector" id="story-inspector">
+        <div class="story-inspector-head">
+          <div class="story-inspector-head-copy">
+            <div class="mono" id="story-inspector-kicker">Story Inspector</div>
+            <div class="story-inspector-title" id="story-inspector-title">Story Export Sheet</div>
+            <div class="story-inspector-copy" id="story-inspector-copy">Review exported markdown or the persisted story JSON without pushing raw output into the main workspace column.</div>
+          </div>
+          <button class="btn-secondary" id="story-inspector-close" type="button">Close</button>
+        </div>
+        <div class="story-inspector-body" id="story-inspector-body"></div>
+        <div class="story-inspector-footer" id="story-inspector-footer"></div>
       </div>
     </div>
   </div>

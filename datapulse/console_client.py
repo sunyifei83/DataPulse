@@ -60,12 +60,20 @@ def render_console_client_script(initial_state: str) -> str:
       storyFilter: "all",
       storySort: "attention",
       storyWorkspaceMode: "board",
+      storyDetailView: "overview",
       storyUrlFocusPending: false,
       selectedStoryIds: [],
       storyBulkBusy: false,
       storyDetails: {{}},
       storyGraph: {{}},
       storyMarkdown: {{}},
+      storyInspector: {{
+        open: false,
+        subjectKind: "story",
+        kind: "markdown",
+        storyId: "",
+        loading: false,
+      }},
       selectedStoryId: "",
       reportBriefs: [],
       claimCards: [],
@@ -243,6 +251,8 @@ def render_console_client_script(initial_state: str) -> str:
     let pendingTextFitFrame = 0;
     let pendingOverflowEvidenceRender = 0;
     const pendingTextFitRoots = new Set();
+    let storyInspectorRestoreNode = null;
+    let lastRenderedStoryDetailId = "";
 
     function defaultConsoleOverflowEvidence() {{
       return {{
@@ -568,14 +578,47 @@ def render_console_client_script(initial_state: str) -> str:
       }},
     }};
 
-    function resolveResponsiveInteractionContract(width = 0) {{
+    function currentViewportMetrics(width = 0, height = 0) {{
       const viewportWidth = Number(width) > 0
         ? Number(width)
         : window.innerWidth || document.documentElement?.clientWidth || 1280;
-      if (viewportWidth <= 760) {{
+      const viewportHeight = Number(height) > 0
+        ? Number(height)
+        : Math.round(
+            window.visualViewport?.height
+            || window.innerHeight
+            || document.documentElement?.clientHeight
+            || 0,
+          );
+      const shortEdge = viewportHeight > 0 ? Math.min(viewportWidth, viewportHeight) : viewportWidth;
+      const coarsePointer = window.matchMedia
+        ? Boolean(window.matchMedia("(pointer: coarse)").matches)
+        : false;
+      return {{
+        viewportWidth,
+        viewportHeight,
+        shortEdge,
+        coarsePointer,
+      }};
+    }}
+
+    function resolveResponsiveInteractionContract(width = 0, height = 0, coarsePointerOverride = null) {{
+      const metrics = currentViewportMetrics(width, height);
+      const coarsePointer = typeof coarsePointerOverride === "boolean"
+        ? coarsePointerOverride
+        : metrics.coarsePointer;
+      if (coarsePointer) {{
+        if (metrics.shortEdge <= 820) {{
+          return responsiveInteractionContracts.touch;
+        }}
+        if (metrics.shortEdge <= 1024) {{
+          return responsiveInteractionContracts.compact;
+        }}
+      }}
+      if (metrics.viewportWidth <= 760) {{
         return responsiveInteractionContracts.touch;
       }}
-      if (viewportWidth <= 1100) {{
+      if (metrics.viewportWidth <= 1100) {{
         return responsiveInteractionContracts.compact;
       }}
       return responsiveInteractionContracts.desktop;
@@ -615,7 +658,7 @@ def render_console_client_script(initial_state: str) -> str:
       if (window.visualViewport?.addEventListener) {{
         window.visualViewport.addEventListener("resize", scheduleContractApply, {{ passive: true }});
       }}
-      ["(max-width: 760px)", "(max-width: 1100px)"].forEach((query) => {{
+      ["(max-width: 760px)", "(max-width: 1100px)", "(pointer: coarse)"].forEach((query) => {{
         const media = window.matchMedia ? window.matchMedia(query) : null;
         if (!media) {{
           return;
@@ -860,6 +903,7 @@ def render_console_client_script(initial_state: str) -> str:
     const storyStatusOptions = ["active", "monitoring", "resolved", "archived"];
     const storySortOptions = ["attention", "recent", "evidence", "conflict", "score"];
     const storyWorkspaceModeOptions = ["board", "editor"];
+    const storyDetailViewOptions = ["overview", "editor", "evidence"];
     const storyViewPresetOptions = ["desk", "fresh", "conflicts", "archive"];
     const scoreSuggestionOptions = ["40", "55", "68", "70", "80", "90"];
     const confidenceSuggestionOptions = ["0.6", "0.65", "0.75", "0.8", "0.88", "0.95"];
@@ -896,6 +940,15 @@ def render_console_client_script(initial_state: str) -> str:
     function normalizeStoryWorkspaceMode(value) {{
       const normalized = String(value || "").trim().toLowerCase() || "board";
       return storyWorkspaceModeOptions.includes(normalized) ? normalized : "board";
+    }}
+
+    function normalizeStoryDetailView(value) {{
+      const normalized = String(value || "").trim().toLowerCase() || "overview";
+      return storyDetailViewOptions.includes(normalized) ? normalized : "overview";
+    }}
+
+    function normalizeStoryInspectorKind(value) {{
+      return String(value || "").trim().toLowerCase() === "json" ? "json" : "markdown";
     }}
 
     function normalizeTriageFilter(value) {{
@@ -1831,12 +1884,7 @@ def render_console_client_script(initial_state: str) -> str:
     }}
 
     async function previewReportMarkdown(identifier) {{
-      const normalized = String(identifier || "").trim();
-      if (!normalized) {{
-        return;
-      }}
-      state.reportMarkdown[normalized] = await apiText(`/api/reports/${{normalized}}/export?output_format=markdown`);
-      renderReportStudio();
+      await inspectReportArtifact("markdown", identifier);
     }}
 
     function formatDeliverySubjectKind(value) {{
@@ -2324,6 +2372,9 @@ def render_console_client_script(initial_state: str) -> str:
       const snapshot = JSON.parse(JSON.stringify(story));
       try {{
         await api(`/api/stories/${{story.id}}`, {{ method: "DELETE" }});
+        if (String(state.storyInspector?.storyId || "").trim() === String(story.id || "").trim()) {{
+          closeStoryInspector({{ restoreFocus: false }});
+        }}
         removeStoryFromState(story.id);
         pushActionEntry({{
           kind: copy("story delete", "故事删除"),
@@ -3048,6 +3099,7 @@ def render_console_client_script(initial_state: str) -> str:
 
     function resetWorkspaceContext({{ jump = true, toast = true }} = {{}}) {{
       setContextLensOpen(false);
+      closeStoryInspector({{ restoreFocus: false }});
       state.watchSearch = "";
       state.selectedWatchId = state.watches[0] ? state.watches[0].id : "";
       state.watchResultFilters = {{}};
@@ -3062,6 +3114,7 @@ def render_console_client_script(initial_state: str) -> str:
 
       state.storySearch = "";
       state.storyWorkspaceMode = "board";
+      state.storyDetailView = "overview";
       state.storyFilter = "all";
       state.storySort = "attention";
       state.selectedStoryIds = [];
@@ -3128,11 +3181,13 @@ def render_console_client_script(initial_state: str) -> str:
         search: state.storySearch,
       }});
       root.innerHTML = `
-        ${{storyViewPresetOptions.map((option) => `
-          <button class="chip-btn ${{activeStoryView === option ? "active" : ""}}" type="button" data-story-view-shortcut="${{escapeHtml(option)}}">
-            ${{escapeHtml(storyViewPresetLabel(option))}}
-          </button>
-        `).join("")}}
+        <div class="ui-segment ui-segment-wrap" role="group" aria-label="${{escapeHtml(copy("Story view shortcuts", "故事视图快捷切换"))}}">
+          ${{storyViewPresetOptions.map((option) => `
+            <button class="ui-segment-button ${{activeStoryView === option ? "active" : ""}}" type="button" data-story-view-shortcut="${{escapeHtml(option)}}" aria-pressed="${{activeStoryView === option ? "true" : "false"}}">
+              ${{escapeHtml(storyViewPresetLabel(option))}}
+            </button>
+          `).join("")}}
+        </div>
         ${{activeStoryView === "custom" ? `<span class="chip hot">${{storyViewPresetLabel("custom")}}</span>` : ""}}
       `;
       root.querySelectorAll("[data-story-view-shortcut]").forEach((button) => {{
@@ -3644,7 +3699,7 @@ def render_console_client_script(initial_state: str) -> str:
           advancedActions: [
             {{
               shellId: "delivery-advanced-shell",
-              label: copy("Open Advanced Delivery Surfaces", "打开高级交付面板"),
+              label: copy("Open AI & Route Health", "打开 AI 与路由健康"),
             }},
           ],
           landingSection: "section-ops",
@@ -3979,10 +4034,25 @@ def render_console_client_script(initial_state: str) -> str:
       const hasPopulation = workspaceModeHasPopulation(modeDescriptor.id);
       const continuityFacts = workspaceModeContinuityFacts(modeDescriptor.id, activeSectionId, ownedOutput);
       const actionHierarchy = workspaceModeActionHierarchy(modeDescriptor.id, activeSectionId);
+      const compactObjectFacts = continuityFacts.map((fact) => {{
+        const hasValue = ![null, undefined].includes(fact?.value) && String(fact.value).trim() !== "";
+        return `<span class="workspace-mode-module">${{escapeHtml(fact?.label || "")}} · ${{escapeHtml(hasValue ? String(fact.value).trim() : copy("n/a", "暂无"))}}</span>`;
+      }}).join("");
+      const compactObjectActions = actionHierarchy?.primary ? renderCardActionHierarchy({{ primary: actionHierarchy.primary }}) : "";
       const cards = Array.isArray(modeDescriptor.modules) ? modeDescriptor.modules : [];
       const advancedActions = Array.isArray(modeDescriptor.advancedActions) ? modeDescriptor.advancedActions : [];
       const traceCard = renderStageLinkedTraceCard();
       const sharedSignalCard = renderSharedSignalTaxonomyCard();
+      const advancedActionMarkup = advancedActions.length
+        ? `
+          <div class="actions workspace-mode-actions">
+            ${{advancedActions.map((action) => action.sectionId
+              ? `<button class="btn-secondary" type="button" data-workspace-jump="${{escapeHtml(action.sectionId)}}">${{escapeHtml(action.label)}}</button>`
+              : `<button class="btn-secondary" type="button" data-workspace-advanced-open="${{escapeHtml(action.shellId || "")}}">${{escapeHtml(action.label)}}</button>`
+            ).join("")}}
+          </div>
+        `
+        : "";
 
       root.hidden = false;
       root.dataset.workspaceChrome = hasPopulation ? "compact" : "default";
@@ -4005,8 +4075,8 @@ def render_console_client_script(initial_state: str) -> str:
                     <span class="chip ok">${{escapeHtml(activeSectionLabel(activeSectionId))}}</span>
                   </div>
                   <div class="workspace-mode-object-copy">${{escapeHtml(nextAction)}}</div>
-                  ${{renderSectionSummaryFacts(continuityFacts)}}
-                  ${{renderCardActionHierarchy(actionHierarchy)}}
+                  <div class="workspace-mode-modules">${{compactObjectFacts}}</div>
+                  ${{compactObjectActions}}
                 </div>
               `
               : `
@@ -4051,10 +4121,7 @@ def render_console_client_script(initial_state: str) -> str:
         </div>
         <div class="workspace-mode-foot">
           <span>${{escapeHtml(modeDescriptor.footnote)}}</span>
-          ${{advancedActions.map((action) => action.sectionId
-            ? `<button class="chip-btn" type="button" data-workspace-jump="${{escapeHtml(action.sectionId)}}">${{escapeHtml(action.label)}}</button>`
-            : `<button class="chip-btn" type="button" data-workspace-advanced-open="${{escapeHtml(action.shellId || "")}}">${{escapeHtml(action.label)}}</button>`
-          ).join("")}}
+          ${{advancedActionMarkup}}
         </div>
       `;
       root.querySelectorAll("[data-workspace-jump]").forEach((button) => {{
@@ -4262,130 +4329,8 @@ def render_console_client_script(initial_state: str) -> str:
       if (!root) {{
         return;
       }}
-      const modeDescriptor = workspaceModeDescriptor(state.activeWorkspaceMode || workspaceModeForSection(state.activeSectionId));
-      const stageSections = workspaceModeSectionMap[modeDescriptor.id] || [];
-      const current = buildCurrentContextLinkRecord();
-      const currentUrl = current ? current.url : "";
-      const currentSavedIndex = current ? findContextSavedViewIndexByUrl(current.url) : -1;
-      const currentSavedEntry = currentSavedIndex >= 0 ? normalizeContextSavedViewEntry(state.contextSavedViews[currentSavedIndex]) : null;
-      const defaultEntry = getDefaultContextSavedView();
-      const pinnedEntries = (Array.isArray(state.contextSavedViews) ? state.contextSavedViews : [])
-        .map((entry) => normalizeContextSavedViewEntry(entry))
-        .filter((entry) => entry && entry.pinned)
-        .slice(0, 4);
-      const pinnedCount = pinnedEntries.length;
-      const remainingSlots = Math.max(0, 4 - pinnedCount);
-      const onIntake = normalizeSectionId(state.activeSectionId) === "section-intake";
-      const showSectionRail = stageSections.length > 1;
-      const shouldShowDock = Boolean(pinnedEntries.length);
-      const showUnsavedHint = Boolean(
-        current &&
-        !currentSavedEntry &&
-        !onIntake
-      );
-      const showSavedOnlyHint = Boolean(currentSavedEntry && !currentSavedEntry.pinned);
-      const canSaveCurrent = Boolean(!onIntake && current && !currentSavedEntry);
-      const canPinCurrent = Boolean(currentSavedIndex >= 0 && currentSavedEntry && !currentSavedEntry.pinned);
-      const summaryLabel = current?.summary || copy("No active context", "当前没有激活上下文");
-      const summaryCopy = copy(
-        "Use the lifecycle rail for primary movement. Pinned views stay here as accelerators, while deep links and palette actions remain optional speed paths.",
-        "主导航仍由生命周期主轨负责；这里保留固定视图作为加速入口，而深链和命令面板继续只是可选捷径。"
-      );
-      root.hidden = !shouldShowDock;
-      if (!shouldShowDock) {{
-        root.innerHTML = "";
-        return;
-      }}
-      root.innerHTML = `
-        <div class="context-view-dock-head">
-          <div>
-            <div class="context-view-dock-title">${{copy("Workspace Context", "工作上下文")}}</div>
-            <div class="context-view-dock-summary" data-fit-text="dock-summary" data-fit-fallback="40">${{escapeHtml(summaryLabel)}}</div>
-          </div>
-          <div class="meta">
-            <span class="chip ok">${{escapeHtml(modeDescriptor.label)}}</span>
-            <span class="chip">${{remainingSlots ? phrase("{{count}} open", "{{count}} 个空位", {{ count: remainingSlots }}) : copy("Rail full", "轨道已满")}}</span>
-            ${{showUnsavedHint ? `<span class="chip hot">${{copy("Unsaved", "未保存")}}</span>` : ""}}
-            ${{showSavedOnlyHint ? `<span class="chip">${{copy("Saved only", "仅已保存")}}</span>` : ""}}
-            ${{defaultEntry ? `<span class="chip ok" data-fit-text="dock-default-chip" data-fit-max-width="190" data-fit-fallback="24">${{copy("Default", "默认")}}: ${{escapeHtml(defaultEntry.name)}}</span>` : ""}}
-            <button class="btn-secondary" type="button" data-context-dock-manage>${{copy("Open Context", "打开上下文")}}</button>
-          </div>
-        </div>
-        ${{showSectionRail
-          ? `<div class="context-view-dock-section">
-              <div class="context-view-dock-title">${{copy("Current Rail", "当前主轨")}}</div>
-              <div class="context-view-dock-list">
-                ${{stageSections.map((sectionId) => `
-                  <button
-                    class="chip-btn ${{sectionId === normalizeSectionId(state.activeSectionId) ? "active" : ""}}"
-                    type="button"
-                    data-context-section="${{sectionId}}"
-                  >
-                    ${{escapeHtml(activeSectionLabel(sectionId))}}
-                  </button>
-                `).join("")}}
-              </div>
-            </div>`
-          : ""}}
-        ${{pinnedEntries.length
-          ? `<div class="context-view-dock-section">
-              <div class="context-view-dock-title">${{copy("Pinned Views", "已固定视图")}}</div>
-              <div class="context-view-dock-list">
-              ${{pinnedEntries.map((entry, index) => `
-                <button
-                  class="chip-btn ${{entry.url === currentUrl ? "active" : ""}}"
-                  type="button"
-                  data-context-dock-open="${{index}}"
-                  data-fit-text="saved-view-chip"
-                  data-fit-max-width="184"
-                  data-fit-fallback="22"
-                  title="${{escapeHtml(entry.isDefault ? phrase("Default | {{summary}}", "默认 | {{summary}}", {{ summary: entry.summary }}) : entry.summary)}}"
-                >
-                  ${{escapeHtml(entry.isDefault ? phrase("{{name}} [default]", "{{name}} [默认]", {{ name: entry.name }}) : entry.name)}}
-                </button>
-              `).join("")}}
-              </div>
-            </div>`
-          : ""}}
-        <div class="context-view-dock-tools">
-          <div class="context-view-dock-copy">${{escapeHtml(summaryCopy)}}</div>
-          <div class="context-view-dock-actions">
-            ${{currentSavedEntry?.pinned ? `<span class="chip ok">${{copy("Current pinned", "当前已固定")}}</span>` : ""}}
-            ${{canPinCurrent ? `<button class="btn-secondary" type="button" data-context-dock-pin-current>${{copy("Pin Current View", "固定当前视图")}}</button>` : ""}}
-            ${{canSaveCurrent ? `<button class="btn-secondary" type="button" data-context-dock-save-pin>${{copy("Save + Pin Current", "保存并固定当前视图")}}</button>` : ""}}
-          </div>
-        </div>
-      `;
-      root.querySelector("[data-context-dock-manage]")?.addEventListener("click", () => {{
-        state.contextLensRestoreFocusId = "context-summary";
-        setContextLensOpen(true);
-      }});
-      root.querySelectorAll("[data-context-section]").forEach((button) => {{
-        button.addEventListener("click", () => {{
-          const sectionId = String(button.dataset.contextSection || "").trim();
-          if (sectionId) {{
-            jumpToSection(sectionId);
-          }}
-        }});
-      }});
-      root.querySelectorAll("[data-context-dock-open]").forEach((button) => {{
-        button.addEventListener("click", () => {{
-          const pinnedIndex = Number(button.dataset.contextDockOpen || -1);
-          const entry = pinnedEntries[pinnedIndex];
-          if (entry) {{
-            restoreContextSavedViewByName(entry.name);
-          }}
-        }});
-      }});
-      root.querySelector("[data-context-dock-pin-current]")?.addEventListener("click", () => {{
-        if (currentSavedIndex >= 0) {{
-          toggleContextSavedViewPinned(currentSavedIndex);
-        }}
-      }});
-      root.querySelector("[data-context-dock-save-pin]")?.addEventListener("click", () => {{
-        saveAndPinCurrentContextView();
-      }});
-      scheduleCanvasTextFit(root);
+      root.hidden = true;
+      root.innerHTML = "";
     }}
 
     function renderContextSavedViews() {{
@@ -4551,6 +4496,7 @@ def render_console_client_script(initial_state: str) -> str:
       if (!body) {{
         return;
       }}
+      renderContextObjectRail();
       body.innerHTML = descriptor.rows.length
         ? descriptor.rows.map((row) => `
             <div class="context-lens-row">
@@ -4897,17 +4843,16 @@ def render_console_client_script(initial_state: str) -> str:
 
     function renderTopbarContext() {{
       const descriptor = buildTopbarContextDescriptor();
-      setText("context-summary", descriptor.summary);
+      setText("context-summary-kicker", descriptor.sectionLabel || descriptor.modeLabel);
+      setText("context-summary-detail", descriptor.detail || descriptor.sectionLabel || descriptor.modeLabel);
       $("context-summary")?.setAttribute("title", descriptor.summary);
       setPlaceholder("context-save-name", descriptor.summary);
-      renderContextObjectRail();
       renderContextLens(descriptor);
-      renderContextViewDock();
       syncContextLensChrome();
       renderIntakeLiveDesk();
       renderWorkspaceModeShell();
       scheduleCanvasTextFit($("context-shell"));
-      scheduleCanvasTextFit($("context-view-dock"));
+      scheduleCanvasTextFit($("context-lens"));
     }}
 
     function normalizeContextObjectId(value) {{
@@ -5157,6 +5102,7 @@ def render_console_client_script(initial_state: str) -> str:
       setText("context-save-title", copy("Save Current View", "保存当前视图"));
       setText("context-save-submit", copy("Save View", "保存视图"));
       setPlaceholder("context-save-name", copy("Ops desk / Escalations", "运营台 / 升级队列"));
+      setText("context-utilities-title", copy("Workspace Utilities", "工作区工具"));
       setText("context-open-section", copy("Open Current Surface", "打开当前区块"));
       setText("context-copy-link", copy("Copy Link", "复制链接"));
       setText("palette-open", copy("Command Palette", "快速命令"));
@@ -5247,12 +5193,14 @@ def render_console_client_script(initial_state: str) -> str:
       setText("delivery-workspace-title", copy("Delivery Workspace", "交付工作区"));
       setText("delivery-workspace-copy", copy("Subscribe to persisted outputs, inspect one report package, and dispatch it through named routes without leaving the shell.", "在不离开当前 shell 的前提下完成持久化订阅、报告输出包审计和命名路由 dispatch。"));
       setText("delivery-workspace-mode", copy("Editable", "可编辑"));
-      setText("review-advanced-title", copy("Advanced Review Surfaces", "高级审阅面板"));
-      setText("review-advanced-copy", copy("Claim composition and report assembly stay available here without competing with triage and story work by default.", "主张装配和报告编排仍然可用，但默认不再与分诊和故事工作争夺同一级注意力。"));
-      setText("review-advanced-chip", copy("Claim Composer + Report Studio", "主张装配 + 报告工作台"));
-      setText("delivery-advanced-title", copy("Advanced Delivery Surfaces", "高级交付面板"));
-      setText("delivery-advanced-copy", copy("AI projection inspection and route-health drill-down stay available here without competing with dispatch posture and delivery history by default.", "AI 投影视图和路由健康钻取仍然可用，但默认不再与分发姿态和交付历史争夺同一级注意力。"));
-      setText("delivery-advanced-chip", copy("AI Assistance + Distribution Health", "AI 辅助 + 分发健康"));
+      setText("review-advanced-kicker", copy("Secondary Review Tools", "二级审阅工具"));
+      setText("review-advanced-title", copy("Claim & Report Tools", "主张与报告工具"));
+      setText("review-advanced-copy", copy("Open claim composition and report assembly only when review needs structured output beyond triage and story editing.", "只有当审阅需要超出分诊和故事编辑的结构化输出时，再打开主张装配和报告编排。"));
+      setText("review-advanced-chip", copy("On demand · Claim Composer · Report Studio", "按需打开 · 主张装配 · 报告工作台"));
+      setText("delivery-advanced-kicker", copy("Secondary Delivery Tools", "二级交付工具"));
+      setText("delivery-advanced-title", copy("AI & Route Health", "AI 与路由健康"));
+      setText("delivery-advanced-copy", copy("Open AI projection inspection and route-health drill-down only when delivery needs diagnosis beyond dispatch posture and history.", "只有当交付需要超出分发姿态和历史的诊断时，再打开 AI 投影检查和路由健康钻取。"));
+      setText("delivery-advanced-chip", copy("On demand · AI Assistance · Distribution Health", "按需打开 · AI 辅助 · 分发健康"));
       setText("triage-title", copy("Triage Queue", "分诊队列"));
       setText("triage-copy", copy("Review open items with one selected evidence workbench, keep analyst reasoning visible, and hand verified signal into stories without leaving the queue.", "通过一个选中证据工作台完成审阅，持续看到分析师推理，并在不离开队列的前提下把已核验信号交接给故事。"));
       setText("story-title", copy("Story Workspace", "故事工作台"));
@@ -5260,13 +5208,17 @@ def render_console_client_script(initial_state: str) -> str:
       setText("claims-title", copy("Claim Composer", "主张装配"));
       setText("claims-copy", copy("Compose source-bound claims and attach them to report sections without leaving the review lane.", "在不离开审阅主轨的前提下，编排带来源绑定的主张并把它挂进报告章节。"));
       setText("report-studio-title", copy("Report Studio", "报告工作台"));
-      setText("report-studio-copy", copy("Inspect report sections, quality guardrails, and export previews over persisted report objects.", "围绕持久化报告对象查看章节结构、质量门禁和导出预览。"));
+      setText("report-studio-copy", copy("Inspect report sections, quality guardrails, and export sheets over persisted report objects.", "围绕持久化报告对象查看章节结构、质量门禁和导出查看。"));
       setText("story-mode-switch-label", copy("Workspace mode", "工作区模式"));
       setText("story-mode-board-button", copy("Board", "看板"));
       setText("story-mode-editor-button", copy("Editor", "编辑"));
       setText("story-intake-title", copy("Story Intake", "故事录入"));
       setText("story-intake-copy", copy("Capture a manual brief when a story should exist before clustering catches up, then refine it inside the workspace.", "当某个故事需要先落下来、而聚类还没跟上时，可以先手工补录，再在工作台里继续完善。"));
       setText("story-intake-mode", copy("Editable", "可编辑"));
+      setText("story-inspector-kicker", copy("Story Inspector", "故事查看"));
+      setText("story-inspector-title", copy("Story Export Sheet", "故事导出查看"));
+      setText("story-inspector-copy", copy("Review exported markdown or the persisted story JSON without pushing raw output into the main workspace column.", "把 Markdown 导出和持久化故事 JSON 放进 sheet 查看，避免主工作台被原始输出打断。"));
+      setText("story-inspector-close", copy("Close", "关闭"));
       setText("footer-note", copy("The browser is the operating surface. CLI and MCP remain first-class control planes.", "浏览器是主要操作界面；CLI 和 MCP 仍保持一等能力。"));
       setPlaceholder("command-palette-input", copy("Search actions, missions, stories, or routes", "搜索操作、任务、故事或路由"));
       setPlaceholder("input-name", copy("Launch Ops", "新品发布监测"));
@@ -5545,45 +5497,65 @@ def render_console_client_script(initial_state: str) -> str:
       }}
 
       if (presetRoot) {{
-        presetRoot.innerHTML = createWatchPresets.map((preset, index) => `
-          <button
-            class="chip-btn ${{state.createWatchPresetId === preset.id ? "active" : ""}}"
-            type="button"
-            data-create-watch-preset="${{preset.id}}"
-            title="${{escapeHtml(copy(preset.description, preset.zhDescription || preset.description))}}"
-          >${{index + 1}}. ${{escapeHtml(copy(preset.label, preset.zhLabel || preset.label))}}</button>
-        `).join("");
+        presetRoot.innerHTML = `
+          <div class="ui-segment ui-segment-wrap" role="group" aria-label="${{escapeHtml(copy("Mission presets", "任务预设"))}}">
+            ${{createWatchPresets.map((preset, index) => `
+              <button
+                class="ui-segment-button ${{state.createWatchPresetId === preset.id ? "active" : ""}}"
+                type="button"
+                data-create-watch-preset="${{preset.id}}"
+                title="${{escapeHtml(copy(preset.description, preset.zhDescription || preset.description))}}"
+                aria-pressed="${{state.createWatchPresetId === preset.id ? "true" : "false"}}"
+              >${{index + 1}}. ${{escapeHtml(copy(preset.label, preset.zhLabel || preset.label))}}</button>
+            `).join("")}}
+          </div>
+        `;
       }}
 
       if (scheduleRoot) {{
-        scheduleRoot.innerHTML = scheduleLaneOptions.map((option) => `
-          <button
-            class="chip-btn ${{draft.schedule.trim() === option.value ? "active" : ""}}"
-            type="button"
-            data-create-watch-schedule="${{option.value}}"
-          >${{escapeHtml(option.value === "manual" ? copy("manual", "手动") : option.label)}}</button>
-        `).join("");
+        scheduleRoot.innerHTML = `
+          <div class="ui-segment ui-segment-wrap" role="group" aria-label="${{escapeHtml(copy("Mission schedule lanes", "任务频率选择"))}}">
+            ${{scheduleLaneOptions.map((option) => `
+              <button
+                class="ui-segment-button ${{draft.schedule.trim() === option.value ? "active" : ""}}"
+                type="button"
+                data-create-watch-schedule="${{option.value}}"
+                aria-pressed="${{draft.schedule.trim() === option.value ? "true" : "false"}}"
+              >${{escapeHtml(option.value === "manual" ? copy("manual", "手动") : option.label)}}</button>
+            `).join("")}}
+          </div>
+        `;
       }}
 
       if (platformRoot) {{
-        platformRoot.innerHTML = platformLaneOptions.map((option) => `
-          <button
-            class="chip-btn ${{draft.platform.trim() === option.value ? "active" : ""}}"
-            type="button"
-            data-create-watch-platform="${{option.value}}"
-          >${{escapeHtml(option.label)}}</button>
-        `).join("");
+        platformRoot.innerHTML = `
+          <div class="ui-segment ui-segment-wrap" role="group" aria-label="${{escapeHtml(copy("Mission platform lanes", "任务平台选择"))}}">
+            ${{platformLaneOptions.map((option) => `
+              <button
+                class="ui-segment-button ${{draft.platform.trim() === option.value ? "active" : ""}}"
+                type="button"
+                data-create-watch-platform="${{option.value}}"
+                aria-pressed="${{draft.platform.trim() === option.value ? "true" : "false"}}"
+              >${{escapeHtml(option.label)}}</button>
+            `).join("")}}
+          </div>
+        `;
       }}
 
       if (routeRoot) {{
         const routeButtons = state.routes.length
-          ? state.routes.slice(0, 6).map((route) => `
-              <button
-                class="chip-btn ${{draft.route.trim() === String(route.name || "").trim() ? "active" : ""}}"
-                type="button"
-                data-create-watch-route="${{escapeHtml(route.name || "")}}"
-              >${{escapeHtml(route.name || "unnamed-route")}}</button>
-            `).join("")
+          ? `
+              <div class="ui-segment ui-segment-wrap" role="group" aria-label="${{escapeHtml(copy("Mission route snaps", "任务路由选择"))}}">
+                ${{state.routes.slice(0, 6).map((route) => `
+                  <button
+                    class="ui-segment-button ${{draft.route.trim() === String(route.name || "").trim() ? "active" : ""}}"
+                    type="button"
+                    data-create-watch-route="${{escapeHtml(route.name || "")}}"
+                    aria-pressed="${{draft.route.trim() === String(route.name || "").trim() ? "true" : "false"}}"
+                  >${{escapeHtml(route.name || "unnamed-route")}}</button>
+                `).join("")}}
+              </div>
+            `
           : `<span class="chip">${{copy("No named routes", "暂无命名路由")}}</span>`;
         routeRoot.innerHTML = routeButtons;
       }}
@@ -5591,7 +5563,7 @@ def render_console_client_script(initial_state: str) -> str:
       if (cloneRoot) {{
         const cloneButtons = state.watches.length
           ? state.watches.slice(0, 6).map((watch) => `
-              <button class="chip-btn" type="button" data-create-watch-clone="${{escapeHtml(watch.id)}}">${{escapeHtml(watch.name || watch.id)}}</button>
+              <button class="btn-secondary" type="button" data-create-watch-clone="${{escapeHtml(watch.id)}}">${{copy("Clone", "复制")}} · ${{escapeHtml(watch.name || watch.id)}}</button>
             `).join("")
           : `<span class="chip">${{copy("No mission to clone", "暂无可克隆任务")}}</span>`;
         cloneRoot.innerHTML = cloneButtons;
@@ -5690,12 +5662,12 @@ def render_console_client_script(initial_state: str) -> str:
                   <div class="panel-sub">${{escapeHtml(suggestions.keyword_reason || suggestions.domain_reason || "")}}</div>
                 </div>
               </div>
-              <div class="chip-row">
-                <button class="chip-btn" type="button" data-suggestion-apply="schedule">${{escapeHtml(suggestions.recommended_schedule || "schedule")}}</button>
-                <button class="chip-btn" type="button" data-suggestion-apply="platform">${{escapeHtml(suggestions.recommended_platform || "platform")}}</button>
-                <button class="chip-btn" type="button" data-suggestion-apply="route">${{escapeHtml(suggestions.recommended_route || "route")}}</button>
-                <button class="chip-btn" type="button" data-suggestion-apply="keyword">${{escapeHtml(suggestions.recommended_keyword || "keyword")}}</button>
-                <button class="chip-btn" type="button" data-suggestion-apply="thresholds">${{copy("score/confidence", "分数/置信度")}}</button>
+              <div class="actions">
+                <button class="btn-secondary" type="button" data-suggestion-apply="schedule">${{copy("Use", "采用")}} · ${{escapeHtml(suggestions.recommended_schedule || "schedule")}}</button>
+                <button class="btn-secondary" type="button" data-suggestion-apply="platform">${{copy("Use", "采用")}} · ${{escapeHtml(suggestions.recommended_platform || "platform")}}</button>
+                <button class="btn-secondary" type="button" data-suggestion-apply="route">${{copy("Use", "采用")}} · ${{escapeHtml(suggestions.recommended_route || "route")}}</button>
+                <button class="btn-secondary" type="button" data-suggestion-apply="keyword">${{copy("Use", "采用")}} · ${{escapeHtml(suggestions.recommended_keyword || "keyword")}}</button>
+                <button class="btn-secondary" type="button" data-suggestion-apply="thresholds">${{copy("Use score/confidence", "采用分数/置信度")}}</button>
               </div>
               <div class="stack">
                 <div class="mono">${{copy("Warnings", "提醒")}}</div>
@@ -6567,6 +6539,50 @@ def render_console_client_script(initial_state: str) -> str:
       $("context-copy-link")?.addEventListener("click", async () => {{
         await copyCurrentContextLink();
         setContextLensOpen(false);
+      }});
+    }}
+
+    function bindStoryInspector() {{
+      const backdrop = $("story-inspector-backdrop");
+      const dialog = $("story-inspector-shell");
+      if (!backdrop || !dialog) {{
+        return;
+      }}
+      backdrop.addEventListener("click", (event) => {{
+        if (event.target === backdrop) {{
+          closeStoryInspector();
+        }}
+      }});
+      dialog.addEventListener("keydown", (event) => {{
+        if (String(event.key || "") === "Escape" && state.storyInspector?.open) {{
+          event.preventDefault();
+          closeStoryInspector();
+          return;
+        }}
+        if (String(event.key || "") !== "Tab" || !state.storyInspector?.open) {{
+          return;
+        }}
+        const focusable = getStoryInspectorFocusableElements();
+        if (!focusable.length) {{
+          event.preventDefault();
+          dialog.focus();
+          return;
+        }}
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement;
+        if (event.shiftKey && (active === first || active === dialog)) {{
+          event.preventDefault();
+          last.focus();
+          return;
+        }}
+        if (!event.shiftKey && active === last) {{
+          event.preventDefault();
+          first.focus();
+        }}
+      }});
+      $("story-inspector-close")?.addEventListener("click", () => {{
+        closeStoryInspector();
       }});
     }}
 
@@ -7776,15 +7792,16 @@ def render_console_client_script(initial_state: str) -> str:
             "Every shared signal below names its owner, meaning, and next action instead of behaving like a decorative badge.",
             "下面每个共享信号都会明确说明 owner、含义和下一步，而不是只做装饰性 badge。"
           )}}</div>
-          <div class="shared-signal-row">
+          <div class="shared-signal-row ui-segment ui-segment-wrap" role="group" aria-label="${{escapeHtml(copy("Shared signal classes", "共享信号分类切换"))}}">
             ${{rows.map((signal) => {{
               const tone = signalToneFromStatus(signal?.status || "");
               const active = signal?.id === activeSignal?.id;
               return `
                 <button
-                  class="chip-btn shared-signal-button ${{tone}} ${{active ? "active" : ""}}"
+                  class="ui-segment-button shared-signal-button ${{tone}} ${{active ? "active" : ""}}"
                   type="button"
                   data-shared-signal-button="${{escapeHtml(signal?.id || "")}}"
+                  aria-pressed="${{active ? "true" : "false"}}"
                   aria-expanded="${{String(active)}}"
                 >${{escapeHtml(signal?.classLabel || signal?.id || "")}} · ${{escapeHtml(traceStageStatusLabel(signal?.status || ""))}}</button>
               `;
@@ -9941,10 +9958,14 @@ def render_console_client_script(initial_state: str) -> str:
       const filterBlock = filterGroups.map((group) => `
           <div class="stack">
             <div class="panel-sub">${{group.label}}</div>
-            <div class="chip-row">
-              <button class="chip-btn ${{activeFilters[group.key] === "all" ? "active" : ""}}" type="button" data-filter-group="${{group.key}}" data-filter-value="all">${{copy("all", "全部")}} (${{filterWindowCount}})</button>
+            <div class="ui-segment ui-segment-wrap" role="group" aria-label="${{escapeHtml(group.key === "state"
+              ? copy("Result state filters", "结果状态筛选")
+              : group.key === "source"
+                ? copy("Result source filters", "结果来源筛选")
+                : copy("Result domain filters", "结果域名筛选"))}}">
+              <button class="ui-segment-button ${{activeFilters[group.key] === "all" ? "active" : ""}}" type="button" data-filter-group="${{group.key}}" data-filter-value="all" aria-pressed="${{activeFilters[group.key] === "all" ? "true" : "false"}}">${{copy("all", "全部")}} (${{filterWindowCount}})</button>
               ${{group.options.map((option) => `
-                <button class="chip-btn ${{activeFilters[group.key] === option.key ? "active" : ""}}" type="button" data-filter-group="${{group.key}}" data-filter-value="${{escapeHtml(option.key)}}">${{escapeHtml(localizeWord(option.label))}} (${{option.count || 0}})</button>
+                <button class="ui-segment-button ${{activeFilters[group.key] === option.key ? "active" : ""}}" type="button" data-filter-group="${{group.key}}" data-filter-value="${{escapeHtml(option.key)}}" aria-pressed="${{activeFilters[group.key] === option.key ? "true" : "false"}}">${{escapeHtml(localizeWord(option.label))}} (${{option.count || 0}})</button>
               `).join("")}}
             </div>
           </div>
@@ -10795,13 +10816,14 @@ def render_console_client_script(initial_state: str) -> str:
               ? copy("Update the sink in place. Route name stays fixed so existing mission rules do not drift.", "原位更新交付路由。路由名称保持不变，避免已有任务规则漂移。")
               : copy("Add a reusable sink once, then pick it from mission alert rules and quick route chips.", "先把可复用的交付路由配置好，后续在任务告警规则和快捷路由里直接选择。")
           }}</div>
-          <div class="chip-row" style="margin-top:4px;">
+          <div class="ui-segment ui-segment-wrap" style="margin-top:4px;" role="group" aria-label="${{escapeHtml(copy("Route channel selection", "路由通道选择"))}}">
             ${{
               routeChannelOptions.map((option) => `
                 <button
-                  class="chip-btn ${{draft.channel === option.value ? "active" : ""}}"
+                  class="ui-segment-button ${{draft.channel === option.value ? "active" : ""}}"
                   type="button"
                   data-route-channel="${{option.value}}"
+                  aria-pressed="${{draft.channel === option.value ? "true" : "false"}}"
                 >${{escapeHtml(copy(option.label, option.zhLabel || option.label))}}</button>
               `).join("")
             }}
@@ -11391,11 +11413,11 @@ def render_console_client_script(initial_state: str) -> str:
                   <label>${{copy("Cursor Or Since", "游标或起点")}}<input name="cursor_or_since" placeholder="2026-03-01T00:00:00Z" value="${{escapeHtml(draft.cursor_or_since)}}"></label>
                 </div>
                 <label>${{copy("Route Names", "路由名称")}}<input name="route_names" placeholder="ops-webhook, exec-telegram" value="${{escapeHtml(routeInputValue)}}"><span class="field-hint">${{copy("Push delivery should reference one or more named routes. Pull delivery can leave this blank.", "推送交付应绑定一个或多个命名路由；拉取模式可以留空。")}}</span></label>
-                <div class="chip-row" style="margin-top:4px;">
+                <div class="ui-segment ui-segment-wrap" style="margin-top:4px;" role="group" aria-label="${{escapeHtml(copy("Delivery route selection", "交付路由选择"))}}">
                   ${{state.routes.map((route) => {{
                     const routeName = normalizeRouteName(route.name);
                     const active = draft.route_names.includes(routeName);
-                    return `<button class="chip-btn ${{active ? "active" : ""}}" type="button" data-delivery-route-toggle="${{escapeHtml(routeName)}}">${{escapeHtml(routeName)}}</button>`;
+                    return `<button class="ui-segment-button ${{active ? "active" : ""}}" type="button" data-delivery-route-toggle="${{escapeHtml(routeName)}}" aria-pressed="${{active ? "true" : "false"}}">${{escapeHtml(routeName)}}</button>`;
                   }}).join("") || `<span class="chip">${{copy("No route available yet", "当前还没有路由")}}</span>`}}
                 </div>
                 <div class="toolbar">
@@ -12932,9 +12954,13 @@ def render_console_client_script(initial_state: str) -> str:
             "Select visible items, then apply one review action across the queue without leaving the page.",
             "先选择当前列表中的条目，再在当前页面内一次性执行统一审核动作。",
           );
-      const filterBlock = filterOptions.map((option) => `
-        <button class="chip-btn ${{activeFilter === option.key ? "active" : ""}}" type="button" data-triage-filter="${{escapeHtml(option.key)}}">${{escapeHtml(option.label)}} (${{option.count || 0}})</button>
-      `).join("");
+      const filterBlock = `
+        <div class="ui-segment ui-segment-wrap" role="group" aria-label="${{escapeHtml(copy("Triage queue filters", "分诊队列筛选"))}}">
+          ${{filterOptions.map((option) => `
+            <button class="ui-segment-button ${{activeFilter === option.key ? "active" : ""}}" type="button" data-triage-filter="${{escapeHtml(option.key)}}" aria-pressed="${{activeFilter === option.key ? "true" : "false"}}">${{escapeHtml(option.label)}} (${{option.count || 0}})</button>
+          `).join("")}}
+        </div>
+      `;
       const batchToolbar = `
         <div class="card batch-toolbar-card ${{selectedCount ? "selection-live" : ""}}">
           <div class="batch-toolbar">
@@ -13293,13 +13319,356 @@ def render_console_client_script(initial_state: str) -> str:
       renderStories();
     }}
 
-    async function previewStoryMarkdown(identifier) {{
-      state.selectedStoryId = identifier;
-      if (!state.storyDetails[identifier]) {{
-        state.storyDetails[identifier] = await api(`/api/stories/${{identifier}}`);
+    function syncStoryInspectorChrome() {{
+      const backdrop = $("story-inspector-backdrop");
+      const shell = $("story-inspector-shell");
+      const inspectorOpen = Boolean(state.storyInspector?.open);
+      if (document.body) {{
+        document.body.dataset.storyInspectorOpen = inspectorOpen ? "true" : "false";
       }}
-      state.storyMarkdown[identifier] = await apiText(`/api/stories/${{identifier}}/export?format=markdown`);
+      if (backdrop) {{
+        backdrop.hidden = !inspectorOpen;
+        backdrop.classList.toggle("open", inspectorOpen);
+      }}
+      if (shell) {{
+        shell.setAttribute("aria-hidden", inspectorOpen ? "false" : "true");
+      }}
+    }}
+
+    function getStoryInspectorFocusableElements() {{
+      const shell = $("story-inspector-shell");
+      if (!shell) {{
+        return [];
+      }}
+      return Array.from(shell.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+        .filter((element) => !element.hasAttribute("hidden") && element.getAttribute("aria-hidden") !== "true");
+    }}
+
+    function openStoryInspector(kind, storyId, {{ loading = false, restoreFocus = true, subjectKind = "story" }} = {{}}) {{
+      if (restoreFocus) {{
+        const active = document.activeElement;
+        storyInspectorRestoreNode = active instanceof HTMLElement ? active : null;
+      }}
+      setContextLensOpen(false);
+      closeCommandPalette();
+      state.storyInspector = {{
+        open: true,
+        subjectKind: String(subjectKind || "").trim().toLowerCase() === "report" ? "report" : "story",
+        kind: normalizeStoryInspectorKind(kind),
+        storyId: String(storyId || state.selectedStoryId || "").trim(),
+        loading: Boolean(loading),
+      }};
+      syncStoryInspectorChrome();
+      renderStoryInspector();
+      window.setTimeout(() => {{
+        $("story-inspector-shell")?.focus();
+      }}, 10);
+    }}
+
+    function closeStoryInspector({{ restoreFocus = true }} = {{}}) {{
+      const wasOpen = Boolean(state.storyInspector?.open);
+      state.storyInspector = {{
+        ...state.storyInspector,
+        open: false,
+        loading: false,
+      }};
+      syncStoryInspectorChrome();
+      renderStoryInspector();
+      if (!wasOpen) {{
+        if (!restoreFocus) {{
+          storyInspectorRestoreNode = null;
+        }}
+        return;
+      }}
+      window.setTimeout(() => {{
+        if (restoreFocus && storyInspectorRestoreNode && storyInspectorRestoreNode.isConnected && typeof storyInspectorRestoreNode.focus === "function") {{
+          storyInspectorRestoreNode.focus();
+        }}
+        storyInspectorRestoreNode = null;
+      }}, 0);
+    }}
+
+    async function inspectStoryArtifact(kind, identifier, {{ preserveRestoreFocus = true }} = {{}}) {{
+      const normalizedKind = normalizeStoryInspectorKind(kind);
+      const normalizedId = String(identifier || "").trim();
+      if (!normalizedId) {{
+        return;
+      }}
+      state.selectedStoryId = normalizedId;
+      const needsDetail = !state.storyDetails[normalizedId];
+      const needsMarkdown = normalizedKind === "markdown" && !state.storyMarkdown[normalizedId];
+      openStoryInspector(normalizedKind, normalizedId, {{
+        loading: needsDetail || needsMarkdown,
+        restoreFocus: preserveRestoreFocus,
+        subjectKind: "story",
+      }});
       renderStories();
+      try {{
+        if (needsDetail) {{
+          state.storyDetails[normalizedId] = await api(`/api/stories/${{normalizedId}}`);
+        }}
+        if (needsMarkdown) {{
+          state.storyMarkdown[normalizedId] = await apiText(`/api/stories/${{normalizedId}}/export?format=markdown`);
+        }}
+      }} finally {{
+        state.storyInspector = {{
+          ...state.storyInspector,
+          open: true,
+          subjectKind: "story",
+          kind: normalizedKind,
+          storyId: normalizedId,
+          loading: false,
+        }};
+        renderStoryInspector();
+        renderStories();
+      }}
+    }}
+
+    async function previewStoryMarkdown(identifier, options = {{}}) {{
+      await inspectStoryArtifact("markdown", identifier, {{ preserveRestoreFocus: options.preserveRestoreFocus !== false }});
+    }}
+
+    async function previewStoryJson(identifier, options = {{}}) {{
+      await inspectStoryArtifact("json", identifier, {{ preserveRestoreFocus: options.preserveRestoreFocus !== false }});
+    }}
+
+    async function inspectReportArtifact(kind, identifier, {{ preserveRestoreFocus = true }} = {{}}) {{
+      const normalizedKind = normalizeStoryInspectorKind(kind);
+      const normalizedId = String(identifier || "").trim();
+      if (!normalizedId) {{
+        return;
+      }}
+      const needsDetail = !getReportRecord(normalizedId);
+      const needsMarkdown = normalizedKind === "markdown" && !state.reportMarkdown[normalizedId];
+      openStoryInspector(normalizedKind, normalizedId, {{
+        loading: needsDetail || needsMarkdown,
+        restoreFocus: preserveRestoreFocus,
+        subjectKind: "report",
+      }});
+      if (String(state.selectedReportId || "").trim() !== normalizedId) {{
+        state.selectedReportId = normalizedId;
+        if (getReportRecord(normalizedId)) {{
+          syncReportSelectionState();
+        }}
+      }}
+      renderClaimsWorkspace();
+      renderReportStudio();
+      renderTopbarContext();
+      try {{
+        if (needsDetail) {{
+          const report = await api(`/api/reports/${{normalizedId}}`);
+          const reportIndex = state.reports.findIndex((candidate) => String(candidate.id || "").trim() === normalizedId);
+          if (reportIndex >= 0) {{
+            state.reports[reportIndex] = report;
+          }} else {{
+            state.reports = [report, ...state.reports];
+          }}
+        }}
+        if (String(state.selectedReportId || "").trim() !== normalizedId) {{
+          state.selectedReportId = normalizedId;
+        }}
+        syncReportSelectionState();
+        if (needsMarkdown) {{
+          state.reportMarkdown[normalizedId] = await apiText(`/api/reports/${{normalizedId}}/export?output_format=markdown`);
+        }}
+      }} finally {{
+        state.storyInspector = {{
+          ...state.storyInspector,
+          open: true,
+          subjectKind: "report",
+          kind: normalizedKind,
+          storyId: normalizedId,
+          loading: false,
+        }};
+        renderStoryInspector();
+        renderClaimsWorkspace();
+        renderReportStudio();
+        renderTopbarContext();
+      }}
+    }}
+
+    async function previewReportJson(identifier, options = {{}}) {{
+      await inspectReportArtifact("json", identifier, {{ preserveRestoreFocus: options.preserveRestoreFocus !== false }});
+    }}
+
+    function renderStoryInspector() {{
+      const kicker = $("story-inspector-kicker");
+      const title = $("story-inspector-title");
+      const copyNode = $("story-inspector-copy");
+      const body = $("story-inspector-body");
+      const footer = $("story-inspector-footer");
+      if (!kicker || !title || !copyNode || !body || !footer) {{
+        return;
+      }}
+      syncStoryInspectorChrome();
+      if (!state.storyInspector?.open) {{
+        body.innerHTML = "";
+        footer.innerHTML = "";
+        return;
+      }}
+      const subjectKind = String(state.storyInspector.subjectKind || "").trim().toLowerCase() === "report" ? "report" : "story";
+      const artifactId = String(
+        state.storyInspector.storyId
+        || (subjectKind === "report" ? state.selectedReportId : state.selectedStoryId)
+        || ""
+      ).trim();
+      const kind = normalizeStoryInspectorKind(state.storyInspector.kind);
+      const artifact = subjectKind === "report"
+        ? getReportRecord(artifactId)
+        : (state.storyDetails[artifactId] || state.stories.find((candidate) => candidate.id === artifactId));
+      const loading = Boolean(state.storyInspector.loading);
+      const artifactLabel = subjectKind === "report" ? copy("Report", "报告") : copy("Story", "故事");
+      const artifactStatus = artifact ? localizeWord(artifact.status || (subjectKind === "report" ? "draft" : "active")) : "-";
+      const artifactSummary = String(artifact?.summary || "").trim();
+      const artifactSubtitle = subjectKind === "report"
+        ? `${{copy("sections", "章节")}}=${{getReportSectionsForReport(artifactId).length}}`
+        : `${{copy("updated", "更新")}}=${{formatCompactDateTime(artifact?.updated_at || artifact?.generated_at || "") || "-"}}`;
+      kicker.textContent = subjectKind === "report"
+        ? copy("report export sheet", "报告导出查看")
+        : copy("story export sheet", "故事导出查看");
+      title.textContent = subjectKind === "report"
+        ? (kind === "markdown" ? copy("Report Markdown Export", "报告 Markdown 导出") : copy("Persisted Report JSON", "持久化报告 JSON"))
+        : (kind === "markdown" ? copy("Markdown Evidence Pack", "Markdown 证据包") : copy("Persisted Story JSON", "持久化故事 JSON"));
+      copyNode.textContent = subjectKind === "report"
+        ? (kind === "markdown"
+          ? copy(
+            "Review report markdown in a sheet so the studio stays focused on structure, guardrails, and sections.",
+            "把报告 Markdown 放进 sheet 查看，让工作台继续聚焦结构、门禁和章节。"
+          )
+          : copy(
+            "Inspect the persisted report object in a sheet without dropping raw JSON into the main report workspace.",
+            "把持久化报告对象放进 sheet 查看，避免主报告工作台被原始 JSON 打断。"
+          ))
+        : (kind === "markdown"
+          ? copy(
+            "Review the markdown export in a sheet so the main workspace stays editorial instead of raw-output heavy.",
+            "把 Markdown 导出放进 sheet 查看，避免主工作台被原始输出挤占。"
+          )
+          : copy(
+            "Inspect the persisted story object in a sheet without dumping raw JSON into the primary reading column.",
+            "把持久化故事对象放进 sheet 查看，避免主阅读列被原始 JSON 打断。"
+          ));
+      const toolbar = `
+        <div class="story-inspector-toolbar">
+          <div class="ui-segment" role="tablist" aria-label="${{escapeHtml(subjectKind === "report" ? copy("Report export surfaces", "报告导出视图") : copy("Story export surfaces", "故事导出视图"))}}">
+            <button class="ui-segment-button ${{kind === "markdown" ? "active" : ""}}" type="button" data-story-inspector-view="markdown" aria-pressed="${{kind === "markdown" ? "true" : "false"}}">${{copy("Markdown", "Markdown")}}</button>
+            <button class="ui-segment-button ${{kind === "json" ? "active" : ""}}" type="button" data-story-inspector-view="json" aria-pressed="${{kind === "json" ? "true" : "false"}}">${{copy("JSON", "JSON")}}</button>
+          </div>
+          <div class="meta">
+            <span>${{artifactId || "-"}}</span>
+            <span>${{copy("status", "状态")}}=${{artifactStatus}}</span>
+            <span>${{artifactSubtitle}}</span>
+          </div>
+        </div>
+      `;
+      if (!artifactId) {{
+        body.innerHTML = `${{toolbar}}<div class="empty">${{subjectKind === "report" ? copy("Select one report before opening the export sheet.", "先选择一份报告，再打开导出查看。") : copy("Select one story before opening the export sheet.", "先选择一条故事，再打开导出查看。")}}</div>`;
+        footer.innerHTML = "";
+        scheduleCanvasTextFit(body);
+        return;
+      }}
+      if (loading) {{
+        body.innerHTML = `${{toolbar}}${{skeletonCard(6)}}`;
+        footer.innerHTML = "";
+        scheduleCanvasTextFit(body);
+        return;
+      }}
+      const markdownValue = String(subjectKind === "report" ? state.reportMarkdown[artifactId] || "" : state.storyMarkdown[artifactId] || "");
+      const jsonValue = artifact ? JSON.stringify(artifact, null, 2) : "";
+      const previewBlock = kind === "markdown"
+        ? (markdownValue
+          ? `<pre class="text-block story-inspector-pre">${{escapeHtml(markdownValue)}}</pre>`
+          : `<div class="empty">${{subjectKind === "report" ? copy("Markdown export is still empty for this report.", "这份报告当前还没有可读的 Markdown 导出内容。") : copy("Markdown export is still empty for this story.", "这条故事当前还没有可读的 Markdown 导出内容。")}}</div>`)
+        : (jsonValue
+          ? `<pre class="text-block story-inspector-pre">${{escapeHtml(jsonValue)}}</pre>`
+          : `<div class="empty">${{subjectKind === "report" ? copy("No persisted report snapshot is available yet.", "当前还没有可查看的持久化报告快照。") : copy("No persisted story snapshot is available yet.", "当前还没有可查看的持久化故事快照。")}}</div>`);
+      body.innerHTML = `
+        ${{toolbar}}
+        <div class="card story-inspector-panel">
+          <div class="card-top">
+            <div>
+              <div class="mono">${{kind === "markdown" ? copy("export preview", "导出预览") : copy("persisted snapshot", "持久化快照")}}</div>
+              <h3 class="card-title">${{escapeHtml(artifact?.title || artifactId)}}</h3>
+            </div>
+            <span class="chip ${{kind === "markdown" ? "ok" : ""}}">${{kind === "markdown" ? copy("readable", "可读") : copy("raw", "原始")}}</span>
+          </div>
+          <div class="panel-sub">${{escapeHtml(artifactSummary || copy("No summary captured.", "没有记录到摘要。"))}}</div>
+          ${{previewBlock}}
+        </div>
+      `;
+      const rawHref = subjectKind === "report"
+        ? (kind === "markdown" ? `/api/reports/${{artifactId}}/export?output_format=markdown` : `/api/reports/${{artifactId}}`)
+        : (kind === "markdown" ? `/api/stories/${{artifactId}}/export?format=markdown` : `/api/stories/${{artifactId}}`);
+      footer.innerHTML = `
+        <button class="btn-secondary" type="button" data-story-inspector-copy>${{kind === "markdown" ? copy("Copy Markdown", "复制 Markdown") : copy("Copy JSON", "复制 JSON")}}</button>
+        <a href="${{rawHref}}" target="_blank" rel="noreferrer">${{kind === "markdown" ? copy("Open Raw Markdown", "打开原始 Markdown") : copy("Open Raw JSON", "打开原始 JSON")}}</a>
+      `;
+      body.querySelectorAll("[data-story-inspector-view]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          const nextKind = String(button.dataset.storyInspectorView || "").trim();
+          button.disabled = true;
+          try {{
+            if (subjectKind === "report") {{
+              if (normalizeStoryInspectorKind(nextKind) === "json") {{
+                await previewReportJson(artifactId, {{ preserveRestoreFocus: false }});
+              }} else {{
+                await inspectReportArtifact("markdown", artifactId, {{ preserveRestoreFocus: false }});
+              }}
+            }} else {{
+              if (normalizeStoryInspectorKind(nextKind) === "json") {{
+                await previewStoryJson(artifactId, {{ preserveRestoreFocus: false }});
+              }} else {{
+                await previewStoryMarkdown(artifactId, {{ preserveRestoreFocus: false }});
+              }}
+            }}
+          }} catch (error) {{
+            reportError(error, subjectKind === "report" ? copy("Switch report export view", "切换报告导出视图") : copy("Switch story export view", "切换故事导出视图"));
+          }} finally {{
+            button.disabled = false;
+          }}
+        }});
+      }});
+      footer.querySelector("[data-story-inspector-copy]")?.addEventListener("click", async () => {{
+        const value = kind === "markdown" ? markdownValue : jsonValue;
+        if (!value) {{
+          showToast(
+            kind === "markdown"
+              ? copy("No markdown export is ready to copy.", "当前没有可复制的 Markdown 导出。")
+              : (subjectKind === "report" ? copy("No report JSON is ready to copy.", "当前没有可复制的报告 JSON。") : copy("No story JSON is ready to copy.", "当前没有可复制的故事 JSON。")),
+            "error",
+          );
+          return;
+        }}
+        try {{
+          if (window.navigator.clipboard?.writeText) {{
+            await window.navigator.clipboard.writeText(value);
+          }} else {{
+            const helper = document.createElement("textarea");
+            helper.value = value;
+            helper.setAttribute("readonly", "readonly");
+            helper.style.position = "absolute";
+            helper.style.left = "-9999px";
+            document.body.appendChild(helper);
+            helper.select();
+            document.execCommand("copy");
+            document.body.removeChild(helper);
+          }}
+          showToast(
+            kind === "markdown"
+              ? (subjectKind === "report" ? copy("Report markdown copied", "报告 Markdown 已复制") : copy("Story markdown copied", "故事 Markdown 已复制"))
+              : (subjectKind === "report" ? copy("Report JSON copied", "报告 JSON 已复制") : copy("Story JSON copied", "故事 JSON 已复制")),
+            "success",
+          );
+        }} catch (error) {{
+          reportError(
+            error,
+            kind === "markdown"
+              ? (subjectKind === "report" ? copy("Copy report markdown", "复制报告 Markdown") : copy("Copy story markdown", "复制故事 Markdown"))
+              : (subjectKind === "report" ? copy("Copy report JSON", "复制报告 JSON") : copy("Copy story JSON", "复制故事 JSON")),
+          );
+        }}
+      }});
+      scheduleCanvasTextFit(body);
     }}
 
     function renderStoryGraph(payload) {{
@@ -13325,7 +13694,7 @@ def render_console_client_script(initial_state: str) -> str:
         if (!source || !target) {{
           return "";
         }}
-        const stroke = edge.kind === "entity_relation" ? "rgba(255, 106, 130, 0.78)" : "rgba(127, 228, 255, 0.42)";
+        const stroke = edge.kind === "entity_relation" ? "rgba(211, 108, 87, 0.78)" : "rgba(214, 196, 177, 0.38)";
         const dash = edge.kind === "entity_relation" ? "0" : "6 6";
         return `<line x1="${{source.x}}" y1="${{source.y}}" x2="${{target.x}}" y2="${{target.y}}" stroke="${{stroke}}" stroke-width="2.5" stroke-dasharray="${{dash}}" />`;
       }}).join("");
@@ -13337,9 +13706,9 @@ def render_console_client_script(initial_state: str) -> str:
         }}
         const isStory = node.kind === "story";
         const radiusValue = isStory ? 34 : 22 + Math.min(10, (Number(node.in_story_source_count || 0) * 2));
-        const fill = isStory ? "#07111d" : "#102031";
-        const stroke = isStory ? "rgba(234, 244, 255, 0.76)" : "rgba(127, 228, 255, 0.32)";
-        const textFill = "#eaf4ff";
+        const fill = isStory ? "#211710" : "#2d211a";
+        const stroke = isStory ? "rgba(246, 239, 232, 0.76)" : "rgba(214, 196, 177, 0.3)";
+        const textFill = "#f6efe8";
         const label = escapeHtml(node.label || node.id);
         const subtitle = isStory
           ? `${{node.item_count || 0}} items`
@@ -13410,10 +13779,10 @@ def render_console_client_script(initial_state: str) -> str:
             <span class="chip ok">${{copy("lightweight", "轻量录入")}}</span>
           </div>
           <div class="panel-sub">${{copy("Use this for operator-authored briefs, incident notes, or tracking stubs that should be visible before automated clustering catches up.", "适合录入人工简报、事故备注，或那些需要先被看见、再等待自动聚类补齐的追踪占位。")}}</div>
-          <div class="chip-row">
+          <div class="ui-segment ui-segment-wrap" role="group" aria-label="${{escapeHtml(copy("Story draft status selection", "故事草稿状态选择"))}}">
             ${{
               storyStatusOptions.map((status) => `
-                <button class="chip-btn ${{draft.status === status ? "active" : ""}}" type="button" data-story-draft-status="${{status}}">${{escapeHtml(localizeWord(status))}}</button>
+                <button class="ui-segment-button ${{draft.status === status ? "active" : ""}}" type="button" data-story-draft-status="${{status}}" aria-pressed="${{draft.status === status ? "true" : "false"}}">${{escapeHtml(localizeWord(status))}}</button>
               `).join("")
             }}
           </div>
@@ -13479,10 +13848,16 @@ def render_console_client_script(initial_state: str) -> str:
       const selected = state.selectedStoryId;
       if (state.loading.storyDetail && selected) {{
         root.innerHTML = [skeletonCard(4), skeletonCard(4), skeletonCard(4)].join("");
+        renderStoryInspector();
         return;
+      }}
+      if (selected !== lastRenderedStoryDetailId) {{
+        state.storyDetailView = "overview";
+        lastRenderedStoryDetailId = selected;
       }}
       const story = state.storyDetails[selected] || state.stories.find((candidate) => candidate.id === selected);
       if (!story) {{
+        lastRenderedStoryDetailId = "";
         root.innerHTML = state.stories.length
           ? `<div class="empty">${{copy("No story is selected in the current filtered workspace.", "当前筛选后的工作区里没有选中的故事。")}}</div>`
           : `
@@ -13519,8 +13894,12 @@ def render_console_client_script(initial_state: str) -> str:
               <div class="empty">${{copy("No persisted story snapshot yet.", "当前还没有持久化故事快照。")}}</div>
             `;
         wireLifecycleGuideActions(root);
+        scheduleCanvasTextFit(root);
+        renderStoryInspector();
         return;
       }}
+      const activeDetailView = normalizeStoryDetailView(state.storyDetailView);
+      state.storyDetailView = activeDetailView;
       const storyEvidenceIds = getStoryEvidenceIds(story);
       const storyDeliveryStatus = getStoryDeliveryStatus(story);
       const storySignal = getGovernanceSignal("story_conversion");
@@ -13584,14 +13963,6 @@ def render_console_client_script(initial_state: str) -> str:
             </div>
           `).join("")
         : `<div class="empty">${{copy("No timeline event captured.", "当前没有时间线事件。")}}</div>`;
-      const markdownPreview = state.storyMarkdown[selected]
-        ? `
-            <div class="card">
-              <div class="mono">${{copy("markdown evidence pack", "Markdown 证据包")}}</div>
-              <pre class="text-block">${{escapeHtml(state.storyMarkdown[selected])}}</pre>
-            </div>
-          `
-        : "";
       const graphPreview = renderStoryGraph(state.storyGraph[selected]);
       const storyContinuityBlock = renderLifecycleContinuityCard({{
         title: copy("Story Delivery Readiness", "故事交付就绪度"),
@@ -13650,8 +14021,132 @@ def render_console_client_script(initial_state: str) -> str:
         ],
       }});
       const storyGuidanceBlock = buildStoryGuidanceSurface(story, storyDeliveryStatus);
+      const storyOverviewFacts = `
+        <div class="story-fact-grid">
+          <div class="story-fact-card">
+            <div class="mono">${{copy("evidence", "证据")}}</div>
+            <div class="story-fact-value">${{storyEvidenceIds.length}}</div>
+            <div class="story-fact-copy">${{copy(
+              `${{(story.primary_evidence || []).length}} primary / ${{(story.secondary_evidence || []).length}} secondary items stay attached to this story.`,
+              `${{(story.primary_evidence || []).length}} 条主证据 / ${{(story.secondary_evidence || []).length}} 条次证据继续挂在这条故事上。`
+            )}}</div>
+          </div>
+          <div class="story-fact-card">
+            <div class="mono">${{copy("delivery", "交付")}}</div>
+            <div class="story-fact-value">${{storyDeliveryStatus.label}}</div>
+            <div class="story-fact-copy">${{copy(
+              "Readiness stays visible here before the operator exports or routes the story downstream.",
+              "在操作者导出或路由下游前，这里会继续直接显示交付就绪度。"
+            )}}</div>
+          </div>
+          <div class="story-fact-card">
+            <div class="mono">${{copy("contradictions", "冲突")}}</div>
+            <div class="story-fact-value">${{(story.contradictions || []).length}}</div>
+            <div class="story-fact-copy">${{copy(
+              `${{(story.timeline || []).length}} timeline events and ${{(story.entities || []).length}} entities remain available in Evidence view.`,
+              `${{(story.timeline || []).length}} 条时间线事件和 ${{(story.entities || []).length}} 个实体会继续留在证据视图里。`
+            )}}</div>
+          </div>
+          <div class="story-fact-card">
+            <div class="mono">${{copy("updated", "更新")}}</div>
+            <div class="story-fact-value">${{formatCompactDateTime(story.updated_at || story.generated_at || "") || "-"}}</div>
+            <div class="story-fact-copy">${{copy(
+              "Use the editor surface only for title, summary, and status changes to keep the object stable.",
+              "编辑面只负责标题、摘要和状态，避免对象语义继续发散。"
+            )}}</div>
+          </div>
+        </div>
+      `;
+      const storyOverviewPane = `
+        <div class="story-detail-pane" data-story-detail-pane="overview">
+          ${{storyOverviewFacts}}
+          ${{storyContinuityBlock}}
+          ${{storyGuidanceBlock}}
+        </div>
+      `;
+      const storyEditorPane = `
+        <div class="story-detail-pane" data-story-detail-pane="editor">
+          <div class="card">
+            <div class="story-pane-head">
+              <div>
+                <div class="mono">${{copy("story editor", "故事编辑器")}}</div>
+                <h3 class="card-title" style="margin-top:10px;">${{copy("Edit The Persisted Narrative Object", "编辑这条持久化叙事对象")}}</h3>
+              </div>
+              <span class="chip ok">${{copy("editable", "可编辑")}}</span>
+            </div>
+            <div class="panel-sub story-pane-copy">${{copy(
+              "Keep edits limited to title, summary, and status. Raw markdown and JSON previews now live in the export sheet instead of this main column.",
+              "这里只改标题、摘要和状态。Markdown 与 JSON 预览已经移到导出 sheet，不再挤占主列。"
+            )}}</div>
+            <form id="story-editor-form" data-story-id="${{story.id}}" style="margin-top:12px;">
+              <div class="field-grid">
+                <label>${{copy("Story Title", "故事标题")}}<input name="title" value="${{escapeHtml(story.title || "")}}" placeholder="${{copy("OpenAI Launch Story", "OpenAI 发布故事")}}"></label>
+                <label>${{copy("Story Status", "故事状态")}}
+                  <select name="status">
+                    ${{storyStatusOptions.map((value) => `<option value="${{value}}" ${{(story.status || "active") === value ? "selected" : ""}}>${{localizeWord(value)}}</option>`).join("")}}
+                  </select>
+                </label>
+              </div>
+              <label>${{copy("Story Summary", "故事摘要")}}<textarea name="summary" rows="4" placeholder="${{copy("Condense why this story matters right now.", "简要说明这个故事此刻为什么重要。")}}">${{escapeHtml(story.summary || "")}}</textarea></label>
+              <div class="toolbar">
+                <button class="btn-primary" type="submit">${{copy("Save Story", "保存故事")}}</button>
+                <button class="btn-secondary" type="button" data-story-detail-status="${{story.status === "archived" ? "active" : "archived"}}">${{story.status === "archived" ? copy("Restore Story", "恢复故事") : copy("Archive Story", "归档故事")}}</button>
+                <button class="btn-danger" type="button" data-story-delete="${{story.id}}">${{copy("Delete Story", "删除故事")}}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+      const storyEvidencePane = `
+        <div class="story-detail-pane" data-story-detail-pane="evidence">
+          <div class="card">
+            <div class="story-pane-head">
+              <div>
+                <div class="mono">${{copy("evidence desk", "证据工作台")}}</div>
+                <h3 class="card-title" style="margin-top:10px;">${{copy("Primary Proof, Contradictions, And Structure Stay Together", "主证据、冲突和结构分析留在同一层")}}</h3>
+              </div>
+              <span class="chip">${{copy("read-only analysis", "只读分析")}}</span>
+            </div>
+            <div class="panel-sub story-pane-copy">${{copy(
+              "This tab keeps operational proof nearby while the Overview stays readable and the Editor stays narrow.",
+              "把操作所需的证据集中到这里，避免总览过重，也让编辑面保持收敛。"
+            )}}</div>
+          </div>
+          <div class="story-columns">
+            <div class="stack">
+              <div class="meta"><span class="mono">${{copy("primary evidence", "主证据")}}</span><span class="chip">${{copy("read-only snapshot", "只读快照")}}</span></div>
+              ${{evidenceBlock(story.primary_evidence || [], copy("No primary evidence captured.", "没有主证据。"))}}
+            </div>
+            <div class="stack">
+              <div class="meta"><span class="mono">${{copy("secondary evidence", "次证据")}}</span><span class="chip">${{copy("read-only snapshot", "只读快照")}}</span></div>
+              ${{evidenceBlock(story.secondary_evidence || [], copy("No secondary evidence captured.", "没有次证据。"))}}
+            </div>
+          </div>
+          <div class="stack">
+            <div class="meta"><span class="mono">${{copy("contradiction markers", "冲突标记")}}</span><span class="chip">${{copy("read-only analysis", "只读分析")}}</span></div>
+            ${{contradictionBlock}}
+          </div>
+          <div class="stack">
+            <div class="meta"><span class="mono">${{copy("timeline", "时间线")}}</span><span class="chip">${{copy("read-only analysis", "只读分析")}}</span></div>
+            ${{timelineBlock}}
+          </div>
+          <div class="stack">
+            <div class="meta"><span class="mono">${{copy("entity graph", "实体图谱")}}</span><span class="chip">${{copy("read-only analysis", "只读分析")}}</span></div>
+            ${{graphPreview}}
+          </div>
+        </div>
+      `;
+      const detailViewLabels = {{
+        overview: copy("Overview", "总览"),
+        editor: copy("Editor", "编辑"),
+        evidence: copy("Evidence", "证据"),
+      }};
+      const activePane = activeDetailView === "editor"
+        ? storyEditorPane
+        : (activeDetailView === "evidence" ? storyEvidencePane : storyOverviewPane);
       root.innerHTML = `
-        <div class="card">
+        <div class="story-detail-shell">
+          <div class="card">
           <div class="card-top">
             <div>
               <h3 class="card-title">${{story.title}}</h3>
@@ -13670,64 +14165,29 @@ def render_console_client_script(initial_state: str) -> str:
           <div class="entity-row">
             ${{(story.entities || []).slice(0, 8).map((entity) => `<span class="chip">${{entity}}</span>`).join("") || `<span class="chip">${{copy("no entities", "无实体")}}</span>`}}
           </div>
-          <div class="actions">
-            <button class="btn-secondary" data-story-markdown="${{story.id}}">${{copy("Preview Markdown", "预览 Markdown")}}</button>
-            <button class="btn-secondary" type="button" data-story-focus-triage="${{story.id}}" ${{storyEvidenceIds.length ? "" : "disabled"}}>${{copy("Focus Evidence In Triage", "回查分诊证据")}}</button>
-            <a href="/api/stories/${{story.id}}" target="_blank" rel="noreferrer">${{copy("Open JSON", "打开 JSON")}}</a>
-            <a href="/api/stories/${{story.id}}/export?format=markdown" target="_blank" rel="noreferrer">${{copy("Export MD", "导出 MD")}}</a>
-          </div>
-        </div>
-        ${{storyContinuityBlock}}
-        ${{storyGuidanceBlock}}
-        <div class="card">
-          <div class="mono">${{copy("story editor", "故事编辑器")}}</div>
-          <div class="meta" style="margin-top:8px;">
-            <span class="chip ok">${{copy("editable", "可编辑")}}</span>
-            <span>${{copy("Only title, summary, and status change here.", "这里只修改标题、摘要和状态。")}}</span>
-          </div>
-          <div class="panel-sub">${{copy("Tune the persisted title, summary, and story status without rebuilding the whole workspace snapshot.", "无需重建整个工作区快照，也能直接调整已持久化的标题、摘要和故事状态。")}}</div>
-          <form id="story-editor-form" data-story-id="${{story.id}}" style="margin-top:12px;">
-            <div class="field-grid">
-              <label>${{copy("Story Title", "故事标题")}}<input name="title" value="${{escapeHtml(story.title || "")}}" placeholder="${{copy("OpenAI Launch Story", "OpenAI 发布故事")}}"></label>
-              <label>${{copy("Story Status", "故事状态")}}
-                <select name="status">
-                  ${{storyStatusOptions.map((value) => `<option value="${{value}}" ${{(story.status || "active") === value ? "selected" : ""}}>${{localizeWord(value)}}</option>`).join("")}}
-                </select>
-              </label>
+          <div class="story-detail-toolbar">
+            <div class="ui-segment" role="tablist" aria-label="${{escapeHtml(copy("Story workspace panels", "故事工作台分段"))}}">
+              ${{storyDetailViewOptions.map((view) => `
+                <button class="ui-segment-button ${{activeDetailView === view ? "active" : ""}}" type="button" data-story-detail-view="${{view}}" aria-pressed="${{activeDetailView === view ? "true" : "false"}}">${{escapeHtml(detailViewLabels[view])}}</button>
+              `).join("")}}
             </div>
-            <label>${{copy("Story Summary", "故事摘要")}}<textarea name="summary" rows="4" placeholder="${{copy("Condense why this story matters right now.", "简要说明这个故事此刻为什么重要。")}}">${{escapeHtml(story.summary || "")}}</textarea></label>
-            <div class="toolbar">
-              <button class="btn-primary" type="submit">${{copy("Save Story", "保存故事")}}</button>
-              <button class="btn-secondary" type="button" data-story-detail-status="${{story.status === "archived" ? "active" : "archived"}}">${{story.status === "archived" ? copy("Restore Story", "恢复故事") : copy("Archive Story", "归档故事")}}</button>
-              <button class="btn-danger" type="button" data-story-delete="${{story.id}}">${{copy("Delete Story", "删除故事")}}</button>
+            <div class="actions story-detail-actions">
+              <button class="btn-secondary" data-story-markdown="${{story.id}}">${{copy("Preview Markdown", "预览 Markdown")}}</button>
+              <button class="btn-secondary" type="button" data-story-json="${{story.id}}">${{copy("Inspect JSON", "查看 JSON")}}</button>
+              <button class="btn-secondary" type="button" data-story-focus-triage="${{story.id}}" ${{storyEvidenceIds.length ? "" : "disabled"}}>${{copy("Focus Evidence In Triage", "回查分诊证据")}}</button>
             </div>
-          </form>
-        </div>
-        <div class="story-columns">
-          <div class="stack">
-            <div class="meta"><span class="mono">${{copy("primary evidence", "主证据")}}</span><span class="chip">${{copy("read-only snapshot", "只读快照")}}</span></div>
-            ${{evidenceBlock(story.primary_evidence || [], copy("No primary evidence captured.", "没有主证据。"))}}
-          </div>
-          <div class="stack">
-            <div class="meta"><span class="mono">${{copy("secondary evidence", "次证据")}}</span><span class="chip">${{copy("read-only snapshot", "只读快照")}}</span></div>
-            ${{evidenceBlock(story.secondary_evidence || [], copy("No secondary evidence captured.", "没有次证据。"))}}
           </div>
         </div>
-        <div class="stack">
-          <div class="meta"><span class="mono">${{copy("contradiction markers", "冲突标记")}}</span><span class="chip">${{copy("read-only analysis", "只读分析")}}</span></div>
-          ${{contradictionBlock}}
-        </div>
-        <div class="stack">
-          <div class="meta"><span class="mono">${{copy("timeline", "时间线")}}</span><span class="chip">${{copy("read-only analysis", "只读分析")}}</span></div>
-          ${{timelineBlock}}
-        </div>
-        <div class="stack">
-          <div class="meta"><span class="mono">${{copy("entity graph", "实体图谱")}}</span><span class="chip">${{copy("read-only analysis", "只读分析")}}</span></div>
-          ${{graphPreview}}
-        </div>
-        ${{markdownPreview}}
+        ${{activePane}}
+      </div>
       `;
 
+      root.querySelectorAll("[data-story-detail-view]").forEach((button) => {{
+        button.addEventListener("click", () => {{
+          state.storyDetailView = normalizeStoryDetailView(button.dataset.storyDetailView);
+          renderStoryDetail();
+        }});
+      }});
       root.querySelectorAll("[data-story-markdown]").forEach((button) => {{
         button.addEventListener("click", async () => {{
           button.disabled = true;
@@ -13735,6 +14195,18 @@ def render_console_client_script(initial_state: str) -> str:
             await previewStoryMarkdown(button.dataset.storyMarkdown);
           }} catch (error) {{
             reportError(error, copy("Preview story markdown", "预览故事 Markdown"));
+          }} finally {{
+            button.disabled = false;
+          }}
+        }});
+      }});
+      root.querySelectorAll("[data-story-json]").forEach((button) => {{
+        button.addEventListener("click", async () => {{
+          button.disabled = true;
+          try {{
+            await previewStoryJson(button.dataset.storyJson);
+          }} catch (error) {{
+            reportError(error, copy("Inspect story JSON", "查看故事 JSON"));
           }} finally {{
             button.disabled = false;
           }}
@@ -13850,6 +14322,8 @@ def render_console_client_script(initial_state: str) -> str:
         }}
       }});
       wireLifecycleGuideActions(root);
+      scheduleCanvasTextFit(root);
+      renderStoryInspector();
     }}
 
     function renderStories() {{
@@ -13950,15 +14424,14 @@ def render_console_client_script(initial_state: str) -> str:
               <div class="panel-sub">${{activeStoryView === "custom" ? storySortSummary(storySort) : storyViewPresetDescription(activeStoryView)}}</div>
             </div>
           </div>
-          <div class="chip-row">
+          <div class="ui-segment ui-segment-wrap" role="group" aria-label="${{escapeHtml(copy("Story view presets", "故事视图预设"))}}">
             ${{storyViewPresetOptions.map((option) => `
-              <button class="chip-btn ${{activeStoryView === option ? "active" : ""}}" type="button" data-story-view="${{escapeHtml(option)}}">${{escapeHtml(storyViewPresetLabel(option))}}</button>
+              <button class="ui-segment-button ${{activeStoryView === option ? "active" : ""}}" type="button" data-story-view="${{escapeHtml(option)}}" aria-pressed="${{activeStoryView === option ? "true" : "false"}}">${{escapeHtml(storyViewPresetLabel(option))}}</button>
             `).join("")}}
-            ${{activeStoryView === "custom" ? `<span class="chip hot">${{storyViewPresetLabel("custom")}}</span>` : ""}}
           </div>
-          <div class="chip-row">
+          <div class="ui-segment ui-segment-wrap" role="group" aria-label="${{escapeHtml(copy("Story status filters", "故事状态筛选"))}}">
             ${{storyFilterOptions.map((option) => `
-              <button class="chip-btn ${{storyFilter === option.key ? "active" : ""}}" type="button" data-story-filter="${{escapeHtml(option.key)}}">${{escapeHtml(option.label)}} (${{option.count || 0}})</button>
+              <button class="ui-segment-button ${{storyFilter === option.key ? "active" : ""}}" type="button" data-story-filter="${{escapeHtml(option.key)}}" aria-pressed="${{storyFilter === option.key ? "true" : "false"}}">${{escapeHtml(option.label)}} (${{option.count || 0}})</button>
             `).join("")}}
           </div>
         </div>
@@ -14677,7 +15150,6 @@ def render_console_client_script(initial_state: str) -> str:
         ? composition.claim_cards
         : state.claimCards.filter((claim) => getReportClaimIds(selectedReport?.id || "").includes(String(claim.id || "").trim()));
       const exportProfiles = state.exportProfiles.filter((profile) => String(profile.report_id || "").trim() === String(selectedReport?.id || "").trim());
-      const markdownPreview = String(state.reportMarkdown[selectedReport?.id || ""] || "").trim();
       const sectionRows = sections.length
         ? sections.map((section) => {{
             const sectionClaimIds = Array.isArray(section.claim_card_ids) ? section.claim_card_ids : [];
@@ -14740,8 +15212,7 @@ def render_console_client_script(initial_state: str) -> str:
               <div class="actions">
                 <button class="btn-secondary" type="button" data-report-compose-refresh ${{selectedReport ? "" : "disabled"}}>${{copy("Refresh Composition", "刷新编排")}}</button>
                 <button class="btn-secondary" type="button" data-report-preview-markdown ${{selectedReport ? "" : "disabled"}}>${{copy("Preview Markdown", "预览 Markdown")}}</button>
-                ${{selectedReport ? `<a href="/api/reports/${{selectedReport.id}}" target="_blank" rel="noreferrer">${{copy("Open JSON", "打开 JSON")}}</a>` : ""}}
-                ${{selectedReport ? `<a href="/api/reports/${{selectedReport.id}}/export?output_format=markdown" target="_blank" rel="noreferrer">${{copy("Export MD", "导出 MD")}}</a>` : ""}}
+                <button class="btn-secondary" type="button" data-report-json="${{selectedReport?.id || ""}}" ${{selectedReport ? "" : "disabled"}}>${{copy("Inspect JSON", "查看 JSON")}}</button>
               </div>
             </div>
 
@@ -14818,7 +15289,7 @@ def render_console_client_script(initial_state: str) -> str:
           </div>
 
           <div class="stack">
-            ${{selectedReport ? renderReportQualityBlock(quality) : `<div class="empty">${{copy("Select one report to inspect guardrails, sections, and export preview.", "选中一份报告后，这里会显示质量门禁、章节结构和导出预览。")}}</div>`}}
+            ${{selectedReport ? renderReportQualityBlock(quality) : `<div class="empty">${{copy("Select one report to inspect guardrails, sections, and export sheets.", "选中一份报告后，这里会显示质量门禁、章节结构和导出查看。")}}</div>`}}
             <div class="stack">
               <div class="meta">
                 <span class="mono">${{copy("report sections", "报告章节")}}</span>
@@ -14826,17 +15297,6 @@ def render_console_client_script(initial_state: str) -> str:
                 <span class="chip">${{copy("claims", "主张")}}=${{claims.length}}</span>
               </div>
               ${{sectionRows}}
-            </div>
-            <div class="card">
-              <div class="card-top">
-                <div>
-                  <h3 class="card-title">${{copy("Markdown Preview", "Markdown 预览")}}</h3>
-                  <div class="panel-sub">${{copy("Use the same Reader-backed export surface the CLI and API already share.", "直接复用 CLI 和 API 已共享的 Reader-backed 导出面。")}}</div>
-                </div>
-              </div>
-              ${{markdownPreview
-                ? `<pre class="text-block">${{escapeHtml(markdownPreview)}}</pre>`
-                : `<div class="empty">${{copy("No Markdown preview cached yet. Click Preview Markdown above.", "当前还没有缓存的 Markdown 预览。点击上方“预览 Markdown”即可。")}}</div>`}}
             </div>
           </div>
         </div>
@@ -14868,9 +15328,22 @@ def render_console_client_script(initial_state: str) -> str:
         button.disabled = true;
         try {{
           await previewReportMarkdown(selectedReport.id);
-          showToast(copy("Markdown preview refreshed.", "Markdown 预览已刷新。"), "success");
         }} catch (error) {{
           reportError(error, copy("Preview report markdown", "预览报告 Markdown"));
+        }} finally {{
+          button.disabled = false;
+        }}
+      }});
+      root.querySelector("[data-report-json]")?.addEventListener("click", async (event) => {{
+        if (!selectedReport) {{
+          return;
+        }}
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {{
+          await previewReportJson(String(button.dataset.reportJson || selectedReport.id));
+        }} catch (error) {{
+          reportError(error, copy("Inspect report JSON", "查看报告 JSON"));
         }} finally {{
           button.disabled = false;
         }}
@@ -15106,6 +15579,7 @@ def render_console_client_script(initial_state: str) -> str:
       renderStatus();
       renderTriage();
       renderStories();
+      renderStoryInspector();
       renderClaimsWorkspace();
       renderReportStudio();
     }}
@@ -15461,6 +15935,7 @@ def render_console_client_script(initial_state: str) -> str:
     bindSectionJumps();
     bindSectionTracking();
     bindContextLens();
+    bindStoryInspector();
     bindLanguageSwitch();
     bindCommandPalette();
     bindResponsiveInteractionContract();
