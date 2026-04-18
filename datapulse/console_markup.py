@@ -1301,8 +1301,15 @@ def render_console_html(title: str) -> str:
       gap: 18px;
     }}
     .workspace-mode-group[data-workspace-group="review"] {{
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: 1fr;
       align-items: start;
+    }}
+    .workspace-mode-group[data-workspace-group="delivery"] > .grid {{
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 18px;
+    }}
+    .workspace-mode-group[data-workspace-group="delivery"] > .grid > article.panel {{
+      min-width: 0;
     }}
     .workspace-mode-group[hidden] {{
       display: none;
