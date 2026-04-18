@@ -6772,18 +6772,23 @@ def render_console_client_script(initial_state: str) -> str:
           `).join("")}}</div>`
         : "";
       return `
-        <div class="card">
-          <div class="card-top">
+        <details class="guide-disclosure">
+          <summary>
             <div>
-              <div class="mono">${{copy("lifecycle guide", "生命周期引导")}}</div>
-              <h3 class="card-title" style="margin-top:10px;">${{escapeHtml(title)}}</h3>
+              <div class="guide-disclosure-kicker">${{copy("lifecycle guide", "生命周期引导")}}</div>
+              <div class="guide-disclosure-title">${{escapeHtml(title)}}</div>
             </div>
             <span class="chip ${{tone}}">${{copy("browser-first", "浏览器优先")}}</span>
+            <svg class="guide-disclosure-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <path d="M4 6 L8 10 L12 6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </summary>
+          <div class="guide-disclosure-body">
+            <div class="panel-sub">${{escapeHtml(summary)}}</div>
+            <div class="guide-grid">${{stepsHtml}}</div>
+            ${{actionsHtml}}
           </div>
-          <div class="panel-sub">${{escapeHtml(summary)}}</div>
-          <div class="guide-grid" style="margin-top:14px;">${{stepsHtml}}</div>
-          ${{actionsHtml}}
-        </div>
+        </details>
       `;
     }}
 

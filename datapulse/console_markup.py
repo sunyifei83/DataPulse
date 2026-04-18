@@ -3215,6 +3215,72 @@ def render_console_html(title: str) -> str:
       line-height: 1.35;
     }}
     .md-back-btn {{ display: none; }}
+    .guide-disclosure {{
+      border: 1px solid rgba(214, 196, 177, 0.14);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(37, 28, 22, 0.66), rgba(24, 18, 15, 0.62));
+      box-shadow: inset 0 0 0 1px rgba(248, 239, 230, 0.03);
+      overflow: hidden;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }}
+    .guide-disclosure > summary {{
+      list-style: none;
+      cursor: pointer;
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px 14px;
+      align-items: center;
+      user-select: none;
+    }}
+    .guide-disclosure > summary::-webkit-details-marker {{
+      display: none;
+    }}
+    .guide-disclosure > summary:hover {{
+      background: rgba(248, 239, 230, 0.03);
+    }}
+    .guide-disclosure-kicker {{
+      font: 700 10px/1 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }}
+    .guide-disclosure-title {{
+      font-family: var(--headline);
+      font-size: 1rem;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+      margin-top: 4px;
+      line-height: 1.35;
+    }}
+    .guide-disclosure-toggle {{
+      font: 600 11px/1 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(214, 196, 177, 0.18);
+      background: rgba(248, 239, 230, 0.03);
+    }}
+    .guide-disclosure-chevron {{
+      width: 18px;
+      height: 18px;
+      transition: transform .18s ease;
+      color: var(--muted);
+    }}
+    .guide-disclosure[open] > summary > .guide-disclosure-chevron {{
+      transform: rotate(180deg);
+    }}
+    .guide-disclosure[open] > summary {{
+      border-bottom: 1px solid rgba(214, 196, 177, 0.12);
+    }}
+    .guide-disclosure-body {{
+      padding: 14px 16px 18px;
+      display: grid;
+      gap: 12px;
+    }}
     @container md-shell (max-width: 820px) {{
       .md-shell {{
         grid-template-columns: 1fr;
