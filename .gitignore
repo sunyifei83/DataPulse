@@ -61,6 +61,7 @@ datapulse_watchlist.json
 datapulse_watch_status.json
 datapulse_watch_status.html
 datapulse_watch_daemon.lock
+datapulse_stories.json
 datapulse_alerts.json
 datapulse_alerts.md
 datapulse_alert_routes.json

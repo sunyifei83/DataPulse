@@ -3,6 +3,7 @@
 import asyncio
 import json
 import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -34,6 +35,14 @@ def _populate_inbox(inbox_path: str, items: list[DataPulseItem]) -> None:
 
     payload = [item.to_dict() for item in items]
     Path(inbox_path).write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+
+def _utc_iso(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _utc_z(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _write_local_ai_surface_admission(path, rows):
@@ -305,6 +314,10 @@ class TestFeedBundleAndDigestPayload:
         catalog_path = str(tmp_path / "catalog.json")
         from pathlib import Path
 
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        newer_at = now - timedelta(hours=12)
+        older_at = now - timedelta(days=1, hours=2)
+
         Path(catalog_path).write_text(
             json.dumps(
                 {
@@ -338,7 +351,7 @@ class TestFeedBundleAndDigestPayload:
                 content="Newer content",
                 url="https://example.com/newer",
                 confidence=0.9,
-                fetched_at="2026-03-20T12:00:00+00:00",
+                fetched_at=_utc_iso(newer_at),
             ),
             DataPulseItem(
                 source_type=SourceType.GENERIC,
@@ -347,7 +360,7 @@ class TestFeedBundleAndDigestPayload:
                 content="Older content",
                 url="https://example.com/older",
                 confidence=0.8,
-                fetched_at="2026-03-19T10:00:00+00:00",
+                fetched_at=_utc_iso(older_at),
             ),
         ]
         _populate_inbox(inbox_path, items)
@@ -360,8 +373,8 @@ class TestFeedBundleAndDigestPayload:
         assert bundle["selection"]["source_ids_requested"] == []
         assert bundle["selection"]["source_ids_resolved"] == ["source_example"]
         assert [item["title"] for item in bundle["items"]] == ["Newer item", "Older item"]
-        assert bundle["window"]["oldest_fetched_at"] == "2026-03-19T10:00:00Z"
-        assert bundle["window"]["newest_fetched_at"] == "2026-03-20T12:00:00Z"
+        assert bundle["window"]["oldest_fetched_at"] == _utc_z(older_at)
+        assert bundle["window"]["newest_fetched_at"] == _utc_z(newer_at)
         assert bundle["stats"]["items_selected"] == 2
         assert bundle["stats"]["sources_selected"] == 1
         assert bundle["errors"] == []
@@ -371,6 +384,10 @@ class TestFeedBundleAndDigestPayload:
         catalog_path = str(tmp_path / "catalog.json")
         prompt_path = tmp_path / "digest_override.md"
         from pathlib import Path
+
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        newer_at = now - timedelta(hours=12)
+        older_at = now - timedelta(days=1, hours=2)
 
         Path(catalog_path).write_text(
             json.dumps(
@@ -406,7 +423,7 @@ class TestFeedBundleAndDigestPayload:
                 content="Signal 1 content",
                 url="https://example.com/1",
                 confidence=0.95,
-                fetched_at="2026-03-20T12:00:00+00:00",
+                fetched_at=_utc_iso(newer_at),
             ),
             DataPulseItem(
                 source_type=SourceType.GENERIC,
@@ -415,7 +432,7 @@ class TestFeedBundleAndDigestPayload:
                 content="Signal 2 content",
                 url="https://example.com/2",
                 confidence=0.88,
-                fetched_at="2026-03-19T10:00:00+00:00",
+                fetched_at=_utc_iso(older_at),
             ),
         ]
         _populate_inbox(inbox_path, items)
