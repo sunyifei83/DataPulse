@@ -3395,7 +3395,7 @@ def render_console_html(title: str) -> str:
       </nav>
       <div class="topbar-tools">
         <div class="topbar-context" id="context-shell">
-          <button class="topbar-object-anchor ui-action-button" id="context-summary" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="context-lens-shell">
+          <button class="topbar-object-anchor ui-action-button" id="context-summary" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="context-lens-shell" data-fit-text="context-summary" data-fit-fallback="32">
             <span class="topbar-object-kicker" id="context-summary-kicker">Mission Intake</span>
             <span class="topbar-object-title" id="context-summary-detail" data-fit-text="context-summary-detail" data-fit-fallback="30">No active object</span>
           </button>
@@ -3833,6 +3833,10 @@ def render_console_html(title: str) -> str:
             <div class="context-lens-utility-row">
               <button class="btn-secondary" id="context-open-section" type="button">Open Section</button>
               <button class="btn-secondary" id="context-copy-link" type="button">Copy Link</button>
+            </div>
+            <div class="context-lens-utility-row">
+              <button class="btn-secondary" type="button" data-context-section="section-triage">Open Triage</button>
+              <button class="btn-secondary" type="button" data-context-section="section-story">Open Story</button>
             </div>
             <div class="lang-switch" id="language-switch" aria-label="Language Switch">
               <button class="lang-btn active" id="lang-en" type="button" data-lang="en">EN</button>

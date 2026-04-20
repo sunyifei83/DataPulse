@@ -773,7 +773,7 @@ function copy(enText, zhText) {
 
 function phrase(enText, zhText, values = {}) {
   const template = copy(enText, zhText);
-  return String(template).replace(/\\{(\\w+)\\}/g, (_, key) => String(values[key] ?? ""));
+  return String(template).replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ""));
 }
 
 function localizeWord(value) {

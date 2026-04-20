@@ -1,6 +1,6 @@
 # DataPulse Console Engineering Governance Blueprint
 
-Status: repo-scoped admitted follow-up blueprint; current reopening target is `L34.1` (`Extracted-Console Baseline Absorption`)
+Status: repo-scoped admitted follow-up blueprint; current reopening target is `L34.3` (`Pure-function JS unit coverage`)
 
 Created: 2026-04-20
 
@@ -22,47 +22,42 @@ The target is to:
 
 ## Repo Read Correction
 
-Current repo truth and current local working-copy truth are not the same thing.
+The pre-`L34.1` repo read and the current repo truth are no longer the same thing.
 
 Current repo truth:
 
-- `docs/governance/datapulse-blueprint-plan.json` closes `L33` in repo truth through `L33.6` and admits `L34` as the bounded console-engineering follow-up wave
-- operators should currently treat `L34.1` (`Extracted-Console Baseline Absorption`) as the live manual ignition target for this wave
+- `docs/governance/datapulse-blueprint-plan.json` closes `L33` in repo truth through `L33.6`, closes `L34.1` through extracted-console baseline absorption, and leaves `L34` open on later engineering-governance work
+- operators should currently treat `L34.3` (`Pure-function JS unit coverage`) as the live manual ignition target for this wave
+- `datapulse/static/console/` is tracked repo content, `datapulse/console_client.py` and `datapulse/console_server.py` concatenate sorted console fragments into one classic `<script>` bundle, and `uv run python scripts/governance/run_datapulse_quick_test_gate.py` passes against that landed baseline
 
-Current local working-copy truth:
+Historical pre-landing local working-copy truth:
 
-- the working tree already contains an extracted console JS tree under `datapulse/static/console/`
-- `datapulse/console_client.py` and `datapulse/console_server.py` already know how to concatenate sorted console fragments into one classic `<script>` bundle
-- `uv run python scripts/governance/run_datapulse_quick_test_gate.py` passes against that local working-copy baseline
+- before `L34.1`, the working tree already contained an extracted console JS tree under `datapulse/static/console/`
+- before `L34.1`, `datapulse/console_client.py` and `datapulse/console_server.py` already knew how to concatenate sorted console fragments into one classic `<script>` bundle
+- before `L34.1`, `uv run python scripts/governance/run_datapulse_quick_test_gate.py` already passed against that local working-copy baseline
 
 What is not yet true:
 
-- the extracted-console baseline has not yet been absorbed into repo truth as a clean landed slice
-- `datapulse/static/console/` is still untracked in the current working tree, and the related Python, packaging, and test files are still dirty
+- list-rendering surfaces still rely on client-side `innerHTML =` rebuilds, so exact operator-visible replay is not yet a server-owned fact
+- pure JS helpers such as list parsing, filter normalization, and preview readiness still have no JS-side unit coverage in CI
 
 Therefore:
 
-- Step 1 and Step 2 are currently local baseline facts, not landed repo-truth facts
-- no later engineering-governance slice should claim to build on that baseline until the baseline itself is absorbed first
-
-After that baseline absorption, the remaining engineering-governance gaps are real:
-
-- `99-main.js` still holds roughly 15.5k lines of mixed domain logic, so review cost still scales with the whole file
-- list-rendering surfaces still rely on client-side `innerHTML =` rebuilds, so exact operator-visible replay is not yet a server-owned fact
-- pure JS helpers such as list parsing, filter normalization, and preview readiness still have no JS-side unit coverage in CI
+- Step 1 and Step 2 are now landed repo-truth facts rather than working-copy-only baseline claims
+- later engineering-governance slices may now build on that admitted baseline, with `L34.3` as the current live follow-up target
 
 ## Remaining Follow-Up Targets
 
 ### Extracted-Console Baseline Absorption
 
-This wave must first absorb the already-working local console extraction baseline into repo truth.
+This wave first absorbed the already-working local console extraction baseline into repo truth through `L34.1`.
 
 Repo implication:
 
-- land `datapulse/static/console/` as tracked repo content
-- land the sorted-fragment loader contract in `datapulse/console_client.py` and `datapulse/console_server.py`
-- keep classic `<script>` global-scope semantics intact
-- prove the absorbed baseline with the existing quick gate before any later slice is marked landed
+- landed `datapulse/static/console/` as tracked repo content
+- landed the sorted-fragment loader contract in `datapulse/console_client.py` and `datapulse/console_server.py`
+- kept classic `<script>` global-scope semantics intact
+- proved the absorbed baseline with the existing quick gate before later slices advanced
 
 ### Domain-Level Split Of The Main Bundle
 
@@ -214,7 +209,7 @@ Effort: 5-8 engineer-days.
 
 ## Slice Sequencing
 
-- Slice 1 must land first because later slices currently depend on working-copy-only facts
+- Slice 1 is now landed, so later slices no longer depend on working-copy-only extraction facts
 - Slice 2 follows Slice 1
 - Slice 3 may start after Slice 1, but its green closeout is easiest after Slice 2 isolates boot into a dedicated fragment
 - Slice 4 depends on Slice 2 and Slice 3; the triage pilot should not be the first place where boot isolation or helper-testability gets discovered
@@ -235,11 +230,11 @@ Landing this blueprint file by itself does not claim that the active blueprint a
 Repo truth now treats this document as an admitted reopen path because:
 
 - the governance loop has accepted this blueprint into the structured plan
-- the first implementation slice of that admitted wave is `L34.1` (`Extracted-Console Baseline Absorption`)
-- no later engineering-governance slice opens before that baseline absorption lands
+- the admitted wave now has `L34.1` landed as its baseline-absorption closeout
+- the current operator-facing ignition target is `L34.3` (`Pure-function JS unit coverage`)
 
 Operator-facing ignition timing and gate order are summarized in:
 
 - `docs/governance/datapulse-console-engineering-ignition-readiness.draft.md`
 
-Until `L34.1` lands, the current operator-facing reopening target remains the baseline-absorption slice rather than the later A / C / B follow-up targets.
+With `L34.2` landed, the current operator-facing reopening target is `L34.3`; `L34.4` still waits on the JS test harness slice before the htmx pilot can claim its replay boundary.

@@ -22,39 +22,36 @@ Provide one repo-local readiness read for the admitted console-engineering follo
 
 As of `2026-04-20`, the active repo truth now says:
 
-- `recommended_next_slice = L34.1`
-- `current next_slice title = Extracted-Console Baseline Absorption`
+- `recommended_next_slice = L34.2`
+- `current next_slice title = Domain-level split of the main bundle`
 - `L33` is completed in repo truth through `L33.6`
+- `L34.1` is completed in repo truth through extracted-console baseline absorption
 
 The admitted follow-up blueprint now exists at:
 
 - `docs/governance/datapulse-console-engineering-governance-blueprint.md`
 
-The current local working-copy baseline also exists:
+The landed baseline now means:
 
-- `datapulse/static/console/` already exists locally as an extracted console tree
-- `datapulse/console_client.py` and `datapulse/console_server.py` already know how to concatenate the sorted fragments into one classic script bundle
-
-But that baseline is still local working-copy truth, not active repo truth.
+- `datapulse/static/console/` is tracked repo content as an extracted console tree
+- `datapulse/console_client.py` and `datapulse/console_server.py` concatenate the sorted fragments into one classic script bundle
+- `uv run python scripts/governance/run_datapulse_quick_test_gate.py` passes against that landed baseline
 
 Therefore the current readiness verdict is:
 
-- baseline absorption is now the live manual ignition target for this admitted wave
-- A domain split is not manually ignitable yet
-- C pure-function JS tests are not manually ignitable yet
+- A domain split is now the live manual ignition target for this admitted wave
+- C pure-function JS tests are now manually ignitable, though the cleanest closeout remains after A isolates boot wiring
 - B htmx triage fragments are not manually ignitable yet
 
 ## First Blocking Gate
 
-The first blocker for A / B / C is not technical complexity inside those later targets.
+The first blocker for later console-engineering work is no longer baseline absorption.
 
-It is the missing repo-truth absorption of the already-working extracted-console baseline.
+`L34.1` is landed, so the remaining gating truth is sequencing:
 
-Until that absorption is landed:
-
-- the active plan remains on `L34.1`
-- later engineering-governance slices still depend on working-copy-only facts
-- no operator should treat A / B / C as valid manual ignition targets
+- the active plan now moves to `L34.2`
+- `L34.3` is admissible after the landed baseline, but its cleanest closeout still follows `L34.2`
+- `L34.4` remains blocked until both `L34.2` and `L34.3` land
 
 ## Admissible Ignition Order
 
@@ -64,18 +61,18 @@ This gate is now completed in repo truth.
 
 The repo has admitted the blueprint into structured plan truth and exposed a first real `next_slice`.
 
-This gate still does not mean A / B / C may start ahead of baseline absorption.
+This gate no longer limits the current target set, because baseline absorption is already landed.
 
 ### Gate 1 - Extracted-Console Baseline Absorption
 
-This is the first implementation slice for the wave.
+This gate is now completed in repo truth.
 
 Scope:
 
-- land `datapulse/static/console/` as tracked repo content
-- land the sorted-fragment loader contract in `datapulse/console_client.py` and `datapulse/console_server.py`
-- keep classic script global-scope semantics intact
-- prove the absorbed baseline with the current quick gate
+- landed `datapulse/static/console/` as tracked repo content
+- landed the sorted-fragment loader contract in `datapulse/console_client.py` and `datapulse/console_server.py`
+- kept classic script global-scope semantics intact
+- proved the absorbed baseline with the current quick gate
 
 Estimated effort:
 
@@ -83,11 +80,11 @@ Estimated effort:
 
 Ignition rule:
 
-- if Gate 1 is not landed, A / C / B all stay blocked
+- cleared; A is now live, C is admissible, and B still waits on later gates
 
 ### Gate 2 - A Domain-Level Split
 
-This is the first of the three requested implementation targets.
+This is now the live implementation target for the wave.
 
 Scope:
 
@@ -100,7 +97,7 @@ Estimated effort:
 
 Ignition rule:
 
-- admissible only after Gate 1 lands
+- admissible now
 
 ### Gate 3 - C Pure-Function JS Unit Tests
 
@@ -119,7 +116,7 @@ Estimated effort:
 
 Ignition rule:
 
-- admissible after Gate 1 lands
+- admissible now
 - green closeout is easiest after Gate 2 isolates boot into `90-bootstrap.js`
 
 ### Gate 4 - B Htmx Triage Fragment Pilot
@@ -149,35 +146,35 @@ Let `D0` mean:
 
 Then the earliest admissible manual ignition windows are:
 
-- Gate 1 baseline absorption: `D0`
-- A domain split: `D0 + 1` to `D0 + 2` days, depending on when Gate 1 closes
-- C pure-function JS tests: technically after Gate 1; operationally best at `D0 + 2` to `D0 + 4` days so it can reuse `90-bootstrap.js`
-- B htmx triage fragments: after A and C, so not before roughly `D0 + 4` days and more realistically after that
+- Gate 1 baseline absorption: `D0`; now landed
+- A domain split: immediately after Gate 1 closes; now the live target
+- C pure-function JS tests: technically after Gate 1; operationally still best after A so it can reuse `90-bootstrap.js`
+- B htmx triage fragments: after A and C, so not before both later gates close
 
 ## Calendar Example
 
-Because this wave was admitted on `2026-04-20`, the earliest illustrative windows are now:
+Because this wave was admitted and `L34.1` landed on `2026-04-20`, the earliest illustrative windows are now:
 
-- Gate 1 could become the live manual ignition target on `2026-04-20`
-- A could become manually ignitable around `2026-04-21` to `2026-04-22`
-- C could become manually ignitable around `2026-04-22` to `2026-04-24`
-- B could become manually ignitable only after both A and C, so not before roughly `2026-04-24`
+- Gate 1 landed on `2026-04-20`
+- A is manually ignitable now on `2026-04-20`
+- C is technically manually ignitable now, with the cleanest closeout after A
+- B becomes manually ignitable only after both A and C land
 
 This remains a sequencing illustration rather than a guarantee of closeout date.
 
-The active repo truth now authorizes Gate 1 as the live manual ignition target, but it still does not authorize A / C / B ahead of baseline absorption landing.
+The active repo truth now authorizes A as the live manual ignition target, keeps C admissible after the landed baseline, and still does not authorize B ahead of both later gates landing.
 
 ## Operator Answer
 
 For the three requested implementation targets:
 
-1. A cannot enter manual ignition now. It becomes admissible only after baseline absorption lands.
-2. C cannot enter manual ignition now. It becomes admissible after baseline absorption, with the cleanest closeout after A.
+1. A can enter manual ignition now. It is the current `next_slice`.
+2. C can enter manual ignition now. Its cleanest closeout still follows A.
 3. B cannot enter manual ignition now. It becomes admissible only after both A and C land.
 
-The first thing that legitimately became the manual ignition target for this wave is not A / B / C.
+The first thing that legitimately became the manual ignition target for this wave was the baseline-absorption slice that turned the extracted console baseline into repo truth.
 
-It is the baseline-absorption slice that turns the current working-copy console extraction into repo truth.
+With that slice landed, the live target is now A.
 
 ## Source Alignment
 

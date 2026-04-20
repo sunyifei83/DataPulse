@@ -1251,11 +1251,11 @@ The admitted repo-scoped blueprint for that follow-up now lives in `docs/governa
 
 Current activation boundary for this admitted follow-up:
 
-- the current extracted-console baseline under `datapulse/static/console/` and the sorted-fragment loader behavior are still local working-copy facts, not landed repo truth
-- the active structured-plan reopening target is now `L34.1` (`Extracted-Console Baseline Absorption`)
-- that baseline must be absorbed first before later engineering-governance slices are treated as admissible repo work
-- after baseline absorption, the bounded follow-up surface is domain-level console splitting, pure-function JS unit tests, and a narrow htmx triage fragment pilot
-- until that absorption lands, A / C / B later targets remain blocked behind `L34.1`
+- `L34.1` is now landed repo truth: `datapulse/static/console/` is tracked, the sorted-fragment loader behavior is admitted, and the quick gate passes against that baseline
+- the active structured-plan reopening target is now `L34.2` (`Domain-level split of the main bundle`)
+- the bounded follow-up surface remains domain-level console splitting, pure-function JS unit tests, and a narrow htmx triage fragment pilot
+- `L34.3` is now admissible after the landed baseline, with the cleanest closeout after `L34.2`
+- `L34.4` remains blocked behind both `L34.2` and `L34.3`
 
 Operator-facing ignition timing and sequencing are summarized in:
 

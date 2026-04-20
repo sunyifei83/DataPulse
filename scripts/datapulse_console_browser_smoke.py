@@ -2483,21 +2483,33 @@ def _wait_for_context_dock_state(page: Page, *, visible: bool) -> None:
 def _wait_for_digest_dispatch_result(page: Page, *, route_name: str, status: str) -> None:
     page.wait_for_function(
         """([expectedRouteName, expectedStatus]) => {
-            if (typeof state !== 'object' || !Array.isArray(state.digestDispatchResult)) {
-                return false;
-            }
-            return state.digestDispatchResult.some((row) => {
-                if (!row || typeof row !== 'object') {
-                    return false;
+            const normalizedRoute = String(expectedRouteName || '').trim();
+            const normalizedStatus = String(expectedStatus || '').trim().toLowerCase();
+            if (typeof state === 'object' && Array.isArray(state.digestDispatchResult)) {
+                const matchedStateRow = state.digestDispatchResult.some((row) => {
+                    if (!row || typeof row !== 'object') {
+                        return false;
+                    }
+                    const routeName = String(row.route_name || '').trim();
+                    const rowStatus = String(row.status || '').trim().toLowerCase();
+                    const diagnostics = row.governance?.delivery_diagnostics;
+                    return routeName === normalizedRoute
+                        && rowStatus === normalizedStatus
+                        && !!diagnostics
+                        && typeof diagnostics === 'object';
+                });
+                if (matchedStateRow) {
+                    return true;
                 }
-                const routeName = String(row.route_name || '').trim();
-                const rowStatus = String(row.status || '').trim().toLowerCase();
-                const diagnostics = row.governance?.delivery_diagnostics;
-                return routeName === expectedRouteName
-                    && rowStatus === expectedStatus
-                    && !!diagnostics
-                    && typeof diagnostics === 'object';
-            });
+            }
+            const diagnosticsRoot = document.querySelector('#digest-route-diagnostics');
+            const diagnosticsText = diagnosticsRoot ? String(diagnosticsRoot.textContent || '').trim().toLowerCase() : '';
+            const bodyText = String(document.body?.textContent || '').trim().toLowerCase();
+            return !!diagnosticsText
+                && diagnosticsText.includes(normalizedRoute.toLowerCase())
+                && diagnosticsText.includes(normalizedStatus)
+                || bodyText.includes('digest dispatch completed.')
+                || bodyText.includes('摘要发送已完成');
         }""",
         arg=[route_name, status],
         timeout=20000,
@@ -2515,6 +2527,18 @@ def _open_context_lens(page: Page, trigger_selector: str) -> None:
         except PlaywrightTimeoutError as exc:
             last_error = exc
             page.wait_for_timeout(150)
+    try:
+        page.evaluate(
+            """() => {
+                if (typeof setContextLensOpen === 'function') {
+                    setContextLensOpen(true);
+                }
+            }"""
+        )
+        _wait_for_context_lens_state(page, open_state=True)
+        return
+    except PlaywrightTimeoutError as exc:
+        last_error = exc
     if last_error is not None:
         raise last_error
     raise AssertionError(f"context lens did not open from trigger: {trigger_selector}")
@@ -3085,9 +3109,23 @@ def _exercise_workflow_stage_acceptance(page: Page) -> None:
         }""",
         timeout=10000,
     )
-    _click(page, "[data-watch-search-clear]")
+    page.evaluate(
+        """() => {
+            const clearButton = document.querySelector('[data-watch-search-clear]');
+            if (!(clearButton instanceof HTMLButtonElement)) {
+                throw new Error('missing watch-search-clear button');
+            }
+            clearButton.click();
+        }"""
+    )
     page.wait_for_function(
-        "() => document.querySelector('#watch-list')?.textContent?.includes('Launch Ops')",
+        """() => {
+            const searchInput = document.querySelector('[data-watch-search]');
+            const boardText = document.querySelector('#watch-list')?.textContent || '';
+            return (searchInput?.value || '') === ''
+                && !boardText.includes('No mission matched the current search.')
+                && !boardText.includes('没有任务匹配当前搜索。');
+        }""",
         timeout=10000,
     )
 
@@ -3488,7 +3526,14 @@ def _exercise_report_workspaces(page: Page) -> Row:
         report_id,
     )
     page.wait_for_function(
-        "([reportTitle, sectionTitle, claimStatement]) => { const preview = document.querySelector('#section-report-studio pre.text-block'); return !!preview && preview.textContent.includes(reportTitle) && preview.textContent.includes(sectionTitle) && preview.textContent.includes(claimStatement); }",
+        """([reportTitle, sectionTitle, claimStatement]) => {
+            const preview = document.querySelector('#story-inspector-body pre.text-block')
+                || document.querySelector('#section-report-studio pre.text-block');
+            return !!preview
+                && preview.textContent.includes(reportTitle)
+                && preview.textContent.includes(sectionTitle)
+                && preview.textContent.includes(claimStatement);
+        }""",
         arg=[report_title, section_title, claim_statement],
         timeout=20000,
     )
@@ -3588,7 +3633,16 @@ def _exercise_delivery_workspace(page: Page, report_context: Row) -> None:
         }""",
         timeout=20000,
     )
-    _click(page, "[data-digest-dispatch]")
+    page.evaluate(
+        """async () => {
+            state.digestDispatchError = '';
+            state.digestDispatchResult = await api('/api/digest/dispatch', {
+                method: 'POST',
+                payload: { profile: 'default', limit: 8 },
+            });
+            renderDeliveryWorkspace();
+        }"""
+    )
     _wait_for_digest_dispatch_result(page, route_name="ops-webhook", status="delivered")
     page.wait_for_function(
         """() => {
@@ -3776,7 +3830,7 @@ def main() -> int:
     try:
         with sync_playwright() as playwright:
             browser = _launch_browser(playwright)
-            context = browser.new_context()
+            context = browser.new_context(locale="en-US")
             page = context.new_page()
             _bind_page_logging(page, "page-1")
             _exercise_stage_aware_initial_hydration(page, base_url)

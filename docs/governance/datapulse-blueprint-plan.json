@@ -1,7 +1,7 @@
 {
   "schema_version": "blueprint_plan_overlay.v1",
   "base_plan": "docs/governance/datapulse-blueprint-plan.draft.json",
-  "generated_at_utc": "2026-04-20T10:06:16Z",
+  "generated_at_utc": "2026-04-20T12:42:20Z",
   "status": "in_progress",
   "truth_contract": {
     "overlay_role": "active_entrypoint_and_activation_policy",
@@ -67,8 +67,8 @@
       "The L30 public-apis feed screening and evidence projection seeds wave is now completed in repo truth through L30.3.",
       "The L32 execution-control-plane activation wave is now completed in repo truth through the model-tier execution-profile contract.",
       "The L33 console subtractive-convergence and first-load-reduction wave is now completed in repo truth through `L33.6`, so populated-workspace chrome compaction, request-scope hardening, hidden-dock enforcement, and restored-context browser acceptance now form the current console baseline.",
-      "The L34 console engineering governance wave is now admitted in repo truth, reopening the console lane around extracted-baseline absorption, bounded domain-level bundle splitting, pure-function JS unit coverage, and a narrow htmx triage fragment pilot without reopening framework or bundler migration debate.",
-      "The current `next_slice` is `L34.1` (`Extracted-Console Baseline Absorption`), which must absorb the local `datapulse/static/console/` baseline into clean repo truth before `L34.2` through `L34.4` become admissible ignition targets.",
+      "The L34 console engineering governance wave is now in progress in repo truth: `L34.1` absorbed the extracted-console baseline and `L34.2` landed the domain-owned bundle split plus dedicated bootstrap fragment, so tracked console fragments and sorted-fragment loaders now form the admitted repo baseline without reopening framework or bundler migration debate.",
+      "The current `next_slice` is `L34.3` (`Pure-function JS unit coverage`), while `L34.4` stays blocked behind both the landed domain split and the remaining JS test harness coverage slice.",
       "L27 kept Reader-backed lifecycle truth canonical, treated collectors as acquisition adapters, kept AI as a governed overlay, and did not reopen shell-order simplification or force a frontend-stack migration.",
       "Operator review should treat any post-closeout truth drift as a coupling bug to remove rather than as evidence that L27 is still open or needs a parallel control plane."
     ]
