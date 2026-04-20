@@ -218,6 +218,8 @@ bash scripts/governance/ignite_datapulse_codex_loop.sh
 
 Expected next slice after this wave: `no-open-slice`
 
+Any later console-engineering reopen after this closeout must remain a candidate-only follow-up until repo truth admits it explicitly; the current bounded candidate path is `docs/governance/datapulse-console-engineering-governance-blueprint.md`.
+
 ## Fact Sources
 
 - `/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_console_UIUX减法收敛与最优解路线图_2026-04-16.md`

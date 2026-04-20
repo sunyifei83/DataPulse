@@ -1015,6 +1015,96 @@
         "Acceptance should prove subtraction outcomes and restore stability, not only route reachability.",
         "Keep the verification surface machine-detectable without reinterpreting browser observations as a new lifecycle truth plane."
       ]
+    },
+    "L34.1": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Absorb the already-working extracted console tree into repo truth so later console-engineering slices stop depending on working-copy-only facts.",
+      "candidate_commands": [
+        "sed -n '1,220p' docs/governance/datapulse-console-engineering-governance-blueprint.md",
+        "find datapulse/static/console -maxdepth 1 -type f | sort",
+        "python3 -m py_compile datapulse/console_client.py",
+        "python3 -m py_compile datapulse/console_server.py",
+        "uv run python scripts/governance/run_datapulse_quick_test_gate.py"
+      ],
+      "target_artifacts": [
+        "docs/governance/datapulse-console-engineering-governance-blueprint.md",
+        "docs/gui_intelligence_console_plan.md",
+        "datapulse/static/console/00-common.js",
+        "datapulse/static/console/99-main.js",
+        "datapulse/console_client.py",
+        "datapulse/console_server.py",
+        "docs/governance/datapulse-blueprint-plan.draft.json",
+        "docs/governance/datapulse-blueprint-plan.json",
+        "docs/governance/datapulse-slice-adapter-catalog.draft.json"
+      ],
+      "notes": [
+        "Land the extracted-console baseline first; later slices must not treat working-copy-only console extraction as admitted repo truth.",
+        "Do not use this slice to reopen framework, bundler, or TypeScript-runtime debate."
+      ]
+    },
+    "L34.2": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Split the main browser bundle into domain-owned fragments while preserving classic script execution order through the sorted-fragment loader.",
+      "candidate_commands": [
+        "sed -n '60,190p' docs/governance/datapulse-console-engineering-governance-blueprint.md",
+        "find datapulse/static/console -maxdepth 1 -type f | sort",
+        "uv run python scripts/governance/run_datapulse_quick_test_gate.py",
+        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
+      ],
+      "target_artifacts": [
+        "datapulse/static/console/",
+        "datapulse/console_client.py",
+        "datapulse/console_server.py",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py"
+      ],
+      "notes": [
+        "Preserve runtime equivalence rather than byte-for-byte equality once domain regrouping begins.",
+        "Keep top-level boot wiring isolated so later pure-function tests can execute helpers without page-hydration side effects."
+      ]
+    },
+    "L34.3": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Add Node-side unit coverage for browser pure helpers without introducing a bundler or depending on accidental globals.",
+      "candidate_commands": [
+        "sed -n '76,207p' docs/governance/datapulse-console-engineering-governance-blueprint.md",
+        "sed -n '1,260p' .github/workflows/ci.yml",
+        "npm run test:js",
+        "uv run python scripts/governance/run_datapulse_quick_test_gate.py"
+      ],
+      "target_artifacts": [
+        "package.json",
+        "vitest.config.js",
+        "tests/js/",
+        ".github/workflows/ci.yml"
+      ],
+      "notes": [
+        "Use an isolated VM or explicit named-return wrapper; do not rely on top-level function declarations leaking onto `globalThis`.",
+        "Neutralize boot side effects before evaluating helper code so the JS test lane stays deterministic."
+      ]
+    },
+    "L34.4": {
+      "adapter_type": "console_surface",
+      "execute_mode": "manual_implementation",
+      "summary": "Pilot htmx-driven server-rendered triage fragments with bounded replay claims and operator-equivalent keyboard workflow.",
+      "candidate_commands": [
+        "sed -n '88,236p' docs/governance/datapulse-console-engineering-governance-blueprint.md",
+        "sed -n '1,260p' datapulse/console_server.py",
+        "uv run pytest tests/test_console_server.py -q",
+        "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
+      ],
+      "target_artifacts": [
+        "datapulse/console_server.py",
+        "tests/test_console_server.py",
+        "scripts/datapulse_console_browser_smoke.py"
+      ],
+      "notes": [
+        "Keep fragment routes under `/api/fragments/triage/...` without changing canonical JSON semantics under `/api/...`.",
+        "Exact replay claims apply only to fragment-managed surfaces whose rendering-critical state is serialized into the fragment request and log."
+      ]
     }
   }
 }

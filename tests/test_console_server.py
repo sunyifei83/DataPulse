@@ -244,6 +244,7 @@ class _ConsoleReader:
             "query": kwargs["query"],
             "platforms": kwargs.get("platforms") or [],
             "sites": kwargs.get("sites") or [],
+            "provider": kwargs.get("provider", "auto"),
             "schedule": kwargs.get("schedule", "manual"),
             "alert_rules": kwargs.get("alert_rules") or [],
         }
@@ -1562,9 +1563,21 @@ def _client() -> TestClient:
     return TestClient(app)
 
 
+def _shell_bundle(client: TestClient) -> tuple[int, str]:
+    """Return (status, html + externalized js) so legacy assertions still work.
+
+    The console now loads JS from /static/console.js instead of inlining it.
+    Tests that assert on both markup and script symbols concatenate them here.
+    """
+    html_response = client.get("/")
+    js_response = client.get("/static/console.js")
+    return html_response.status_code, html_response.text + "\n" + js_response.text
+
+
 def test_console_index_serves_shell():
     client = _client()
-    response = client.get("/")
+    status, response_text = _shell_bundle(client)
+    response = type("Bundle", (), {"status_code": status, "text": response_text})()
 
     assert response.status_code == 200
     assert CONSOLE_TITLE in response.text
@@ -1770,7 +1783,8 @@ def test_console_index_serves_shell():
 
 def test_console_index_keeps_story_and_report_exports_in_sheet_surfaces():
     client = _client()
-    response = client.get("/")
+    status, response_text = _shell_bundle(client)
+    response = type("Bundle", (), {"status_code": status, "text": response_text})()
 
     assert response.status_code == 200
     assert "story-inspector-shell" in response.text
@@ -1784,7 +1798,8 @@ def test_console_index_keeps_story_and_report_exports_in_sheet_surfaces():
 
 def test_console_index_keeps_segment_and_button_semantics_for_refactored_controls():
     client = _client()
-    response = client.get("/")
+    status, response_text = _shell_bundle(client)
+    response = type("Bundle", (), {"status_code": status, "text": response_text})()
 
     assert response.status_code == 200
     assert "Story view shortcuts" in response.text
@@ -2032,6 +2047,46 @@ def test_console_create_watch_route():
     payload = response.json()
     assert payload["name"] == "Launch Ops"
     assert payload["alert_rules"][0]["routes"] == ["ops-webhook"]
+
+
+def test_console_create_watch_route_accepts_multi_platform_and_provider():
+    captured: dict[str, object] = {}
+
+    class _CapturingReader(_ConsoleReader):
+        def create_watch(self, **kwargs):
+            captured.update(kwargs)
+            return {
+                "id": "cross-verify-investigation",
+                "name": kwargs["name"],
+                "query": kwargs["query"],
+                "platforms": kwargs.get("platforms") or [],
+                "sites": kwargs.get("sites") or [],
+                "provider": kwargs.get("provider", "auto"),
+                "schedule": kwargs.get("schedule", "manual"),
+                "alert_rules": kwargs.get("alert_rules") or [],
+            }
+
+    client = TestClient(create_app(reader_factory=lambda: _CapturingReader()))
+    response = client.post(
+        "/api/watches",
+        json={
+            "name": "Cross-Verify Investigation",
+            "query": "OpenAI launch",
+            "platforms": ["twitter", "reddit", "hackernews"],
+            "sites": ["openai.com", "techcrunch.com"],
+            "provider": "multi",
+            "schedule": "@hourly",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["platforms"] == ["twitter", "reddit", "hackernews"]
+    assert payload["sites"] == ["openai.com", "techcrunch.com"]
+    assert payload["provider"] == "multi"
+    assert captured["platforms"] == ["twitter", "reddit", "hackernews"]
+    assert captured["sites"] == ["openai.com", "techcrunch.com"]
+    assert captured["provider"] == "multi"
 
 
 def test_console_create_watch_route_reports_persistence_error():

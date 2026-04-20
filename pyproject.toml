@@ -92,3 +92,6 @@ asyncio_mode = "auto"
 
 [tool.hatch.build.targets.wheel]
 packages = ["datapulse", "datapulse_skill"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"datapulse/static" = "datapulse/static"

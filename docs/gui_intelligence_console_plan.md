@@ -1047,7 +1047,7 @@ Recommended stage preview:
 - `R5`: browser `Claim Composer` and `Report Studio`
 - `R6`: export profiles, watch-pack feedback, and regression hardening
 
-Current blueprint reopening target:
+Historical blueprint reopening target after `L23` closeout:
 
 - none; current repo truth for this lane is `no-open-slice`
 
@@ -1237,9 +1237,29 @@ Target product judgment for this wave:
 - restored-context acceptance must keep `body dataset`, `aria-expanded`, backdrop open state, and active section aligned after saved-view restore and dock-driven reopen
 - later browser acceptance must also verify hidden-dock behavior, compact populated-workspace chrome, and first-load request scope staying inside the active stage boundary without inventing browser-only lifecycle semantics
 
-Current blueprint reopening target:
+Historical blueprint reopening target after `L33` closeout:
 
 - `no-open-slice`
+
+## Console Engineering Governance Follow-up
+
+With `L33` closed in repo truth through `L33.6`, the next repo-relevant console question is no longer another UIUX subtraction slice.
+
+The remaining bounded reopen question is how the browser-side codebase should evolve without reopening the generic "rewrite the console in React/Vite" debate.
+
+The admitted repo-scoped blueprint for that follow-up now lives in `docs/governance/datapulse-console-engineering-governance-blueprint.md`.
+
+Current activation boundary for this admitted follow-up:
+
+- the current extracted-console baseline under `datapulse/static/console/` and the sorted-fragment loader behavior are still local working-copy facts, not landed repo truth
+- the active structured-plan reopening target is now `L34.1` (`Extracted-Console Baseline Absorption`)
+- that baseline must be absorbed first before later engineering-governance slices are treated as admissible repo work
+- after baseline absorption, the bounded follow-up surface is domain-level console splitting, pure-function JS unit tests, and a narrow htmx triage fragment pilot
+- until that absorption lands, A / C / B later targets remain blocked behind `L34.1`
+
+Operator-facing ignition timing and sequencing are summarized in:
+
+- `docs/governance/datapulse-console-engineering-ignition-readiness.draft.md`
 
 ## Console Modularity And Traceability Follow-up
 

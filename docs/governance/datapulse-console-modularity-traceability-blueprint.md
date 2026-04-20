@@ -259,6 +259,8 @@ bash scripts/governance/ignite_datapulse_codex_loop.sh
 
 Expected next slice after this wave: `no-open-slice`
 
+Any later console-engineering reopen must stay bounded by `docs/governance/datapulse-console-engineering-governance-blueprint.md` or a stricter successor, rather than reopening generic frontend-stack replacement debate by preference alone.
+
 ## Fact Sources
 
 - `/Users/sunyifei/Library/Mobile Documents/iCloud~md~obsidian/Documents/SunYifei/01-项目开发/DataPulse/00_索引与计划/DataPulse_agent-skills-hub前端交互清晰化补强清单_2026-03-31.md`

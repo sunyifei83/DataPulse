@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .utils import generate_slug, watchlist_path_from_env
+from .utils import content_fingerprint, generate_slug, watchlist_path_from_env
 
 
 def _utcnow() -> str:
@@ -393,6 +393,7 @@ class WatchMission:
     market_context_sidecars: list[MarketContextSidecar] = field(default_factory=list)
     platforms: list[str] = field(default_factory=list)
     sites: list[str] = field(default_factory=list)
+    provider: str = "auto"
     schedule: str = "manual"
     min_confidence: float = 0.0
     top_n: int = 5
@@ -485,6 +486,8 @@ class WatchMission:
         self.market_context_sidecars = normalized_market_context_sidecars
         self.platforms = _dedup_lower(self.platforms)
         self.sites = _dedup_lower(self.sites)
+        provider_raw = str(self.provider or "auto").strip().lower()
+        self.provider = provider_raw if provider_raw in {"auto", "jina", "multi"} else "auto"
         self.schedule = str(self.schedule or "manual").strip().lower() or "manual"
         try:
             self.min_confidence = max(0.0, min(1.0, float(self.min_confidence)))
@@ -630,6 +633,7 @@ class WatchlistStore:
         market_context_sidecars: list[dict[str, Any] | MarketContextSidecar] | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
+        provider: str = "auto",
         schedule: str = "manual",
         min_confidence: float = 0.0,
         top_n: int = 5,
@@ -677,6 +681,7 @@ class WatchlistStore:
             market_context_sidecars=normalized_market_context_sidecars,
             platforms=list(platforms or []),
             sites=list(sites or []),
+            provider=provider,
             schedule=schedule,
             min_confidence=min_confidence,
             top_n=top_n,
@@ -700,6 +705,7 @@ class WatchlistStore:
         market_context_sidecars: list[dict[str, Any] | MarketContextSidecar] | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
+        provider: str | None = None,
         schedule: str | None = None,
         min_confidence: float | None = None,
         top_n: int | None = None,
@@ -757,6 +763,7 @@ class WatchlistStore:
             market_context_sidecars=normalized_market_context_sidecars,
             platforms=mission.platforms if platforms is None else list(platforms),
             sites=mission.sites if sites is None else list(sites),
+            provider=mission.provider if provider is None else provider,
             schedule=mission.schedule if schedule is None else schedule,
             min_confidence=mission.min_confidence if min_confidence is None else min_confidence,
             top_n=mission.top_n if top_n is None else top_n,
@@ -860,6 +867,7 @@ class WatchService:
         market_context_sidecars: list[dict[str, Any] | MarketContextSidecar] | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
+        provider: str = "auto",
         schedule: str = "manual",
         min_confidence: float = 0.0,
         top_n: int = 5,
@@ -874,6 +882,7 @@ class WatchService:
             market_context_sidecars=market_context_sidecars,
             platforms=platforms,
             sites=sites,
+            provider=provider,
             schedule=schedule,
             min_confidence=min_confidence,
             top_n=top_n,
@@ -893,6 +902,7 @@ class WatchService:
         market_context_sidecars: list[dict[str, Any] | MarketContextSidecar] | None = None,
         platforms: list[str] | None = None,
         sites: list[str] | None = None,
+        provider: str | None = None,
         schedule: str | None = None,
         min_confidence: float | None = None,
         top_n: int | None = None,
@@ -908,6 +918,7 @@ class WatchService:
             market_context_sidecars=market_context_sidecars,
             platforms=platforms,
             sites=sites,
+            provider=provider,
             schedule=schedule,
             min_confidence=min_confidence,
             top_n=top_n,
@@ -1012,6 +1023,7 @@ class WatchService:
             raise ValueError(f"Watch mission is disabled: {identifier}")
 
         started_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+        effective_provider = mission.provider if mission.provider in {"auto", "jina", "multi"} else "auto"
         try:
             if mission.platforms:
                 batches = await asyncio.gather(
@@ -1022,17 +1034,37 @@ class WatchService:
                             platform=platform,
                             limit=mission.top_n,
                             min_confidence=mission.min_confidence,
+                            provider=effective_provider,
                         )
                         for platform in mission.platforms
                     ]
                 )
                 merged: dict[str, Any] = {}
-                for batch in batches:
+                platform_hits: dict[str, set[str]] = {}
+                fp_platform_hits: dict[str, set[str]] = {}
+                item_fp: dict[str, str] = {}
+                for platform, batch in zip(mission.platforms, batches):
                     for item in batch:
-                        merged[item.id] = item
+                        merged.setdefault(item.id, item)
+                        platform_hits.setdefault(item.id, set()).add(platform)
+                        fp = content_fingerprint(getattr(item, "content", "") or "")
+                        item_fp[item.id] = fp
+                        fp_platform_hits.setdefault(fp, set()).add(platform)
+                for item_id, item in merged.items():
+                    platforms_for_item = platform_hits.get(item_id, set())
+                    fp_platforms = fp_platform_hits.get(item_fp.get(item_id, ""), set())
+                    corroborated = max(len(platforms_for_item), len(fp_platforms))
+                    if corroborated >= 2 and isinstance(getattr(item, "extra", None), dict):
+                        item.extra["corroboration_platforms"] = sorted(fp_platforms or platforms_for_item)
+                        item.extra["corroboration_count"] = corroborated
                 items = sorted(
                     merged.values(),
-                    key=lambda item: (item.score, item.confidence, item.fetched_at),
+                    key=lambda item: (
+                        int((item.extra or {}).get("corroboration_count", 1)) if isinstance(getattr(item, "extra", None), dict) else 1,
+                        item.score,
+                        item.confidence,
+                        item.fetched_at,
+                    ),
                     reverse=True,
                 )[: mission.top_n]
             else:
@@ -1041,6 +1073,7 @@ class WatchService:
                     sites=mission.sites or None,
                     limit=mission.top_n,
                     min_confidence=mission.min_confidence,
+                    provider=effective_provider,
                 )
 
             items = self.owner._filter_watch_results_by_query(mission, items)

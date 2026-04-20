@@ -76,6 +76,46 @@ class TestWatchlistStore:
         assert restored.sites == ["openai.com", "reddit.com"]
         assert restored.top_n == 8
 
+    def test_provider_defaults_to_auto_and_round_trips(self, tmp_path):
+        path = str(tmp_path / "watchlist.json")
+        store = WatchlistStore(path)
+
+        default_mission = store.create_mission(name="Auto Mode", query="signal check")
+        multi_mission = store.create_mission(
+            name="Multi Mode",
+            query="cross-source sweep",
+            platforms=["twitter", "reddit", "hackernews"],
+            provider="multi",
+        )
+        bad_provider = store.create_mission(
+            name="Bad Mode",
+            query="guard test",
+            provider="gobbledygook",
+        )
+
+        reloaded = WatchlistStore(path)
+        assert reloaded.get(default_mission.id).provider == "auto"
+        assert reloaded.get(multi_mission.id).provider == "multi"
+        assert reloaded.get(multi_mission.id).platforms == ["twitter", "reddit", "hackernews"]
+        assert reloaded.get(bad_provider.id).provider == "auto"
+
+    def test_update_mission_preserves_provider_when_not_passed(self, tmp_path):
+        path = str(tmp_path / "watchlist.json")
+        store = WatchlistStore(path)
+        mission = store.create_mission(
+            name="Provider Pin",
+            query="q",
+            provider="multi",
+        )
+
+        updated = store.update_mission(mission.id, query="q2")
+        assert updated is not None
+        assert updated.provider == "multi"
+
+        swapped = store.update_mission(mission.id, provider="jina")
+        assert swapped is not None
+        assert swapped.provider == "jina"
+
     def test_duplicate_names_get_incremented_ids(self, tmp_path):
         store = WatchlistStore(str(tmp_path / "watchlist.json"))
 
@@ -169,6 +209,61 @@ class TestWatchlistStore:
         assert sidecar.input_kind == "market_context_sidecar"
         assert sidecar.usage_mode == "watch_seed_only"
         assert sidecar.admissible_usage == "watch_seed_and_operator_context"
+
+
+@pytest.mark.asyncio
+async def test_reader_run_watch_marks_cross_source_corroboration(tmp_path, monkeypatch):
+    watch_path = tmp_path / "watchlist.json"
+    monkeypatch.setenv("DATAPULSE_WATCHLIST_PATH", str(watch_path))
+
+    reader = DataPulseReader(inbox_path=str(tmp_path / "inbox.json"))
+    mission = reader.create_watch(
+        name="Cross Source",
+        query="OpenAI launch",
+        platforms=["twitter", "reddit"],
+        provider="multi",
+        top_n=3,
+    )
+
+    shared_content = "OpenAI released a brand new agent runtime with pricing details"
+
+    async def fake_search(query, *, platform=None, **kwargs):
+        # Both platforms surface the same URL + overlapping content.
+        shared = DataPulseItem(
+            source_type=SourceType.GENERIC,
+            source_name=platform or "unknown",
+            title=f"{platform} view on launch",
+            content=shared_content,
+            url="https://example.com/openai-launch",
+            confidence=0.82,
+            score=72,
+        )
+        if platform == "twitter":
+            solo = DataPulseItem(
+                source_type=SourceType.GENERIC,
+                source_name="twitter",
+                title="twitter-only thread",
+                content="Unique content not echoed elsewhere",
+                url="https://example.com/twitter-only",
+                confidence=0.6,
+                score=60,
+            )
+            return [shared, solo]
+        return [shared]
+
+    monkeypatch.setattr(reader, "search", fake_search)
+
+    payload = await reader.run_watch(mission["id"])
+
+    assert payload["run"]["status"] == "success"
+    items_by_url = {item["url"]: item for item in payload["items"]}
+    shared_item = items_by_url["https://example.com/openai-launch"]
+    solo_item = items_by_url.get("https://example.com/twitter-only")
+
+    assert shared_item["extra"].get("corroboration_count", 0) >= 2
+    assert set(shared_item["extra"].get("corroboration_platforms", [])) >= {"twitter", "reddit"}
+    if solo_item is not None:
+        assert solo_item["extra"].get("corroboration_count", 1) < 2
 
 
 @pytest.mark.asyncio

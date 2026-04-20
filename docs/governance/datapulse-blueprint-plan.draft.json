@@ -2,8 +2,8 @@
   "schema_version": "blueprint_plan.v1",
   "plan_id": "datapulse-loop-bootstrap-2026-03-07",
   "project": "DataPulse",
-  "generated_at_utc": "2026-04-16T09:00:15Z",
-  "status": "completed",
+  "generated_at_utc": "2026-04-20T10:06:16Z",
+  "status": "in_progress",
   "activation": {
     "wired": false,
     "active_path": "docs/governance/datapulse-blueprint-plan.json",
@@ -96,7 +96,8 @@
     "L30": "completed",
     "L31": "completed",
     "L32": "completed",
-    "L33": "completed"
+    "L33": "completed",
+    "L34": "pending"
   },
   "phases": [
     {
@@ -4341,12 +4342,124 @@
           ]
         }
       ]
+    },
+    {
+      "id": "L34",
+      "title": "Console engineering governance and extracted baseline absorption",
+      "goal": "Absorb the already-proven extracted console baseline into repo truth and bound later browser-code evolution without reopening shell-shape, subtractive-convergence, or framework-migration debate.",
+      "status": "pending",
+      "slices": [
+        {
+          "id": "L34.1",
+          "title": "Extracted-Console Baseline Absorption",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "git ls-files --error-unmatch datapulse/static/console/00-common.js datapulse/static/console/99-main.js",
+            "python3 -m py_compile datapulse/console_client.py",
+            "python3 -m py_compile datapulse/console_server.py",
+            "uv run python scripts/governance/run_datapulse_quick_test_gate.py"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-console-engineering-governance-blueprint.md",
+            "docs/gui_intelligence_console_plan.md",
+            "datapulse/static/console/00-common.js",
+            "datapulse/static/console/99-main.js",
+            "datapulse/console_client.py",
+            "datapulse/console_server.py",
+            "docs/governance/datapulse-blueprint-plan.draft.json",
+            "docs/governance/datapulse-blueprint-plan.json",
+            "docs/governance/datapulse-slice-adapter-catalog.draft.json"
+          ],
+          "exit_condition": "The local extracted-console baseline is absorbed as clean repo truth: `datapulse/static/console/` is tracked, both Python loaders concatenate the sorted fragment bundle, the quick gate passes, and the repository returns to a clean baseline.",
+          "notes": [
+            "This slice must land before later console-engineering slices, because the extracted baseline is currently working-copy truth rather than admitted repo truth.",
+            "Do not reopen bundler, framework, or TypeScript-runtime debate inside this slice; its job is to absorb the existing baseline cleanly."
+          ]
+        },
+        {
+          "id": "L34.2",
+          "title": "Domain-level split of the main bundle",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "python3 -m py_compile datapulse/console_client.py",
+            "python3 -m py_compile datapulse/console_server.py",
+            "uv run python scripts/governance/run_datapulse_quick_test_gate.py",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-console-engineering-governance-blueprint.md",
+            "datapulse/static/console/",
+            "datapulse/console_client.py",
+            "datapulse/console_server.py",
+            "tests/test_console_server.py",
+            "scripts/datapulse_console_browser_smoke.py"
+          ],
+          "exit_condition": "The concatenated console bundle stays runtime-equivalent after `99-main.js` is split into domain-owned fragments and top-level boot wiring is isolated into a dedicated bootstrap fragment, with quick gate and browser smoke both passing.",
+          "notes": [
+            "Treat runtime equivalence as the invariant; this slice does not promise byte-for-byte equality once domain regrouping begins.",
+            "Keep classic script ordering and hoist-sensitive behavior intact under the sorted-fragment loader contract."
+          ]
+        },
+        {
+          "id": "L34.3",
+          "title": "Pure-function JS unit coverage",
+          "category": "manual",
+          "execution_profile": "workflow_change",
+          "promotion_scope": "ci",
+          "status": "pending",
+          "verification_commands": [
+            "npm run test:js",
+            "uv run python scripts/governance/run_datapulse_quick_test_gate.py"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-console-engineering-governance-blueprint.md",
+            "package.json",
+            "vitest.config.js",
+            "tests/js/",
+            ".github/workflows/ci.yml"
+          ],
+          "exit_condition": "Pure browser-side helper functions execute under an explicit JS test harness with boot side effects neutralized, the minimum helper set is covered, and CI exposes an independent `frontend-test` lane.",
+          "notes": [
+            "The harness must use an isolated VM or named-return wrapper rather than depending on accidental `globalThis` leakage from top-level function declarations.",
+            "This slice may add Node-side test tooling, but it must not add a bundler or TypeScript runtime."
+          ]
+        },
+        {
+          "id": "L34.4",
+          "title": "Htmx triage fragment pilot",
+          "category": "manual",
+          "execution_profile": "local_wrapper",
+          "promotion_scope": "none",
+          "status": "pending",
+          "verification_commands": [
+            "uv run pytest tests/test_console_server.py -q",
+            "DATAPULSE_CONSOLE_BROWSER_SMOKE=1 bash scripts/datapulse_console_smoke.sh"
+          ],
+          "artifacts": [
+            "docs/governance/datapulse-console-engineering-governance-blueprint.md",
+            "datapulse/console_server.py",
+            "tests/test_console_server.py",
+            "scripts/datapulse_console_browser_smoke.py"
+          ],
+          "exit_condition": "The triage queue list, banner, and card surfaces can be rendered through `/api/fragments/triage/...` with rendering-critical view state serialized for replay claims, keyboard shortcuts preserved, and fragment-audit output written to an ignored runtime root.",
+          "notes": [
+            "This slice depends on both the domain-level split and the pure-function JS test harness landing first.",
+            "Exact replay claims stay limited to fragment-managed surfaces whose rendering-critical state is carried in the fragment request and log."
+          ]
+        }
+      ]
     }
   ],
   "recommended_next_slice": {
-    "id": "no-open-slice",
-    "title": "No open slice",
-    "reason": "All current slices are completed in this working copy."
+    "id": "L34.1",
+    "title": "Extracted-Console Baseline Absorption",
+    "reason": "Derived from the next open slice in the working copy."
   },
   "progress_log": [
     {

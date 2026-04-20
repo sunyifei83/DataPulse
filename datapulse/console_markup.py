@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from datapulse.console_client import render_console_client_script
-
 
 def _json_blob(payload: Any) -> str:
     return json.dumps(payload, ensure_ascii=False)
@@ -28,7 +26,6 @@ def render_console_html(title: str) -> str:
             ],
         }
     )
-    client_script = render_console_client_script(initial_state)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -3527,16 +3524,22 @@ def render_console_html(title: str) -> str:
             </div>
             <div class="field-grid">
               <label><span id="label-schedule">Schedule</span><input id="input-schedule" name="schedule" list="schedule-options-list" placeholder="@hourly / interval:15m"><span class="field-hint" id="hint-schedule">Manual is fine for first exploration.</span></label>
-              <label><span id="label-platform">Platform</span><input id="input-platform" name="platform" list="platform-options-list" placeholder="twitter"><span class="field-hint" id="hint-platform">Leave empty for broader discovery.</span></label>
+              <label><span id="label-platform">Platforms</span><input id="input-platform" name="platform" list="platform-options-list" placeholder="twitter, reddit, hackernews"><span class="field-hint" id="hint-platform">Toggle chips or type a comma-separated list. Leave empty for broad discovery.</span></label>
             </div>
-            <label><span id="label-domain">Alert Domain</span><input id="input-domain" name="domain" list="domain-options-list" placeholder="openai.com"><span class="field-hint" id="hint-domain">Optional domain guard for tighter recall.</span></label>
+            <label><span id="label-domain">Sites / Domains</span><input id="input-domain" name="domain" list="domain-options-list" placeholder="openai.com, techcrunch.com"><span class="field-hint" id="hint-domain">Comma-separated sites act as both search scope and alert domain guard.</span></label>
+            <input type="hidden" id="input-provider" name="provider" value="">
             <div class="stack compact-stack">
               <div class="mono" id="schedule-lanes-title">Schedule Lanes</div>
               <div class="chip-row" id="create-watch-schedule-picks"></div>
             </div>
             <div class="stack compact-stack">
-              <div class="mono" id="platform-lanes-title">Platform Lanes</div>
+              <div class="mono" id="platform-lanes-title">Platform Lanes (multi-select)</div>
               <div class="chip-row" id="create-watch-platform-picks"></div>
+            </div>
+            <div class="stack compact-stack">
+              <div class="mono" id="provider-lanes-title">Provider Mode</div>
+              <div class="chip-row" id="create-watch-provider-picks"></div>
+              <div class="panel-sub" id="create-watch-cross-verify-hint">Pick 2+ platforms or switch provider to multi to enable cross-source corroboration.</div>
             </div>
           </div>
           <div class="deck-section">
@@ -3866,7 +3869,8 @@ def render_console_html(title: str) -> str:
   </div>
 
         <script>
-{client_script}
+window.__DP_INITIAL__ = {initial_state};
     </script>
+    <script src="/static/console.js" defer></script>
 </body>
 </html>"""

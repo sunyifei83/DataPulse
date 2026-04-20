@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from datapulse.console_deck import build_mission_deck_suggestions
@@ -16,7 +17,31 @@ from datapulse.reader import DataPulseReader
 from datapulse.surface_capabilities import build_runtime_surface_introspection, build_surface_capability_projection
 
 CONSOLE_TITLE = "DataPulse Command Chamber"
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+CONSOLE_SOURCE_DIR = STATIC_DIR / "console"
 BRAND_SOURCE_PATH = Path(__file__).resolve().parent.parent / "docs" / "形象.jpg"
+
+
+def _load_console_bundle() -> str:
+    """Concat console source fragments in sorted filename order.
+
+    Filenames like `00-common.js`, `99-main.js` guarantee deterministic order;
+    all fragments share one global script scope once sent to the browser.
+    """
+    if not CONSOLE_SOURCE_DIR.is_dir():
+        return ""
+    parts = sorted(CONSOLE_SOURCE_DIR.glob("*.js"))
+    return "\n".join(part.read_text(encoding="utf-8") for part in parts)
+
+
+_CONSOLE_BUNDLE_CACHE: str | None = None
+
+
+def _console_bundle_text() -> str:
+    global _CONSOLE_BUNDLE_CACHE
+    if _CONSOLE_BUNDLE_CACHE is None:
+        _CONSOLE_BUNDLE_CACHE = _load_console_bundle()
+    return _CONSOLE_BUNDLE_CACHE
 BRAND_HERO_PATH = Path(__file__).resolve().parent.parent / "docs" / "assets" / "datapulse-command-chamber-hero.jpg"
 BRAND_SQUARE_PATH = Path(__file__).resolve().parent.parent / "docs" / "assets" / "datapulse-command-chamber-square.jpg"
 BRAND_ICON_PATH = Path(__file__).resolve().parent.parent / "docs" / "assets" / "datapulse-command-chamber-icon.png"
@@ -27,6 +52,7 @@ class WatchCreateRequest(BaseModel):
     query: str
     platforms: list[str] | None = None
     sites: list[str] | None = None
+    provider: str = "auto"
     schedule: str = "manual"
     min_confidence: float = 0.0
     top_n: int = 5
@@ -38,6 +64,7 @@ class WatchUpdateRequest(BaseModel):
     query: str | None = None
     platforms: list[str] | None = None
     sites: list[str] | None = None
+    provider: str | None = None
     schedule: str | None = None
     min_confidence: float | None = None
     top_n: int | None = None
@@ -55,6 +82,7 @@ class WatchDeckSuggestionRequest(BaseModel):
     schedule: str = ""
     platform: str = ""
     domain: str = ""
+    provider: str = ""
     route: str = ""
     keyword: str = ""
     min_score: str = ""
@@ -198,6 +226,14 @@ class DigestDispatchRequest(BaseModel):
 def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) -> FastAPI:
     app = FastAPI(title=CONSOLE_TITLE, version="0.8.0")
 
+    @app.get("/static/console.js", include_in_schema=False)
+    def console_bundle() -> Response:
+        body = _console_bundle_text()
+        return Response(content=body, media_type="application/javascript; charset=utf-8")
+
+    if STATIC_DIR.is_dir():
+        app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
         return render_console_html(CONSOLE_TITLE)
@@ -224,6 +260,12 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     def brand_icon() -> FileResponse:
         if not BRAND_ICON_PATH.exists():
             raise HTTPException(status_code=404, detail="brand icon not found")
+        return FileResponse(BRAND_ICON_PATH, media_type="image/png")
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon() -> Response:
+        if not BRAND_ICON_PATH.exists():
+            return Response(status_code=204)
         return FileResponse(BRAND_ICON_PATH, media_type="image/png")
 
     @app.get("/healthz")
