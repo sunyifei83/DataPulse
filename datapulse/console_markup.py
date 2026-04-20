@@ -3201,8 +3201,21 @@ def render_console_html(title: str) -> str:
     }}
     .md-list .md-list-filter {{
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       gap: 6px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+      -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
+      mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
+    }}
+    .md-list .md-list-filter::-webkit-scrollbar {{ display: none; }}
+    .md-list .md-list-filter > button {{
+      flex: 0 0 auto;
+      white-space: nowrap;
+      padding: 6px 12px;
+      font-size: 0.78rem;
     }}
     .md-list .md-list-search {{
       display: grid;
@@ -3213,6 +3226,48 @@ def render_console_html(title: str) -> str:
     .md-list .md-list-search input {{
       width: 100%;
       min-width: 0;
+    }}
+    .md-list .card.section-toolbox,
+    .md-list .card.batch-toolbar-card {{
+      border: none;
+      background: transparent;
+      box-shadow: none;
+      padding: 6px 0;
+      border-radius: 0;
+      position: static;
+    }}
+    .md-list .card.section-toolbox .panel-sub,
+    .md-list .card.batch-toolbar-card .panel-sub {{
+      display: none;
+    }}
+    .md-list .card.section-toolbox .section-toolbox-head,
+    .md-list .card.batch-toolbar-card .batch-toolbar-head {{
+      align-items: center;
+      gap: 8px;
+    }}
+    .md-list .card.section-toolbox .mono,
+    .md-list .card.batch-toolbar-card .mono {{
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }}
+    .md-list .card.section-toolbox .section-toolbox-meta {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }}
+    .md-list .card.section-toolbox .chip,
+    .md-list .card.batch-toolbar-card .chip {{
+      font-size: 0.7rem;
+      padding: 2px 8px;
+    }}
+    .md-list .card.batch-toolbar-card .actions {{
+      flex-wrap: wrap;
+      gap: 6px;
+    }}
+    .md-list .card.batch-toolbar-card .actions button {{
+      font-size: 0.78rem;
+      padding: 6px 10px;
     }}
     .md-list .card.selectable {{
       padding: 12px 14px;
