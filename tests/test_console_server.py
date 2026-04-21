@@ -2369,6 +2369,63 @@ def test_console_triage_routes():
     assert delete_response.json()["deleted"] is True
 
 
+def test_console_triage_fragment_routes_render_and_audit():
+    client = _client()
+    params = [
+        ("triage_filter", "verified"),
+        ("search", "recap"),
+        ("selected_item_id", "item-2"),
+        ("selected_item_ids", "item-2"),
+        ("pinned_evidence_ids", "item-2"),
+        ("story_focus_id", "story-openai-launch"),
+    ]
+
+    banner = client.get("/api/fragments/triage/banner", params=params)
+    triage_list = client.get("/api/fragments/triage/list", params=params)
+    card = client.get("/api/fragments/triage/card/item-2", params=params)
+
+    assert banner.status_code == 200
+    assert banner.headers["x-datapulse-triage-replay-claim"] == "exact"
+    assert 'data-triage-fragment="banner"' in banner.text
+    assert "shown=1 / 2" in banner.text
+    assert "search" in banner.text
+
+    assert triage_list.status_code == 200
+    assert triage_list.headers["x-datapulse-triage-replay-claim"] == "exact"
+    assert 'data-triage-fragment="list"' in triage_list.text
+    assert "triage queue fragment" in triage_list.text
+    assert "OpenAI launch recap" in triage_list.text
+    assert '"story_focus_id": "story-openai-launch"' in triage_list.text
+
+    assert card.status_code == 200
+    assert card.headers["x-datapulse-triage-replay-claim"] == "exact"
+    assert 'data-triage-fragment="card"' in card.text
+    assert 'data-triage-card="item-2"' in card.text
+    assert "batch=on" in card.text
+    assert "pinned=on" in card.text
+
+    audit_path = Path(card.headers["x-datapulse-triage-audit-path"])
+    assert audit_path.exists()
+    audit_record = json.loads(audit_path.read_text(encoding="utf-8").strip().splitlines()[-1])
+    assert audit_record["surface"] == "card"
+    assert audit_record["replay_claim"] == "exact"
+    assert audit_record["view_state"]["triage_filter"] == "verified"
+    assert audit_record["view_state"]["selected_item_id"] == "item-2"
+    assert audit_record["view_state"]["selected_item_ids"] == ["item-2"]
+    assert audit_record["view_state"]["pinned_evidence_ids"] == ["item-2"]
+    assert audit_record["view_state"]["story_focus_id"] == "story-openai-launch"
+
+
+def test_console_triage_fragment_routes_downgrade_without_full_state():
+    client = _client()
+
+    response = client.get("/api/fragments/triage/list?triage_filter=open")
+
+    assert response.status_code == 200
+    assert response.headers["x-datapulse-triage-replay-claim"] == "structural"
+    assert 'data-replay-claim="structural"' in response.text
+
+
 def test_console_story_routes():
     client = _client()
 

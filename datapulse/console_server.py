@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import json
+from datetime import datetime, timezone
+from html import escape
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlencode
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
@@ -20,6 +24,17 @@ CONSOLE_TITLE = "DataPulse Command Chamber"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 CONSOLE_SOURCE_DIR = STATIC_DIR / "console"
 BRAND_SOURCE_PATH = Path(__file__).resolve().parent.parent / "docs" / "形象.jpg"
+TRIAGE_FRAGMENT_AUDIT_ROOT = Path(__file__).resolve().parent.parent / "artifacts" / "runtime" / "triage_fragments"
+TRIAGE_FRAGMENT_CRITICAL_QUERY_KEYS = (
+    "triage_filter",
+    "search",
+    "selected_item_id",
+    "selected_item_ids",
+    "pinned_evidence_ids",
+    "story_focus_id",
+)
+TRIAGE_FILTER_VALUES = {"all", "open", "new", "triaged", "verified", "duplicate", "ignored", "escalated"}
+TRIAGE_OPEN_STATES = {"new", "triaged", "escalated"}
 
 
 def _load_console_bundle() -> str:
@@ -42,6 +57,269 @@ def _console_bundle_text() -> str:
     if _CONSOLE_BUNDLE_CACHE is None:
         _CONSOLE_BUNDLE_CACHE = _load_console_bundle()
     return _CONSOLE_BUNDLE_CACHE
+
+
+def _unique_text(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    rows: list[str] = []
+    for value in values:
+        normalized = str(value or "").strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        rows.append(normalized)
+    return rows
+
+
+def _normalize_triage_filter(value: str | None) -> str:
+    normalized = str(value or "open").strip().lower() or "open"
+    return normalized if normalized in TRIAGE_FILTER_VALUES else "open"
+
+
+def _triage_fragment_state(request: Request) -> tuple[dict[str, Any], bool]:
+    params = request.query_params
+    state = {
+        "triage_filter": _normalize_triage_filter(params.get("triage_filter")),
+        "search": str(params.get("search") or "").strip(),
+        "selected_item_id": str(params.get("selected_item_id") or "").strip(),
+        "selected_item_ids": _unique_text(params.getlist("selected_item_ids")),
+        "pinned_evidence_ids": _unique_text(params.getlist("pinned_evidence_ids")),
+        "story_focus_id": str(params.get("story_focus_id") or "").strip(),
+    }
+    return state, all(key in params for key in TRIAGE_FRAGMENT_CRITICAL_QUERY_KEYS)
+
+
+def _triage_fragment_query_string(state: dict[str, Any], **overrides: Any) -> str:
+    payload = {
+        "triage_filter": state.get("triage_filter", "open"),
+        "search": state.get("search", ""),
+        "selected_item_id": state.get("selected_item_id", ""),
+        "selected_item_ids": list(state.get("selected_item_ids") or []),
+        "pinned_evidence_ids": list(state.get("pinned_evidence_ids") or []),
+        "story_focus_id": state.get("story_focus_id", ""),
+    }
+    payload.update(overrides)
+    pairs: list[tuple[str, str]] = []
+    for key, value in payload.items():
+        if isinstance(value, list):
+            rows = _unique_text([str(item or "").strip() for item in value])
+            if not rows:
+                pairs.append((key, ""))
+                continue
+            pairs.extend((key, row) for row in rows)
+            continue
+        pairs.append((key, str(value or "").strip()))
+    return urlencode(pairs, doseq=True)
+
+
+def _json_script_blob(payload: dict[str, Any]) -> str:
+    return json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
+
+
+def _triage_fragment_state_blob(state: dict[str, Any]) -> str:
+    return (
+        '<script type="application/json" data-triage-fragment-view-state>'
+        f"{_json_script_blob(state)}</script>"
+    )
+
+
+def _filter_triage_items(items: list[dict[str, Any]], state: dict[str, Any]) -> list[dict[str, Any]]:
+    active_filter = _normalize_triage_filter(str(state.get("triage_filter") or "open"))
+    search_query = str(state.get("search") or "").strip().lower()
+    pinned_ids = set(_unique_text([str(item or "").strip() for item in state.get("pinned_evidence_ids") or []]))
+    filtered: list[dict[str, Any]] = []
+    for item in items:
+        item_id = str(item.get("id") or "").strip()
+        if pinned_ids and item_id not in pinned_ids:
+            continue
+        review_state = str(item.get("review_state") or "new").strip().lower() or "new"
+        if active_filter == "all":
+            pass
+        elif active_filter == "open":
+            if review_state not in TRIAGE_OPEN_STATES:
+                continue
+        elif review_state != active_filter:
+            continue
+        if search_query:
+            notes = item.get("review_notes") if isinstance(item.get("review_notes"), list) else []
+            note_text = " ".join(str(note.get("note") or "") for note in notes if isinstance(note, dict))
+            haystack = " ".join(
+                [
+                    item_id,
+                    str(item.get("title") or ""),
+                    str(item.get("url") or ""),
+                    note_text,
+                ]
+            ).lower()
+            if search_query not in haystack:
+                continue
+        filtered.append(item)
+    return filtered
+
+
+def _render_triage_fragment_card(item: dict[str, Any], state: dict[str, Any]) -> str:
+    item_id = str(item.get("id") or "").strip()
+    review_state = str(item.get("review_state") or "new").strip() or "new"
+    title = escape(str(item.get("title") or item_id or "Triage item"))
+    url = escape(str(item.get("url") or ""))
+    note_count = len(item.get("review_notes") or []) if isinstance(item.get("review_notes"), list) else 0
+    selected = item_id == str(state.get("selected_item_id") or "").strip()
+    batch_selected = item_id in set(state.get("selected_item_ids") or [])
+    pinned = item_id in set(state.get("pinned_evidence_ids") or [])
+    story_focus_id = str(state.get("story_focus_id") or "").strip()
+    card_query = _triage_fragment_query_string(state, selected_item_id=item_id)
+    score = escape(str(item.get("score") or 0))
+    confidence = f"{float(item.get('confidence') or 0):.2f}"
+    selected_label = "selected" if selected else "available"
+    return f"""
+<article class="card selectable {'selected' if selected else ''}" data-triage-fragment="card" data-triage-card="{escape(item_id)}" data-fragment-driver="htmx" data-replay-claim="__REPLAY_CLAIM__">
+  <div class="card-top">
+    <div>
+      <div class="mono">triage card fragment</div>
+      <h3 class="card-title">{title}</h3>
+      <div class="meta">
+        <span>{escape(item_id)}</span>
+        <span>state={escape(review_state)}</span>
+        <span>score={score}</span>
+        <span>confidence={escape(confidence)}</span>
+      </div>
+    </div>
+    <span class="chip {'ok' if selected else ''}">{selected_label}</span>
+  </div>
+  <div class="panel-sub">{url or '-'}</div>
+  <div class="meta">
+    <span>notes={note_count}</span>
+    <span>batch={'on' if batch_selected else 'off'}</span>
+    <span>pinned={'on' if pinned else 'off'}</span>
+    <span>story_focus={escape(story_focus_id or '-')}</span>
+  </div>
+  <div class="actions" style="margin-top:12px;">
+    <button class="btn-secondary" type="button" hx-get="/api/fragments/triage/card/{escape(item_id)}?{escape(card_query)}" hx-target="[data-triage-card=&quot;{escape(item_id)}&quot;]" hx-swap="outerHTML">Refresh Card</button>
+  </div>
+</article>
+""".strip()
+
+
+def _render_triage_fragment_banner(
+    items: list[dict[str, Any]],
+    filtered_items: list[dict[str, Any]],
+    state: dict[str, Any],
+) -> str:
+    hidden_count = max(0, len(items) - len(filtered_items))
+    reasons: list[str] = []
+    if state.get("pinned_evidence_ids"):
+        reasons.append("evidence focus")
+    if state.get("search"):
+        reasons.append(f'search "{escape(str(state["search"]))}"')
+    triage_filter = str(state.get("triage_filter") or "open")
+    if triage_filter not in {"open", "all"}:
+        reasons.append(f"state={escape(triage_filter)}")
+    controls: list[str] = []
+    if state.get("pinned_evidence_ids"):
+        query = _triage_fragment_query_string(state, pinned_evidence_ids=[])
+        controls.append(
+            f'<button class="btn-secondary" type="button" hx-get="/api/fragments/triage/banner?{escape(query)}" hx-target="#triage-fragment-banner" hx-swap="outerHTML">Show Full Queue</button>'
+        )
+    if state.get("search"):
+        query = _triage_fragment_query_string(state, search="")
+        controls.append(
+            f'<button class="btn-secondary" type="button" hx-get="/api/fragments/triage/banner?{escape(query)}" hx-target="#triage-fragment-banner" hx-swap="outerHTML">Clear Search</button>'
+        )
+    if triage_filter not in {"open", "all"}:
+        query = _triage_fragment_query_string(state, triage_filter="open")
+        controls.append(
+            f'<button class="btn-secondary" type="button" hx-get="/api/fragments/triage/banner?{escape(query)}" hx-target="#triage-fragment-banner" hx-swap="outerHTML">Reset To Open</button>'
+        )
+    return f"""
+<section id="triage-fragment-banner" class="card" data-triage-fragment="banner" data-fragment-driver="htmx" data-replay-claim="__REPLAY_CLAIM__">
+  <div class="mono">triage banner fragment</div>
+  <div class="meta" style="margin-top:10px;">
+    <span>shown={len(filtered_items)} / {len(items)}</span>
+    <span>hidden={hidden_count}</span>
+    <span>filter={escape(triage_filter)}</span>
+    <span>selected={len(state.get('selected_item_ids') or [])}</span>
+  </div>
+  <div class="panel-sub" style="margin-top:10px;">{escape(" | ".join(reasons) if reasons else "All queue items shown.")}</div>
+  {'<div class="actions" style="margin-top:12px;">' + ''.join(controls) + '</div>' if controls else ''}
+</section>
+""".strip()
+
+
+def _render_triage_fragment_list(filtered_items: list[dict[str, Any]], state: dict[str, Any]) -> str:
+    cards = "\n".join(_render_triage_fragment_card(item, state) for item in filtered_items)
+    if not cards:
+        cards = '<div class="empty">No triage item matched the active queue filter.</div>'
+    return f"""
+<section id="triage-fragment-list" class="stack" data-triage-fragment="list" data-fragment-driver="htmx" data-replay-claim="__REPLAY_CLAIM__">
+  <div class="mono">triage queue fragment</div>
+  <div class="panel-sub" style="margin-top:10px;">Server-rendered pilot for queue cards, bounded replay state, and htmx-compatible swaps.</div>
+  <div class="meta" style="margin-top:10px;">
+    <span>filter={escape(str(state.get('triage_filter') or 'open'))}</span>
+    <span>search={escape(str(state.get('search') or '-') or '-')}</span>
+    <span>selected={escape(str(state.get('selected_item_id') or '-') or '-')}</span>
+    <span>story_focus={escape(str(state.get('story_focus_id') or '-') or '-')}</span>
+  </div>
+  <div class="stack" style="margin-top:12px;">{cards}</div>
+</section>
+""".strip()
+
+
+def _write_triage_fragment_audit(
+    *,
+    surface: str,
+    request: Request,
+    state: dict[str, Any],
+    rendered_item_ids: list[str],
+    exact_replay_requested: bool,
+) -> tuple[str, Path | None, str | None]:
+    claim = "exact" if exact_replay_requested else "structural"
+    record = {
+        "logged_at_utc": datetime.now(timezone.utc).isoformat(),
+        "surface": surface,
+        "route_path": request.url.path,
+        "query_string": request.url.query,
+        "rendered_item_ids": rendered_item_ids,
+        "replay_claim": claim,
+        "view_state": state,
+    }
+    try:
+        TRIAGE_FRAGMENT_AUDIT_ROOT.mkdir(parents=True, exist_ok=True)
+        output_path = TRIAGE_FRAGMENT_AUDIT_ROOT / f"{datetime.now(timezone.utc):%Y%m%d}.jsonl"
+        with output_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+        return claim, output_path, None
+    except OSError as exc:
+        return "structural", None, str(exc)
+
+
+def _triage_fragment_response(
+    *,
+    surface: str,
+    request: Request,
+    state: dict[str, Any],
+    rendered_item_ids: list[str],
+    exact_replay_requested: bool,
+    html: str,
+) -> HTMLResponse:
+    replay_claim, audit_path, audit_error = _write_triage_fragment_audit(
+        surface=surface,
+        request=request,
+        state=state,
+        rendered_item_ids=rendered_item_ids,
+        exact_replay_requested=exact_replay_requested,
+    )
+    body = html.replace("__REPLAY_CLAIM__", replay_claim) + _triage_fragment_state_blob(state)
+    headers = {
+        "Cache-Control": "no-store",
+        "X-DataPulse-Triage-Replay-Claim": replay_claim,
+    }
+    if audit_path is not None:
+        headers["X-DataPulse-Triage-Audit-Path"] = str(audit_path)
+    if audit_error:
+        headers["X-DataPulse-Triage-Audit-Error"] = audit_error
+    return HTMLResponse(content=body, headers=headers)
+
+
 BRAND_HERO_PATH = Path(__file__).resolve().parent.parent / "docs" / "assets" / "datapulse-command-chamber-hero.jpg"
 BRAND_SQUARE_PATH = Path(__file__).resolve().parent.parent / "docs" / "assets" / "datapulse-command-chamber-square.jpg"
 BRAND_ICON_PATH = Path(__file__).resolve().parent.parent / "docs" / "assets" / "datapulse-command-chamber-icon.png"
@@ -1000,6 +1278,54 @@ def create_app(reader_factory: Callable[[], DataPulseReader] = DataPulseReader) 
     @app.get("/api/triage")
     def triage_list(limit: int = 20, state: list[str] | None = None, include_closed: bool = False) -> list[dict[str, Any]]:
         return reader_factory().triage_list(limit=limit, states=state, include_closed=include_closed)
+
+    @app.get("/api/fragments/triage/banner", response_class=HTMLResponse)
+    def triage_fragment_banner(request: Request) -> HTMLResponse:
+        state, exact_replay_requested = _triage_fragment_state(request)
+        items = reader_factory().triage_list(limit=5000, include_closed=True)
+        filtered_items = _filter_triage_items(items, state)
+        html = _render_triage_fragment_banner(items, filtered_items, state)
+        return _triage_fragment_response(
+            surface="banner",
+            request=request,
+            state=state,
+            rendered_item_ids=[str(item.get("id") or "").strip() for item in filtered_items],
+            exact_replay_requested=exact_replay_requested,
+            html=html,
+        )
+
+    @app.get("/api/fragments/triage/list", response_class=HTMLResponse)
+    def triage_fragment_list(request: Request) -> HTMLResponse:
+        state, exact_replay_requested = _triage_fragment_state(request)
+        items = reader_factory().triage_list(limit=5000, include_closed=True)
+        filtered_items = _filter_triage_items(items, state)
+        html = _render_triage_fragment_list(filtered_items, state)
+        return _triage_fragment_response(
+            surface="list",
+            request=request,
+            state=state,
+            rendered_item_ids=[str(item.get("id") or "").strip() for item in filtered_items],
+            exact_replay_requested=exact_replay_requested,
+            html=html,
+        )
+
+    @app.get("/api/fragments/triage/card/{item_id}", response_class=HTMLResponse)
+    def triage_fragment_card(item_id: str, request: Request) -> HTMLResponse:
+        state, exact_replay_requested = _triage_fragment_state(request)
+        state["selected_item_id"] = item_id
+        items = reader_factory().triage_list(limit=5000, include_closed=True)
+        item = next((row for row in items if str(row.get("id") or "").strip() == item_id), None)
+        if item is None:
+            raise HTTPException(status_code=404, detail=f"Triage item not found: {item_id}")
+        html = _render_triage_fragment_card(item, state)
+        return _triage_fragment_response(
+            surface="card",
+            request=request,
+            state=state,
+            rendered_item_ids=[item_id],
+            exact_replay_requested=exact_replay_requested,
+            html=html,
+        )
 
     @app.get("/api/triage/stats")
     def triage_stats() -> dict[str, Any]:

@@ -9,6 +9,7 @@ import threading
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlsplit
 
@@ -2687,7 +2688,7 @@ def _fetch_text(page: Page, url: str, *, method: str = "GET", payload: Row | Non
             }
             const resp = await fetch(url, options);
             const text = await resp.text();
-            return { status: resp.status, ok: resp.ok, text };
+            return { status: resp.status, ok: resp.ok, text, headers: Object.fromEntries(resp.headers.entries()) };
         }""",
         {"url": url, "method": method, "payload": payload},
     )
@@ -3339,6 +3340,72 @@ def _exercise_route_crud(page: Page) -> None:
     page.wait_for_function("() => !document.querySelector('[data-route-edit=\"shadow-webhook\"]')", timeout=10000)
 
 
+def _exercise_triage_fragments(page: Page) -> None:
+    _log("[console-browser-smoke] triage fragments")
+    params = (
+        "triage_filter=verified"
+        "&search=recap"
+        "&selected_item_id=item-2"
+        "&selected_item_ids=item-2"
+        "&pinned_evidence_ids=item-2"
+        "&story_focus_id=story-openai-launch"
+    )
+    banner = _fetch_text(page, f"/api/fragments/triage/banner?{params}")
+    triage_list = _fetch_text(page, f"/api/fragments/triage/list?{params}")
+    card = _fetch_text(page, f"/api/fragments/triage/card/item-2?{params}")
+
+    assert _as_int(banner.get("status")) == 200, f"triage banner fragment failed: {banner}"
+    assert _as_int(triage_list.get("status")) == 200, f"triage list fragment failed: {triage_list}"
+    assert _as_int(card.get("status")) == 200, f"triage card fragment failed: {card}"
+    assert 'data-triage-fragment="banner"' in str(banner.get("text") or ""), f"missing banner fragment markup: {banner}"
+    assert 'data-triage-fragment="list"' in str(triage_list.get("text") or ""), f"missing list fragment markup: {triage_list}"
+    assert 'data-triage-fragment="card"' in str(card.get("text") or ""), f"missing card fragment markup: {card}"
+    assert "OpenAI launch recap" in str(triage_list.get("text") or ""), f"filtered triage item missing from fragment list: {triage_list}"
+    assert '"story_focus_id": "story-openai-launch"' in str(card.get("text") or ""), f"view state missing from card fragment: {card}"
+
+    headers = _row(card.get("headers"))
+    assert headers is not None, f"missing fragment headers: {card}"
+    assert str(headers.get("x-datapulse-triage-replay-claim") or "") == "exact", f"unexpected replay claim: {headers}"
+    audit_path = Path(str(headers.get("x-datapulse-triage-audit-path") or "").strip())
+    assert audit_path.exists(), f"fragment audit file was not written: {headers}"
+
+
+def _exercise_triage_keyboard_shortcuts(page: Page, base_url: str) -> None:
+    _log("[console-browser-smoke] triage keyboard shortcuts")
+    _goto(page, f"{base_url}/?triage_filter=all#section-triage")
+    _wait_for_console_ready(page)
+    page.wait_for_function("() => !!document.querySelector('[data-triage-card=\"item-1\"]')", timeout=10000)
+    _wait_for_active_rail(page, "nav-review", "#section-triage")
+    _wait_for_section_summary(page, "section-triage")
+    _click(page, "[data-triage-card='item-1']")
+
+    page.keyboard.press("j")
+    page.wait_for_function("() => document.querySelector('[data-triage-card=\"item-2\"]')?.classList.contains('selected')", timeout=10000)
+    page.keyboard.press("k")
+    page.wait_for_function("() => document.querySelector('[data-triage-card=\"item-1\"]')?.classList.contains('selected')", timeout=10000)
+
+    page.keyboard.press("v")
+    page.wait_for_function("() => state.triage.find((item) => item.id === 'item-1')?.review_state === 'verified'", timeout=10000)
+    page.keyboard.press("t")
+    page.wait_for_function("() => state.triage.find((item) => item.id === 'item-1')?.review_state === 'triaged'", timeout=10000)
+    page.keyboard.press("e")
+    page.wait_for_function("() => state.triage.find((item) => item.id === 'item-1')?.review_state === 'escalated'", timeout=10000)
+    page.keyboard.press("i")
+    page.wait_for_function("() => state.triage.find((item) => item.id === 'item-1')?.review_state === 'ignored'", timeout=10000)
+
+    page.keyboard.press("n")
+    page.wait_for_function("() => document.activeElement?.dataset?.triageNoteInput === 'item-1'", timeout=10000)
+    _click(page, "[data-triage-card='item-1']")
+
+    page.keyboard.press("d")
+    page.wait_for_function("() => document.querySelector('#section-triage')?.textContent?.includes('suggested_primary')", timeout=10000)
+
+    page.keyboard.press("s")
+    page.wait_for_function("() => window.location.hash === '#section-story'", timeout=10000)
+    page.wait_for_function("() => window.location.search.includes('story_id=story-triage-seed')", timeout=10000)
+    _wait_for_active_rail(page, "nav-review", "#section-story")
+
+
 def _exercise_triage_to_story(page: Page, base_url: str) -> None:
     _log("[console-browser-smoke] triage to story")
     _goto(page, f"{base_url}/?triage_filter=all#section-triage")
@@ -3839,7 +3906,9 @@ def main() -> int:
             _exercise_workflow_stage_acceptance(page)
             second_page = _exercise_saved_views_and_dock(page, base_url, context)
             _exercise_route_crud(second_page)
+            _exercise_triage_fragments(second_page)
             _exercise_triage_to_story(second_page, base_url)
+            _exercise_triage_keyboard_shortcuts(second_page, base_url)
             report_context = _exercise_report_workspaces(second_page)
             _exercise_delivery_workspace(second_page, report_context)
             _exercise_responsive_interaction_safety(second_page)

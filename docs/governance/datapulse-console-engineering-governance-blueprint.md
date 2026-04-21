@@ -1,6 +1,6 @@
 # DataPulse Console Engineering Governance Blueprint
 
-Status: repo-scoped admitted follow-up blueprint; current reopening target is `L34.3` (`Pure-function JS unit coverage`)
+Status: repo-scoped admitted follow-up blueprint; `L34.4` (`Htmx triage fragment pilot`) is landed locally and the loop should re-evaluate/export refreshed truth next
 
 Created: 2026-04-20
 
@@ -26,9 +26,10 @@ The pre-`L34.1` repo read and the current repo truth are no longer the same thin
 
 Current repo truth:
 
-- `docs/governance/datapulse-blueprint-plan.json` closes `L33` in repo truth through `L33.6`, closes `L34.1` through extracted-console baseline absorption, and leaves `L34` open on later engineering-governance work
-- operators should currently treat `L34.3` (`Pure-function JS unit coverage`) as the live manual ignition target for this wave
+- `docs/governance/datapulse-blueprint-plan.json` closes `L33` in repo truth through `L33.6`, closes `L34.1` through extracted-console baseline absorption, closes `L34.3` through pure-helper JS unit coverage, and leaves `L34` open on the remaining triage-fragment pilot work
+- `docs/governance/datapulse-blueprint-plan.draft.json` now closes `L34.4` locally so the next governance refresh can re-evaluate the plan instead of re-igniting the same slice
 - `datapulse/static/console/` is tracked repo content, `datapulse/console_client.py` and `datapulse/console_server.py` concatenate sorted console fragments into one classic `<script>` bundle, and `uv run python scripts/governance/run_datapulse_quick_test_gate.py` passes against that landed baseline
+- `datapulse/console_server.py` now exposes `/api/fragments/triage/banner`, `/api/fragments/triage/list`, and `/api/fragments/triage/card/{item_id}` with rendering-critical view state serialized for replay claims and fragment-audit output written under `artifacts/runtime/triage_fragments/`
 
 Historical pre-landing local working-copy truth:
 
@@ -38,13 +39,13 @@ Historical pre-landing local working-copy truth:
 
 What is not yet true:
 
-- list-rendering surfaces still rely on client-side `innerHTML =` rebuilds, so exact operator-visible replay is not yet a server-owned fact
-- pure JS helpers such as list parsing, filter normalization, and preview readiness still have no JS-side unit coverage in CI
+- the canonical browser shell still keeps its existing client-side triage rendering path, so exact replay claims remain bounded to the fragment-managed list, banner, and card surfaces instead of the whole review shell
+- exporter-refreshed repo truth for `docs/governance/datapulse-blueprint-plan.json` has not been regenerated in this local round yet
 
 Therefore:
 
-- Step 1 and Step 2 are now landed repo-truth facts rather than working-copy-only baseline claims
-- later engineering-governance slices may now build on that admitted baseline, with `L34.3` as the current live follow-up target
+- Step 1, Step 2, and Step 3 are now landed repo-truth facts rather than working-copy-only baseline claims
+- `L34.4` is now landed in local slice truth, and the next loop pass should refresh governance truth before selecting any further work
 
 ## Remaining Follow-Up Targets
 
@@ -231,10 +232,10 @@ Repo truth now treats this document as an admitted reopen path because:
 
 - the governance loop has accepted this blueprint into the structured plan
 - the admitted wave now has `L34.1` landed as its baseline-absorption closeout
-- the current operator-facing ignition target is `L34.3` (`Pure-function JS unit coverage`)
+- the current operator-facing ignition target is `L34.4` (`Htmx triage fragment pilot`)
 
 Operator-facing ignition timing and gate order are summarized in:
 
 - `docs/governance/datapulse-console-engineering-ignition-readiness.draft.md`
 
-With `L34.2` landed, the current operator-facing reopening target is `L34.3`; `L34.4` still waits on the JS test harness slice before the htmx pilot can claim its replay boundary.
+With `L34.3` landed, the current operator-facing reopening target is `L34.4`; the htmx pilot now has the JS test harness prerequisite it needed before claiming its replay boundary.

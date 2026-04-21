@@ -52,3 +52,14 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: datapulse-console --help
       - run: pytest tests/ -v --tb=short
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run test:js

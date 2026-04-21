@@ -620,6 +620,45 @@ function focusTriageNoteComposer(itemId) {
   }
 }
 
+function snapshotActiveTriageNoteFocus() {
+  const active = document.activeElement;
+  const itemId = String(active?.dataset?.triageNoteInput || "").trim();
+  if (!itemId) {
+    return null;
+  }
+  const value = typeof active.value === "string" ? active.value : "";
+  const selectionStart = typeof active.selectionStart === "number" ? active.selectionStart : value.length;
+  const selectionEnd = typeof active.selectionEnd === "number" ? active.selectionEnd : selectionStart;
+  return {
+    itemId,
+    selectionStart,
+    selectionEnd,
+  };
+}
+
+function restoreTriageNoteFocus(snapshot, root = document) {
+  if (!snapshot || !snapshot.itemId) {
+    return;
+  }
+  const scope = root && typeof root.querySelector === "function" ? root : document;
+  const field = scope.querySelector(`[data-triage-note-input="${snapshot.itemId}"]`);
+  if (!field) {
+    return;
+  }
+  field.focus();
+  if (typeof field.setSelectionRange === "function") {
+    const value = typeof field.value === "string" ? field.value : "";
+    const fallback = value.length;
+    const start = Number.isFinite(snapshot.selectionStart)
+      ? Math.max(0, Math.min(snapshot.selectionStart, value.length))
+      : fallback;
+    const end = Number.isFinite(snapshot.selectionEnd)
+      ? Math.max(start, Math.min(snapshot.selectionEnd, value.length))
+      : start;
+    field.setSelectionRange(start, end);
+  }
+}
+
 function moveTriageSelection(delta) {
   const visibleItems = getVisibleTriageItems();
   if (!visibleItems.length) {
@@ -642,6 +681,7 @@ function moveTriageSelection(delta) {
 function renderTriage() {
   const root = $("triage-list");
   const inlineStats = $("triage-stats-inline");
+  const triageNoteFocusSnapshot = snapshotActiveTriageNoteFocus();
   if (state.loading.board && !state.triage.length) {
     renderTriageSectionSummary();
     inlineStats.innerHTML = `<span>${copy("loading", "加载中")}=triage</span>`;
@@ -1117,4 +1157,5 @@ function renderTriage() {
   flushTriageUrlFocus();
   renderTopbarContext();
   scheduleCanvasTextFit(root);
+  restoreTriageNoteFocus(triageNoteFocusSnapshot, root);
 }

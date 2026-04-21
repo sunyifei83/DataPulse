@@ -8,6 +8,7 @@ build/
 dist/
 .tox/
 .venv/
+node_modules/
 venv/
 env/
 ENV/

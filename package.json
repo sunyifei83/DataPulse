@@ -1,0 +1,10 @@
+{
+  "name": "datapulse-js-tests",
+  "private": true,
+  "scripts": {
+    "test:js": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.4"
+  }
+}
