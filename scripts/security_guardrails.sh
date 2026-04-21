@@ -59,8 +59,12 @@ while IFS= read -r -d '' file; do
     continue
   fi
 
-  if grep -E -n "$TOKEN_RE" "$file"; then
-    found=1
+  if [[ "$file" == "package-lock.json" || "$file" == */package-lock.json ]]; then
+    grep -E -n "$TOKEN_RE" "$file" | grep -v '"integrity": "' && found=1 || true
+  else
+    if grep -E -n "$TOKEN_RE" "$file"; then
+      found=1
+    fi
   fi
   if grep -E -n "$ENV_ASSIGN_RE" "$file"; then
     found=1

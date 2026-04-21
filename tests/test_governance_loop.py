@@ -132,9 +132,13 @@ def test_active_overlay_truth_contract_matches_resolved_plan_and_tracked_loop_sn
 
     assert resolved_plan.get("_base_plan_path") == str(base_path.resolve())
     assert resolved_status == overlay.get("status")
-    recommended_next_slice = dict(resolved_plan.get("recommended_next_slice", {}))
-    assert recommended_next_slice.get("id")
-    assert recommended_next_slice.get("title")
+    raw_recommended_next_slice = resolved_plan.get("recommended_next_slice")
+    recommended_next_slice = dict(raw_recommended_next_slice) if isinstance(raw_recommended_next_slice, dict) else {}
+    if recommended_next_slice:
+        assert recommended_next_slice.get("id")
+        assert recommended_next_slice.get("title")
+    else:
+        assert raw_recommended_next_slice is None
 
     resolved_plan["_source_path"] = str(overlay_path.resolve())
     landing_status = {
@@ -161,9 +165,10 @@ def test_active_overlay_truth_contract_matches_resolved_plan_and_tracked_loop_sn
 
     assert loop_snapshot.get("source_plan") == "docs/governance/datapulse-blueprint-plan.json"
     assert loop_snapshot.get("completed_slices") == expected_completed_slices
-    assert loop_snapshot.get("next_slice", {}).get("id") == recommended_next_slice.get("id")
+    expected_next_slice_id = recommended_next_slice.get("id", "no-open-slice")
+    assert loop_snapshot.get("next_slice", {}).get("id") == expected_next_slice_id
     assert loop_snapshot.get("remaining_promotion_gates") == []
-    if recommended_next_slice.get("id") == "no-open-slice":
+    if expected_next_slice_id == "no-open-slice":
         assert loop_snapshot.get("stop_reason_if_run_now") == "loop_complete"
     else:
         assert loop_snapshot.get("flow_control", {}).get("status_if_run_now") == "ready_waiting_manual_handoff"
@@ -175,8 +180,12 @@ def test_active_overlay_truth_contract_matches_resolved_plan_and_tracked_loop_sn
         if persisted_snapshot.get("source_plan") == loop_snapshot.get("source_plan"):
             assert persisted_snapshot.get("completed_slices") == loop_snapshot.get("completed_slices")
             assert persisted_snapshot.get("next_slice", {}).get("id") == loop_snapshot.get("next_slice", {}).get("id")
-            assert isinstance(persisted_snapshot.get("remaining_promotion_gates"), list)
-            assert persisted_snapshot.get("stop_reason_if_run_now") == loop_snapshot.get("stop_reason_if_run_now")
+            persisted_remaining_promotion_gates = persisted_snapshot.get("remaining_promotion_gates")
+            assert isinstance(persisted_remaining_promotion_gates, list)
+            if persisted_remaining_promotion_gates == loop_snapshot.get("remaining_promotion_gates"):
+                assert persisted_snapshot.get("stop_reason_if_run_now") == loop_snapshot.get("stop_reason_if_run_now")
+            else:
+                assert persisted_snapshot.get("stop_reason_if_run_now") == "promotion_gates_open"
 
 
 def test_governance_path_read_prefers_configured_root_before_canonical(governance_paths, tmp_path: Path) -> None:

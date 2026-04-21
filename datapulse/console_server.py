@@ -141,8 +141,11 @@ def _filter_triage_items(items: list[dict[str, Any]], state: dict[str, Any]) -> 
         elif review_state != active_filter:
             continue
         if search_query:
-            notes = item.get("review_notes") if isinstance(item.get("review_notes"), list) else []
-            note_text = " ".join(str(note.get("note") or "") for note in notes if isinstance(note, dict))
+            raw_notes = item.get("review_notes")
+            notes: list[dict[str, Any]] = [
+                note for note in raw_notes if isinstance(note, dict)
+            ] if isinstance(raw_notes, list) else []
+            note_text = " ".join(str(note.get("note") or "") for note in notes)
             haystack = " ".join(
                 [
                     item_id,
