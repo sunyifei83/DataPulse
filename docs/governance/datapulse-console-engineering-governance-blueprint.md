@@ -1,10 +1,10 @@
 # DataPulse Console Engineering Governance Blueprint
 
-Status: repo-scoped admitted follow-up blueprint; `L34.4` (`Htmx triage fragment pilot`) is landed locally and the loop should re-evaluate/export refreshed truth next
+Status: repo-scoped admitted follow-up blueprint; `L34` is completed in repo truth and the current reopening target for this lane is `no-open-slice`
 
 Created: 2026-04-20
 
-Updated: 2026-04-20
+Updated: 2026-04-21
 
 ## Goal
 
@@ -26,8 +26,8 @@ The pre-`L34.1` repo read and the current repo truth are no longer the same thin
 
 Current repo truth:
 
-- `docs/governance/datapulse-blueprint-plan.json` closes `L33` in repo truth through `L33.6`, closes `L34.1` through extracted-console baseline absorption, closes `L34.3` through pure-helper JS unit coverage, and leaves `L34` open on the remaining triage-fragment pilot work
-- `docs/governance/datapulse-blueprint-plan.draft.json` now closes `L34.4` locally so the next governance refresh can re-evaluate the plan instead of re-igniting the same slice
+- `docs/governance/datapulse-blueprint-plan.draft.json` closes `L34` in canonical phase truth through `L34.4` and leaves `recommended_next_slice = null`
+- `artifacts/governance/snapshots/project_specific_loop_state.draft.json` now exports `current_level = ci_proven`, `next_slice = no-open-slice`, `blocking_facts = []`, and `remaining_promotion_gates = []`
 - `datapulse/static/console/` is tracked repo content, `datapulse/console_client.py` and `datapulse/console_server.py` concatenate sorted console fragments into one classic `<script>` bundle, and `uv run python scripts/governance/run_datapulse_quick_test_gate.py` passes against that landed baseline
 - `datapulse/console_server.py` now exposes `/api/fragments/triage/banner`, `/api/fragments/triage/list`, and `/api/fragments/triage/card/{item_id}` with rendering-critical view state serialized for replay claims and fragment-audit output written under `artifacts/runtime/triage_fragments/`
 
@@ -40,12 +40,12 @@ Historical pre-landing local working-copy truth:
 What is not yet true:
 
 - the canonical browser shell still keeps its existing client-side triage rendering path, so exact replay claims remain bounded to the fragment-managed list, banner, and card surfaces instead of the whole review shell
-- exporter-refreshed repo truth for `docs/governance/datapulse-blueprint-plan.json` has not been regenerated in this local round yet
+- no new standalone frontend-engineering reopen has been admitted beyond this completed wave
 
 Therefore:
 
-- Step 1, Step 2, and Step 3 are now landed repo-truth facts rather than working-copy-only baseline claims
-- `L34.4` is now landed in local slice truth, and the next loop pass should refresh governance truth before selecting any further work
+- Step 1, Step 2, Step 3, and the triage-fragment pilot are all landed repo-truth facts rather than working-copy-only baseline claims
+- this wave no longer exposes a live manual ignition target; the current reopening target is `no-open-slice`
 
 ## Remaining Follow-Up Targets
 
@@ -126,7 +126,7 @@ Invariants:
 
 This wave must not:
 
-- pretend the current local extracted-console baseline is already landed repo truth when it is not
+- reopen baseline-absorption debate now that the extracted-console baseline is landed repo truth
 - reopen standalone frontend engineering on preference, polish, or abstract maintainability claims
 - introduce ES modules, a bundler, or a TypeScript runtime
 - claim exact DOM replay while leaving rendering-critical state browser-local and unlogged
@@ -226,16 +226,16 @@ Effort: 5-8 engineer-days.
 
 ## Activation Boundary
 
-Landing this blueprint file by itself does not claim that the active blueprint already reopened.
+Landing this blueprint file by itself did not claim that the active blueprint already reopened.
 
-Repo truth now treats this document as an admitted reopen path because:
+Repo truth now treats this document as a completed admitted wave because:
 
 - the governance loop has accepted this blueprint into the structured plan
-- the admitted wave now has `L34.1` landed as its baseline-absorption closeout
-- the current operator-facing ignition target is `L34.4` (`Htmx triage fragment pilot`)
+- `L34.1` through `L34.4` are completed in canonical phase truth
+- the current operator-facing reopening target for this lane is `no-open-slice`
 
 Operator-facing ignition timing and gate order are summarized in:
 
 - `docs/governance/datapulse-console-engineering-ignition-readiness.draft.md`
 
-With `L34.3` landed, the current operator-facing reopening target is `L34.4`; the htmx pilot now has the JS test harness prerequisite it needed before claiming its replay boundary.
+There is no remaining in-wave ignition target. Any further console-engineering work must enter repo truth as a new admissible wave instead of narratively re-opening `L34`.
