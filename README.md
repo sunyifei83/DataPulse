@@ -37,7 +37,7 @@ DataPulse 提供一个统一入口，用于：
 | 仓库定位 | DataPulse 已从“多平台解析器集合”演进为本地优先的公开来源情报操作面，主链路是 `collection -> mission -> triage -> story -> report -> delivery -> governance`。 |
 | 已形成闭环 | 公开来源采集、搜索、watch/triage/story、alert/route、ops scorecard、browser console、source/lifecycle/delivery governance 已在仓内形成可运行闭环。 |
 | 正在收敛 | report objects、normalized delivery subscription、report package/dispatch、governed AI surfaces 已进入 Reader / CLI / MCP 运行面，但仍按治理契约逐层收口，而不是伪装成“全自动研究代理”。 |
-| 当前蓝图态 | 当前结构化蓝图已完成至 `L30.3`（其中 `L29` wave 已完成至 `L29.6`）；`recommended_next_slice=no-open-slice`，直到出现新的 blueprint wave 或 admissible reopen evidence。 |
+| 当前蓝图态 | 结构化蓝图 `L0–L34` 共 **35 个 phase / 168 个 slice 全部 completed**；最近三波分别是 `L32` 执行控制面激活、`L33` console subtractive convergence、`L34` console engineering governance；loop snapshot 当前为 `current_level=ci_proven` / `next_slice=no-open-slice` / `stop_reason_if_run_now=loop_complete`，进入"治理终态"，待新 admissible reopen evidence 触发。 |
 | 明确边界 | 本仓不是付费数据库采购系统、线下访谈系统、ERP/CRM 情报中台，也不对抓取合法性做自动法律判断。 |
 | 当前证明面 | canonical roots 为 `artifacts/governance/snapshots/`、`artifacts/governance/release_bundle/` 与 `config/modelbus/datapulse/`；legacy `out/ha_latest_release_bundle/` 仅保留兼容读取，其中 `project_specific_loop_state.draft.json`、`code_landing_status.draft.json`、`release_status.json`、`datapulse-ai-surface-admission.example.json` 分别沉淀 loop/runtime、代码落地、发布状态与 AI surface admission 真相。 |
 
@@ -53,7 +53,7 @@ DataPulse 提供一个统一入口，用于：
 | 证据化 | 首版 story workspace：`--story-build`、`--story-list`、`--story-show`、`--story-update`、`--story-graph`、`--story-export` |
 | 告警分发 | threshold alert rule、关键词/标签/域名/时效过滤、JSON/Markdown/Webhook/Feishu/Telegram sink、`--alert-list`、`--alert-route-list`、`--alert-route-health` |
 | 运行状态 | daemon 单实例锁、heartbeat JSON/HTML 状态页、MCP `watch_status`、CLI `--ops-overview`、任务级 watch health / aggregate success-rate / intelligence governance scorecard |
-| 浏览器控制台 | `datapulse-console` 本地 G0/G3 GUI，统一 watch / triage / story / alert / route / status 工作台，`Mission Cockpit` 已具备 result stream、filter chips、timeline strip 和基础 alert rule 编辑，`Triage Queue` 已具备 first-cut keyboard workflow，`Story Workspace` 已具备基础 story editor |
+| 浏览器控制台 | `datapulse-console` 本地 G0/G3 GUI，统一 watch / triage / story / alert / route / status 工作台；任务驱动板块采用 Master-Detail 布局，`L33` 引入 stage-aware hydration 与 populated-workspace chrome 收敛，`L34` 完成 console-engineering governance（extracted-baseline 入仓、bundle 域级拆分、独立 `frontend-test` CI lane、htmx triage fragment pilot），`Mission Cockpit` 已具备 result stream / filter chips / timeline strip / 基础 alert rule 编辑，`Triage Queue` 已具备 first-cut keyboard workflow 与 fragment-replay 路径，`Story Workspace` 已具备基础 story editor |
 | 报告生产 | `--report-object` + `--report-list/create/update/compose/quality/export`，围绕 `ReportBrief / ClaimCard / ReportSection / Report / ExportProfile` 组织研究产物 |
 | 角色化交付 | `--delivery-subscription-*`、`--delivery-package`、`--delivery-dispatch`，支持 `profile / watch_mission / story / report` subject kind 的 normalized delivery subscription |
 | 治理式 AI | `--ai-surface-precheck`、`--ai-mission-suggest`、`--ai-triage-assist`、`--ai-claim-draft`、`--ai-report-draft`、`--ai-delivery-summary`；当前 `report_draft` 仍按 admission contract 故意 fail-closed |

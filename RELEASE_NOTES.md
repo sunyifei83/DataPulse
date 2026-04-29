@@ -1,5 +1,45 @@
 # Release Notes
 
+## Release: DataPulse v0.8.1
+
+发布日期：2026-04-29
+构建目标：SKILL 接口版本号对齐 + 把 `0.8.0` 之后落地的 L31–L34 治理收敛纳入仓内真相
+
+### 主要变更
+
+**SKILL 接口对齐**
+- `datapulse_skill` 接口标签维持在 `v0.8.1`，pyproject 版本号同步抬到 `0.8.1`，让 SKILL frontmatter、`pyproject.toml`、CHANGELOG/RELEASE_NOTES 共用同一组版本号。
+- 与 `0.8.0` 相比 SKILL 无功能性 API 变化；本次 bump 仅为版本号对齐，不重写 SKILL 行为契约。
+
+**L31 — tradingview-mcp donor decomposition**
+- 把 donor 侧 intake 拆解为 DataPulse repo 相关的 follow-up slice，全部仅作为 governance 信源，不开新公共 AI surface。
+
+**L32 — execution-control-plane activation**
+- 落地 5 项执行控制面契约：shared instruction plane / worktree session resume / local execution confidence sidecar / typed handoff resource plane / model-tier execution profile。
+- 让本地执行循环、worktree 续运行与置信度旁路在仓内有正式的 contract 边界，不再依赖 ad hoc 提示。
+
+**L33 — console subtractive convergence (L33.1–L33.6)**
+- 冻结 first-load / accelerator / compaction / restore-stability 契约；
+- 加固 saved-view、dock 与 workspace-context 的 restore，并把 dock 可见性降级为 pinned-only context；
+- 引入 stage-aware hydration，将高级预加载延后到 active stage 或选中对象需要时；
+- 收敛 populated workspace chrome，把引导/加速副本压到 live object 之后；
+- 把 subtractive-convergence 的回退条件做成可被 browser smoke 与 acceptance 自动捕获的失败。
+
+**L34 — console engineering governance (L34.1–L34.4)**
+- 把已经在工作区跑起来的 extracted console baseline 正式纳入仓内真相：`datapulse/static/console/` 入仓，两个 Python loader 都按排序后的 fragment 串接；
+- 将 `99-main.js` 按域拆分，保持 classic script 顺序与 hoist-sensitive 行为；
+- 为浏览器侧纯函数补 vitest 测试，并新增独立的 `frontend-test` CI lane；
+- 启动 htmx triage fragment pilot：`/api/fragments/triage/...` 可渲染 list/banner/card 表面，把 rendering-critical 视图状态序列化以支持 replay claim。
+
+### 边界与状态
+
+- 本次发布**不**承诺新公共 AI surface；运行面继续保持 operator-visible read-only 立场。
+- 当前 loop 快照：`current_level=ci_proven` / `next_slice=no-open-slice` / `stop_reason_if_run_now=loop_complete` / `completed_slices=168`（覆盖 `L0`–`L34` 共 35 个 phase）。
+- canonical phase truth 来自 `docs/governance/datapulse-blueprint-plan.draft.json`（`status=completed`、`recommended_next_slice=null`）；derived loop truth 来自 `artifacts/governance/snapshots/project_specific_loop_state.draft.json`。
+- 进入"治理终态"：在新的 admissible reopen evidence 出现之前，不开新 wave，不重定义已 completed 的 slice 语义。
+
+---
+
 ## Release: DataPulse v0.8.0
 
 发布日期：2026-03-08

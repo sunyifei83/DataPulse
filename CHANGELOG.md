@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.1] - 2026-04-29
+
+### Changed — Skill Surface
+- `datapulse_skill` interface label realigned with `pyproject.toml` at `0.8.1` (no functional API changes vs `0.8.0`; this entry exists to make the version label, the SKILL frontmatter, and the package metadata speak the same number).
+
+### Governance — Post-0.8.0 Wave Landings
+- **L31 — tradingview-mcp donor decomposition**: `datapulse.coord.decomposition.tradingview_mcp_capability_intake.20260413` decomposed donor-side intake into repo-relevant slices without admitting any new public AI surface.
+- **L32 — execution-control-plane activation**: shared instruction plane contract, worktree session-resume contract, local execution confidence sidecar, typed handoff resource plane, and model-tier execution-profile contract all landed as repo truth.
+- **L33 — console subtractive convergence (L33.1–L33.6)**: subtractive-convergence contract frozen; saved-view / dock / workspace-context restore hardened; stage-aware hydration introduced; populated-workspace chrome compacted with onboarding/accelerator copy demoted behind live objects; browser smoke and acceptance hardened around request scope, hidden dock rules, populated chrome, and restore stability.
+- **L34 — console engineering governance (L34.1–L34.4)**: extracted console baseline absorbed into repo truth (`datapulse/static/console/` tracked, both Python loaders concatenate sorted fragments); domain-level split of `99-main.js` while preserving classic-script ordering; pure-function JS unit coverage with isolated VM harness and an independent `frontend-test` CI lane (vitest); htmx triage fragment pilot at `/api/fragments/triage/...` with rendering-critical view state serialized for replay claims.
+
+### Notes
+- No new public AI surface admitted. Operator-visible read-only stance is preserved.
+- Loop snapshot at release: `current_level=ci_proven` / `next_slice=no-open-slice` / `stop_reason_if_run_now=loop_complete` / `completed_slices=168` across 35 phases (`L0`–`L34`).
+- Canonical phase truth: `docs/governance/datapulse-blueprint-plan.draft.json` (`status=completed`, `recommended_next_slice=null`); derived loop truth: `artifacts/governance/snapshots/project_specific_loop_state.draft.json`.
+
 ## [0.8.0] - 2026-03-08
 
 ### Added — Features

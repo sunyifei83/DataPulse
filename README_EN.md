@@ -27,7 +27,7 @@ for MCP, Skill, Agent, and bot workflows.
 | Repository posture | DataPulse is no longer just a multi-platform parser set. It is now a local-first public-source intelligence operating surface with the chain `collection -> mission -> triage -> story -> report -> delivery -> governance`. |
 | Landed closed loops | Public-source intake, search, watch/triage/story, alert/routes, ops scorecard, browser console, and source/lifecycle/delivery governance are all repo-landed and runnable. |
 | In-flight convergence | Report objects, normalized delivery subscriptions, report package/dispatch flows, and governed AI surfaces are now in Reader / CLI / MCP runtime, but still intentionally constrained by governance contracts instead of being marketed as a fully autonomous research agent. |
-| Current blueprint state | The structured blueprint is now completed through `L30.3`, with the `L29` wave completed through `L29.6`; `recommended_next_slice=no-open-slice` remains in effect until a new blueprint wave or admissible reopen evidence appears. |
+| Current blueprint state | The structured blueprint `L0–L34` (35 phases / 168 slices) is now **fully completed**. The most recent waves are `L32` execution-control-plane activation, `L33` console subtractive convergence, and `L34` console engineering governance. The loop snapshot reads `current_level=ci_proven` / `next_slice=no-open-slice` / `stop_reason_if_run_now=loop_complete` — the repo has reached its current governance terminal state and waits for new admissible reopen evidence. |
 | Explicit boundary | This repo is not a paid-database procurement layer, field-interview system, ERP/CRM intelligence platform, or automated legal-compliance oracle. |
 | Current proof surface | The canonical roots are `artifacts/governance/snapshots/`, `artifacts/governance/release_bundle/`, and `config/modelbus/datapulse/`; legacy `out/ha_latest_release_bundle/` remains compatibility-only, while `project_specific_loop_state.draft.json`, `code_landing_status.draft.json`, `release_status.json`, and `datapulse-ai-surface-admission.example.json` hold loop/runtime, code-landing, release, and AI-surface admission truth respectively. |
 
@@ -81,10 +81,13 @@ for MCP, Skill, Agent, and bot workflows.
 - Browser console (G0/G3):
   - local `datapulse-console` browser shell
   - unified watch / mission cockpit / triage / story / alert / route / route health / status operating surface
+  - task-driven sections now use a Master-Detail layout, no longer nested under review/delivery two-column grids
+  - `L33` console subtractive convergence has landed: stage-aware hydration, saved-view/dock/restore stability hardening, populated-workspace chrome compaction, and lifecycle guide cards collapsed behind disclosure
+  - `L34` console engineering governance has landed: extracted-baseline absorption, domain-level split of `99-main.js`, an independent `frontend-test` CI lane (vitest), and an htmx triage fragment pilot at `/api/fragments/triage/...`
   - `Mission Cockpit` now includes a persisted result stream for each mission
   - `Mission Cockpit` now includes result filter chips and a timeline strip for one mission's recent events
   - `Mission Cockpit` now includes a first-cut alert rule editor for replacing or clearing the console threshold rule
-  - `Triage Queue` now includes a first-cut keyboard workflow: `J/K` move selection, `V/T/E/I` apply state changes, `D` loads duplicate explain, and `N` focuses the note composer
+  - `Triage Queue` now includes a first-cut keyboard workflow: `J/K` move selection, `V/T/E/I` apply state changes, `D` loads duplicate explain, `N` focuses the note composer; a fragment-replay path is also available
   - the status board now includes collector tier breakdown, a watch health board, and aggregate success-rate signals
   - includes a Story Workspace board with evidence stacks, timeline, contradiction markers, entity graph, Markdown pack preview, and a basic story editor for `title / summary / status`
 - Reliability:

@@ -1,10 +1,10 @@
 # DataPulse Intent-Aware Research Substrate Blueprint
 
-Status: repo-scoped follow-up blueprint, `L29.1` landing completed
+Status: repo-scoped follow-up blueprint, `L29` wave completed in repo truth through `L29.6`; current reopening target is `no-open-slice`
 
 Created: 2026-04-02
 
-Updated: 2026-04-02
+Updated: 2026-04-29
 
 ## Purpose
 

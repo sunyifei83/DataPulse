@@ -26,7 +26,7 @@
 | 仓库定位 | DataPulse 已从“多平台采集器集合”演进为本地优先的公开来源情报操作面，主链路是 `collection -> mission -> triage -> story -> report -> delivery -> governance`。 |
 | 已形成闭环 | 公开来源采集、搜索、watch/triage/story、alert/route、ops scorecard、browser console、source/lifecycle/delivery governance 已在仓内形成可运行闭环。 |
 | 正在收敛 | report objects、normalized delivery subscription、report package/dispatch、governed AI surfaces 已进入 Reader / CLI / MCP 运行面，但仍按治理契约分层收口。 |
-| 当前蓝图态 | 当前结构化蓝图已完成至 `L30.3`（其中 `L29` wave 已完成至 `L29.6`）；`recommended_next_slice=no-open-slice`，直到出现新的 blueprint wave 或 admissible reopen evidence。 |
+| 当前蓝图态 | 结构化蓝图 `L0–L34` 共 **35 个 phase / 168 个 slice 全部 completed**；最近三波分别是 `L32` 执行控制面激活、`L33` console subtractive convergence、`L34` console engineering governance；loop snapshot 当前为 `current_level=ci_proven` / `next_slice=no-open-slice` / `stop_reason_if_run_now=loop_complete`，进入"治理终态"，待新 admissible reopen evidence 触发。 |
 | 明确边界 | 本仓不是付费数据库采购系统、线下访谈系统、ERP/CRM 情报中台，也不对抓取合法性做自动法律判断。 |
 | 当前证明面 | canonical roots 为 `artifacts/governance/snapshots/`、`artifacts/governance/release_bundle/` 与 `config/modelbus/datapulse/`；legacy `out/ha_latest_release_bundle/` 仅保留兼容读取，其中 `project_specific_loop_state.draft.json`、`code_landing_status.draft.json`、`release_status.json`、`datapulse-ai-surface-admission.example.json` 分别沉淀 loop/runtime、代码落地、发布状态与 AI surface admission 真相。 |
 
@@ -79,10 +79,13 @@
 - 浏览器控制台（G0/G3）：
   - 提供 `datapulse-console` 本地浏览器控制台
   - 汇总 watch / mission cockpit / triage / story / alert / route / route health / status 八块工作台能力
+  - 任务驱动板块采用 Master-Detail 布局，避免在 review/delivery 双列网格下嵌套
+  - `L33` console subtractive convergence 已落地：stage-aware hydration、saved-view/dock/restore stability 加固、populated-workspace chrome 收敛、引导卡折叠
+  - `L34` console engineering governance 已落地：extracted-baseline 入仓、`99-main.js` 域级拆分、独立 `frontend-test` CI lane（vitest）、htmx triage fragment pilot（`/api/fragments/triage/...`）
   - `Mission Cockpit` 已补入持久化 result stream，可直接回看某个 mission 的最近命中结果
   - `Mission Cockpit` 已补入 result filter chips 与 timeline strip，可在同屏内筛看最近结果和事件时间线
   - `Mission Cockpit` 已补入首版 alert rule editor，可直接替换或清空基础告警规则
-  - `Triage Queue` 已补入 first-cut keyboard workflow：`J/K` 选择、`V/T/E/I` 状态流转、`D` 打开 duplicate explain、`N` 聚焦 note composer
+  - `Triage Queue` 已补入 first-cut keyboard workflow：`J/K` 选择、`V/T/E/I` 状态流转、`D` 打开 duplicate explain、`N` 聚焦 note composer，并已具备 fragment-replay 路径
   - 状态面板已补入 collector tier breakdown、watch health board 和 aggregate success-rate
   - 已包含 Story Workspace 证据板与基础 story editor：story 卡片、证据栈、时间线、冲突标记、entity graph、Markdown 证据包预览，以及 `title / summary / status` 回写
 - 稳定性：
