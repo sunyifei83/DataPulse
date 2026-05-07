@@ -422,7 +422,8 @@ function renderCreateWatchDeck() {
   }
   if (advancedPanel) {
     advancedPanel.classList.toggle("collapsed", !advancedOpen);
-    advancedPanel.setAttribute("aria-hidden", String(!advancedOpen));
+    advancedPanel.hidden = !advancedOpen;
+    advancedPanel.inert = !advancedOpen;
   }
   if (presetPanel) {
     presetPanel.hidden = editing;

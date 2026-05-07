@@ -2,9 +2,11 @@
   "name": "datapulse-js-tests",
   "private": true,
   "scripts": {
-    "test:js": "vitest run"
+    "test:js": "vitest run",
+    "test:a11y": "uv run --extra console --with playwright python scripts/datapulse_console_a11y_smoke.py"
   },
   "devDependencies": {
+    "axe-core": "^4.11.4",
     "vitest": "^4.1.4"
   }
 }

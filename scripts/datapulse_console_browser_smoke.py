@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import re
 import socket
 import threading
@@ -2920,6 +2921,31 @@ def _launch_browser(playwright: Playwright):
     raise RuntimeError("Could not launch a Playwright browser. Attempts: " + " | ".join(errors))
 
 
+def _capture_visual_artifact(page: Page, name: str) -> None:
+    artifact_dir = os.environ.get("DATAPULSE_CONSOLE_BROWSER_ARTIFACT_DIR")
+    if not artifact_dir:
+        return
+    root = Path(artifact_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    safe_name = re.sub(r"[^a-zA-Z0-9_.-]+", "-", name).strip("-") or "console"
+    path = root / f"{safe_name}.png"
+    page.screenshot(path=str(path), full_page=True)
+    _log(f"[console-browser-smoke] screenshot {path}")
+
+
+def _export_visual_artifacts(page: Page) -> None:
+    if not os.environ.get("DATAPULSE_CONSOLE_BROWSER_ARTIFACT_DIR"):
+        return
+    page.set_viewport_size({"width": 1360, "height": 1100})
+    page.evaluate("jumpToSection('section-ops')")
+    page.wait_for_function("() => window.location.hash === '#section-ops'", timeout=10000)
+    _capture_visual_artifact(page, "desktop-ops")
+    page.set_viewport_size({"width": 390, "height": 920})
+    page.evaluate("jumpToSection('section-story')")
+    page.wait_for_function("() => window.location.hash === '#section-story'", timeout=10000)
+    _capture_visual_artifact(page, "mobile-story")
+
+
 def _exercise_deep_link_and_existing_flow(page: Page, base_url: str) -> None:
     _log("[console-browser-smoke] deep-link watch")
     _goto(page, f"{base_url}/?watch_search=Launch&watch_id=launch-ops#section-cockpit")
@@ -3913,6 +3939,7 @@ def main() -> int:
             _exercise_delivery_workspace(second_page, report_context)
             _exercise_responsive_interaction_safety(second_page)
             _export_console_overflow_evidence(second_page)
+            _export_visual_artifacts(second_page)
             browser.close()
     finally:
         server.should_exit = True

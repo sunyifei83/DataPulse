@@ -262,7 +262,7 @@ function renderStoryInspector() {
       ));
   const toolbar = `
     <div class="story-inspector-toolbar">
-      <div class="ui-segment" role="tablist" aria-label="${escapeHtml(subjectKind === "report" ? copy("Report export surfaces", "报告导出视图") : copy("Story export surfaces", "故事导出视图"))}">
+      <div class="ui-segment" role="group" aria-label="${escapeHtml(subjectKind === "report" ? copy("Report export surfaces", "报告导出视图") : copy("Story export surfaces", "故事导出视图"))}">
         <button class="ui-segment-button ${kind === "markdown" ? "active" : ""}" type="button" data-story-inspector-view="markdown" aria-pressed="${kind === "markdown" ? "true" : "false"}">${copy("Markdown", "Markdown")}</button>
         <button class="ui-segment-button ${kind === "json" ? "active" : ""}" type="button" data-story-inspector-view="json" aria-pressed="${kind === "json" ? "true" : "false"}">${copy("JSON", "JSON")}</button>
       </div>
@@ -878,7 +878,7 @@ function renderStoryDetail() {
         ${(story.entities || []).slice(0, 8).map((entity) => `<span class="chip">${entity}</span>`).join("") || `<span class="chip">${copy("no entities", "无实体")}</span>`}
       </div>
       <div class="story-detail-toolbar">
-        <div class="ui-segment" role="tablist" aria-label="${escapeHtml(copy("Story workspace panels", "故事工作台分段"))}">
+        <div class="ui-segment" role="group" aria-label="${escapeHtml(copy("Story workspace panels", "故事工作台分段"))}">
           ${storyDetailViewOptions.map((view) => `
             <button class="ui-segment-button ${activeDetailView === view ? "active" : ""}" type="button" data-story-detail-view="${view}" aria-pressed="${activeDetailView === view ? "true" : "false"}">${escapeHtml(detailViewLabels[view])}</button>
           `).join("")}

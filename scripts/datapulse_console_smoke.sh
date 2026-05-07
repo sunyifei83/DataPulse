@@ -51,4 +51,11 @@ else
   echo "[console-smoke] skip: browser smoke (set DATAPULSE_CONSOLE_BROWSER_SMOKE=1 to enable)"
 fi
 
+if [[ "${DATAPULSE_CONSOLE_A11Y_SMOKE:-0}" == "1" ]]; then
+  echo "[console-smoke] check: accessibility smoke"
+  npm run test:a11y
+else
+  echo "[console-smoke] skip: accessibility smoke (set DATAPULSE_CONSOLE_A11Y_SMOKE=1 to enable)"
+fi
+
 echo "[console-smoke] pass"

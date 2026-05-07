@@ -941,7 +941,7 @@ function renderTriage() {
 
   root.innerHTML = `
     <div class="md-shell" data-layout="master-detail" data-md-mode="${selectedTriageItem ? "detail" : "list"}">
-      <aside class="md-list">
+      <div class="md-list">
         <div class="md-list-head">
           ${triageSearchCard}
           <div class="md-list-filter" role="group" aria-label="${escapeHtml(copy("Triage queue filters", "分诊队列筛选"))}">
@@ -956,7 +956,7 @@ function renderTriage() {
           ${listItemsHtml}
           ${hiddenTriageCount > 0 ? listFooterHint : ""}
         </div>
-      </aside>
+      </div>
       <section class="md-detail">
         ${detailHtml}
       </section>

@@ -68,6 +68,17 @@ def render_console_html(title: str) -> str:
       --context-lens-padding: 24px 22px;
     }}
     * {{ box-sizing: border-box; }}
+    .sr-only {{
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }}
     body {{
       margin: 0;
       min-height: 100vh;
@@ -3378,7 +3389,8 @@ def render_console_html(title: str) -> str:
   </style>
 </head>
 <body data-responsive-viewport="desktop" data-density-mode="comfortable" data-pane-contract="split" data-modal-presentation="side-panel" data-action-sheet-mode="inline">
-  <div class="shell">
+  <main class="shell" id="console-main">
+    <h1 class="sr-only">DataPulse Operations Console</h1>
     <header class="topbar">
       <div class="topbar-brand">
         <span class="dot"></span>
@@ -3452,7 +3464,7 @@ def render_console_html(title: str) -> str:
         </div>
         <div class="intake-live-shell" id="intake-hero-live" hidden></div>
       </div>
-      <aside class="hero-side">
+      <div class="hero-side">
         <div id="intake-side-onboarding">
           <div class="guide-card">
             <div class="card-top">
@@ -3509,11 +3521,11 @@ def render_console_html(title: str) -> str:
                 <div class="mono" id="deck-advanced-title">Keep It Simple First</div>
                 <div class="panel-sub" id="deck-advanced-copy">Most missions only need Name and Query. Open advanced settings only when you need scope or alert delivery.</div>
               </div>
-              <button class="btn-secondary advanced-toggle" id="create-watch-advanced-toggle" type="button">Show Advanced</button>
+              <button class="btn-secondary advanced-toggle" id="create-watch-advanced-toggle" type="button" aria-controls="create-watch-advanced-panel">Show Advanced</button>
             </div>
             <div class="chip-row advanced-summary" id="create-watch-advanced-summary"></div>
           </div>
-          <div class="deck-advanced-panel" id="create-watch-advanced-panel">
+          <div class="deck-advanced-panel" id="create-watch-advanced-panel" hidden>
           <div class="deck-section">
             <div class="deck-section-head">
               <span class="step-index">02</span>
@@ -3592,7 +3604,7 @@ def render_console_html(title: str) -> str:
           <div class="panel-sub" id="actions-copy">Every reversible mutation stays here briefly so you can undo false starts without losing flow.</div>
           <div class="action-log" id="console-action-history"></div>
         </div>
-      </aside>
+      </div>
     </section>
     </div>
 
@@ -3798,7 +3810,7 @@ def render_console_html(title: str) -> str:
     </div>
 
     <div class="footer-note" id="footer-note">The browser is the operating surface. CLI and MCP remain first-class control planes.</div>
-  </div>
+  </main>
   <div class="toast-rack" id="toast-rack" aria-live="polite" aria-atomic="false"></div>
   <div class="context-lens-backdrop" id="context-lens-backdrop" hidden>
     <div class="context-lens-shell" id="context-lens-shell" role="dialog" aria-modal="true" aria-labelledby="context-lens-title" aria-describedby="context-lens-copy" tabindex="-1">
