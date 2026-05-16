@@ -170,7 +170,10 @@ def test_load_bundle_fail_mode_propagates_validation_errors(tmp_path, monkeypatc
 
     assert result.get("errors"), f"expected errors in fail mode: {result}"
     assert any("consumer_id" in e for e in result["errors"]), result["errors"]
-    assert any("[upstream]" in e or "[consumer-contract]" in e for e in result["errors"]), (
-        "expected validation pass to contribute at least one error with source prefix: "
-        f"{result['errors']}"
+    assert any(
+        "[consumer-contract]" in e and "modelbus.consumer_surface_admission.v1" in e and "consumer_id" in e
+        for e in result["errors"]
+    ), (
+        "expected the surface_admission consumer-contract validation to fire for missing consumer_id; "
+        f"errors: {result['errors']}"
     )

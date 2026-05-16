@@ -1,4 +1,4 @@
-"""Verify every schema file under config/modelbus/schemas/ is a valid Draft-07 JSON Schema."""
+"""Verify every schema file under config/modelbus/schemas/ is a valid JSON Schema (Draft-7 / 2019-09 / 2020-12 per $schema)."""
 from __future__ import annotations
 
 import json
@@ -18,8 +18,15 @@ def _all_schema_files() -> list[Path]:
 def test_schema_file_is_valid_json_schema(schema_path: Path) -> None:
     jsonschema = pytest.importorskip("jsonschema")
     schema = json.loads(schema_path.read_text())
+    schema_uri = str(schema.get("$schema") or "")
+    if "2020-12" in schema_uri:
+        validator_cls = jsonschema.Draft202012Validator
+    elif "2019-09" in schema_uri:
+        validator_cls = jsonschema.Draft201909Validator
+    else:
+        validator_cls = jsonschema.Draft7Validator
     # Will raise jsonschema.exceptions.SchemaError if the schema itself is malformed.
-    jsonschema.Draft7Validator.check_schema(schema)
+    validator_cls.check_schema(schema)
 
 
 def test_at_least_one_schema_in_each_source_dir() -> None:
