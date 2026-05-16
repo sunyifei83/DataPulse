@@ -1,6 +1,9 @@
 """Tests for the schema validation helper introduced in reader.py."""
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 pytest.importorskip("jsonschema")
@@ -85,15 +88,10 @@ def test_validate_skips_gracefully_when_jsonschema_missing(reader, monkeypatch):
     assert DataPulseReader._MODELBUS_VALIDATION_WARNED_MISSING_LIB is True
 
 
-import json as _json
-import os as _os
-from pathlib import Path as _Path
-
-
-def _write_conformant_bundle(bundle_dir: _Path) -> None:
+def _write_conformant_bundle(bundle_dir: Path) -> None:
     """Write a 4-file bundle that satisfies both upstream mirrors and DP contracts."""
     bundle_dir.mkdir(parents=True, exist_ok=True)
-    (bundle_dir / "bundle_manifest.json").write_text(_json.dumps({
+    (bundle_dir / "bundle_manifest.json").write_text(json.dumps({
         "schema": "modelbus.consumer_bundle_manifest.v1",
         "generated_at_utc": "2026-05-16T00:00:00Z",
         "bundle_id": "datapulse.ai_surface_bus",
@@ -112,17 +110,17 @@ def _write_conformant_bundle(bundle_dir: _Path) -> None:
         "surfaces": [],
         "governance": {"accepted_modelbus_semantics": ["BUNDLE-FIRST-REQUIRED"]},
     }))
-    (bundle_dir / "surface_admission.json").write_text(_json.dumps({
+    (bundle_dir / "surface_admission.json").write_text(json.dumps({
         "schema": "modelbus.consumer_surface_admission.v1",
         "consumer_id": "datapulse",
         "generated_at_utc": "2026-05-16T00:00:00Z",
         "surface_admissions": [],
     }))
-    (bundle_dir / "bridge_config.json").write_text(_json.dumps({
+    (bundle_dir / "bridge_config.json").write_text(json.dumps({
         "schema": "modelbus.consumer_bridge_config.v1",
         "consumer_id": "datapulse",
     }))
-    (bundle_dir / "release_status.json").write_text(_json.dumps({
+    (bundle_dir / "release_status.json").write_text(json.dumps({
         "schema": "modelbus.release_status.v1",
         "generated_at_utc": "2026-05-16T00:00:00Z",
         "release_level": "ci_proven",
@@ -137,9 +135,9 @@ def test_load_bundle_warn_mode_logs_but_does_not_fail(tmp_path, monkeypatch, cap
     _write_conformant_bundle(bundle_dir)
     # Mutilate surface_admission to drop a required field
     sa_path = bundle_dir / "surface_admission.json"
-    sa = _json.loads(sa_path.read_text())
+    sa = json.loads(sa_path.read_text())
     del sa["consumer_id"]
-    sa_path.write_text(_json.dumps(sa))
+    sa_path.write_text(json.dumps(sa))
 
     monkeypatch.setenv("DATAPULSE_MODELBUS_BUNDLE_DIR", str(bundle_dir))
     monkeypatch.delenv("DATAPULSE_MODELBUS_VALIDATION_MODE", raising=False)  # default = warn
@@ -160,9 +158,9 @@ def test_load_bundle_fail_mode_propagates_validation_errors(tmp_path, monkeypatc
     bundle_dir = tmp_path / "bundle"
     _write_conformant_bundle(bundle_dir)
     sa_path = bundle_dir / "surface_admission.json"
-    sa = _json.loads(sa_path.read_text())
+    sa = json.loads(sa_path.read_text())
     del sa["consumer_id"]
-    sa_path.write_text(_json.dumps(sa))
+    sa_path.write_text(json.dumps(sa))
 
     monkeypatch.setenv("DATAPULSE_MODELBUS_BUNDLE_DIR", str(bundle_dir))
     monkeypatch.setenv("DATAPULSE_MODELBUS_VALIDATION_MODE", "fail")
@@ -172,3 +170,7 @@ def test_load_bundle_fail_mode_propagates_validation_errors(tmp_path, monkeypatc
 
     assert result.get("errors"), f"expected errors in fail mode: {result}"
     assert any("consumer_id" in e for e in result["errors"]), result["errors"]
+    assert any("[upstream]" in e or "[consumer-contract]" in e for e in result["errors"]), (
+        "expected validation pass to contribute at least one error with source prefix: "
+        f"{result['errors']}"
+    )

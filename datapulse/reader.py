@@ -1114,17 +1114,29 @@ class DataPulseReader:
         # Schema-validation pass (per-payload). Mode controlled by env;
         # default 'warn' logs without failing the bundle load. Flip to
         # DATAPULSE_MODELBUS_VALIDATION_MODE=fail to gate the bundle.
-        self._record_modelbus_validation(errors, self._validate_against_schema(
-            bundle_manifest, "modelbus.consumer_bundle_manifest.v1"))
+        self._record_modelbus_validation(
+            bundle_errors=errors,
+            validation_errors=self._validate_against_schema(
+                bundle_manifest, "modelbus.consumer_bundle_manifest.v1"),
+        )
         if surface_admission_payload:
-            self._record_modelbus_validation(errors, self._validate_against_schema(
-                surface_admission_payload, "modelbus.consumer_surface_admission.v1"))
+            self._record_modelbus_validation(
+                bundle_errors=errors,
+                validation_errors=self._validate_against_schema(
+                    surface_admission_payload, "modelbus.consumer_surface_admission.v1"),
+            )
         if bridge_config_payload:
-            self._record_modelbus_validation(errors, self._validate_against_schema(
-                bridge_config_payload, "modelbus.consumer_bridge_config.v1"))
+            self._record_modelbus_validation(
+                bundle_errors=errors,
+                validation_errors=self._validate_against_schema(
+                    bridge_config_payload, "modelbus.consumer_bridge_config.v1"),
+            )
         if release_status_payload:
-            self._record_modelbus_validation(errors, self._validate_against_schema(
-                release_status_payload, "modelbus.release_status.v1"))
+            self._record_modelbus_validation(
+                bundle_errors=errors,
+                validation_errors=self._validate_against_schema(
+                    release_status_payload, "modelbus.release_status.v1"),
+            )
 
         rows = surface_admission_payload.get("surface_admissions")
         if surface_admission_payload and not isinstance(rows, list):
@@ -1244,14 +1256,14 @@ class DataPulseReader:
             return errors
         return []
 
-    def _record_modelbus_validation(self, errors: list[str], validation_errors: list[str]) -> None:
+    def _record_modelbus_validation(self, *, bundle_errors: list[str], validation_errors: list[str]) -> None:
         """Route validation errors per current mode.
         In 'warn' (default), log each. In 'fail', append to bundle errors list."""
         if not validation_errors:
             return
         mode = str(os.getenv(self._MODELBUS_VALIDATION_MODE_ENV, self._MODELBUS_VALIDATION_MODE_DEFAULT)).strip().lower()
         if mode == "fail":
-            errors.extend(validation_errors)
+            bundle_errors.extend(validation_errors)
         else:
             for msg in validation_errors:
                 logger.warning("modelbus schema validation: %s", msg)
