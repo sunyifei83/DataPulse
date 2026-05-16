@@ -13,7 +13,7 @@ This is the classic consumer-driven contract pattern (Pact CDC).
 
 | Schema | DP-consumed at | MB code reference |
 |---|---|---|
-| `modelbus.consumer_surface_admission.v1.json` | `datapulse/reader.py:1103-1117, 1114-1158` | `build_consumer_bundle.py:207` |
+| `modelbus.consumer_surface_admission.v1.json` | `datapulse/reader.py:1103-1158` | `build_consumer_bundle.py:207` |
 | `modelbus.consumer_bridge_config.v1.json` | `datapulse/reader.py:1107-1110, 1179` | `build_consumer_bundle.py:158` |
 
 ## Migration to MB-authoritative

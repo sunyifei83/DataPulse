@@ -1,6 +1,5 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "consumer-contract/modelbus.consumer_surface_admission.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "DataPulse consumer contract for modelbus.consumer_surface_admission.v1",
   "description": "Authored by DP. Encodes the fields DP reader.py depends on. MB-emitted payloads may include additional fields (additionalProperties:true). Swap to MB-authoritative upstream/ mirror when MB publishes one.",
   "type": "object",
