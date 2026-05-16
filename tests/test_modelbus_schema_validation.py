@@ -83,3 +83,92 @@ def test_validate_skips_gracefully_when_jsonschema_missing(reader, monkeypatch):
     errors2 = reader._validate_against_schema(payload, "modelbus.consumer_bridge_config.v1")
     assert errors2 == []
     assert DataPulseReader._MODELBUS_VALIDATION_WARNED_MISSING_LIB is True
+
+
+import json as _json
+import os as _os
+from pathlib import Path as _Path
+
+
+def _write_conformant_bundle(bundle_dir: _Path) -> None:
+    """Write a 4-file bundle that satisfies both upstream mirrors and DP contracts."""
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    (bundle_dir / "bundle_manifest.json").write_text(_json.dumps({
+        "schema": "modelbus.consumer_bundle_manifest.v1",
+        "generated_at_utc": "2026-05-16T00:00:00Z",
+        "bundle_id": "datapulse.ai_surface_bus",
+        "consumer_id": "datapulse",
+        "source_profile": {"path": "consumer-profile.datapulse.json", "consumer": {"repo_root": "/tmp"}},
+        "runtime": {"base_url": "https://modelbus.example.com"},
+        "artifacts": {
+            "bundle_readme": {"path": "README.md"},
+            "bundle_manifest": {"path": "bundle_manifest.json"},
+            "bridge_config": {"path": "bridge_config.json"},
+            "alias_catalog": {"path": "alias_catalog.json"},
+            "surface_admission": {"path": "surface_admission.json"},
+            "release_status": {"path": "release_status.json"},
+            "smoke_manifest": {"path": "smoke_manifest.json"},
+        },
+        "surfaces": [],
+        "governance": {"accepted_modelbus_semantics": ["BUNDLE-FIRST-REQUIRED"]},
+    }))
+    (bundle_dir / "surface_admission.json").write_text(_json.dumps({
+        "schema": "modelbus.consumer_surface_admission.v1",
+        "consumer_id": "datapulse",
+        "generated_at_utc": "2026-05-16T00:00:00Z",
+        "surface_admissions": [],
+    }))
+    (bundle_dir / "bridge_config.json").write_text(_json.dumps({
+        "schema": "modelbus.consumer_bridge_config.v1",
+        "consumer_id": "datapulse",
+    }))
+    (bundle_dir / "release_status.json").write_text(_json.dumps({
+        "schema": "modelbus.release_status.v1",
+        "generated_at_utc": "2026-05-16T00:00:00Z",
+        "release_level": "ci_proven",
+        "assured_verdict": "pass",
+        "runtime": {"base_url": "https://modelbus.example.com"},
+    }))
+
+
+def test_load_bundle_warn_mode_logs_but_does_not_fail(tmp_path, monkeypatch, caplog):
+    """Default mode is 'warn': validation errors are logged but do not propagate into errors list."""
+    bundle_dir = tmp_path / "bundle"
+    _write_conformant_bundle(bundle_dir)
+    # Mutilate surface_admission to drop a required field
+    sa_path = bundle_dir / "surface_admission.json"
+    sa = _json.loads(sa_path.read_text())
+    del sa["consumer_id"]
+    sa_path.write_text(_json.dumps(sa))
+
+    monkeypatch.setenv("DATAPULSE_MODELBUS_BUNDLE_DIR", str(bundle_dir))
+    monkeypatch.delenv("DATAPULSE_MODELBUS_VALIDATION_MODE", raising=False)  # default = warn
+
+    reader = DataPulseReader()
+    with caplog.at_level("WARNING"):
+        result = reader._load_modelbus_bundle_surface_admissions()
+
+    # In warn mode, the schema-string check for surface_admission STILL fires
+    # because deleting consumer_id also leaves the schema-string check alone —
+    # but the new validation should ALSO log a warn about consumer_id missing.
+    validation_warnings = [r for r in caplog.records if "consumer_id" in r.getMessage()]
+    assert validation_warnings, "expected warn-mode log line mentioning consumer_id"
+
+
+def test_load_bundle_fail_mode_propagates_validation_errors(tmp_path, monkeypatch):
+    """Mode='fail': validation errors are appended to the bundle errors list."""
+    bundle_dir = tmp_path / "bundle"
+    _write_conformant_bundle(bundle_dir)
+    sa_path = bundle_dir / "surface_admission.json"
+    sa = _json.loads(sa_path.read_text())
+    del sa["consumer_id"]
+    sa_path.write_text(_json.dumps(sa))
+
+    monkeypatch.setenv("DATAPULSE_MODELBUS_BUNDLE_DIR", str(bundle_dir))
+    monkeypatch.setenv("DATAPULSE_MODELBUS_VALIDATION_MODE", "fail")
+
+    reader = DataPulseReader()
+    result = reader._load_modelbus_bundle_surface_admissions()
+
+    assert result.get("errors"), f"expected errors in fail mode: {result}"
+    assert any("consumer_id" in e for e in result["errors"]), result["errors"]
