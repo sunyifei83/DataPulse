@@ -1180,6 +1180,53 @@ class DataPulseReader:
             },
         }
 
+    _MODELBUS_SCHEMAS_DIR = Path(__file__).resolve().parent.parent / "config" / "modelbus" / "schemas"
+    _MODELBUS_SCHEMA_SOURCES = ("upstream", "consumer-contract")
+    _MODELBUS_VALIDATION_WARNED_MISSING_LIB = False
+
+    def _validate_against_schema(self, payload: dict[str, Any], schema_name: str) -> list[str]:
+        """Validate `payload` against the named schema, trying upstream/ first then consumer-contract/.
+
+        Returns list of human-readable error messages. Empty list means:
+          - payload is valid, OR
+          - no schema file found on disk (graceful skip), OR
+          - jsonschema library not installed (graceful skip with one-time warn).
+        """
+        try:
+            import jsonschema
+        except ImportError:
+            if not DataPulseReader._MODELBUS_VALIDATION_WARNED_MISSING_LIB:
+                logger.warning(
+                    "jsonschema not installed; modelbus schema validation skipped. "
+                    "Install via: pip install -e '.[governance]'"
+                )
+                DataPulseReader._MODELBUS_VALIDATION_WARNED_MISSING_LIB = True
+            return []
+
+        for source in self._MODELBUS_SCHEMA_SOURCES:
+            schema_path = self._MODELBUS_SCHEMAS_DIR / source / f"{schema_name}.json"
+            if not schema_path.exists():
+                continue
+            try:
+                schema = json.loads(schema_path.read_text(encoding="utf-8"))
+                # Detect draft from $schema; fall back to Draft7 if unknown.
+                schema_uri = str(schema.get("$schema") or "")
+                if "2020-12" in schema_uri:
+                    validator_cls = jsonschema.Draft202012Validator
+                elif "2019-09" in schema_uri:
+                    validator_cls = jsonschema.Draft201909Validator
+                else:
+                    validator_cls = jsonschema.Draft7Validator
+                validator = validator_cls(schema)
+            except (json.JSONDecodeError, jsonschema.exceptions.SchemaError) as exc:
+                return [f"[{source}] {schema_name} schema unloadable: {exc}"]
+            errors: list[str] = []
+            for err in validator.iter_errors(payload):
+                path = "/".join(str(p) for p in err.absolute_path) or "<root>"
+                errors.append(f"[{source}] {schema_name} at {path}: {err.message}")
+            return errors
+        return []
+
     def _load_modelbus_bundle_surface_admissions(self) -> dict[str, Any]:
         candidates = self._modelbus_bundle_candidates()
         if not candidates:
