@@ -14,7 +14,7 @@ def reader(tmp_path, monkeypatch):
     return DataPulseReader()
 
 
-def test_validate_returns_empty_when_payload_conforms_to_upstream(reader):
+def test_validate_error_messages_for_upstream_schema_are_well_formed(reader):
     payload = {
         "schema": "modelbus.release_status.v1",
         "generated_at_utc": "2026-05-16T00:00:00Z",
@@ -65,3 +65,21 @@ def test_validate_catches_schema_const_mismatch(reader):
 def test_validate_returns_empty_when_no_schema_file_found(reader):
     errors = reader._validate_against_schema({}, "modelbus.nonexistent.v1")
     assert errors == []
+
+
+def test_validate_skips_gracefully_when_jsonschema_missing(reader, monkeypatch):
+    """Force ImportError on `import jsonschema` and confirm helper returns []
+    + sets the class-level warn-once flag."""
+    import sys
+    # Reset the warn-once flag so this test sees a fresh state.
+    from datapulse.reader import DataPulseReader
+    monkeypatch.setattr(DataPulseReader, "_MODELBUS_VALIDATION_WARNED_MISSING_LIB", False)
+    # Setting sys.modules['jsonschema'] = None makes `import jsonschema` raise ImportError.
+    monkeypatch.setitem(sys.modules, "jsonschema", None)
+    payload = {"schema": "modelbus.consumer_bridge_config.v1", "consumer_id": "datapulse"}
+    errors = reader._validate_against_schema(payload, "modelbus.consumer_bridge_config.v1")
+    assert errors == []
+    # Calling again should NOT toggle the flag back to False.
+    errors2 = reader._validate_against_schema(payload, "modelbus.consumer_bridge_config.v1")
+    assert errors2 == []
+    assert DataPulseReader._MODELBUS_VALIDATION_WARNED_MISSING_LIB is True
