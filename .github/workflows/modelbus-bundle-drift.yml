@@ -1,0 +1,80 @@
+name: ModelBus Bundle Drift
+
+on:
+  schedule:
+    # Weekly Monday 14:00 UTC. Adjust if your team prefers a different cadence.
+    - cron: '0 14 * * MON'
+  pull_request:
+    paths:
+      - 'config/modelbus/**'
+      - 'datapulse/reader.py'
+      - '.github/workflows/modelbus-bundle-drift.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write  # for opening drift-detected issues on schedule runs
+
+jobs:
+  diff-upstream-schemas:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.MB_REPO_READ_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch MB-upstream schemas
+        env:
+          GH_TOKEN: ${{ secrets.MB_REPO_READ_TOKEN }}
+        run: |
+          mkdir -p /tmp/mb-upstream
+          for schema in modelbus.consumer_bundle_manifest.v1.json modelbus.release_status.v1.json; do
+            gh api "repos/sunyifei83/ModelBusProject/contents/docs/schemas/${schema}" \
+              --jq '.content' | base64 -d > "/tmp/mb-upstream/${schema}"
+          done
+
+      - name: Diff against local mirror
+        id: diff
+        run: |
+          set +e
+          status=0
+          for schema in modelbus.consumer_bundle_manifest.v1.json modelbus.release_status.v1.json; do
+            # Normalize key order via jq -S then diff. Non-empty diff fails the step.
+            jq -S . "config/modelbus/schemas/upstream/${schema}" > /tmp/local.json
+            jq -S . "/tmp/mb-upstream/${schema}" > /tmp/upstream.json
+            if ! diff -u /tmp/local.json /tmp/upstream.json > "/tmp/diff-${schema}.txt"; then
+              echo "::warning::Drift detected in ${schema}"
+              echo "--- DIFF (${schema}) ---"
+              cat "/tmp/diff-${schema}.txt"
+              status=1
+            fi
+          done
+          exit $status
+
+      - name: Open drift issue on scheduled run
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "ModelBus schema drift detected (weekly check)" \
+            --body "Weekly drift workflow detected upstream schema changes. See run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Update mirrors in \`config/modelbus/schemas/upstream/\` and bump pin SHAs in the README." \
+            --label "governance,modelbus"
+
+  bundle-snapshot-age:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inspect snapshot age
+        run: |
+          generated=$(jq -r .generated_at_utc config/modelbus/datapulse/bundle_manifest.json)
+          ts=$(date -u -d "$generated" +%s)
+          now=$(date -u +%s)
+          age_days=$(( (now - ts) / 86400 ))
+          echo "Bundle generated $generated; age=${age_days}d"
+          if [ "$age_days" -gt 90 ]; then
+            echo "::error::Bundle snapshot is ${age_days} days old (> 90); fail. Re-run Layer 1 of bundle-drift-guard plan."
+            exit 1
+          elif [ "$age_days" -gt 60 ]; then
+            echo "::warning::Bundle snapshot is ${age_days} days old (> 60); consider refresh."
+          fi
