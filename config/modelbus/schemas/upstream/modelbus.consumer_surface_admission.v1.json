@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modelbus.local/schemas/modelbus.consumer_surface_admission.v1.json",
+  "title": "ModelBus Consumer Surface Admission (modelbus.consumer_surface_admission.v1)",
+  "description": "Per-consumer admission projection emitted as part of a bundle by scripts/ci/build_consumer_bundle.py. For each surface in the consumer profile, records whether the surface is admitted (mode-by-mode) under the current release window, what the admitted alias is, and any rejectable_gaps blocking admission. Consumers MUST honour rejected surfaces in production (fail-closed); 'manual_only' modes are explicitly outside the automated admission path.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "generated_at_utc",
+    "consumer_id",
+    "source_profile",
+    "source_release_status",
+    "release_window",
+    "surface_admissions"
+  ],
+  "properties": {
+    "schema": {
+      "const": "modelbus.consumer_surface_admission.v1"
+    },
+    "generated_at_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "consumer_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_profile": {
+      "type": "string",
+      "description": "Repo-relative path of the consumer_profile.v1 source this admission was derived from.",
+      "minLength": 1
+    },
+    "source_release_status": {
+      "type": "string",
+      "description": "Repo-relative path of the release status facts file this admission was derived from."
+    },
+    "release_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generated_at_utc",
+        "release_level",
+        "assured_verdict",
+        "constitutional_semantics"
+      ],
+      "properties": {
+        "generated_at_utc": {"type": ["string", "null"]},
+        "release_level": {"type": ["string", "null"]},
+        "assured_verdict": {"type": ["string", "null"]},
+        "constitutional_semantics": {"type": "string"}
+      }
+    },
+    "surface_admissions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/surface_admission"}
+    }
+  },
+  "$defs": {
+    "surface_admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface_id",
+        "requested_alias",
+        "admission_status",
+        "admitted_alias",
+        "mode_admission",
+        "schema_contract",
+        "manual_fallback",
+        "consumer_boundary",
+        "degraded_result_allowed",
+        "must_expose_runtime_facts",
+        "runtime_hit",
+        "rejectable_gaps"
+      ],
+      "properties": {
+        "surface_id": {"type": "string", "minLength": 1},
+        "requested_alias": {"type": "string"},
+        "admission_status": {
+          "type": "string",
+          "enum": ["admitted", "rejected"]
+        },
+        "admitted_alias": {
+          "type": "string",
+          "description": "Empty string when admission_status='rejected'. Non-empty mirrors requested_alias when admitted."
+        },
+        "mode_admission": {
+          "type": "object",
+          "description": "Per-mode admission outcome. Keys are mode names ('off', 'assist', 'review'). Values are 'admitted', 'rejected', or 'manual_only'.",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["admitted", "rejected", "manual_only"]
+          }
+        },
+        "schema_contract": {
+          "type": ["string", "null"]
+        },
+        "manual_fallback": {
+          "type": "string"
+        },
+        "consumer_boundary": {
+          "type": "string"
+        },
+        "degraded_result_allowed": {
+          "type": "boolean"
+        },
+        "must_expose_runtime_facts": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "runtime_hit": {"$ref": "#/$defs/runtime_hit_record"},
+        "rejectable_gaps": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/rejectable_gap"}
+        }
+      }
+    },
+    "runtime_hit_record": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["status"],
+      "description": "Result of probing the runtime for this surface's admitted alias. Additional debug fields (http_code, body_model, attempt_count, etc.) may be present.",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["not_provided", "missing", "ok", "ok_with_gaps"]
+        },
+        "ok": {"type": ["boolean", "null"]},
+        "request_id_present": {"type": "boolean"},
+        "request_ids": {"type": "object"},
+        "http_code": {"type": ["integer", "null"]},
+        "body_model": {"type": "string"},
+        "client_request_id": {"type": "string"},
+        "attempt_count": {"type": "integer", "minimum": 0},
+        "api_format": {"type": ["string", "null"]},
+        "structured_mode": {"type": ["string", "null"]}
+      }
+    },
+    "rejectable_gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gap_id", "blocking", "reason"],
+      "properties": {
+        "gap_id": {"type": "string", "minLength": 1},
+        "blocking": {"type": "boolean"},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

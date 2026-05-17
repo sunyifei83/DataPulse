@@ -29,8 +29,26 @@ def test_schema_file_is_valid_json_schema(schema_path: Path) -> None:
     validator_cls.check_schema(schema)
 
 
-def test_at_least_one_schema_in_each_source_dir() -> None:
-    upstream = list((SCHEMAS_ROOT / "upstream").glob("*.v1.json"))
-    contract = list((SCHEMAS_ROOT / "consumer-contract").glob("*.v1.json"))
-    assert upstream, "expected at least one upstream mirror under config/modelbus/schemas/upstream/"
-    assert contract, "expected at least one consumer contract under config/modelbus/schemas/consumer-contract/"
+def test_upstream_has_mirror_for_every_dp_consumed_schema() -> None:
+    """DP must always have an upstream mirror for every schema name it reads
+    from MB. The list is hand-maintained from the 4 _validate_against_schema
+    call sites in datapulse/reader.py (the four bundle payloads)."""
+    upstream = {p.name for p in (SCHEMAS_ROOT / "upstream").glob("*.v1.json")}
+    required = {
+        "modelbus.consumer_bundle_manifest.v1.json",
+        "modelbus.consumer_bridge_config.v1.json",
+        "modelbus.consumer_surface_admission.v1.json",
+        "modelbus.release_status.v1.json",
+    }
+    missing = required - upstream
+    assert not missing, f"upstream/ is missing required mirrors: {sorted(missing)}"
+
+
+def test_consumer_contract_dir_exists_for_future_use() -> None:
+    """consumer-contract/ may be empty after MB publishes authoritative
+    schemas (as of 2026-05-17 it is). The directory + README stay so the
+    schema-discovery fallback path in reader.py keeps working and a new CDC
+    stand-in can be dropped in without scaffolding."""
+    contract_dir = SCHEMAS_ROOT / "consumer-contract"
+    assert contract_dir.is_dir()
+    assert (contract_dir / "README.md").is_file()
