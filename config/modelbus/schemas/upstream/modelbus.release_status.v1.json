@@ -1,0 +1,366 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modelbus.local/schemas/modelbus.release_status.v1.json",
+  "title": "ModelBus Release Status Contract (modelbus.release_status.v1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "generated_at_utc",
+    "release_level",
+    "assured_verdict",
+    "consumer_line",
+    "runtime",
+    "models_summary",
+    "required_models",
+    "chat_probe",
+    "consumer_contract",
+    "consumer_gates",
+    "evidence"
+  ],
+  "properties": {
+    "schema": {
+      "const": "modelbus.release_status.v1"
+    },
+    "generated_at_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "release_level": {
+      "type": "string",
+      "enum": [
+        "standard",
+        "constrained",
+        "inescapable",
+        "assured"
+      ]
+    },
+    "assured_verdict": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "skipped"
+      ]
+    },
+    "consumer_line": {
+      "type": "string",
+      "enum": [
+        "self",
+        "openclaw-service"
+      ]
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_url",
+        "base_path",
+        "status_endpoint",
+        "models_endpoint",
+        "chat_completions_endpoint",
+        "runtime_config",
+        "auth_mode",
+        "whitelist_mode",
+        "whitelist_ids"
+      ],
+      "properties": {
+        "base_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base_path": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "status_endpoint": {
+          "type": "string",
+          "const": "/statusz"
+        },
+        "models_endpoint": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "chat_completions_endpoint": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "runtime_config": {
+          "type": "string",
+          "minLength": 1
+        },
+        "auth_mode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "whitelist_mode": {
+          "type": "string",
+          "enum": [
+            "disable",
+            "enforce"
+          ]
+        },
+        "whitelist_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "models_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "aliases_total",
+        "allowed_total",
+        "blocked_aliases"
+      ],
+      "properties": {
+        "aliases_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allowed_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked_aliases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "alias",
+              "blocked_reason"
+            ],
+            "properties": {
+              "alias": {
+                "type": "string",
+                "minLength": 1
+              },
+              "blocked_reason": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "required_models": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "chat_probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_ok",
+        "results"
+      ],
+      "properties": {
+        "all_required_ok": {
+          "type": "boolean"
+        },
+        "results": {
+          "type": "object"
+        }
+      }
+    },
+    "consumer_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_probe",
+        "failure_classification"
+      ],
+      "properties": {
+        "required_probe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "healthz",
+            "readyz",
+            "models",
+            "chat_completions"
+          ],
+          "properties": {
+            "healthz": {
+              "$ref": "#/$defs/probe"
+            },
+            "readyz": {
+              "$ref": "#/$defs/probe"
+            },
+            "models": {
+              "$ref": "#/$defs/probe"
+            },
+            "chat_completions": {
+              "$ref": "#/$defs/probe"
+            }
+          }
+        },
+        "failure_classification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "probe_failure",
+            "blocked_fact",
+            "blocked_fact_location"
+          ],
+          "properties": {
+            "probe_failure": {
+              "const": "unknown_probe_failure"
+            },
+            "blocked_fact": {
+              "const": "models_allowed_false"
+            },
+            "blocked_fact_location": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "consumer_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "line_boundary",
+        "alignment",
+        "runtime_hits",
+        "key_sync_evidence",
+        "telegram_readiness"
+      ],
+      "properties": {
+        "line_boundary": {
+          "$ref": "#/$defs/gate"
+        },
+        "alignment": {
+          "$ref": "#/$defs/gate"
+        },
+        "runtime_hits": {
+          "$ref": "#/$defs/gate"
+        },
+        "key_sync_evidence": {
+          "$ref": "#/$defs/gate"
+        },
+        "telegram_readiness": {
+          "$ref": "#/$defs/gate"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consumer_line_boundary_json",
+        "models_json",
+        "required_models_file",
+        "chat_results_json",
+        "consumer_alignment_json",
+        "consumer_hits_json",
+        "consumer_key_sync_evidence_json",
+        "consumer_key_sync_json",
+        "decisive_gate_json",
+        "assured_summary",
+        "telegram_readiness_json"
+      ],
+      "properties": {
+        "consumer_line_boundary_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "models_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required_models_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "chat_results_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "consumer_alignment_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "consumer_hits_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "consumer_key_sync_evidence_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "consumer_key_sync_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decisive_gate_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assured_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "telegram_readiness_json": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "$defs": {
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "path",
+        "auth_required"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "auth_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reason"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "PASS",
+            "SKIPPED",
+            "WARN_MISSING",
+            "WARN_INVALID"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

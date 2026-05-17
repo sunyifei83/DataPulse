@@ -1111,6 +1111,33 @@ class DataPulseReader:
         if release_status_payload and str(release_status_payload.get("schema") or "").strip() != "modelbus.release_status.v1":
             errors.append("modelbus release status invalid: schema mismatch")
 
+        # Schema-validation pass (per-payload). Mode controlled by env;
+        # default 'warn' logs without failing the bundle load. Flip to
+        # DATAPULSE_MODELBUS_VALIDATION_MODE=fail to gate the bundle.
+        self._record_modelbus_validation(
+            bundle_errors=errors,
+            validation_errors=self._validate_against_schema(
+                bundle_manifest, "modelbus.consumer_bundle_manifest.v1"),
+        )
+        if surface_admission_payload:
+            self._record_modelbus_validation(
+                bundle_errors=errors,
+                validation_errors=self._validate_against_schema(
+                    surface_admission_payload, "modelbus.consumer_surface_admission.v1"),
+            )
+        if bridge_config_payload:
+            self._record_modelbus_validation(
+                bundle_errors=errors,
+                validation_errors=self._validate_against_schema(
+                    bridge_config_payload, "modelbus.consumer_bridge_config.v1"),
+            )
+        if release_status_payload:
+            self._record_modelbus_validation(
+                bundle_errors=errors,
+                validation_errors=self._validate_against_schema(
+                    release_status_payload, "modelbus.release_status.v1"),
+            )
+
         rows = surface_admission_payload.get("surface_admissions")
         if surface_admission_payload and not isinstance(rows, list):
             errors.append("modelbus surface admission invalid: surface_admissions must be array")
@@ -1179,6 +1206,67 @@ class DataPulseReader:
                 "bridge_config": bridge_config_payload,
             },
         }
+
+    _MODELBUS_SCHEMAS_DIR = Path(__file__).resolve().parent.parent / "config" / "modelbus" / "schemas"
+    _MODELBUS_SCHEMA_SOURCES = ("upstream", "consumer-contract")
+    _MODELBUS_VALIDATION_WARNED_MISSING_LIB = False
+    _MODELBUS_VALIDATION_MODE_ENV = "DATAPULSE_MODELBUS_VALIDATION_MODE"
+    _MODELBUS_VALIDATION_MODE_DEFAULT = "warn"
+
+    def _validate_against_schema(self, payload: dict[str, Any], schema_name: str) -> list[str]:
+        """Validate `payload` against the named schema, trying upstream/ first then consumer-contract/.
+
+        Returns list of human-readable error messages. Empty list means:
+          - payload is valid, OR
+          - no schema file found on disk (graceful skip), OR
+          - jsonschema library not installed (graceful skip with one-time warn).
+        """
+        try:
+            import jsonschema
+        except ImportError:
+            if not DataPulseReader._MODELBUS_VALIDATION_WARNED_MISSING_LIB:
+                logger.warning(
+                    "jsonschema not installed; modelbus schema validation skipped. "
+                    "Install via: pip install -e '.[governance]'"
+                )
+                DataPulseReader._MODELBUS_VALIDATION_WARNED_MISSING_LIB = True
+            return []
+
+        for source in self._MODELBUS_SCHEMA_SOURCES:
+            schema_path = self._MODELBUS_SCHEMAS_DIR / source / f"{schema_name}.json"
+            if not schema_path.exists():
+                continue
+            try:
+                schema = json.loads(schema_path.read_text(encoding="utf-8"))
+                # Detect draft from $schema; fall back to Draft7 if unknown.
+                schema_uri = str(schema.get("$schema") or "")
+                if "2020-12" in schema_uri:
+                    validator_cls = jsonschema.Draft202012Validator
+                elif "2019-09" in schema_uri:
+                    validator_cls = jsonschema.Draft201909Validator
+                else:
+                    validator_cls = jsonschema.Draft7Validator
+                validator = validator_cls(schema)
+            except (json.JSONDecodeError, jsonschema.exceptions.SchemaError) as exc:
+                return [f"[{source}] {schema_name} schema unloadable: {exc}"]
+            errors: list[str] = []
+            for err in validator.iter_errors(payload):
+                path = "/".join(str(p) for p in err.absolute_path) or "<root>"
+                errors.append(f"[{source}] {schema_name} at {path}: {err.message}")
+            return errors
+        return []
+
+    def _record_modelbus_validation(self, *, bundle_errors: list[str], validation_errors: list[str]) -> None:
+        """Route validation errors per current mode.
+        In 'warn' (default), log each. In 'fail', append to bundle errors list."""
+        if not validation_errors:
+            return
+        mode = str(os.getenv(self._MODELBUS_VALIDATION_MODE_ENV, self._MODELBUS_VALIDATION_MODE_DEFAULT)).strip().lower()
+        if mode == "fail":
+            bundle_errors.extend(validation_errors)
+        else:
+            for msg in validation_errors:
+                logger.warning("modelbus schema validation: %s", msg)
 
     def _load_modelbus_bundle_surface_admissions(self) -> dict[str, Any]:
         candidates = self._modelbus_bundle_candidates()

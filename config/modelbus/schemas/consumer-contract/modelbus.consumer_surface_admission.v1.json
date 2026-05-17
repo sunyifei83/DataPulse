@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DataPulse consumer contract for modelbus.consumer_surface_admission.v1",
+  "description": "Authored by DP. Encodes the fields DP reader.py depends on. MB-emitted payloads may include additional fields (additionalProperties:true). Swap to MB-authoritative upstream/ mirror when MB publishes one.",
+  "type": "object",
+  "required": ["schema", "consumer_id", "surface_admissions"],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {"const": "modelbus.consumer_surface_admission.v1"},
+    "consumer_id": {"const": "datapulse"},
+    "generated_at_utc": {"type": "string"},
+    "surface_admissions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["surface_id", "admission_status"],
+        "additionalProperties": true,
+        "properties": {
+          "surface_id": {"type": "string", "minLength": 1},
+          "requested_alias": {"type": "string"},
+          "admitted_alias": {"type": "string"},
+          "admission_status": {"type": "string", "enum": ["admitted", "rejected"]},
+          "mode_admission": {"type": "object"},
+          "schema_contract": {"type": ["string", "null"]},
+          "manual_fallback": {"type": "string"},
+          "degraded_result_allowed": {"type": "boolean"},
+          "must_expose_runtime_facts": {"type": "array"},
+          "rejectable_gaps": {"type": "array"}
+        }
+      }
+    },
+    "release_window": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "constitutional_semantics": {"type": "string"}
+      }
+    }
+  }
+}

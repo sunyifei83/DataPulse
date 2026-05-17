@@ -1,0 +1,263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modelbus.local/schemas/modelbus.consumer_bundle_manifest.v1.json",
+  "title": "ModelBus Consumer Bundle Manifest (modelbus.consumer_bundle_manifest.v1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "generated_at_utc",
+    "bundle_id",
+    "consumer_id",
+    "source_profile",
+    "runtime",
+    "artifacts",
+    "surfaces",
+    "governance"
+  ],
+  "properties": {
+    "schema": {
+      "const": "modelbus.consumer_bundle_manifest.v1"
+    },
+    "generated_at_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bundle_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "consumer_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "schema",
+        "consumer_id"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema": {
+          "const": "modelbus.consumer_profile.v1"
+        },
+        "consumer_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_url",
+        "request_protocol",
+        "endpoint",
+        "auth_env",
+        "tenant_env",
+        "tenant_header"
+      ],
+      "properties": {
+        "base_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_protocol": {
+          "type": "string",
+          "enum": [
+            "responses",
+            "chat_completions"
+          ]
+        },
+        "endpoint": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "auth_env": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tenant_env": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tenant_header": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bundle_readme",
+        "bundle_manifest",
+        "bridge_config",
+        "alias_catalog",
+        "surface_admission",
+        "release_status",
+        "smoke_manifest"
+      ],
+      "properties": {
+        "bundle_readme": {
+          "$ref": "#/$defs/artifact"
+        },
+        "bundle_manifest": {
+          "$ref": "#/$defs/artifact"
+        },
+        "bridge_config": {
+          "$ref": "#/$defs/artifact"
+        },
+        "alias_catalog": {
+          "$ref": "#/$defs/artifact"
+        },
+        "surface_admission": {
+          "$ref": "#/$defs/artifact"
+        },
+        "release_status": {
+          "$ref": "#/$defs/artifact"
+        },
+        "surface_runtime_facts": {
+          "$ref": "#/$defs/artifact"
+        },
+        "capability_packages": {
+          "$ref": "#/$defs/artifact"
+        },
+        "capability_package_runtime_facts": {
+          "$ref": "#/$defs/artifact"
+        },
+        "smoke_manifest": {
+          "$ref": "#/$defs/artifact"
+        }
+      }
+    },
+    "surfaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/surfaceSummary"
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accepted_modelbus_semantics",
+        "require_surface_admission",
+        "require_schema_validation",
+        "fail_closed_on_missing_artifact"
+      ],
+      "properties": {
+        "accepted_modelbus_semantics": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "CONSTRAINED-DEPLOYED",
+              "ASSURED-ACTIVE"
+            ]
+          }
+        },
+        "require_surface_admission": {
+          "const": true
+        },
+        "require_schema_validation": {
+          "const": true
+        },
+        "fail_closed_on_missing_artifact": {
+          "const": true
+        }
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "required",
+        "role"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "surfaceSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface_id",
+        "requested_alias",
+        "schema_contract",
+        "admission_requirement",
+        "manual_fallback",
+        "degraded_result_allowed"
+      ],
+      "properties": {
+        "surface_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requested_alias": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema_contract": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "admission_requirement": {
+          "type": "string",
+          "enum": [
+            "admitted_only",
+            "blocked_until_contract",
+            "blocked"
+          ]
+        },
+        "manual_fallback": {
+          "type": "string",
+          "minLength": 1
+        },
+        "degraded_result_allowed": {
+          "type": "boolean"
+        },
+        "capability_package_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
