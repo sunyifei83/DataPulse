@@ -1,24 +1,35 @@
 # DataPulse consumer-driven contracts
 
-This directory contains JSON Schemas **authored by DataPulse** for ModelBus
-payloads that MB has not yet published as authoritative `.json` schema
-documents (only emitted as payload `schema:` tags from
-`sunyifei83/ModelBusProject:scripts/ci/build_consumer_bundle.py`).
+This directory **currently holds no contracts.** As of 2026-05-17 all
+ModelBus payload schemas DP consumes have been published as authoritative
+JSON Schema documents at `sunyifei83/ModelBusProject:docs/schemas/` and are
+mirrored into `../upstream/` instead.
 
-Contracts here encode **only the fields DP reader.py depends on**, with
-`additionalProperties: true` so MB is free to add fields without breaking DP.
-This is the classic consumer-driven contract pattern (Pact CDC).
+## Migration record (2026-05-17)
 
-## Files
+Two CDC stand-ins originally lived here:
 
-| Schema | DP-consumed at | MB code reference |
+| Schema | Lifespan | Replaced by |
 |---|---|---|
-| `modelbus.consumer_surface_admission.v1.json` | `datapulse/reader.py:1103-1158` | `build_consumer_bundle.py:207` |
-| `modelbus.consumer_bridge_config.v1.json` | `datapulse/reader.py:1107-1110, 1179` | `build_consumer_bundle.py:158` |
+| `modelbus.consumer_surface_admission.v1.json` | 2026-05-16 (PR #50) → 2026-05-17 | `../upstream/` mirror of MB blob `a455f014` |
+| `modelbus.consumer_bridge_config.v1.json` | 2026-05-16 (PR #50) → 2026-05-17 | `../upstream/` mirror of MB blob `00fd50f7` |
 
-## Migration to MB-authoritative
+Both were Pact-style CDC stand-ins (`additionalProperties: true`, only the
+fields DP reader.py touched were required) shipped in PR #50 because MB had
+not yet published authoritative schemas for these two payloads. MB closed
+that gap in commit `9d0a364` (issue #9 follow-up); DP migrated to the
+authoritative mirrors and deleted the stand-ins.
 
-When MB publishes `docs/schemas/modelbus.consumer_{surface_admission,bridge_config}.v1.json`:
-1. Mirror them into `../upstream/`.
-2. Delete the file here.
-3. Reader auto-prefers `upstream/` (see `_validate_against_schema`).
+The MB authoritative schemas are **strict** (`additionalProperties: false`,
+many more required fields). DP's existing local bundle in
+`config/modelbus/datapulse/` drifts against them and will surface warns
+under `MODELBUS_VALIDATION_MODE=warn`. This drift unblocks only after the
+fresh bundle from MB lands (DataPulse issue #51).
+
+## Future use
+
+This directory remains in the schema discovery path
+(`datapulse/reader.py:_validate_against_schema` falls back to
+`consumer-contract/` after `upstream/`). If MB ever introduces a new
+payload tag without publishing an authoritative schema, DP can re-author a
+CDC stand-in here pending MB catch-up.

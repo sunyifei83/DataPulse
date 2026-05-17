@@ -177,6 +177,26 @@
           "const": true
         }
       }
+    },
+    "source_pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional only-add provenance pin so bundle consumers (e.g. DataPulse) can triangulate drift against a specific ModelBus commit instead of relying on generated_at_utc alone. Omitted when the bundle was built outside a git checkout. Field is currently optional (not in top-level required[]) for backward compatibility with bundles emitted before 2026-05-17; readers MUST graceful-ignore missing.",
+      "required": [
+        "mb_commit_sha"
+      ],
+      "properties": {
+        "mb_commit_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "Full 40-char hex SHA of the ModelBus repo HEAD at bundle build time."
+        },
+        "mb_short_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,12}$",
+          "description": "Convenience short SHA (typically 9 chars) corresponding to mb_commit_sha."
+        }
+      }
     }
   },
   "$defs": {

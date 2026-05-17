@@ -34,14 +34,20 @@ def test_validate_error_messages_for_upstream_schema_are_well_formed(reader):
         assert "[upstream]" in e
 
 
-def test_validate_returns_empty_for_conformant_consumer_contract(reader):
+def test_validate_against_authoritative_bridge_config_rejects_minimal_payload(reader):
+    """Post-migration to MB-authoritative schema (2026-05-17, commit 9d0a364):
+    bridge_config now requires 16 fields with additionalProperties:false. The
+    minimal payload that satisfied the prior DP-authored CDC stand-in must now
+    surface missing-field errors tagged [upstream]."""
     payload = {
         "schema": "modelbus.consumer_bridge_config.v1",
         "consumer_id": "datapulse",
         "base_url": "https://modelbus.example.com",
     }
     errors = reader._validate_against_schema(payload, "modelbus.consumer_bridge_config.v1")
-    assert errors == [], f"expected no errors, got: {errors}"
+    assert errors, "expected authoritative schema to reject minimal payload"
+    assert all("[upstream]" in e for e in errors), errors
+    assert any("accepted_protocols" in e for e in errors), errors
 
 
 def test_validate_catches_missing_required_field(reader):
@@ -89,7 +95,12 @@ def test_validate_skips_gracefully_when_jsonschema_missing(reader, monkeypatch):
 
 
 def _write_conformant_bundle(bundle_dir: Path) -> None:
-    """Write a 4-file bundle that satisfies both upstream mirrors and DP contracts."""
+    """Write a 4-file bundle that satisfies the schema-string checks and the
+    minimum reader-extractable fields. After the 2026-05-17 migration to
+    MB-authoritative schemas these payloads no longer satisfy the strict
+    upstream schemas — validation will produce warns — but the reader's
+    extraction path and the schema-const checks still pass, which is what the
+    bundle-level tests below exercise."""
     bundle_dir.mkdir(parents=True, exist_ok=True)
     (bundle_dir / "bundle_manifest.json").write_text(json.dumps({
         "schema": "modelbus.consumer_bundle_manifest.v1",
@@ -171,9 +182,9 @@ def test_load_bundle_fail_mode_propagates_validation_errors(tmp_path, monkeypatc
     assert result.get("errors"), f"expected errors in fail mode: {result}"
     assert any("consumer_id" in e for e in result["errors"]), result["errors"]
     assert any(
-        "[consumer-contract]" in e and "modelbus.consumer_surface_admission.v1" in e and "consumer_id" in e
+        "[upstream]" in e and "modelbus.consumer_surface_admission.v1" in e and "consumer_id" in e
         for e in result["errors"]
     ), (
-        "expected the surface_admission consumer-contract validation to fire for missing consumer_id; "
+        "expected the surface_admission upstream-mirror validation to fire for missing consumer_id; "
         f"errors: {result['errors']}"
     )

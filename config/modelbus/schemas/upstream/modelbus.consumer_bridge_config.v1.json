@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modelbus.local/schemas/modelbus.consumer_bridge_config.v1.json",
+  "title": "ModelBus Consumer Bridge Config (modelbus.consumer_bridge_config.v1)",
+  "description": "Per-consumer bridge config emitted as part of a bundle by scripts/ci/build_consumer_bundle.py. Captures the runtime endpoint, alias / mode / capability mapping per surface, and the release-window provenance the consumer should treat as authoritative for the bundle's lifetime. Bundle consumers (e.g. DataPulse) read this file at load time; live-API consumers do not need it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "generated_at_utc",
+    "consumer_id",
+    "bundle_id",
+    "base_url",
+    "request_protocol",
+    "endpoint",
+    "bus_key_env",
+    "tenant_env",
+    "tenant_header",
+    "accepted_protocols",
+    "accepted_modelbus_semantics",
+    "release_window",
+    "alias_by_surface",
+    "mode_by_surface",
+    "capability_packages_by_surface"
+  ],
+  "properties": {
+    "schema": {
+      "const": "modelbus.consumer_bridge_config.v1"
+    },
+    "generated_at_utc": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ISO 8601 UTC timestamp at which the bridge config was emitted."
+    },
+    "consumer_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bundle_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_url": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ModelBus runtime base URL the consumer should call against."
+    },
+    "request_protocol": {
+      "type": "string",
+      "description": "Wire protocol the consumer should default to (e.g. 'openai-chat-completions'). Empty allowed when the consumer is bundle-only and never opens a live connection."
+    },
+    "endpoint": {
+      "type": "string",
+      "description": "Relative endpoint path under base_url. Empty allowed for bundle-only consumers."
+    },
+    "bus_key_env": {
+      "type": "string",
+      "description": "Environment variable name the consumer should read the bus key from. Empty allowed when the consumer does not need auth."
+    },
+    "tenant_env": {
+      "type": "string",
+      "description": "Environment variable name for tenant identifier (P4)."
+    },
+    "tenant_header": {
+      "type": "string",
+      "description": "HTTP header name the runtime expects the tenant identifier on."
+    },
+    "accepted_protocols": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      ],
+      "description": "Wire protocols the consumer profile is willing to accept. null means 'inherit profile default'."
+    },
+    "accepted_modelbus_semantics": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      ],
+      "description": "Release-level semantics the consumer accepts (e.g. ['CONSTRAINED-DEPLOYED', 'ASSURED-ACTIVE'])."
+    },
+    "release_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generated_at_utc",
+        "release_level",
+        "assured_verdict",
+        "constitutional_semantics"
+      ],
+      "properties": {
+        "generated_at_utc": {
+          "type": ["string", "null"],
+          "description": "Timestamp on the release facts snapshot that produced this bridge config."
+        },
+        "release_level": {
+          "type": ["string", "null"]
+        },
+        "assured_verdict": {
+          "type": ["string", "null"]
+        },
+        "constitutional_semantics": {
+          "type": "string",
+          "description": "Derived MB release semantic literal (e.g. 'CONSTRAINED-DEPLOYED'). See modelbus.constitutional_semantics.infer_release_level."
+        }
+      }
+    },
+    "alias_by_surface": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Mapping surface_id → requested alias the consumer should ask the runtime for."
+    },
+    "mode_by_surface": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Mapping surface_id → default mode (e.g. 'assist', 'review', 'off')."
+    },
+    "capability_packages_by_surface": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {"type": "string", "minLength": 1}
+      },
+      "description": "Mapping surface_id → list of capability_package ids the surface depends on. Surfaces with no package bindings are omitted from the mapping (object may be empty)."
+    }
+  }
+}

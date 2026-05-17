@@ -27,7 +27,7 @@ jobs:
           GH_TOKEN: ${{ secrets.MB_REPO_READ_TOKEN }}
         run: |
           mkdir -p /tmp/mb-upstream
-          for schema in modelbus.consumer_bundle_manifest.v1.json modelbus.release_status.v1.json; do
+          for schema in modelbus.consumer_bundle_manifest.v1.json modelbus.consumer_bridge_config.v1.json modelbus.consumer_surface_admission.v1.json modelbus.release_status.v1.json; do
             gh api "repos/sunyifei83/ModelBusProject/contents/docs/schemas/${schema}" \
               --jq '.content' | base64 -d > "/tmp/mb-upstream/${schema}"
           done
@@ -37,7 +37,7 @@ jobs:
         run: |
           set +e
           status=0
-          for schema in modelbus.consumer_bundle_manifest.v1.json modelbus.release_status.v1.json; do
+          for schema in modelbus.consumer_bundle_manifest.v1.json modelbus.consumer_bridge_config.v1.json modelbus.consumer_surface_admission.v1.json modelbus.release_status.v1.json; do
             # Normalize key order via jq -S then diff. Non-empty diff fails the step.
             jq -S . "config/modelbus/schemas/upstream/${schema}" > /tmp/local.json
             jq -S . "/tmp/mb-upstream/${schema}" > /tmp/upstream.json
