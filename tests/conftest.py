@@ -11,6 +11,15 @@ from datapulse.collectors.base import ParseResult
 from datapulse.core.models import DataPulseItem, SourceType
 
 
+@pytest.fixture(autouse=True)
+def _isolate_modelbus_validation_counter(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Redirect the modelbus validation counter to tmp so tests never write to ~/.datapulse/."""
+    monkeypatch.setenv(
+        "DATAPULSE_MODELBUS_VALIDATION_COUNTER_PATH",
+        str(tmp_path / "modelbus_validation_counter.json"),
+    )
+
+
 @pytest.fixture()
 def tmp_inbox(tmp_path: Path) -> Path:
     """Return a temporary inbox JSON path."""

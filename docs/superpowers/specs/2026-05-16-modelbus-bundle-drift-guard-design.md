@@ -130,7 +130,7 @@ The DP-authored schemas mark only DP-consumed fields as `required`, leaving the 
 
 Rollout sub-stages within Layer 2:
 
-- **2a-warn**: Mirrors + DP-authored contracts committed, validation runs in warn-only mode (errors logged, not added to fail-closed `errors` list). Run for ≥7 days to confirm no false positives.
+- **2a-warn**: Mirrors + DP-authored contracts committed, validation runs in warn-only mode (errors logged, not added to fail-closed `errors` list). Run until the admission gate `scripts/check_modelbus_admission.sh` exits 0 (≥N clean validations since last warn — N=10 default). Time-based soak (originally ≥7 days) was deprecated as a subjective threshold; see §11.
 - **2-fail**: Flip to fail-closed mode for both source types.
 
 `datapulse/reader.py` changes:
@@ -146,7 +146,7 @@ Rollout sub-stages within Layer 2:
 
 Rollout sub-stages within Layer 2:
 
-- **2a**: Mirror committed, validation runs in warn-only mode (errors logged, not added to fail-closed `errors` list). Run for ≥7 days to confirm no false positives.
+- **2a**: Mirror committed, validation runs in warn-only mode (errors logged, not added to fail-closed `errors` list). Run until the admission gate `scripts/check_modelbus_admission.sh` exits 0 (≥N clean validations since last warn — N=10 default). Time-based soak (originally ≥7 days) was deprecated as a subjective threshold; see §11.
 - **2b**: Flip to fail-closed mode.
 
 ### Layer 3 — Weekly drift CI (P1, ~60 LoC YAML)
@@ -176,7 +176,7 @@ Token: GitHub Actions' default `GITHUB_TOKEN` is scoped to the running repo only
 
 Recommend PAT for minimum complexity. Implementation step 0 of Layer 3: create the PAT, add as secret, document rotation policy in workflow comments.
 
-### Layer 4 — Renovate auto-PR (P2, optional, ~20 LoC config)
+### Layer 4 — Renovate auto-PR (P2, **deferred — see §11 tripwire**, ~20 LoC config)
 
 New `renovate.json` (or add to existing if present) custom-manager block:
 
@@ -201,7 +201,7 @@ Mirror schemas carry a `// pin: <sha>` line (committed alongside the JSON, possi
 
 Since MB has no releases/tags currently, `github-tags` datasource may not work; fallback is "git" datasource with branch=main tracking. Decide at implementation time after probing what Renovate supports for tagless tracking.
 
-This layer is genuinely optional — Layer 3 already catches drift on a weekly cadence. Renovate adds developer-ergonomic PRs but is not load-bearing.
+This layer is genuinely optional — Layer 3 already catches drift on a weekly cadence. Renovate adds developer-ergonomic PRs but is not load-bearing. **Deferred** for the 1×1 same-owner case (see §11 for tripwire criteria + an alternative PyPI-package distribution path that would supersede Renovate-style mirror auto-PR if it ever becomes worth adopting).
 
 ## 5. Data flow
 
@@ -268,9 +268,9 @@ CI smoke for drift workflow itself: invoke via `workflow_dispatch` after first l
 | S0 | Spec approved | This doc reviewed by user |
 | S1 | Land Layer 2 mirror + warn-only validation | reader.py logs validation summary on bundle load |
 | S2 | Operator runs Layer 1 with MB | DP snapshot has 9/9 required fields and 7/7 artifacts |
-| S3 | Flip Layer 2 to fail-closed (2a→2b) | Validation errors gate `admission_source` fallback |
+| S3 | Flip Layer 2 to fail-closed (2a→2b) | `scripts/check_modelbus_admission.sh` exits 0 (≥N clean validations since last warn); validation errors gate `admission_source` fallback |
 | S4 | Land Layer 3 drift CI | First weekly run posts a passing report |
-| S5 (optional) | Land Layer 4 Renovate | One PR auto-generated when MB schema sha changes |
+| S5 (deferred) | Land Layer 4 Renovate **or** PyPI-package distribution | Tripwire triggered per §11 (≥2 schema changes/month *or* a new silent drift incident) |
 
 S1 and S2 can happen in parallel (warn-only mode is safe even with non-conformant snapshot).
 
@@ -294,3 +294,35 @@ S1 and S2 can happen in parallel (warn-only mode is safe even with non-conforman
   - Renovate custom-manager docs
   - Sourcemeta One — schema evolution rules
   - Confluent — backward-compat as default
+
+## 11. Governance & evolution (post-merge addendum, 2026-05-17)
+
+This section was added after PR #50 merged. It captures three corrections / extensions derived from a research pass on industry best practices (Linux kernel, Kubernetes, Rust, Chromium, GitHub Docs, Google SRE, Stripe, Confluent SR, Buf BSR, Conduktor, Renovate / Dependabot).
+
+### 11.1 Audit trail anchor — PR commits view, not main history
+
+Original framing (in the ob index "ModelBus 接入准备清单.md") asserted "10 commits 不 squash, preserve TDD red→green→review-fix 序列作为 governance audit trail." PR #50 was merged via squash per the repo's existing main convention (every prior PR appears as a single squash commit with `(#NN)` suffix; e.g. PR #49 → `1ef6ff3`).
+
+Resolution: **the PR commits view is the authoritative audit trail.** GitHub guarantees PR-attached commit history is permanent and indexed by PR number, independent of the source branch's lifecycle (the feat branch has been deleted). [GitHub: about merge methods](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges) explicitly recommends squash + PR-link as a valid pattern for preserving development history while keeping main linear. Reverting `1a42555` to re-merge with `--merge` would add 2 noise commits to main without producing a contiguous 10-commit sequence anyway; force-pushing to rewrite main is destructive and disproportionate. Mature OSS practice is split (Linux welcomes merge commits; Kubernetes mandates squash; Rust enforces linear; Chromium uses main-first cherry-pick) — there is no universal "correct" merge strategy, so the right call is to align with the repo's prior convention.
+
+**Operating policy going forward:** PRs in this repo are merged squash by default. Multi-commit governance / TDD trail intent is satisfied by referencing the PR commits view, not by mandating a particular merge mode.
+
+### 11.2 Warn → fail admission — event-gated, not time-gated
+
+Original §4.2 sub-stage 2a required "≥7 days warn-mode soak." This number had no industry citation — Kubernetes uses ~2 years for GA API deprecation ([k8s deprecation policy](https://kubernetes.io/docs/reference/using-api/deprecation-policy/)); Stripe uses 6–12 months for API version retirement ([Stripe upgrades](https://docs.stripe.com/upgrades)); Google SRE gates rollouts on error budget, not fixed duration ([SRE error budget policy](https://sre.google/workbook/error-budget-policy/)). For a single-owner, low-traffic data pipeline, importing a multi-tenant-B2C-shaped soak window is over-engineering in the opposite direction: it gates on a subjective time threshold instead of an observable signal.
+
+Resolution: **the soak gate is event-based, not time-based.** A small validation counter persists per-event state to `~/.datapulse/modelbus_validation_counter.json` (or via `DATAPULSE_MODELBUS_VALIDATION_COUNTER_PATH` for tests). Admission is granted when **N consecutive validation events have occurred without a warn** (default N=10, configurable via `--min-validations` flag). The check is invokable as `scripts/check_modelbus_admission.sh` and is the single source of truth for Task 7's "ready to flip" decision.
+
+This aligns with the project principle "事实锚点优先 — 机械化 / 客观化优先于人工." Time-based soak is a subjective fallback; event-based admission is a mechanical check.
+
+### 11.3 Layer 4 (auto-sync) — deferred + tripwire + PyPI alternative
+
+Layer 4 in §4 is Renovate-based mirror auto-PR. Scope C research surfaced that the industry-standard long-term pattern for cross-repo schema distribution is publisher-side packaging (Confluent SR; Buf BSR; PyPI / npm versioned schema package + Renovate/Dependabot consumer pull) rather than mirror-with-auto-PR. ([Conduktor schema evolution best practices](https://www.conduktor.io/glossary/schema-evolution-best-practices/); [Buf BSR docs](https://buf.build/docs/bsr/).) However, for the 1×1 same-owner case with sub-monthly schema change cadence, both Renovate-style auto-PR and PyPI-package distribution exceed the cost/benefit threshold for now ([Microsoft ISE: Pact value emerges at ≥3 microservices / >50% annual team turnover](https://devblogs.microsoft.com/ise/pact-contract-testing-because-not-everything-needs-full-integration-tests/)).
+
+Resolution: **Layer 4 is deferred.** Re-evaluate when **any** of the following tripwires fire:
+
+- MB schema change frequency exceeds 2/month for a sustained period (>3 months)
+- A second silent-drift incident occurs despite Layer 3 weekly workflow
+- A third consumer of MB bundles appears (i.e., the 1×1 assumption breaks)
+
+When the tripwire fires, prefer **PyPI-published schema package + Renovate consumer pull** over the mirror+auto-PR design originally drafted in §4 Layer 4. Rationale: it decouples schema lifecycle from git commit cadence, leverages first-class versioning (consumers pin a known version), and reuses standard Python dependency tooling instead of a bespoke Renovate custom-manager. The original §4 Layer 4 design remains documented as a fallback if private PyPI distribution proves operationally heavier than expected.

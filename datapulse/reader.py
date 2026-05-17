@@ -1257,8 +1257,14 @@ class DataPulseReader:
         return []
 
     def _record_modelbus_validation(self, *, bundle_errors: list[str], validation_errors: list[str]) -> None:
-        """Route validation errors per current mode.
-        In 'warn' (default), log each. In 'fail', append to bundle errors list."""
+        """Route validation errors per current mode, plus record event for warn→fail admission gating.
+        In 'warn' (default), log each. In 'fail', append to bundle errors list.
+        Every call increments the validation counter (see datapulse.core.validation_counter)."""
+        try:
+            from datapulse.core.validation_counter import record_event
+            record_event(warned=bool(validation_errors))
+        except (OSError, ImportError) as exc:
+            logger.debug("modelbus validation counter persistence skipped: %s", exc)
         if not validation_errors:
             return
         mode = str(os.getenv(self._MODELBUS_VALIDATION_MODE_ENV, self._MODELBUS_VALIDATION_MODE_DEFAULT)).strip().lower()
