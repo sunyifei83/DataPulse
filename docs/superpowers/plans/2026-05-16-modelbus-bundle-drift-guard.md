@@ -783,11 +783,34 @@ snapshot_conformance.py as sentinel to catch future drift."
 
 ## Task 7: Flip Layer 2 default to fail-closed mode
 
-Prerequisite: Tasks 1-6 landed and the warn-mode log lines have been clean for ≥7 days (no false-positive warnings in CI or local dev).
+**Prerequisite (revised 2026-05-17, see design §11.2):**
+
+Tasks 1–6 landed AND `scripts/check_modelbus_admission.sh` exits 0 (default: ≥10 validation events since last warn). The original "≥7 days warn-mode soak" criterion was deprecated as a subjective threshold — replaced by the event-based admission gate implemented in `datapulse/core/validation_counter.py`. This aligns with the project rule "事实锚点优先 — 机械化 / 客观化优先于人工".
+
+To check admission status at any time:
+
+```bash
+scripts/check_modelbus_admission.sh                  # default min=10
+scripts/check_modelbus_admission.sh --min-validations 5   # tune threshold
+uv run python -m datapulse.core.validation_counter state  # dump counter JSON
+```
+
+Exit 0 = ready to flip; exit 1 = pending. The script writes a one-line GRANTED/PENDING summary to stderr.
+
+Counter state is persisted to `~/.datapulse/modelbus_validation_counter.json` (override via `DATAPULSE_MODELBUS_VALIDATION_COUNTER_PATH` env var, used by tests).
 
 **Files:**
 - Modify: `datapulse/reader.py` (change one constant)
 - Modify: `tests/test_modelbus_schema_validation.py` (flip default-mode test)
+
+- [ ] **Step 0: Confirm admission**
+
+```bash
+scripts/check_modelbus_admission.sh
+echo "exit: $?"
+```
+
+Expected: exit 0 with `GRANTED: ...` on stderr. If exit 1 (`PENDING: ...`), do not proceed — investigate any non-zero warn count first.
 
 - [ ] **Step 1: Update test to expect fail-mode as default**
 
@@ -858,9 +881,11 @@ Expected: all PASS (warn test now uses explicit env var; default test passes; or
 git add datapulse/reader.py tests/test_modelbus_schema_validation.py
 git commit -m "feat(reader): flip modelbus schema validation default to fail-closed
 
-After >=7 days warn-mode soak with no false positives, validation errors
-now propagate into the bundle errors list by default. Opt back into
-warn mode via env DATAPULSE_MODELBUS_VALIDATION_MODE=warn."
+Admission gate (scripts/check_modelbus_admission.sh) returned exit 0:
+N consecutive validation events since the most recent warn, satisfying
+the event-based soak criterion documented in design §11.2. Validation
+errors now propagate into the bundle errors list by default. Opt back
+into warn mode via env DATAPULSE_MODELBUS_VALIDATION_MODE=warn."
 ```
 
 ---
