@@ -4460,6 +4460,78 @@
   "recommended_next_slice": null,
   "progress_log": [
     {
+      "at_utc": "2026-05-18T08:09:25Z",
+      "slice_id": "L21.h.modelbus_bundle_drift_ci_guard_fix",
+      "status": "completed",
+      "tier": "hardening",
+      "commit": "25485e2",
+      "pr": 57,
+      "backfilled": true
+    },
+    {
+      "at_utc": "2026-05-18T07:00:49Z",
+      "slice_id": "L21.h.modelbus_schema_validation_fail_closed",
+      "status": "completed",
+      "tier": "hardening",
+      "commit": "a7448ea",
+      "pr": 56,
+      "backfilled": true
+    },
+    {
+      "at_utc": "2026-05-18T04:01:35Z",
+      "slice_id": "L21.h.modelbus_bundle_refresh_20260413",
+      "status": "completed",
+      "tier": "hardening",
+      "commit": "e802aca",
+      "pr": 55,
+      "backfilled": true
+    },
+    {
+      "at_utc": "2026-05-17T16:27:02Z",
+      "slice_id": "L21.h.modelbus_authoritative_consumer_schemas",
+      "status": "completed",
+      "tier": "hardening",
+      "commit": "7cc3b6a",
+      "pr": 54,
+      "backfilled": true
+    },
+    {
+      "at_utc": "2026-05-17T09:46:14Z",
+      "slice_id": "L21.h.modelbus_admission_counter",
+      "status": "completed",
+      "tier": "hardening",
+      "commit": "ba3e401",
+      "pr": 53,
+      "backfilled": true
+    },
+    {
+      "at_utc": "2026-05-17T04:02:35Z",
+      "slice_id": "L21.h.modelbus_bundle_drift_guard",
+      "status": "completed",
+      "tier": "hardening",
+      "commit": "1a42555",
+      "pr": 50,
+      "backfilled": true
+    },
+    {
+      "at_utc": "2026-05-17T03:34:24Z",
+      "slice_id": "L21.h.modelbus_bundle_drift_guard_spec",
+      "status": "completed",
+      "tier": "hardening",
+      "commit": "1ef6ff3",
+      "pr": 49,
+      "backfilled": true
+    },
+    {
+      "at_utc": "2026-05-07T08:49:55Z",
+      "slice_id": "L34.h.console_accessibility_smoke_gate",
+      "status": "completed",
+      "tier": "hardening",
+      "commit": "6ada88b",
+      "pr": null,
+      "backfilled": true
+    },
+    {
       "at_utc": "2026-04-20T14:02:10Z",
       "slice_id": "L34.4",
       "status": "completed"
