@@ -1211,7 +1211,7 @@ class DataPulseReader:
     _MODELBUS_SCHEMA_SOURCES = ("upstream", "consumer-contract")
     _MODELBUS_VALIDATION_WARNED_MISSING_LIB = False
     _MODELBUS_VALIDATION_MODE_ENV = "DATAPULSE_MODELBUS_VALIDATION_MODE"
-    _MODELBUS_VALIDATION_MODE_DEFAULT = "warn"
+    _MODELBUS_VALIDATION_MODE_DEFAULT = "fail"
 
     def _validate_against_schema(self, payload: dict[str, Any], schema_name: str) -> list[str]:
         """Validate `payload` against the named schema, trying upstream/ first then consumer-contract/.
