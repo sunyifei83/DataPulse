@@ -313,6 +313,151 @@
         "telegram_readiness_json": {
           "type": "string",
           "minLength": 1
+        },
+        "chat_retry_evidence_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "experimental_lane_attestation_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "experimental_lane_runtime_hits_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "experimental_model_probe_timeouts_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "experimental_required_models_file": {
+          "type": "string",
+          "description": "Path to the experimental-lane required-models manifest for this release window. Emit-time sentinel: empty string ('') when the release window declared no experimental required models — the empty case is contractual rather than an omission."
+        },
+        "gemini_contract_hits_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gemini_runtime_hits_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_probe_timeouts_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_openapi_preflight_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "release_env_isolation_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "structured_contract_hits_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "structured_contract_required_json": {
+          "type": "string",
+          "minLength": 1
+        },
+        "structured_contract_retry_evidence_json": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "experimental_lanes": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional attestation block for experimental routing lanes. Emit-only when the release window ran with experimental-lane attestation; absent otherwise.",
+      "properties": {
+        "attestation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "reason",
+            "blocking",
+            "profile"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "PASS",
+                "FAIL",
+                "SKIPPED",
+                "WARN_MISSING",
+                "WARN_INVALID"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            },
+            "blocking": {
+              "type": "boolean"
+            },
+            "profile": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "protocol_surfaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Counts of required-model surfaces per upstream protocol family. Consumed by validate_release_status_contract.py to decide which protocol-family contracts must be present in the bundle.",
+      "required": [
+        "api_format_counts"
+      ],
+      "properties": {
+        "api_format_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "gemini_required_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "claude_required_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "openai_responses_required_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "semantic_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Release scope semantics: are all aliases required, or only a target subset? Required-models mode + count drive consumer admission decisions in validate_release_status_contract.py.",
+      "required": [
+        "all_aliases_required",
+        "required_models_mode",
+        "required_models_count"
+      ],
+      "properties": {
+        "all_aliases_required": {
+          "type": "boolean"
+        },
+        "required_models_mode": {
+          "type": "string",
+          "enum": [
+            "all-aliases",
+            "target-scope"
+          ]
+        },
+        "required_models_count": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     }

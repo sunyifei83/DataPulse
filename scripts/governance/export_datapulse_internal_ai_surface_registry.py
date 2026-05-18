@@ -110,17 +110,17 @@ def extract_literal_assignments(path: Path, names: List[str]) -> Dict[str, Any]:
 
 def build_capability_index(catalog: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     return {
-        str(item.get("id", "")).strip(): item
+        str(item.get("id") or "").strip(): item
         for item in catalog.get("capabilities", [])
-        if str(item.get("id", "")).strip()
+        if str(item.get("id") or "").strip()
     }
 
 
 def build_admission_index(admission_payload: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     return {
-        str(item.get("surface_id", "")).strip(): item
+        str(item.get("surface_id") or "").strip(): item
         for item in admission_payload.get("surface_admissions", [])
-        if str(item.get("surface_id", "")).strip()
+        if str(item.get("surface_id") or "").strip()
     }
 
 
@@ -140,7 +140,7 @@ def projection_layers(capability: Dict[str, Any]) -> List[str]:
     for layer, payload in capability.get("surfaces", {}).items():
         if not isinstance(payload, dict):
             continue
-        if str(payload.get("availability", "")).strip() == "available":
+        if str(payload.get("availability") or "").strip() == "available":
             layers.append(str(layer).strip())
     return layers
 
@@ -155,7 +155,7 @@ def build_surface_row(
 ) -> Dict[str, Any]:
     surface_id = spec["surface_id"]
     capability_id = spec["capability_id"]
-    governed_surface_id = str(capability.get("governed_ai_surface_id", "")).strip()
+    governed_surface_id = str(capability.get("governed_ai_surface_id") or "").strip()
     if spec.get("bridge_bound", False) and governed_surface_id != surface_id:
         raise ValueError(
             f"Capability {capability_id} expected governed_ai_surface_id={surface_id} but found {governed_surface_id or '<missing>'}"
@@ -166,19 +166,19 @@ def build_surface_row(
     if spec.get("bridge_bound", False):
         bound_aliases = dedupe(
             [
-                str(bridge_alias_by_surface.get(surface_id, "")).strip(),
-                str(admission_row.get("requested_alias", "")).strip(),
-                str(admission_row.get("admitted_alias", "")).strip(),
+                str(bridge_alias_by_surface.get(surface_id) or "").strip(),
+                str(admission_row.get("requested_alias") or "").strip(),
+                str(admission_row.get("admitted_alias") or "").strip(),
             ]
         )
 
-    subject_kind = str(spec.get("subject_kind", "")).strip() or str(lifecycle_anchors.get(surface_id, "")).strip()
-    output_kind = str(spec.get("output_kind", "")).strip() or str(output_kinds.get(surface_id, "")).strip()
+    subject_kind = str(spec.get("subject_kind") or "").strip() or str(lifecycle_anchors.get(surface_id) or "").strip()
+    output_kind = str(spec.get("output_kind") or "").strip() or str(output_kinds.get(surface_id) or "").strip()
 
     return {
         "surface_id": surface_id,
         "registry_class": spec["registry_class"],
-        "owner_seam": str(capability.get("owner_seam", "")).strip(),
+        "owner_seam": str(capability.get("owner_seam") or "").strip(),
         "capability_id": capability_id,
         "governed_ai_surface_id": governed_surface_id,
         "internal_only": True,
@@ -186,7 +186,7 @@ def build_surface_row(
         "customer_runtime_enabled": False,
         "subject_kind": subject_kind,
         "output_kind": output_kind,
-        "schema_contract_id": str(admission_row.get("schema_contract", "")).strip(),
+        "schema_contract_id": str(admission_row.get("schema_contract") or "").strip(),
         "bound_aliases": bound_aliases,
         "bound_tools": bound_tools_from_capability(capability),
         "projection_layers": projection_layers(capability),

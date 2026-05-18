@@ -9,7 +9,7 @@ for the payloads DP consumes.
 | `modelbus.consumer_bundle_manifest.v1.json` | `56c641142d40b4896c4d10f6e2e538362ee82447` | 2026-05-17 |
 | `modelbus.consumer_bridge_config.v1.json` | `00fd50f7f0bc37b1a9c35365af48abe4ed211d81` | 2026-05-17 |
 | `modelbus.consumer_surface_admission.v1.json` | `a455f0143f1de850d8850c298de91688d79af0d0` | 2026-05-17 |
-| `modelbus.release_status.v1.json` | `78aa95aac295eb20cf907f6c8371583d03008a09` | 2026-05-16 |
+| `modelbus.release_status.v1.json` | `48e8ab45730656446b3d30d491a7a442a252fc5f` | 2026-05-18 |
 
 The two `consumer_{bridge_config,surface_admission}.v1.json` entries replaced
 DP-authored consumer-driven contracts from `../consumer-contract/` after MB

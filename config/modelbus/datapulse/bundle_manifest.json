@@ -1,17 +1,114 @@
 {
   "schema": "modelbus.consumer_bundle_manifest.v1",
-  "generated_at_utc": "2026-04-02T03:05:09Z",
+  "generated_at_utc": "2026-04-13T08:31:49Z",
   "bundle_id": "datapulse.ai_surface_bus",
   "consumer_id": "datapulse",
+  "source_profile": {
+    "path": "docs/examples/consumer-profile.datapulse.json",
+    "schema": "modelbus.consumer_profile.v1",
+    "consumer_id": "datapulse"
+  },
+  "runtime": {
+    "base_url": "http://127.0.0.1:56717/v1",
+    "request_protocol": "responses",
+    "endpoint": "/v1/responses",
+    "auth_env": "DATAPULSE_MODELBUS_BUS_KEY",
+    "tenant_env": "DATAPULSE_MODELBUS_TENANT",
+    "tenant_header": "X-ModelBus-Tenant"
+  },
   "artifacts": {
-    "surface_admission": {
-      "path": "surface_admission.json"
+    "bundle_readme": {
+      "path": "README.md",
+      "required": true,
+      "role": "operator_readme",
+      "schema_ref": null
+    },
+    "bundle_manifest": {
+      "path": "bundle_manifest.json",
+      "required": true,
+      "role": "bundle_entrypoint",
+      "schema_ref": "docs/schemas/modelbus.consumer_bundle_manifest.v1.json"
     },
     "bridge_config": {
-      "path": "bridge_config.json"
+      "path": "bridge_config.json",
+      "required": true,
+      "role": "northbound_bridge_config",
+      "schema_ref": null
+    },
+    "alias_catalog": {
+      "path": "alias_catalog.json",
+      "required": true,
+      "role": "surface_alias_catalog",
+      "schema_ref": null
+    },
+    "surface_admission": {
+      "path": "surface_admission.json",
+      "required": true,
+      "role": "surface_admission_truth",
+      "schema_ref": null
     },
     "release_status": {
-      "path": "release_status.json"
+      "path": "release_status.json",
+      "required": true,
+      "role": "runtime_release_truth",
+      "schema_ref": "docs/schemas/modelbus.release_status.v1.json"
+    },
+    "smoke_manifest": {
+      "path": "smoke_manifest.json",
+      "required": true,
+      "role": "northbound_smoke_plan",
+      "schema_ref": null
     }
+  },
+  "surfaces": [
+    {
+      "surface_id": "mission_suggest",
+      "requested_alias": "dp.mission.suggest",
+      "schema_contract": "datapulse_ai_watch_suggestion.v1",
+      "admission_requirement": "admitted_only",
+      "manual_fallback": "manual_or_deterministic_behavior",
+      "degraded_result_allowed": true
+    },
+    {
+      "surface_id": "triage_assist",
+      "requested_alias": "dp.triage.assist",
+      "schema_contract": "datapulse_ai_triage_explain.v1",
+      "admission_requirement": "admitted_only",
+      "manual_fallback": "manual_or_deterministic_behavior",
+      "degraded_result_allowed": true
+    },
+    {
+      "surface_id": "claim_draft",
+      "requested_alias": "dp.claim.draft",
+      "schema_contract": "datapulse_ai_claim_draft.v1",
+      "admission_requirement": "admitted_only",
+      "manual_fallback": "manual_or_deterministic_behavior",
+      "degraded_result_allowed": false
+    },
+    {
+      "surface_id": "report_draft",
+      "requested_alias": "dp.report.draft",
+      "schema_contract": null,
+      "admission_requirement": "blocked_until_contract",
+      "manual_fallback": "manual_or_deterministic_behavior",
+      "degraded_result_allowed": false
+    },
+    {
+      "surface_id": "delivery_summary",
+      "requested_alias": "dp.delivery.summary",
+      "schema_contract": "datapulse_ai_delivery_summary.v1",
+      "admission_requirement": "admitted_only",
+      "manual_fallback": "manual_or_deterministic_behavior",
+      "degraded_result_allowed": true
+    }
+  ],
+  "governance": {
+    "accepted_modelbus_semantics": [
+      "CONSTRAINED-DEPLOYED",
+      "ASSURED-ACTIVE"
+    ],
+    "require_surface_admission": true,
+    "require_schema_validation": true,
+    "fail_closed_on_missing_artifact": true
   }
 }

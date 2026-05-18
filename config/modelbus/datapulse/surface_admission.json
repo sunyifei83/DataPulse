@@ -1,12 +1,14 @@
 {
   "schema": "modelbus.consumer_surface_admission.v1",
-  "generated_at_utc": "2026-04-02T03:43:17Z",
+  "generated_at_utc": "2026-04-13T08:31:49Z",
   "consumer_id": "datapulse",
+  "source_profile": "docs/examples/consumer-profile.datapulse.json",
+  "source_release_status": "out/assured_refresh_20260413_041944/release_status.json",
   "release_window": {
-    "generated_at_utc": "2026-04-02T03:43:17Z",
-    "release_level": "ci_proven",
+    "generated_at_utc": "2026-04-13T04:20:56Z",
+    "release_level": "assured",
     "assured_verdict": "pass",
-    "constitutional_semantics": "BUNDLE-FIRST-REQUIRED"
+    "constitutional_semantics": "ASSURED-ACTIVE"
   },
   "surface_admissions": [
     {
@@ -20,16 +22,29 @@
         "review": "admitted"
       },
       "schema_contract": "datapulse_ai_watch_suggestion.v1",
-      "manual_fallback": "manual_review_of_ai_payload_before_final_state_change",
+      "manual_fallback": "manual_or_deterministic_behavior",
+      "consumer_boundary": "bounded_scope_suggestions_only",
       "degraded_result_allowed": true,
       "must_expose_runtime_facts": [
         "served_by_alias",
+        "request_id",
         "fallback_used",
         "degraded",
         "schema_valid",
-        "manual_override_required",
-        "request_id"
+        "manual_override_required"
       ],
+      "runtime_hit": {
+        "status": "not_provided",
+        "ok": null,
+        "request_id_present": false,
+        "request_ids": {},
+        "http_code": null,
+        "body_model": "",
+        "client_request_id": "",
+        "attempt_count": 0,
+        "api_format": null,
+        "structured_mode": null
+      },
       "rejectable_gaps": []
     },
     {
@@ -43,16 +58,29 @@
         "review": "admitted"
       },
       "schema_contract": "datapulse_ai_triage_explain.v1",
-      "manual_fallback": "manual_review_of_ai_payload_before_final_state_change",
+      "manual_fallback": "manual_or_deterministic_behavior",
+      "consumer_boundary": "operator_review_queue_only",
       "degraded_result_allowed": true,
       "must_expose_runtime_facts": [
         "served_by_alias",
+        "request_id",
         "fallback_used",
         "degraded",
         "schema_valid",
-        "manual_override_required",
-        "request_id"
+        "manual_override_required"
       ],
+      "runtime_hit": {
+        "status": "not_provided",
+        "ok": null,
+        "request_id_present": false,
+        "request_ids": {},
+        "http_code": null,
+        "body_model": "",
+        "client_request_id": "",
+        "attempt_count": 0,
+        "api_format": null,
+        "structured_mode": null
+      },
       "rejectable_gaps": []
     },
     {
@@ -66,16 +94,29 @@
         "review": "admitted"
       },
       "schema_contract": "datapulse_ai_claim_draft.v1",
-      "manual_fallback": "manual_review_of_ai_payload_before_final_state_change",
+      "manual_fallback": "manual_or_deterministic_behavior",
+      "consumer_boundary": "review_before_claim_finalization",
       "degraded_result_allowed": false,
       "must_expose_runtime_facts": [
         "served_by_alias",
+        "request_id",
         "fallback_used",
         "degraded",
         "schema_valid",
-        "manual_override_required",
-        "request_id"
+        "manual_override_required"
       ],
+      "runtime_hit": {
+        "status": "not_provided",
+        "ok": null,
+        "request_id_present": false,
+        "request_ids": {},
+        "http_code": null,
+        "body_model": "",
+        "client_request_id": "",
+        "attempt_count": 0,
+        "api_format": null,
+        "structured_mode": null
+      },
       "rejectable_gaps": []
     },
     {
@@ -88,32 +129,35 @@
         "assist": "rejected",
         "review": "rejected"
       },
-      "schema_contract": "",
+      "schema_contract": null,
       "manual_fallback": "manual_or_deterministic_behavior",
+      "consumer_boundary": "blocked_until_structured_contract",
       "degraded_result_allowed": false,
       "must_expose_runtime_facts": [
         "served_by_alias",
+        "request_id",
         "fallback_used",
         "degraded",
         "schema_valid",
-        "manual_override_required",
-        "request_id"
+        "manual_override_required"
       ],
+      "runtime_hit": {
+        "status": "not_provided",
+        "ok": null,
+        "request_id_present": false,
+        "request_ids": {},
+        "http_code": null,
+        "body_model": "",
+        "client_request_id": "",
+        "attempt_count": 0,
+        "api_format": null,
+        "structured_mode": null
+      },
       "rejectable_gaps": [
         {
           "gap_id": "missing_structured_contract",
           "blocking": true,
-          "reason": "report_draft has no admitted structured payload contract after L16.4 and must fail closed."
-        },
-        {
-          "gap_id": "missing_required_schema_contract",
-          "blocking": true,
-          "reason": "The surface does not yet declare an admitted structured payload contract."
-        },
-        {
-          "gap_id": "report_draft.experimental:missing_contract_binding",
-          "blocking": true,
-          "reason": "Candidate subscription does not satisfy the required structured contract binding."
+          "reason": "surface is blocked_until_contract and has no admitted structured contract"
         }
       ]
     },
@@ -128,16 +172,29 @@
         "review": "admitted"
       },
       "schema_contract": "datapulse_ai_delivery_summary.v1",
-      "manual_fallback": "manual_review_of_ai_payload_before_final_state_change",
+      "manual_fallback": "manual_or_deterministic_behavior",
+      "consumer_boundary": "operator_visible_delivery_digest_only",
       "degraded_result_allowed": true,
       "must_expose_runtime_facts": [
         "served_by_alias",
+        "request_id",
         "fallback_used",
         "degraded",
         "schema_valid",
-        "manual_override_required",
-        "request_id"
+        "manual_override_required"
       ],
+      "runtime_hit": {
+        "status": "not_provided",
+        "ok": null,
+        "request_id_present": false,
+        "request_ids": {},
+        "http_code": null,
+        "body_model": "",
+        "client_request_id": "",
+        "attempt_count": 0,
+        "api_format": null,
+        "structured_mode": null
+      },
       "rejectable_gaps": []
     }
   ]
