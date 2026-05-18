@@ -755,6 +755,7 @@ def test_ai_claim_draft_fails_closed_on_invalid_payload(monkeypatch, tmp_path):
 
 
 def test_ai_report_draft_returns_fail_closed_runtime_projection_when_contract_is_missing(monkeypatch, tmp_path):
+    monkeypatch.setenv("DATAPULSE_MODELBUS_VALIDATION_MODE", "warn")
     reader = _reader(tmp_path)
     report = reader.create_report(
         title="Runtime Closure Report",

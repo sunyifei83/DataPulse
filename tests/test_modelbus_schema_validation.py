@@ -151,7 +151,7 @@ def test_load_bundle_warn_mode_logs_but_does_not_fail(tmp_path, monkeypatch, cap
     sa_path.write_text(json.dumps(sa))
 
     monkeypatch.setenv("DATAPULSE_MODELBUS_BUNDLE_DIR", str(bundle_dir))
-    monkeypatch.delenv("DATAPULSE_MODELBUS_VALIDATION_MODE", raising=False)  # default = warn
+    monkeypatch.setenv("DATAPULSE_MODELBUS_VALIDATION_MODE", "warn")  # explicit opt-in
 
     reader = DataPulseReader()
     with caplog.at_level("WARNING"):
@@ -162,6 +162,37 @@ def test_load_bundle_warn_mode_logs_but_does_not_fail(tmp_path, monkeypatch, cap
     # but the new validation should ALSO log a warn about consumer_id missing.
     validation_warnings = [r for r in caplog.records if "consumer_id" in r.getMessage()]
     assert validation_warnings, "expected warn-mode log line mentioning consumer_id"
+
+
+def test_load_bundle_default_mode_is_fail(tmp_path, monkeypatch):
+    """Post-flip default: upstream-schema validation errors propagate without env var.
+
+    Asserts the [upstream] marker (only produced when validation_mode='fail';
+    in warn mode the upstream JSONSchema violation is logged but not appended
+    to errors). The hard-coded consumer_id check fires in both modes, so this
+    test distinguishes via the [upstream] prefix instead of bare 'consumer_id'.
+    """
+    bundle_dir = tmp_path / "bundle"
+    _write_conformant_bundle(bundle_dir)
+    sa_path = bundle_dir / "surface_admission.json"
+    sa = json.loads(sa_path.read_text())
+    del sa["consumer_id"]
+    sa_path.write_text(json.dumps(sa))
+
+    monkeypatch.setenv("DATAPULSE_MODELBUS_BUNDLE_DIR", str(bundle_dir))
+    monkeypatch.delenv("DATAPULSE_MODELBUS_VALIDATION_MODE", raising=False)
+
+    reader = DataPulseReader()
+    result = reader._load_modelbus_bundle_surface_admissions()
+
+    assert result.get("errors"), "expected default mode (fail) to surface errors"
+    assert any(
+        "[upstream]" in e and "modelbus.consumer_surface_admission.v1" in e and "consumer_id" in e
+        for e in result["errors"]
+    ), (
+        "expected the [upstream] schema-validation error to propagate by default; "
+        f"errors: {result['errors']}"
+    )
 
 
 def test_load_bundle_fail_mode_propagates_validation_errors(tmp_path, monkeypatch):

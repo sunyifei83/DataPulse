@@ -822,6 +822,7 @@ def test_ai_surface_precheck_rejects_report_draft_without_contract(tmp_path, mon
 def test_ai_surface_precheck_prefers_modelbus_bundle_when_present(tmp_path, monkeypatch):
     from pathlib import Path
 
+    monkeypatch.setenv("DATAPULSE_MODELBUS_VALIDATION_MODE", "warn")
     inbox_path = str(tmp_path / "inbox.json")
     catalog_path = str(tmp_path / "catalog.json")
     Path(catalog_path).write_text(json.dumps({
@@ -872,6 +873,7 @@ def test_ai_surface_precheck_prefers_modelbus_bundle_when_present(tmp_path, monk
 def test_ai_surface_precheck_prefers_explicit_env_bundle_over_canonical_default(tmp_path, monkeypatch):
     from pathlib import Path
 
+    monkeypatch.setenv("DATAPULSE_MODELBUS_VALIDATION_MODE", "warn")
     inbox_path = str(tmp_path / "inbox.json")
     catalog_path = str(tmp_path / "catalog.json")
     Path(catalog_path).write_text(json.dumps({
@@ -929,6 +931,7 @@ def test_ai_surface_precheck_prefers_explicit_env_bundle_over_canonical_default(
 def test_ai_surface_precheck_uses_canonical_bundle_when_env_is_not_set(tmp_path, monkeypatch):
     from pathlib import Path
 
+    monkeypatch.setenv("DATAPULSE_MODELBUS_VALIDATION_MODE", "warn")
     inbox_path = str(tmp_path / "inbox.json")
     catalog_path = str(tmp_path / "catalog.json")
     Path(catalog_path).write_text(json.dumps({
