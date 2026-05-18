@@ -1,9 +1,145 @@
 {
   "schema": "modelbus.release_status.v1",
-  "generated_at_utc": "2026-04-02T03:43:17Z",
-  "release_level": "ci_proven",
+  "generated_at_utc": "2026-04-13T04:20:56Z",
+  "release_level": "assured",
   "assured_verdict": "pass",
+  "consumer_line": "self",
   "runtime": {
-    "base_url": "https://modelbus.example.com"
+    "base_url": "http://127.0.0.1:56717/v1",
+    "base_path": "/v1",
+    "status_endpoint": "/statusz",
+    "models_endpoint": "/v1/models",
+    "chat_completions_endpoint": "/v1/chat/completions",
+    "runtime_config": "/Users/sunyifei/ModelBusProject/out/fact_refresh_reissue_20260410_0645/modelbus-runtime-local/config.runtime.json",
+    "auth_mode": "bearer",
+    "whitelist_mode": "enforce",
+    "whitelist_ids": [
+      "controller-admitted-bltcy-claude46-local",
+      "controller-admitted-icodeeasy-local",
+      "last-2m",
+      "openclaw-capability-admitted",
+      "user-policy"
+    ]
+  },
+  "models_summary": {
+    "aliases_total": 50,
+    "allowed_total": 50,
+    "blocked_aliases": []
+  },
+  "required_models": [
+    "gpt-5.3-codex"
+  ],
+  "semantic_scope": {
+    "all_aliases_required": false,
+    "required_models_mode": "target-scope",
+    "required_models_count": 1
+  },
+  "protocol_surfaces": {
+    "api_format_counts": {
+      "openai-completions": 0,
+      "openai-responses": 1,
+      "anthropic-messages": 0,
+      "google-generative-ai": 0,
+      "unknown": 0
+    },
+    "gemini_required_count": 0,
+    "claude_required_count": 0,
+    "openai_responses_required_count": 1
+  },
+  "chat_probe": {
+    "all_required_ok": true,
+    "results": {
+      "gpt-5.3-codex": {
+        "http_code": "200",
+        "ok": true,
+        "attempt_count": 1,
+        "api_format": "openai-responses"
+      }
+    }
+  },
+  "consumer_contract": {
+    "required_probe": {
+      "healthz": {
+        "method": "GET",
+        "path": "/healthz",
+        "auth_required": false
+      },
+      "readyz": {
+        "method": "GET",
+        "path": "/readyz",
+        "auth_required": false
+      },
+      "models": {
+        "method": "GET",
+        "path": "/v1/models",
+        "auth_required": true
+      },
+      "chat_completions": {
+        "method": "POST",
+        "path": "/v1/chat/completions",
+        "auth_required": true
+      }
+    },
+    "failure_classification": {
+      "probe_failure": "unknown_probe_failure",
+      "blocked_fact": "models_allowed_false",
+      "blocked_fact_location": "/v1/models item.modelbus.allowed=false with blocked_reason"
+    }
+  },
+  "consumer_gates": {
+    "line_boundary": {
+      "status": "PASS",
+      "reason": "consumer line boundary verified"
+    },
+    "alignment": {
+      "status": "PASS",
+      "reason": "consumer provider aligned"
+    },
+    "runtime_hits": {
+      "status": "PASS",
+      "reason": "consumer runtime hits verified"
+    },
+    "key_sync_evidence": {
+      "status": "PASS",
+      "reason": "consumer key sync evidence valid"
+    },
+    "telegram_readiness": {
+      "status": "PASS",
+      "reason": "telegram readiness verified"
+    }
+  },
+  "experimental_lanes": {
+    "attestation": {
+      "status": "SKIPPED",
+      "reason": "not_requested",
+      "blocking": false,
+      "profile": ""
+    }
+  },
+  "evidence": {
+    "consumer_line_boundary_json": "out/assured_refresh_20260413_041944/assured_consumer_line_boundary.json",
+    "models_json": "out/assured_refresh_20260413_041944/assured_models.json",
+    "required_models_file": "out/assured_refresh_20260413_041944/assured_required_models.json",
+    "experimental_required_models_file": "",
+    "provider_openapi_preflight_json": "out/assured_refresh_20260413_041944/provider_protocol_preflight.json",
+    "model_probe_timeouts_json": "out/assured_refresh_20260413_041944/assured_model_probe_timeouts.json",
+    "experimental_model_probe_timeouts_json": "out/assured_refresh_20260413_041944/assured_experimental_model_probe_timeouts.json",
+    "structured_contract_required_json": "out/assured_refresh_20260413_041944/structured_contract_required_models.json",
+    "structured_contract_hits_json": "out/assured_refresh_20260413_041944/structured_contract_hits.json",
+    "structured_contract_retry_evidence_json": "out/assured_refresh_20260413_041944/structured_contract_retry_evidence.json",
+    "chat_retry_evidence_json": "out/assured_refresh_20260413_041944/assured_chat_retry_evidence.json",
+    "gemini_runtime_hits_json": "out/assured_refresh_20260413_041944/gemini_runtime_hits.json",
+    "gemini_contract_hits_json": "out/assured_refresh_20260413_041944/gemini_contract_hits.json",
+    "experimental_lane_attestation_json": "out/assured_refresh_20260413_041944/experimental_lane_attestation.json",
+    "experimental_lane_runtime_hits_json": "out/assured_refresh_20260413_041944/experimental_lane_runtime_hits.json",
+    "chat_results_json": "out/assured_refresh_20260413_041944/assured_chat_results.json",
+    "consumer_alignment_json": "out/assured_refresh_20260413_041944/assured_consumer_alignment.json",
+    "consumer_hits_json": "out/assured_refresh_20260413_041944/assured_consumer_hits.json",
+    "consumer_key_sync_evidence_json": "out/assured_refresh_20260413_041944/assured_consumer_key_sync_evidence.json",
+    "consumer_key_sync_json": "out/assured_refresh_20260413_041944/consumer_key_sync.json",
+    "telegram_readiness_json": "out/assured_refresh_20260413_041944/assured_telegram_readiness.json",
+    "decisive_gate_json": "out/assured_refresh_20260413_041944/decisive_gate.json",
+    "release_env_isolation_json": "out/assured_refresh_20260413_041944/release_env_isolation.verify.json",
+    "assured_summary": "out/assured_refresh_20260413_041944/assured_summary.md"
   }
 }
