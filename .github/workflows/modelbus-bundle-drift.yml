@@ -18,7 +18,6 @@ permissions:
 jobs:
   diff-upstream-schemas:
     runs-on: ubuntu-latest
-    if: ${{ secrets.MB_REPO_READ_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
 
