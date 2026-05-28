@@ -4460,6 +4460,15 @@
   "recommended_next_slice": null,
   "progress_log": [
     {
+      "at_utc": "2026-05-28T13:03:47Z",
+      "slice_id": "L21.h.modelbus_endpoint_anchor",
+      "status": "completed",
+      "tier": "hardening",
+      "commit": "6d78c2d",
+      "pr": 58,
+      "backfilled": false
+    },
+    {
       "at_utc": "2026-05-18T08:09:25Z",
       "slice_id": "L21.h.modelbus_bundle_drift_ci_guard_fix",
       "status": "completed",
