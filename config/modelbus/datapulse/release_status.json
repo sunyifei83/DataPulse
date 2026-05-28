@@ -5,7 +5,7 @@
   "assured_verdict": "pass",
   "consumer_line": "self",
   "runtime": {
-    "base_url": "http://127.0.0.1:56717/v1",
+    "base_url": "http://127.0.0.1:18801/v1",
     "base_path": "/v1",
     "status_endpoint": "/statusz",
     "models_endpoint": "/v1/models",

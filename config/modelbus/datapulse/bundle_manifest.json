@@ -9,7 +9,7 @@
     "consumer_id": "datapulse"
   },
   "runtime": {
-    "base_url": "http://127.0.0.1:56717/v1",
+    "base_url": "http://127.0.0.1:18801/v1",
     "request_protocol": "responses",
     "endpoint": "/v1/responses",
     "auth_env": "DATAPULSE_MODELBUS_BUS_KEY",

@@ -3,7 +3,7 @@
   "generated_at_utc": "2026-04-13T08:31:49Z",
   "consumer_id": "datapulse",
   "bundle_id": "datapulse.ai_surface_bus",
-  "base_url": "http://127.0.0.1:56717/v1",
+  "base_url": "http://127.0.0.1:18801/v1",
   "request_protocol": "responses",
   "endpoint": "/v1/responses",
   "bus_key_env": "DATAPULSE_MODELBUS_BUS_KEY",

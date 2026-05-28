@@ -56,6 +56,7 @@ TRACE_FILE="$LOG_FILE"
 : "${REMOTE_BOOTSTRAP_INSTALL:=0}"
 : "${REMOTE_INSTALL_CMD:=$REMOTE_PYTHON -m pip install -e .}"
 : "${REMOTE_PIP_EXTRAS:=}"
+# 目标端口由 MB 权威清单决定,不写死 18801;此处仅为默认值,部署侧可覆盖
 : "${REMOTE_HEALTH_URL:=http://127.0.0.1:18801}"
 : "${REMOTE_DIRECT_SSH:=0}"
 : "${REMOTE_PYTHON_MIN_VERSION:=3.10}"
