@@ -10,6 +10,6 @@ jobs:
   guardrails:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Run repository secret guardrails
         run: bash scripts/security_guardrails.sh
