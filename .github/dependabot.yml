@@ -1,0 +1,16 @@
+# Dependabot: GitHub Actions version updates only.
+# Scope kept deliberately narrow — actions have no lockfile, low release
+# cadence, and changes are confined to CI, so this is the highest-value /
+# lowest-noise ecosystem to automate first.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # Collapse all action bumps into a single weekly PR instead of one per action.
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(ci)"
