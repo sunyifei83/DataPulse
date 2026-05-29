@@ -17,6 +17,13 @@ permissions:
 
 jobs:
   diff-upstream-schemas:
+    # Dependabot-triggered runs are sandboxed from repo Actions secrets, so
+    # MB_REPO_READ_TOKEN resolves empty and the upstream fetch always fails
+    # (false drift). Skip on dependabot so action-bump PRs touching this file
+    # don't red-flag. push/schedule/human PRs keep the secret and still run.
+    # Note: a job-level `secrets` guard is unsupported (see #57); `github`
+    # context IS valid in job-level `if`.
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
