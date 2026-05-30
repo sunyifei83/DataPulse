@@ -4460,6 +4460,33 @@
   "recommended_next_slice": null,
   "progress_log": [
     {
+      "at_utc": "2026-05-29T13:23:11Z",
+      "slice_id": "L21.h.modelbus_drift_dependabot_actor_skip",
+      "status": "completed",
+      "tier": "hardening",
+      "commit": "23412fd",
+      "pr": 61,
+      "backfilled": true
+    },
+    {
+      "at_utc": "2026-05-29T13:21:07Z",
+      "slice_id": "L21.h.github_actions_group_bump_20260529",
+      "status": "completed",
+      "tier": "hardening",
+      "commit": "6902843",
+      "pr": 60,
+      "backfilled": true
+    },
+    {
+      "at_utc": "2026-05-29T13:10:31Z",
+      "slice_id": "L21.h.dependabot_github_actions",
+      "status": "completed",
+      "tier": "hardening",
+      "commit": "1ce22b0",
+      "pr": 59,
+      "backfilled": true
+    },
+    {
       "at_utc": "2026-05-28T13:03:47Z",
       "slice_id": "L21.h.modelbus_endpoint_anchor",
       "status": "completed",
